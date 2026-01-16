@@ -1,0 +1,80 @@
+'use client';
+
+import { LogOut, Wrench } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+import { NAV_ITEMS } from '@/components/dashboard/nav';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+
+  return (
+    <div className="flex h-full flex-col bg-background">
+      {/* Topo */}
+      <div className="flex items-center gap-3 px-6 py-5">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+          <Wrench className="h-5 w-5" />
+        </div>
+        <div className="leading-tight">
+          <p className="text-sm font-semibold">Manutenção</p>
+          <p className="text-xs text-muted-foreground">Sistema de Chamados</p>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Menu */}
+      <ScrollArea className="flex-1">
+        <nav className="px-3 py-4">
+          <div className="space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const active = item.href === '/' ? pathname === '/' : pathname?.startsWith(item.href);
+
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition',
+                    'hover:bg-muted hover:text-foreground',
+                    active ? 'bg-muted text-foreground' : 'text-muted-foreground',
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      </ScrollArea>
+
+      <Separator />
+
+      {/* Rodapé */}
+      <div className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-muted text-xs font-semibold">
+            B
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">Bruno Prestes</p>
+            <p className="truncate text-xs text-muted-foreground">Administrador</p>
+          </div>
+
+          <Button variant="ghost" size="icon" className="ml-auto">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
