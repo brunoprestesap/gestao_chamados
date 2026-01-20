@@ -86,8 +86,6 @@ export function CatalogoServicosClient() {
     fetchServices();
   }
 
-  console.log(items);
-
   return (
     <div className="space-y-6">
       {/* Header */}
