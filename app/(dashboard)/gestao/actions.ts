@@ -6,12 +6,22 @@ import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { UserModel } from '@/models/user.model';
 import {
   ClassificarChamadoSchema,
   type ClassificarChamadoInput,
 } from '@/shared/chamados/chamado.schemas';
+import { AssignTicketSchema, type AssignTicketInput } from '@/shared/chamados/assignment.schemas';
 
 export type ClassificarResult = { ok: true } | { ok: false; error: string };
+export type AssignTicketResult =
+  | { ok: true; technicianId: string; technicianName: string; strategy: 'MANUAL' | 'FALLBACK' }
+  | { ok: false; error: string };
+
+/**
+ * Status considerados "ativos" para cálculo de carga do técnico
+ */
+const ACTIVE_STATUSES = ['emvalidacao', 'em atendimento'] as const;
 
 export async function classificarChamadoAction(
   raw: ClassificarChamadoInput,
@@ -76,6 +86,239 @@ export async function classificarChamadoAction(
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao classificar chamado. Tente novamente.',
+    };
+  }
+}
+
+/**
+ * Busca técnicos elegíveis para um chamado e retorna o melhor candidato (menor carga).
+ */
+async function findBestTechnician(
+  serviceCatalogId: Types.ObjectId,
+  excludeId?: Types.ObjectId,
+): Promise<{ technician: { _id: Types.ObjectId; name: string } } | null> {
+  // Busca técnicos ativos com a especialidade
+  const tecnicos = await UserModel.find({
+    role: 'Técnico',
+    isActive: true,
+    specialties: { $in: [serviceCatalogId] },
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+  }).lean();
+
+  if (tecnicos.length === 0) {
+    return null;
+  }
+
+  // Conta carga atual por técnico
+  const cargaPorTecnico = await ChamadoModel.aggregate([
+    {
+      $match: {
+        assignedToUserId: { $in: tecnicos.map((t) => t._id) },
+        status: { $in: [...ACTIVE_STATUSES] },
+      },
+    },
+    {
+      $group: {
+        _id: '$assignedToUserId',
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const cargaMap = new Map<string, number>();
+  cargaPorTecnico.forEach((item) => {
+    cargaMap.set(String(item._id), item.count);
+  });
+
+  // Encontra técnico com menor carga que não está sobrecarregado
+  let best: { tecnico: (typeof tecnicos)[0]; load: number } | null = null;
+
+  for (const tecnico of tecnicos) {
+    const tecnicoId = String(tecnico._id);
+    const currentLoad = cargaMap.get(tecnicoId) ?? 0;
+    const maxAssignedTickets = tecnico.maxAssignedTickets ?? 5;
+
+    if (currentLoad < maxAssignedTickets) {
+      if (!best || currentLoad < best.load) {
+        best = { tecnico: tecnico, load: currentLoad };
+      }
+    }
+  }
+
+  if (!best) {
+    return null;
+  }
+
+  return {
+    technician: {
+      _id: best.tecnico._id as Types.ObjectId,
+      name: best.tecnico.name,
+    },
+  };
+}
+
+/**
+ * Atribui um chamado a um técnico.
+ * Se preferredTechnicianId for informado, tenta atribuir a ele (se elegível).
+ * Caso contrário ou se ele estiver sobrecarregado, faz fallback automático.
+ */
+export async function assignTicketAction(raw: AssignTicketInput): Promise<AssignTicketResult> {
+  try {
+    const session = await requireManager();
+    const parsed = AssignTicketSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg = first.ticketId?.[0] ?? 'Dados inválidos. Verifique os campos.';
+      return { ok: false, error: msg };
+    }
+
+    const { ticketId, preferredTechnicianId } = parsed.data;
+    await dbConnect();
+
+    // Busca o chamado
+    const chamado = await ChamadoModel.findById(ticketId);
+    if (!chamado) {
+      return { ok: false, error: 'Chamado não encontrado.' };
+    }
+
+    // Valida status
+    if (chamado.status !== 'emvalidacao') {
+      return {
+        ok: false,
+        error: 'Somente chamados com status "Em validação" podem ser atribuídos.',
+      };
+    }
+
+    // Valida se já está atribuído
+    if (chamado.assignedToUserId) {
+      return { ok: false, error: 'Chamado já está atribuído a um técnico.' };
+    }
+
+    // Valida se tem catalogServiceId
+    if (!chamado.catalogServiceId) {
+      return {
+        ok: false,
+        error: 'Chamado não possui serviço catalogado. Classifique o chamado primeiro.',
+      };
+    }
+
+    const serviceCatalogId = chamado.catalogServiceId;
+    const assignedByUserId = new Types.ObjectId(session.userId);
+    const now = new Date();
+    let selectedTechnician: { _id: Types.ObjectId; name: string };
+    let strategy: 'MANUAL' | 'FALLBACK' = 'MANUAL';
+
+    // Se há técnico preferido, valida ele
+    if (preferredTechnicianId) {
+      const preferredId = new Types.ObjectId(preferredTechnicianId);
+      const tecnico = await UserModel.findById(preferredId).lean();
+
+      if (!tecnico) {
+        return { ok: false, error: 'Técnico preferido não encontrado.' };
+      }
+
+      if (tecnico.role !== 'Técnico' || !tecnico.isActive) {
+        return { ok: false, error: 'Usuário selecionado não é um técnico ativo.' };
+      }
+
+      // Verifica se tem a especialidade
+      const hasSpecialty =
+        tecnico.specialties &&
+        Array.isArray(tecnico.specialties) &&
+        tecnico.specialties.some((s) => String(s) === String(serviceCatalogId));
+
+      if (!hasSpecialty) {
+        return {
+          ok: false,
+          error: 'Técnico selecionado não possui a especialidade necessária para este chamado.',
+        };
+      }
+
+      // Verifica carga
+      const currentLoad = await ChamadoModel.countDocuments({
+        assignedToUserId: preferredId,
+        status: { $in: [...ACTIVE_STATUSES] },
+      });
+
+      const maxAssignedTickets = tecnico.maxAssignedTickets ?? 5;
+
+      if (currentLoad >= maxAssignedTickets) {
+        // Técnico sobrecarregado - faz fallback
+        const fallback = await findBestTechnician(serviceCatalogId, preferredId);
+        if (!fallback) {
+          return {
+            ok: false,
+            error:
+              'Técnico selecionado está sobrecarregado e não há outros técnicos disponíveis para esta especialidade no momento.',
+          };
+        }
+        selectedTechnician = fallback.technician;
+        strategy = 'FALLBACK';
+      } else {
+        selectedTechnician = {
+          _id: preferredId,
+          name: tecnico.name,
+        };
+      }
+    } else {
+      // Sem preferência - busca automaticamente
+      const best = await findBestTechnician(serviceCatalogId);
+      if (!best) {
+        return {
+          ok: false,
+          error: 'Nenhum técnico disponível para esta especialidade no momento.',
+        };
+      }
+      selectedTechnician = best.technician;
+      strategy = 'FALLBACK';
+    }
+
+    // Atualiza o chamado de forma atômica
+    const updateResult = await ChamadoModel.findOneAndUpdate(
+      {
+        _id: ticketId,
+        status: 'emvalidacao',
+        $or: [{ assignedToUserId: { $exists: false } }, { assignedToUserId: null }],
+      },
+      {
+        $set: {
+          assignedToUserId: selectedTechnician._id,
+          assignedAt: now,
+          assignedByUserId,
+        },
+      },
+      { new: true },
+    );
+
+    if (!updateResult) {
+      return {
+        ok: false,
+        error:
+          'Não foi possível atribuir o chamado. Ele pode ter sido atribuído por outro usuário ou o status mudou.',
+      };
+    }
+
+    // Registra no histórico
+    await ChamadoHistoryModel.create({
+      chamadoId: chamado._id,
+      userId: assignedByUserId,
+      action: 'atribuicao_tecnico',
+      statusAnterior: 'emvalidacao',
+      statusNovo: 'emvalidacao', // Status não muda na atribuição
+      observacoes: `Atribuído a ${selectedTechnician.name} (${strategy === 'MANUAL' ? 'Manual' : 'Fallback automático'}). Serviço: ${String(serviceCatalogId)}`,
+    });
+
+    return {
+      ok: true,
+      technicianId: String(selectedTechnician._id),
+      technicianName: selectedTechnician.name,
+      strategy,
+    };
+  } catch (e) {
+    console.error('assignTicketAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao atribuir chamado. Tente novamente.',
     };
   }
 }

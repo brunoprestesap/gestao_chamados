@@ -16,6 +16,8 @@ function normalizeUser(u: any) {
     role: u.role,
     unitId: u.unitId ? String(u.unitId) : null,
     isActive: !!u.isActive,
+    specialties: u.specialties ? u.specialties.map((s: any) => String(s)) : [],
+    maxAssignedTickets: u.maxAssignedTickets ?? 5,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
@@ -87,6 +89,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (data.unitId !== undefined)
     update.unitId = data.unitId ? new Types.ObjectId(data.unitId) : undefined;
   if (data.isActive !== undefined) update.isActive = data.isActive;
+
+  // Campos específicos de Técnico - sempre atualiza se foram enviados
+  if (data.specialties !== undefined) {
+    update.specialties = Array.isArray(data.specialties)
+      ? data.specialties.map((id: string) => new Types.ObjectId(id))
+      : [];
+  }
+  if (data.maxAssignedTickets !== undefined) {
+    update.maxAssignedTickets = data.maxAssignedTickets;
+  }
 
   if (data.password) {
     update.passwordHash = await bcrypt.hash(data.password, 10);

@@ -16,6 +16,8 @@ function normalizeUser(u: any) {
     role: u.role,
     unitId: u.unitId ? String(u.unitId) : null,
     isActive: !!u.isActive,
+    specialties: u.specialties ? u.specialties.map((s: any) => String(s)) : [],
+    maxAssignedTickets: u.maxAssignedTickets ?? 5,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
@@ -93,6 +95,10 @@ export async function POST(req: Request) {
     unitId: data.unitId ? new Types.ObjectId(data.unitId) : undefined,
     passwordHash,
     isActive: data.isActive,
+    specialties: data.specialties
+      ? data.specialties.map((id: string) => new Types.ObjectId(id))
+      : [],
+    maxAssignedTickets: data.maxAssignedTickets ?? 5,
   });
 
   return NextResponse.json({ item: normalizeUser(created) }, { status: 201 });

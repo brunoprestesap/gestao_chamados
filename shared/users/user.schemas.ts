@@ -4,6 +4,7 @@ export const USER_ROLES = ['Admin', 'Preposto', 'Solicitante', 'Técnico'] as co
 export type UserRole = (typeof USER_ROLES)[number];
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'ID inválido');
+const objectIdArray = z.array(objectId).default([]);
 
 export const UsernameSchema = z
   .string()
@@ -28,6 +29,9 @@ export const UserCreateSchema = z.object({
   unitId: objectId.optional().nullable(),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   isActive: z.boolean().default(true),
+  // Campos específicos para Técnico
+  specialties: objectIdArray.optional(),
+  maxAssignedTickets: z.number().int().min(1).default(5).optional(),
 });
 
 export const UserUpdateSchema = z.object({
@@ -49,6 +53,9 @@ export const UserUpdateSchema = z.object({
   unitId: objectId.optional().nullable(),
   password: z.string().min(6).optional(),
   isActive: z.boolean().optional(),
+  // Campos específicos para Técnico
+  specialties: objectIdArray.optional(),
+  maxAssignedTickets: z.number().int().min(1).optional(),
 });
 
 export const UserListQuerySchema = z.object({

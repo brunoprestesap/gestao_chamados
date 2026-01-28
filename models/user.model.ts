@@ -19,6 +19,16 @@ const UserSchema = new Schema(
     unitId: { type: Schema.Types.ObjectId, ref: 'Unit', required: false },
 
     isActive: { type: Boolean, default: true },
+
+    // Campos específicos para Técnico
+    specialties: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'ServiceCatalog',
+        required: false,
+      },
+    ],
+    maxAssignedTickets: { type: Number, min: 1, default: 5, required: false },
   },
   { timestamps: true },
 );

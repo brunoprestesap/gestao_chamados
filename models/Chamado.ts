@@ -66,6 +66,10 @@ const ChamadoSchema = new Schema(
     classificationNotes: { type: String, default: '', trim: true },
     classifiedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     classifiedAt: { type: Date, required: false },
+    // Atribuição de técnico
+    assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    assignedAt: { type: Date, required: false },
+    assignedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   },
   { timestamps: true },
 );
@@ -76,6 +80,7 @@ ChamadoSchema.index({ ticket_number: 'text', titulo: 'text', descricao: 'text' }
 ChamadoSchema.index({ unitId: 1, status: 1 });
 ChamadoSchema.index({ tipoServico: 1, status: 1 });
 ChamadoSchema.index({ naturezaAtendimento: 1 });
+ChamadoSchema.index({ assignedToUserId: 1, status: 1 });
 
 export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   solicitanteId: Types.ObjectId;
@@ -83,6 +88,8 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   subtypeId?: Types.ObjectId;
   catalogServiceId?: Types.ObjectId;
   classifiedByUserId?: Types.ObjectId;
+  assignedToUserId?: Types.ObjectId;
+  assignedByUserId?: Types.ObjectId;
 };
 
 export type ChamadoDoc = Chamado & {

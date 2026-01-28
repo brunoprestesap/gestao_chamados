@@ -27,6 +27,9 @@ function normalizeChamado(
     classificationNotes: c.classificationNotes ?? '',
     classifiedByUserId: c.classifiedByUserId ? String(c.classifiedByUserId) : null,
     classifiedAt: c.classifiedAt ?? null,
+    assignedToUserId: c.assignedToUserId ? String(c.assignedToUserId) : null,
+    assignedAt: c.assignedAt ?? null,
+    assignedByUserId: c.assignedByUserId ? String(c.assignedByUserId) : null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
   };

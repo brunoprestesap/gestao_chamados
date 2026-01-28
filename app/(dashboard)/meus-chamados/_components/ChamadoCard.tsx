@@ -9,6 +9,7 @@ import {
   Clock,
   MapPin,
   User,
+  UserCheck,
   Wrench,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -50,6 +51,8 @@ type Props = {
   chamado: ChamadoDTO;
   /** Quando fornecido, exibe botão "Classificar" e chama ao clicar. */
   onClassificar?: (chamado: ChamadoDTO) => void;
+  /** Quando fornecido, exibe botão "Atribuir" e chama ao clicar. */
+  onAtribuir?: (chamado: ChamadoDTO) => void;
   /** Se true, card e título não navegam para detalhe (ex.: módulo gestão). */
   hideDetailLink?: boolean;
 };
@@ -133,7 +136,7 @@ async function fetchSubtype(subtypeId: string): Promise<string | null> {
 }
 
 // Component
-export function ChamadoCard({ chamado, onClassificar, hideDetailLink }: Props) {
+export function ChamadoCard({ chamado, onClassificar, onAtribuir, hideDetailLink }: Props) {
   const router = useRouter();
   const StatusIcon = STATUS_ICONS[chamado.status];
   const [additionalData, setAdditionalData] = useState<AdditionalData>({
@@ -225,6 +228,14 @@ export function ChamadoCard({ chamado, onClassificar, hideDetailLink }: Props) {
       onClassificar?.(chamado);
     },
     [onClassificar, chamado],
+  );
+
+  const handleAtribuirClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onAtribuir?.(chamado);
+    },
+    [onAtribuir, chamado],
   );
 
   return (
@@ -336,18 +347,32 @@ export function ChamadoCard({ chamado, onClassificar, hideDetailLink }: Props) {
                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                 Dentro do Prazo 0
               </Badge>
-              {onClassificar && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="default"
-                  className="ml-auto gap-1.5"
-                  onClick={handleClassificarClick}
-                >
-                  <ClipboardList className="h-3.5 w-3.5" />
-                  Classificar
-                </Button>
-              )}
+              <div className="ml-auto flex gap-2">
+                {onClassificar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    className="gap-1.5"
+                    onClick={handleClassificarClick}
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    Classificar
+                  </Button>
+                )}
+                {onAtribuir && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={handleAtribuirClick}
+                  >
+                    <UserCheck className="h-3.5 w-3.5" />
+                    Atribuir
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

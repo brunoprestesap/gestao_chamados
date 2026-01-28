@@ -51,6 +51,8 @@ export type UserDTO = {
   role: UserRole;
   unitId?: string | null;
   isActive: boolean;
+  specialties?: string[];
+  maxAssignedTickets?: number;
 };
 
 type UnitOption = { id: string; name: string };
@@ -60,6 +62,13 @@ interface UnitApiResponse {
   id?: string;
   name: string;
 }
+
+type ServiceCatalogOption = {
+  _id: string;
+  code: string;
+  name: string;
+  isActive?: boolean;
+};
 
 type Props = {
   open: boolean;
@@ -72,6 +81,7 @@ type Props = {
 export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [units, setUnits] = useState<UnitOption[]>([]);
+  const [serviceCatalogs, setServiceCatalogs] = useState<ServiceCatalogOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = mode === 'edit' && !!initialData?._id;
@@ -122,6 +132,8 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
       unitId: initialData?.unitId ?? null,
       password: '',
       isActive: initialData?.isActive ?? true,
+      specialties: initialData?.specialties ?? [],
+      maxAssignedTickets: initialData?.maxAssignedTickets ?? 5,
     }),
     [initialData],
   );
@@ -141,6 +153,22 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialData?._id, mode, defaultValues]);
 
+  // Atualiza campos de técnico quando o role muda
+  const currentRole = form.watch('role');
+  useEffect(() => {
+    if (currentRole === 'Técnico') {
+      // Garante que os campos existam quando muda para Técnico
+      const currentSpecialties = form.getValues('specialties');
+      const currentMaxTickets = form.getValues('maxAssignedTickets');
+      if (!Array.isArray(currentSpecialties)) {
+        form.setValue('specialties', []);
+      }
+      if (!currentMaxTickets || currentMaxTickets < 1) {
+        form.setValue('maxAssignedTickets', 5);
+      }
+    }
+  }, [currentRole, form]);
+
   const fetchUnits = useCallback(async () => {
     try {
       const res = await fetch('/api/units', { cache: 'no-store' });
@@ -158,10 +186,25 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
     }
   }, []);
 
+  const fetchServiceCatalogs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/catalog/services', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Erro ao carregar serviços');
+      const data = (await res.json().catch(() => ({}))) as { items?: ServiceCatalogOption[] };
+      // Filtra apenas serviços ativos
+      setServiceCatalogs((data.items || []).filter((s) => s.isActive !== false));
+    } catch (err) {
+      console.error('Erro ao buscar serviços:', err);
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     fetchUnits();
-  }, [open, fetchUnits]);
+    fetchServiceCatalogs();
+  }, [open, fetchUnits, fetchServiceCatalogs]);
+
+  const isTechnician = form.watch('role') === 'Técnico';
 
   const onSubmit = useCallback(
     async (values: FormData) => {
@@ -172,10 +215,38 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
         const url = isEdit ? `/api/users/${initialData!._id}` : '/api/users';
         const method = isEdit ? 'PUT' : 'POST';
 
+        // Prepara o payload
+        const payload: any = { ...values };
+
         // no edit: se password vazio, não envia
-        const payload = { ...values };
         if (isEdit && (!payload.password || String(payload.password).trim() === '')) {
           delete payload.password;
+        }
+
+        // Tratamento dos campos específicos de Técnico
+        // IMPORTANTE: Sempre envia os campos quando é Técnico, mesmo que vazios
+        if (payload.role === 'Técnico') {
+          // Se é Técnico, garante que os campos existam e sejam arrays válidos
+          // Se specialties não existe ou não é array, inicializa como array vazio
+          if (!Array.isArray(payload.specialties)) {
+            payload.specialties = [];
+          }
+          // Se maxAssignedTickets não existe ou é inválido, usa padrão 5
+          if (!payload.maxAssignedTickets || payload.maxAssignedTickets < 1) {
+            payload.maxAssignedTickets = 5;
+          }
+        } else {
+          // Se não é Técnico, limpa os campos (envia array vazio para specialties)
+          // No modo edit, sempre envia para limpar no banco
+          if (isEdit) {
+            payload.specialties = [];
+            // Não envia maxAssignedTickets se não for técnico
+            delete payload.maxAssignedTickets;
+          } else {
+            // No modo create, não envia esses campos se não for técnico
+            delete payload.specialties;
+            delete payload.maxAssignedTickets;
+          }
         }
 
         const res = await fetch(url, {
@@ -421,6 +492,114 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
                 </FormItem>
               )}
             />
+
+            {/* Campos específicos para Técnico */}
+            {isTechnician && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="specialties"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">
+                        Especialidades{' '}
+                        <span className="text-muted-foreground font-normal">(opcional)</span>
+                      </FormLabel>
+                      <FormControl>
+                        <div className="space-y-2">
+                          <Select
+                            value=""
+                            onValueChange={(value) => {
+                              if (value && !field.value?.includes(value)) {
+                                field.onChange([...(field.value || []), value]);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="text-sm h-9">
+                              <SelectValue placeholder="Selecione uma especialidade para adicionar" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {serviceCatalogs
+                                .filter((s) => !field.value?.includes(s._id))
+                                .map((s) => (
+                                  <SelectItem key={s._id} value={s._id} className="text-sm">
+                                    {s.code} - {s.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          {field.value && field.value.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {field.value.map((specialtyId) => {
+                                const specialty = serviceCatalogs.find(
+                                  (s) => s._id === specialtyId,
+                                );
+                                if (!specialty) return null;
+                                return (
+                                  <div
+                                    key={specialtyId}
+                                    className="flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs"
+                                  >
+                                    <span>
+                                      {specialty.code} - {specialty.name}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        field.onChange(
+                                          field.value?.filter((id) => id !== specialtyId),
+                                        );
+                                      }}
+                                      className="ml-1 text-muted-foreground hover:text-destructive"
+                                      aria-label={`Remover ${specialty.name}`}
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="maxAssignedTickets"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">
+                        Capacidade Máxima de Chamados
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="5"
+                          {...field}
+                          value={field.value ?? 5}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            field.onChange(isNaN(val) ? 5 : Math.max(1, val));
+                          }}
+                          className="text-sm h-9"
+                          aria-label="Capacidade máxima de chamados atribuídos"
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Número máximo de chamados que este técnico pode ter atribuídos
+                        simultaneamente.
+                      </p>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
             <DialogFooter className="flex-col gap-2 pt-4 sm:flex-row sm:justify-end">
               <Button

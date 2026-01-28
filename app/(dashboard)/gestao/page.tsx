@@ -4,6 +4,7 @@ import { Loader2, Search, Ticket } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/AtribuirChamadoDialog';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
 import {
   ChamadoCard,
@@ -27,7 +28,8 @@ export default function GestaoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ChamadoDTO[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [classificarDialogOpen, setClassificarDialogOpen] = useState(false);
+  const [atribuirDialogOpen, setAtribuirDialogOpen] = useState(false);
   const [selected, setSelected] = useState<ChamadoDTO | null>(null);
 
   const [q, setQ] = useState('');
@@ -78,11 +80,21 @@ export default function GestaoPage() {
 
   const handleClassificar = useCallback((chamado: ChamadoDTO) => {
     setSelected(chamado);
-    setDialogOpen(true);
+    setClassificarDialogOpen(true);
   }, []);
 
-  const handleDialogClose = useCallback((open: boolean) => {
-    setDialogOpen(open);
+  const handleAtribuir = useCallback((chamado: ChamadoDTO) => {
+    setSelected(chamado);
+    setAtribuirDialogOpen(true);
+  }, []);
+
+  const handleClassificarDialogClose = useCallback((open: boolean) => {
+    setClassificarDialogOpen(open);
+    if (!open) setSelected(null);
+  }, []);
+
+  const handleAtribuirDialogClose = useCallback((open: boolean) => {
+    setAtribuirDialogOpen(open);
     if (!open) setSelected(null);
   }, []);
 
@@ -153,14 +165,22 @@ export default function GestaoPage() {
               chamado={c}
               hideDetailLink
               onClassificar={c.status === 'aberto' ? handleClassificar : undefined}
+              onAtribuir={c.status === 'emvalidacao' ? handleAtribuir : undefined}
             />
           ))}
         </div>
       )}
 
       <ClassificarChamadoDialog
-        open={dialogOpen}
-        onOpenChange={handleDialogClose}
+        open={classificarDialogOpen}
+        onOpenChange={handleClassificarDialogClose}
+        chamado={selected}
+        onSuccess={fetchChamados}
+      />
+
+      <AtribuirChamadoDialog
+        open={atribuirDialogOpen}
+        onOpenChange={handleAtribuirDialogClose}
         chamado={selected}
         onSuccess={fetchChamados}
       />
