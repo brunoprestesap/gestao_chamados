@@ -29,8 +29,14 @@ export const NewTicketFormSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ?? '').trim() || undefined),
-  subtypeId: z.string().optional(),
-  catalogServiceId: z.string().optional(),
+  subtypeId: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined)),
+  catalogServiceId: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined)),
 });
 
 export type NewTicketFormValues = z.infer<typeof NewTicketFormSchema>;

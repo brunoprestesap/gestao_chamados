@@ -1,4 +1,10 @@
-export const CHAMADO_STATUSES = ['aberto', 'em atendimento', 'fechado', 'concluído'] as const;
+export const CHAMADO_STATUSES = [
+  'aberto',
+  'em atendimento',
+  'fechado',
+  'concluído',
+  'cancelado',
+] as const;
 export type ChamadoStatus = (typeof CHAMADO_STATUSES)[number];
 
 export const CHAMADO_STATUS_LABELS: Record<ChamadoStatus, string> = {
@@ -6,4 +12,5 @@ export const CHAMADO_STATUS_LABELS: Record<ChamadoStatus, string> = {
   'em atendimento': 'Em atendimento',
   fechado: 'Fechado',
   concluído: 'Concluído',
+  cancelado: 'Cancelado',
 };

@@ -28,19 +28,23 @@ export const ChamadoCreateSchema = z.object({
     .string()
     .transform((v) => (v ?? '').trim())
     .refine((v) => v.length > 0, 'Informe o local exato'),
-  tipoServico: z.enum(TIPO_SERVICO_OPTIONS, {
-    errorMap: () => ({ message: 'Selecione o tipo de serviço' }),
-  }),
-  naturezaAtendimento: z.enum(NATUREZA_OPTIONS, {
-    errorMap: () => ({ message: 'Selecione a natureza do atendimento' }),
-  }),
+  tipoServico: z.enum(TIPO_SERVICO_OPTIONS),
+  naturezaAtendimento: z.enum(NATUREZA_OPTIONS),
   grauUrgencia: z.enum(GRAU_URGENCIA_OPTIONS).default('Normal'),
   telefoneContato: z
     .string()
     .optional()
     .transform((v) => (v ?? '').trim() || undefined),
-  subtypeId: objectId.optional(),
-  catalogServiceId: objectId.optional(),
+  subtypeId: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined))
+    .refine((v) => v === undefined || /^[a-f\d]{24}$/i.test(v), 'ID inválido'),
+  catalogServiceId: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined))
+    .refine((v) => v === undefined || /^[a-f\d]{24}$/i.test(v), 'ID inválido'),
 });
 
 export const ChamadoListQuerySchema = z.object({

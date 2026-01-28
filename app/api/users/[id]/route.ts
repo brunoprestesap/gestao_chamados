@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
-import { requireManager } from '@/lib/dal';
+import { requireManager, verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { UserModel } from '@/models/user.model';
 import { UserUpdateSchema } from '@/shared/users/user.schemas';
@@ -19,6 +19,31 @@ function normalizeUser(u: any) {
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await verifySession();
+  if (!session) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  }
+
+  await dbConnect();
+
+  const { id } = await params;
+
+  if (!Types.ObjectId.isValid(id)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+  }
+
+  const user = await UserModel.findById(id).lean();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+  }
+
+  // Qualquer usuário autenticado pode ver dados básicos de outros usuários
+  // (necessário para exibir nomes no histórico)
+  return NextResponse.json({ item: normalizeUser(user) });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {

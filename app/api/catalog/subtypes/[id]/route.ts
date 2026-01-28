@@ -1,28 +1,29 @@
+import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import { dbConnect } from '@/lib/db';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  await dbConnect();
-  const body = await req.json();
-
-  const { id } = await params;
-
-  const updated = await ServiceSubTypeModel.findByIdAndUpdate(
-    id,
-    { ...body, ...(body?.name ? { name: String(body.name).trim() } : {}) },
-    { new: true },
-  );
-
-  if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ item: updated });
-}
-
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await dbConnect();
   const { id } = await params;
-  const deleted = await ServiceSubTypeModel.findByIdAndDelete(id);
-  if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ ok: true });
+
+  if (!Types.ObjectId.isValid(id)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+  }
+
+  const item = await ServiceSubTypeModel.findById(id).lean();
+
+  if (!item) {
+    return NextResponse.json({ error: 'Subtipo não encontrado' }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    item: {
+      _id: String(item._id),
+      name: item.name,
+      typeId: String(item.typeId),
+      isActive: item.isActive,
+    },
+  });
 }

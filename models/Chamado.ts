@@ -9,6 +9,7 @@ import {
 
 const ChamadoSchema = new Schema(
   {
+    ticket_number: { type: String, required: true, trim: true },
     titulo: { type: String, required: true, trim: true },
     descricao: { type: String, default: '', trim: true },
     status: {
@@ -60,8 +61,9 @@ const ChamadoSchema = new Schema(
   { timestamps: true },
 );
 
+ChamadoSchema.index({ ticket_number: 1 }, { unique: true });
 ChamadoSchema.index({ solicitanteId: 1, status: 1, createdAt: -1 });
-ChamadoSchema.index({ titulo: 'text', descricao: 'text' });
+ChamadoSchema.index({ ticket_number: 'text', titulo: 'text', descricao: 'text' });
 ChamadoSchema.index({ unitId: 1, status: 1 });
 ChamadoSchema.index({ tipoServico: 1, status: 1 });
 ChamadoSchema.index({ naturezaAtendimento: 1 });
@@ -79,5 +81,9 @@ export type ChamadoDoc = Chamado & {
   updatedAt: Date;
 };
 
-export const ChamadoModel: Model<Chamado> =
-  mongoose.models.Chamado || mongoose.model<Chamado>('Chamado', ChamadoSchema);
+// Força a recriação do modelo para garantir que o schema atualizado seja usado
+if (mongoose.models.Chamado) {
+  delete mongoose.models.Chamado;
+}
+
+export const ChamadoModel: Model<Chamado> = mongoose.model<Chamado>('Chamado', ChamadoSchema);
