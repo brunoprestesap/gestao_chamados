@@ -55,4 +55,5 @@ export const ServiceUpdateSchema = ServiceCreateSchema.partial();
 export const ServiceListQuerySchema = z.object({
   q: z.string().optional().default(''),
   typeId: z.string().optional().default(''),
+  subtypeId: z.string().optional().default(''),
 });

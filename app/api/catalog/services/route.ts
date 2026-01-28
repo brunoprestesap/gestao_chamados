@@ -14,6 +14,7 @@ export async function GET(req: Request) {
   const parsed = ServiceListQuerySchema.safeParse({
     q: searchParams.get('q') ?? '',
     typeId: searchParams.get('typeId') ?? '',
+    subtypeId: searchParams.get('subtypeId') ?? '',
   });
 
   if (!parsed.success) {
@@ -23,10 +24,11 @@ export async function GET(req: Request) {
     );
   }
 
-  const { q, typeId } = parsed.data;
+  const { q, typeId, subtypeId } = parsed.data;
 
   const filter: Record<string, any> = {};
   if (typeId) filter.typeId = typeId;
+  if (subtypeId) filter.subtypeId = subtypeId;
   if (q) {
     filter.$or = [
       { code: new RegExp(q, 'i') },

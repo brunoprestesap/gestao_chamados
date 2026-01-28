@@ -1,101 +1,77 @@
+// proxy.ts
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { auth } from './auth';
+import { decrypt } from '@/lib/session';
 
-/**
- * Regras de acesso:
- * - Login em /login (pública)
- * - Protege páginas do dashboard e APIs privadas
- * - /usuarios e /api/users somente Admin | Preposto
- * - Login por matrícula (já tratado no NextAuth Credentials)
- */
+const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'session';
 
-function canManageUsers(role?: string) {
-  return role === 'Admin' || role === 'Preposto';
-}
+const protectedPrefixes = [
+  '/dashboard',
+  '/meus-chamados',
+  '/gestao',
+  '/relatorios',
+  '/relatorio-imr',
+  '/catalogo',
+  '/tecnicos',
+  '/unidades',
+  '/usuarios',
+  '/sla',
+];
 
-function isPublicPath(pathname: string) {
-  return pathname === '/login' || pathname.startsWith('/login/');
-}
+// Rotas que requerem role de Admin
+const ADMIN_ONLY = ['/usuarios', '/catalogo', '/unidades'];
 
-function isIgnoredPath(pathname: string) {
-  // Next internals / assets
-  if (pathname.startsWith('/_next')) return true;
-  if (pathname === '/favicon.ico') return true;
-
-  // NextAuth endpoints
-  if (pathname.startsWith('/api/auth')) return true;
-
-  // Se você tiver assets estáticos (opcional)
-  if (pathname.startsWith('/assets')) return true;
-
-  return false;
-}
-
-function isProtectedPage(pathname: string) {
-  // Ajuste aqui conforme as rotas do seu dashboard
-  const protectedPrefixes = ['/dashboard', '/catalogo', '/unidades', '/usuarios'];
-
+function isProtected(pathname: string) {
   return protectedPrefixes.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
-function isPrivateApi(pathname: string) {
-  // Qualquer /api exceto /api/auth
-  return pathname.startsWith('/api/') && !pathname.startsWith('/api/auth');
+function isAdminRoute(pathname: string) {
+  return ADMIN_ONLY.some((base) => pathname === base || pathname.startsWith(`${base}/`));
 }
 
-/**
- * ✅ Next 16.1+ espera "proxy" no lugar do "middleware".
- */
-export const proxy = auth((req: NextRequest) => {
-  const { nextUrl } = req;
-  const pathname = nextUrl.pathname;
+function isPublic(pathname: string) {
+  return pathname === '/login' || pathname.startsWith('/login/');
+}
 
-  // Não interceptar arquivos internos/estáticos
-  if (isIgnoredPath(pathname)) return NextResponse.next();
+function isIgnored(pathname: string) {
+  if (pathname.startsWith('/_next')) return true;
+  if (pathname === '/favicon.ico') return true;
+  if (pathname.startsWith('/api')) return true;
+  return false;
+}
 
-  const isLogged = !!req.auth?.user;
-  const role = (req.auth?.user as any)?.role as string | undefined;
+// ✅ Next 16.1+ usa proxy no lugar de middleware
+export default async function proxy(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
 
-  // /login é público (se já logado, redireciona)
-  if (isPublicPath(pathname)) {
-    if (isLogged) return NextResponse.redirect(new URL('/dashboard', req.url));
+  if (isIgnored(pathname)) return NextResponse.next();
+
+  const token = req.cookies.get(COOKIE_NAME)?.value;
+  const session = await decrypt(token);
+
+  // /login é público; se já logado, manda pro /dashboard
+  if (isPublic(pathname)) {
+    if (session?.userId) return NextResponse.redirect(new URL('/dashboard', req.url));
     return NextResponse.next();
   }
 
-  // Protege páginas do app
-  if (isProtectedPage(pathname) && !isLogged) {
+  // Protege páginas do dashboard e módulos - requer login
+  if (isProtected(pathname) && !session?.userId) {
     const url = new URL('/login', req.url);
     url.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(url);
   }
 
-  // Protege APIs privadas
-  if (isPrivateApi(pathname) && !isLogged) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Autorização específica: /usuarios e /api/users apenas Admin/Preposto
-  if (pathname.startsWith('/usuarios')) {
-    if (!canManageUsers(role)) {
-      return NextResponse.redirect(new URL('/dashboard', req.url));
-    }
-  }
-
-  if (pathname.startsWith('/api/users')) {
-    if (!canManageUsers(role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+  // Verifica se a rota requer admin e se o usuário tem role de Admin
+  if (isAdminRoute(pathname) && session?.role !== 'Admin') {
+    // Redireciona para home se não for admin
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   return NextResponse.next();
-});
+}
 
-/**
- * Matcher: intercepta tudo menos estáticos internos do Next.
- * (o ignore também reforça, mas o matcher reduz o custo)
- */
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

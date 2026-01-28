@@ -8,14 +8,16 @@ import { dbConnect } from '@/lib/db';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { ServiceUpdateSchema } from '@/shared/catalog/service.schemas';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await dbConnect();
 
-  if (!Types.ObjectId.isValid(params.id)) {
+  const { id } = await params;
+
+  if (!Types.ObjectId.isValid(id)) {
     return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
   }
 
-  const item = await ServiceCatalogModel.findById(params.id)
+  const item = await ServiceCatalogModel.findById(id)
     .populate({ path: 'typeId', select: 'name' })
     .populate({ path: 'subtypeId', select: 'name' })
     .lean();
