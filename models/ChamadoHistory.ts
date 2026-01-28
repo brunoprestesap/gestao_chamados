@@ -23,12 +23,12 @@ const ChamadoHistorySchema = new Schema(
     },
     statusAnterior: {
       type: String,
-      enum: ['aberto', 'em atendimento', 'fechado', 'concluído', 'cancelado'],
+      enum: CHAMADO_STATUSES,
       required: false,
     },
     statusNovo: {
       type: String,
-      enum: ['aberto', 'em atendimento', 'fechado', 'concluído', 'cancelado'],
+      enum: CHAMADO_STATUSES,
       required: false,
     },
     // Campos adicionais para contexto (opcional)

@@ -1,11 +1,23 @@
 'use client';
 
-import { ArrowRight, Building2, CheckCircle2, Clock, MapPin, User, Wrench } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  MapPin,
+  User,
+  Wrench,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 import {
   CHAMADO_STATUS_LABELS,
@@ -36,6 +48,10 @@ export type ChamadoDTO = {
 
 type Props = {
   chamado: ChamadoDTO;
+  /** Quando fornecido, exibe botão "Classificar" e chama ao clicar. */
+  onClassificar?: (chamado: ChamadoDTO) => void;
+  /** Se true, card e título não navegam para detalhe (ex.: módulo gestão). */
+  hideDetailLink?: boolean;
 };
 
 type AdditionalData = {
@@ -84,7 +100,8 @@ async function fetchUser(userId: string): Promise<string | null> {
     const res = await fetch(`/api/users/${userId}`, { cache: 'no-store' });
     if (!res.ok) return null;
     const data = await res.json().catch(() => ({}));
-    return data.item?.username || data.item?.name || null;
+    // Retorna o nome completo (nome e sobrenome) ao invés da matrícula
+    return data.item?.name || null;
   } catch {
     return null;
   }
@@ -116,7 +133,7 @@ async function fetchSubtype(subtypeId: string): Promise<string | null> {
 }
 
 // Component
-export function ChamadoCard({ chamado }: Props) {
+export function ChamadoCard({ chamado, onClassificar, hideDetailLink }: Props) {
   const router = useRouter();
   const StatusIcon = STATUS_ICONS[chamado.status];
   const [additionalData, setAdditionalData] = useState<AdditionalData>({
@@ -173,29 +190,49 @@ export function ChamadoCard({ chamado }: Props) {
   }, [chamado.solicitanteId, chamado.unitId, chamado.subtypeId]);
 
   // Memoized values
-  const categoriaText = useMemo(
-    () => [chamado.tipoServico, additionalData.subtypeName].filter(Boolean).join(' • '),
-    [chamado.tipoServico, additionalData.subtypeName],
-  );
+  const categoriaText = useMemo(() => {
+    const parts = [chamado.tipoServico];
+    if (additionalData.subtypeName) {
+      parts.push(additionalData.subtypeName);
+    }
+    return parts.filter(Boolean).join(' • ');
+  }, [chamado.tipoServico, additionalData.subtypeName]);
 
   const formattedDate = useMemo(() => formatDateTime(chamado.createdAt), [chamado.createdAt]);
 
-  // Handlers
+  const isUrgente = useMemo(
+    () => chamado.naturezaAtendimento === 'Urgente',
+    [chamado.naturezaAtendimento],
+  );
+
   const handleCardClick = useCallback(() => {
+    if (hideDetailLink) return;
     router.push(`/meus-chamados/${chamado._id}`);
-  }, [router, chamado._id]);
+  }, [router, chamado._id, hideDetailLink]);
 
   const handleTitleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
+      if (hideDetailLink) return;
       router.push(`/meus-chamados/${chamado._id}`);
     },
-    [router, chamado._id],
+    [router, chamado._id, hideDetailLink],
+  );
+
+  const handleClassificarClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onClassificar?.(chamado);
+    },
+    [onClassificar, chamado],
   );
 
   return (
     <Card
-      className="group cursor-pointer overflow-hidden border border-gray-200 bg-white shadow-sm transition-all hover:shadow-lg hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+      className={cn(
+        'group overflow-hidden border border-gray-200 bg-white shadow-sm transition-all hover:shadow-lg hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700',
+        !hideDetailLink && 'cursor-pointer',
+      )}
       onClick={handleCardClick}
     >
       <CardContent className="p-6">
@@ -213,7 +250,7 @@ export function ChamadoCard({ chamado }: Props) {
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <h3 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                       #{chamado.ticket_number || 'Sem número'}
                     </h3>
@@ -224,12 +261,31 @@ export function ChamadoCard({ chamado }: Props) {
                       <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
                       {CHAMADO_STATUS_LABELS[chamado.status]}
                     </Badge>
+                    {isUrgente && (
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                      >
+                        <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+                        Urgente
+                      </Badge>
+                    )}
                   </div>
-                  {categoriaText && (
-                    <p className="mt-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {categoriaText}
-                    </p>
-                  )}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    {categoriaText && (
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        {categoriaText}
+                      </p>
+                    )}
+                    {chamado.naturezaAtendimento && chamado.naturezaAtendimento !== 'Urgente' && (
+                      <>
+                        {categoriaText && <span className="text-gray-400">•</span>}
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                          {chamado.naturezaAtendimento}
+                        </p>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -266,7 +322,7 @@ export function ChamadoCard({ chamado }: Props) {
             </div>
 
             {/* Seção 4: Rodapé - Indicadores e ações */}
-            <div className="flex items-center gap-2.5 border-t border-gray-200 pt-3.5 dark:border-gray-800">
+            <div className="flex flex-wrap items-center gap-2.5 border-t border-gray-200 pt-3.5 dark:border-gray-800">
               <Badge
                 variant="outline"
                 className={`border text-xs font-medium ${getGrauUrgenciaColor(chamado.grauUrgencia)}`}
@@ -280,6 +336,18 @@ export function ChamadoCard({ chamado }: Props) {
                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                 Dentro do Prazo 0
               </Badge>
+              {onClassificar && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  className="ml-auto gap-1.5"
+                  onClick={handleClassificarClick}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Classificar
+                </Button>
+              )}
             </div>
           </div>
         </div>

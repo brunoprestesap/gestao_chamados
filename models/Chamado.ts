@@ -57,6 +57,15 @@ const ChamadoSchema = new Schema(
       ref: 'ServiceCatalog',
       required: false,
     },
+    // Classificação (Preposto/Admin) — naturezaAtendimento unificado (criação + classificação)
+    finalPriority: {
+      type: String,
+      enum: ['BAIXA', 'NORMAL', 'ALTA', 'EMERGENCIAL'],
+      required: false,
+    },
+    classificationNotes: { type: String, default: '', trim: true },
+    classifiedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    classifiedAt: { type: Date, required: false },
   },
   { timestamps: true },
 );
@@ -73,6 +82,7 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   unitId: Types.ObjectId;
   subtypeId?: Types.ObjectId;
   catalogServiceId?: Types.ObjectId;
+  classifiedByUserId?: Types.ObjectId;
 };
 
 export type ChamadoDoc = Chamado & {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CHAMADO_STATUSES, type ChamadoStatus } from './chamado.constants';
+import { CHAMADO_STATUSES, FINAL_PRIORITY_VALUES, type ChamadoStatus } from './chamado.constants';
 import {
   GRAU_URGENCIA_OPTIONS,
   NATUREZA_OPTIONS,
@@ -56,3 +56,20 @@ export const ChamadoListQuerySchema = z.object({
 });
 
 export type ChamadoListQuery = z.infer<typeof ChamadoListQuerySchema>;
+
+export const ClassificarChamadoSchema = z.object({
+  chamadoId: objectId.min(1, 'ID do chamado é obrigatório'),
+  naturezaAtendimento: z.enum(NATUREZA_OPTIONS, {
+    message: 'Selecione a natureza do atendimento',
+  }),
+  finalPriority: z.enum(FINAL_PRIORITY_VALUES, {
+    message: 'Selecione a prioridade final',
+  }),
+  classificationNotes: z
+    .string()
+    .optional()
+    .default('')
+    .transform((v) => (v ?? '').trim()),
+});
+
+export type ClassificarChamadoInput = z.infer<typeof ClassificarChamadoSchema>;
