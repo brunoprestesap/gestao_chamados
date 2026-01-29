@@ -28,8 +28,18 @@ export function canManage(role?: Role) {
   return role === 'Admin' || role === 'Preposto';
 }
 
+export function isTechnician(role?: Role) {
+  return role === 'Técnico';
+}
+
 export async function requireManager() {
   const session = await requireSession();
   if (!canManage(session.role)) redirect('/dashboard');
+  return session;
+}
+
+export async function requireTechnician() {
+  const session = await requireSession();
+  if (!isTechnician(session.role)) redirect('/dashboard');
   return session;
 }

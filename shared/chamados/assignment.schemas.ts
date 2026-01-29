@@ -9,6 +9,14 @@ export const AssignTicketSchema = z.object({
 
 export type AssignTicketInput = z.infer<typeof AssignTicketSchema>;
 
+export const ReassignTicketSchema = z.object({
+  ticketId: objectId,
+  preferredTechnicianId: objectId,
+  notes: z.string().max(2000).optional(),
+});
+
+export type ReassignTicketInput = z.infer<typeof ReassignTicketSchema>;
+
 export const EligibleTechnicianSchema = z.object({
   _id: objectId,
   name: z.string(),

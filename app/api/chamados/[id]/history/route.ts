@@ -52,8 +52,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const isOwner = String(chamado.solicitanteId) === session.userId;
   const canManage = session.role === 'Admin' || session.role === 'Preposto';
+  const isAssigned =
+    chamado.assignedToUserId && String(chamado.assignedToUserId) === session.userId;
 
-  if (!isOwner && !canManage) {
+  if (!isOwner && !canManage && !isAssigned) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
   }
 

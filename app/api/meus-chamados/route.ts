@@ -7,42 +7,56 @@ import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { ChamadoCreateSchema, ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
+import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
-function normalizeChamado(c: {
-  _id: unknown;
-  ticket_number?: string;
-  titulo: string;
-  descricao?: string;
-  status: string;
-  solicitanteId: unknown;
-  unitId?: unknown;
-  localExato?: string;
-  tipoServico?: string;
-  naturezaAtendimento?: string;
-  grauUrgencia?: string;
-  telefoneContato?: string;
-  subtypeId?: unknown;
-  catalogServiceId?: unknown;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
+function normalizeChamado(
+  c: Record<string, unknown> & {
+    _id: unknown;
+    titulo: string;
+    descricao?: string;
+    status: string;
+    solicitanteId: unknown;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+) {
+  const ev = c.evaluation as
+    | {
+        rating?: number | null;
+        notes?: string | null;
+        createdAt?: Date | null;
+        createdByUserId?: unknown;
+      }
+    | null
+    | undefined;
+  const evaluation =
+    ev && hasValidEvaluation(ev)
+      ? {
+          rating: ev.rating ?? null,
+          notes: ev.notes ?? null,
+          createdAt: ev.createdAt ?? null,
+          createdByUserId: ev.createdByUserId ? String(ev.createdByUserId) : null,
+        }
+      : null;
   return {
     _id: String(c._id),
-    ticket_number: c.ticket_number ?? '',
+    ticket_number: (c.ticket_number as string) ?? '',
     titulo: c.titulo,
-    descricao: c.descricao ?? '',
+    descricao: (c.descricao as string) ?? '',
     status: c.status,
     solicitanteId: c.solicitanteId ? String(c.solicitanteId) : null,
     unitId: c.unitId ? String(c.unitId) : null,
-    localExato: c.localExato ?? '',
-    tipoServico: c.tipoServico ?? '',
-    naturezaAtendimento: c.naturezaAtendimento ?? '',
-    grauUrgencia: c.grauUrgencia ?? 'Normal',
-    telefoneContato: c.telefoneContato ?? '',
+    assignedToUserId: c.assignedToUserId ? String(c.assignedToUserId) : null,
+    localExato: (c.localExato as string) ?? '',
+    tipoServico: (c.tipoServico as string) ?? '',
+    naturezaAtendimento: (c.naturezaAtendimento as string) ?? '',
+    grauUrgencia: (c.grauUrgencia as string) ?? 'Normal',
+    telefoneContato: (c.telefoneContato as string) ?? '',
     subtypeId: c.subtypeId ? String(c.subtypeId) : null,
     catalogServiceId: c.catalogServiceId ? String(c.catalogServiceId) : null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+    evaluation,
   };
 }
 

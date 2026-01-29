@@ -9,6 +9,7 @@ const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'session';
 const protectedPrefixes = [
   '/dashboard',
   '/meus-chamados',
+  '/chamados-atribuidos',
   '/gestao',
   '/relatorios',
   '/relatorio-imr',

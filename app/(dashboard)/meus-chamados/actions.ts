@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
@@ -8,6 +9,10 @@ import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import type { NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
+import {
+  SubmitEvaluationSchema,
+  type SubmitEvaluationInput,
+} from '@/shared/chamados/evaluation.schemas';
 
 /**
  * Gera um título automático para o chamado baseado nos dados do formulário.
@@ -112,6 +117,90 @@ export async function createTicketAction(
     return {
       ok: false,
       error: error instanceof Error ? error.message : 'Erro ao criar chamado. Tente novamente.',
+    };
+  }
+}
+
+export type SubmitEvaluationResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Registra avaliação do chamado pelo solicitante (criador).
+ * Apenas chamados encerrados, ainda não avaliados; só o criador pode avaliar.
+ */
+export async function submitTicketEvaluationAction(
+  raw: SubmitEvaluationInput,
+): Promise<SubmitEvaluationResult> {
+  try {
+    const session = await requireSession();
+    const parsed = SubmitEvaluationSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg =
+        first.ticketId?.[0] ?? first.rating?.[0] ?? first.comment?.[0] ?? 'Dados inválidos.';
+      return { ok: false, error: msg };
+    }
+
+    const { ticketId, rating, comment } = parsed.data;
+    await dbConnect();
+
+    const userId = new Types.ObjectId(session.userId);
+
+    const updated = await ChamadoModel.findOneAndUpdate(
+      {
+        _id: ticketId,
+        status: 'encerrado',
+        solicitanteId: userId,
+        'evaluation.rating': { $exists: false },
+      },
+      {
+        $set: {
+          evaluation: {
+            rating,
+            notes: (comment ?? '').trim() || '',
+            createdAt: new Date(),
+            createdByUserId: userId,
+          },
+        },
+      },
+      { new: true },
+    );
+
+    if (!updated) {
+      const existing = await ChamadoModel.findById(ticketId).lean();
+      if (!existing) return { ok: false, error: 'Chamado não encontrado.' };
+      if (String(existing.solicitanteId) !== session.userId) {
+        return { ok: false, error: 'Apenas o criador do chamado pode avaliar.' };
+      }
+      if (existing.status !== 'encerrado') {
+        return {
+          ok: false,
+          error: 'Somente chamados com status "Encerrado" podem ser avaliados.',
+        };
+      }
+      if (existing.evaluation?.rating != null) {
+        return { ok: false, error: 'Este chamado já foi avaliado.' };
+      }
+      return { ok: false, error: 'Não foi possível registrar a avaliação. Tente novamente.' };
+    }
+
+    await ChamadoHistoryModel.create({
+      chamadoId: updated._id,
+      userId,
+      action: 'avaliado',
+      statusAnterior: 'encerrado',
+      statusNovo: 'encerrado',
+      observacoes: `Avaliação: ${rating}/5`,
+    });
+
+    revalidatePath('/meus-chamados');
+    revalidatePath(`/meus-chamados/${ticketId}`);
+
+    return { ok: true };
+  } catch (e) {
+    console.error('submitTicketEvaluationAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao enviar avaliação. Tente novamente.',
     };
   }
 }

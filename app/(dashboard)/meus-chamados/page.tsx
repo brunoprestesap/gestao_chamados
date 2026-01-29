@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import {
+  AvaliarChamadoDialog,
+  type AvaliarChamadoDialogChamado,
+} from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
+import {
   ChamadoCard,
   type ChamadoDTO,
 } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
@@ -21,6 +25,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { CHAMADO_STATUS_LABELS, CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
+
+const KANBAN_STATUSES = CHAMADO_STATUSES.filter((s) => s !== 'fechado' && s !== 'emvalidacao');
 
 export default function MeusChamadosPage() {
   const router = useRouter();
@@ -29,6 +37,8 @@ export default function MeusChamadosPage() {
   const [status, setStatus] = useState<'all' | ChamadoStatus>('all');
   const [items, setItems] = useState<ChamadoDTO[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [avaliarChamado, setAvaliarChamado] = useState<AvaliarChamadoDialogChamado | null>(null);
+  const [avaliarDialogOpen, setAvaliarDialogOpen] = useState(false);
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
@@ -60,6 +70,14 @@ export default function MeusChamadosPage() {
     q.trim() || status !== 'all'
       ? 'Tente ajustar os filtros de busca ou status.'
       : 'Você ainda não possui chamados registrados.';
+
+  const itemsByStatus = useMemo(() => {
+    const map: Record<string, ChamadoDTO[]> = {};
+    KANBAN_STATUSES.forEach((s) => {
+      map[s] = items.filter((c) => c.status === s);
+    });
+    return map;
+  }, [items]);
 
   return (
     <div className="space-y-6">
@@ -116,14 +134,64 @@ export default function MeusChamadosPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {items.map((c) => (
-            <ChamadoCard key={c._id} chamado={c} />
-          ))}
+        <div className="overflow-x-auto rounded-lg border bg-muted/30 pb-2">
+          <div className="flex min-w-max gap-4 p-4">
+            {KANBAN_STATUSES.map((statusKey) => {
+              const columnItems = itemsByStatus[statusKey] ?? [];
+              const label = CHAMADO_STATUS_LABELS[statusKey];
+              return (
+                <div
+                  key={statusKey}
+                  className="flex w-[300px] shrink-0 flex-col rounded-lg border bg-card shadow-sm"
+                >
+                  <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+                    <span className="font-semibold text-foreground">{label}</span>
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-sm font-medium text-muted-foreground">
+                      {columnItems.length}
+                    </span>
+                  </div>
+                  <ScrollArea className="h-[calc(100vh-16rem)] min-h-[280px]">
+                    <div className="flex flex-col gap-3 p-3">
+                      {columnItems.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-muted-foreground">
+                          Nenhum chamado neste status
+                        </p>
+                      ) : (
+                        columnItems.map((c) => (
+                          <ChamadoCard
+                            key={c._id}
+                            compact
+                            chamado={c}
+                            showAvaliar
+                            onAvaliar={(ch) => {
+                              setAvaliarChamado({
+                                _id: ch._id,
+                                ticket_number: ch.ticket_number,
+                                titulo: ch.titulo,
+                                assignedToUserId: ch.assignedToUserId ?? null,
+                              });
+                              setAvaliarDialogOpen(true);
+                            }}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       <NewTicketDialog open={dialogOpen} onOpenChange={setDialogOpen} onSuccess={fetchChamados} />
+
+      <AvaliarChamadoDialog
+        open={avaliarDialogOpen}
+        onOpenChange={setAvaliarDialogOpen}
+        chamado={avaliarChamado}
+        onSuccess={fetchChamados}
+      />
     </div>
   );
 }

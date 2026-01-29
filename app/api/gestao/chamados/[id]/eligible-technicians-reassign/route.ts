@@ -12,9 +12,9 @@ import { UserModel } from '@/models/user.model';
 const ACTIVE_STATUSES = ['emvalidacao', 'validado', 'em atendimento'] as const;
 
 /**
- * GET /api/gestao/chamados/[id]/eligible-technicians
- * Lista técnicos elegíveis para atribuição de um chamado específico.
- * Retorna técnicos com a especialidade necessária e sua carga atual.
+ * GET /api/gestao/chamados/[id]/eligible-technicians-reassign
+ * Lista técnicos elegíveis para REATRIBUIÇÃO (chamado já em atendimento).
+ * Exclui o técnico atualmente atribuído. Retorna carga atual e max.
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -27,36 +27,45 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'ID de chamado inválido' }, { status: 400 });
     }
 
-    // Busca o chamado para obter o catalogServiceId
     const chamado = await ChamadoModel.findById(id).lean();
     if (!chamado) {
       return NextResponse.json({ error: 'Chamado não encontrado' }, { status: 404 });
     }
 
-    if (chamado.status !== 'validado' && chamado.status !== 'emvalidacao') {
+    if (chamado.status !== 'em atendimento') {
       return NextResponse.json(
-        { error: 'Somente chamados com status "Validado" ou "Em validação" podem ser atribuídos' },
+        { error: 'Somente chamados com status "Em atendimento" podem ser reatribuídos.' },
         { status: 400 },
       );
     }
 
     if (!chamado.catalogServiceId) {
       return NextResponse.json(
-        { error: 'Chamado não possui serviço catalogado. Classifique o chamado primeiro.' },
+        { error: 'Chamado não possui serviço catalogado.' },
+        { status: 400 },
+      );
+    }
+
+    const currentAssignedId = chamado.assignedToUserId
+      ? new Types.ObjectId(chamado.assignedToUserId)
+      : null;
+    if (!currentAssignedId) {
+      return NextResponse.json(
+        { error: 'Chamado não está atribuído a um técnico.' },
         { status: 400 },
       );
     }
 
     const serviceCatalogId = chamado.catalogServiceId;
 
-    // Busca todos os técnicos ativos que possuem a especialidade
+    // Técnicos com a especialidade, EXCLUINDO o atual
     const tecnicos = await UserModel.find({
       role: 'Técnico',
       isActive: true,
       specialties: { $in: [serviceCatalogId] },
+      _id: { $ne: currentAssignedId },
     }).lean();
 
-    // Conta chamados ativos por técnico usando aggregation
     const cargaPorTecnico = await ChamadoModel.aggregate([
       {
         $match: {
@@ -72,13 +81,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       },
     ]);
 
-    // Cria mapa de carga
     const cargaMap = new Map<string, number>();
     cargaPorTecnico.forEach((item) => {
       cargaMap.set(String(item._id), item.count);
     });
 
-    // Monta lista de técnicos elegíveis com carga
     const elegiveis = tecnicos.map((t) => {
       const tecnicoId = String(t._id);
       const currentLoad = cargaMap.get(tecnicoId) ?? 0;
@@ -95,7 +102,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       };
     });
 
-    // Ordena por menor carga (não sobrecarregados primeiro)
     elegiveis.sort((a, b) => {
       if (a.isOverloaded !== b.isOverloaded) {
         return a.isOverloaded ? 1 : -1;
@@ -108,7 +114,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     return NextResponse.json({ items: elegiveis });
   } catch (error) {
-    console.error('Erro ao buscar técnicos elegíveis:', error);
-    return NextResponse.json({ error: 'Erro ao buscar técnicos elegíveis' }, { status: 500 });
+    console.error('Erro ao buscar técnicos para reatribuição:', error);
+    return NextResponse.json(
+      { error: 'Erro ao buscar técnicos para reatribuição' },
+      { status: 500 },
+    );
   }
 }

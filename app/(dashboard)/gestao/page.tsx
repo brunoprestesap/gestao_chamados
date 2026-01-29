@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/AtribuirChamadoDialog';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
+import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
+import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import {
   ChamadoCard,
   type ChamadoDTO,
@@ -21,6 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { CHAMADO_STATUS_LABELS, CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
+
+const KANBAN_STATUSES = CHAMADO_STATUSES.filter((s) => s !== 'fechado' && s !== 'emvalidacao');
 
 const DEBOUNCE_MS = 300;
 
@@ -30,6 +36,8 @@ export default function GestaoPage() {
   const [items, setItems] = useState<ChamadoDTO[]>([]);
   const [classificarDialogOpen, setClassificarDialogOpen] = useState(false);
   const [atribuirDialogOpen, setAtribuirDialogOpen] = useState(false);
+  const [encerrarChamadoId, setEncerrarChamadoId] = useState<string | null>(null);
+  const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
   const [selected, setSelected] = useState<ChamadoDTO | null>(null);
 
   const [q, setQ] = useState('');
@@ -98,12 +106,38 @@ export default function GestaoPage() {
     if (!open) setSelected(null);
   }, []);
 
+  const handleEncerrar = useCallback((chamado: ChamadoDTO) => {
+    setEncerrarChamadoId(chamado._id);
+  }, []);
+
+  const handleEncerrarSuccess = useCallback(() => {
+    setEncerrarChamadoId(null);
+    fetchChamados();
+  }, [fetchChamados]);
+
+  const handleReatribuir = useCallback((chamado: ChamadoDTO) => {
+    setReatribuirChamado(chamado);
+  }, []);
+
+  const handleReatribuirSuccess = useCallback(() => {
+    setReatribuirChamado(null);
+    fetchChamados();
+  }, [fetchChamados]);
+
   const emptyMessage = useMemo(() => {
     if (q.trim() || status !== 'all') {
       return 'Nenhum chamado encontrado com os filtros aplicados. Tente ajustar a busca ou o status.';
     }
     return 'Nenhum chamado cadastrado.';
   }, [q, status]);
+
+  const itemsByStatus = useMemo(() => {
+    const map: Record<string, ChamadoDTO[]> = {};
+    KANBAN_STATUSES.forEach((s) => {
+      map[s] = items.filter((c) => c.status === s);
+    });
+    return map;
+  }, [items]);
 
   return (
     <div className="space-y-6">
@@ -158,16 +192,51 @@ export default function GestaoPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {items.map((c) => (
-            <ChamadoCard
-              key={c._id}
-              chamado={c}
-              hideDetailLink
-              onClassificar={c.status === 'aberto' ? handleClassificar : undefined}
-              onAtribuir={c.status === 'emvalidacao' ? handleAtribuir : undefined}
-            />
-          ))}
+        <div className="overflow-x-auto rounded-lg border bg-muted/30 pb-2">
+          <div className="flex min-w-max gap-4 p-4">
+            {KANBAN_STATUSES.map((statusKey) => {
+              const columnItems = itemsByStatus[statusKey] ?? [];
+              const label = CHAMADO_STATUS_LABELS[statusKey];
+              return (
+                <div
+                  key={statusKey}
+                  className="flex w-[300px] shrink-0 flex-col rounded-lg border bg-card shadow-sm"
+                >
+                  <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+                    <span className="font-semibold text-foreground">{label}</span>
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-sm font-medium text-muted-foreground">
+                      {columnItems.length}
+                    </span>
+                  </div>
+                  <ScrollArea className="h-[calc(100vh-16rem)] min-h-[280px]">
+                    <div className="flex flex-col gap-3 p-3">
+                      {columnItems.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-muted-foreground">
+                          Nenhum chamado neste status
+                        </p>
+                      ) : (
+                        columnItems.map((c) => (
+                          <ChamadoCard
+                            key={c._id}
+                            compact
+                            chamado={c}
+                            onClassificar={c.status === 'aberto' ? handleClassificar : undefined}
+                            onAtribuir={
+                              c.status === 'validado' || c.status === 'emvalidacao'
+                                ? handleAtribuir
+                                : undefined
+                            }
+                            onEncerrar={handleEncerrar}
+                            onReatribuir={handleReatribuir}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -184,6 +253,28 @@ export default function GestaoPage() {
         chamado={selected}
         onSuccess={fetchChamados}
       />
+
+      {encerrarChamadoId && (
+        <EncerrarChamadoDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setEncerrarChamadoId(null);
+          }}
+          chamadoId={encerrarChamadoId}
+          onSuccess={handleEncerrarSuccess}
+        />
+      )}
+
+      {reatribuirChamado && (
+        <ReatribuirChamadoDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setReatribuirChamado(null);
+          }}
+          chamado={reatribuirChamado}
+          onSuccess={handleReatribuirSuccess}
+        />
+      )}
     </div>
   );
 }

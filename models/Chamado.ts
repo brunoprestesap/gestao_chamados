@@ -70,6 +70,34 @@ const ChamadoSchema = new Schema(
     assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     assignedAt: { type: Date, required: false },
     assignedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    // Reatribuição (Admin/Preposto) — status "em atendimento"
+    reassignedAt: { type: Date, required: false },
+    reassignedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    reassignmentNotes: { type: String, default: '', trim: true },
+    // Conclusão (data/hora em que o chamado foi concluído)
+    concludedAt: { type: Date, required: false },
+    // Encerramento (Admin) — após status Concluído
+    closedAt: { type: Date, required: false },
+    closedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    closureNotes: { type: String, default: '', trim: true },
+    // Avaliação pelo solicitante (gancho mínimo: "já avaliado")
+    evaluation: {
+      rating: { type: Number, required: false },
+      notes: { type: String, default: '', trim: true },
+      createdAt: { type: Date, required: false },
+      createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    },
+    // Execuções do serviço (registro do técnico)
+    executions: [
+      {
+        createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        serviceDescription: { type: String, required: true, trim: true },
+        materialsUsed: { type: String, default: '', trim: true },
+        evidencePhotos: [{ type: String, trim: true }],
+        notes: { type: String, default: '', trim: true },
+        concludedAt: { type: Date, required: true },
+      },
+    ],
   },
   { timestamps: true },
 );
@@ -82,6 +110,16 @@ ChamadoSchema.index({ tipoServico: 1, status: 1 });
 ChamadoSchema.index({ naturezaAtendimento: 1 });
 ChamadoSchema.index({ assignedToUserId: 1, status: 1 });
 
+export type ExecutionDoc = {
+  _id?: Types.ObjectId;
+  createdByUserId: Types.ObjectId;
+  serviceDescription: string;
+  materialsUsed?: string;
+  evidencePhotos?: string[];
+  notes?: string;
+  concludedAt: Date;
+};
+
 export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   solicitanteId: Types.ObjectId;
   unitId: Types.ObjectId;
@@ -90,6 +128,8 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   classifiedByUserId?: Types.ObjectId;
   assignedToUserId?: Types.ObjectId;
   assignedByUserId?: Types.ObjectId;
+  concludedAt?: Date;
+  executions?: ExecutionDoc[];
 };
 
 export type ChamadoDoc = Chamado & {

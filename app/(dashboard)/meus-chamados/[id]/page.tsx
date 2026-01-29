@@ -1,17 +1,25 @@
 'use client';
 
-import { ArrowLeft, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, Loader2, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
+import {
+  AvaliarChamadoDialog,
+  type AvaliarChamadoDialogChamado,
+} from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
 import { CancelTicketDialog } from '@/app/(dashboard)/meus-chamados/[id]/_components/CancelTicketDialog';
+import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
+import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/dashboard/header';
 import { Separator } from '@/components/ui/separator';
 import { formatDate } from '@/lib/utils';
+import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 import {
   CHAMADO_STATUS_LABELS,
   type ChamadoStatus,
@@ -28,6 +36,7 @@ type ChamadoDetailDTO = {
   status: ChamadoStatus;
   solicitanteId: string | null;
   unitId: string | null;
+  assignedToUserId?: string | null;
   localExato: string;
   tipoServico: string;
   naturezaAtendimento: string;
@@ -37,6 +46,12 @@ type ChamadoDetailDTO = {
   catalogServiceId: string | null;
   createdAt: string;
   updatedAt: string;
+  evaluation?: {
+    rating?: number | null;
+    notes?: string | null;
+    createdAt?: string | null;
+    createdByUserId?: string | null;
+  } | null;
 };
 
 export default function ChamadoDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -44,9 +59,13 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [chamado, setChamado] = useState<ChamadoDetailDTO | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [encerrarDialogOpen, setEncerrarDialogOpen] = useState(false);
+  const [reatribuirDialogOpen, setReatribuirDialogOpen] = useState(false);
+  const [avaliarDialogOpen, setAvaliarDialogOpen] = useState(false);
   const [chamadoId, setChamadoId] = useState<string | null>(null);
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
   const [isOwner, setIsOwner] = useState(false);
+  const [canManageChamado, setCanManageChamado] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -78,10 +97,10 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
       const chamadoItem = chamadoData.item || null;
       setChamado(chamadoItem);
 
-      // Verifica se o usuário é o proprietário
       if (sessionRes.ok && chamadoItem) {
         const sessionData = await sessionRes.json().catch(() => ({}));
         setIsOwner(String(chamadoItem.solicitanteId) === sessionData.userId);
+        setCanManageChamado(sessionData.role === 'Admin' || sessionData.role === 'Preposto');
       }
     } catch (error) {
       console.error('Erro ao buscar chamado:', error);
@@ -245,20 +264,92 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* Sidebar - Ações */}
-        {isOwner && chamado.status !== 'cancelado' && chamado.status !== 'concluído' && (
+        {isOwner &&
+          chamado.status !== 'cancelado' &&
+          chamado.status !== 'concluído' &&
+          chamado.status !== 'encerrado' && (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Ações</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button
+                    onClick={() => setCancelDialogOpen(true)}
+                    variant="destructive"
+                    className="w-full justify-start"
+                  >
+                    Cancelar Chamado
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+        {canManageChamado && chamado.status === 'em atendimento' && (
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Ações</CardTitle>
+                <CardTitle className="text-base">Ações (Gestão)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <Button
-                  onClick={() => setCancelDialogOpen(true)}
-                  variant="destructive"
-                  className="w-full justify-start"
+                  onClick={() => setReatribuirDialogOpen(true)}
+                  variant="outline"
+                  className="w-full justify-start gap-2"
                 >
-                  Cancelar Chamado
+                  Reatribuir
                 </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {canManageChamado && chamado.status === 'concluído' && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Ações (Gestão)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button
+                  onClick={() => setEncerrarDialogOpen(true)}
+                  className="w-full justify-start bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                >
+                  Encerrar Chamado
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {isOwner && chamado.status === 'encerrado' && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Avaliação</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {hasValidEvaluation(chamado.evaluation) ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-2 dark:border-emerald-800 dark:bg-emerald-950/20">
+                    <Star className="h-4 w-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400" />
+                    <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                      Avaliado
+                      {chamado.evaluation?.rating != null && ` · ${chamado.evaluation.rating}/5`}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">Pendente</p>
+                    <Button
+                      className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                      onClick={() => setAvaliarDialogOpen(true)}
+                    >
+                      <Star className="h-4 w-4" />
+                      Avaliar
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -270,6 +361,47 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
         onOpenChange={setCancelDialogOpen}
         onCancel={handleCancel}
       />
+
+      {chamadoId && (
+        <EncerrarChamadoDialog
+          open={encerrarDialogOpen}
+          onOpenChange={setEncerrarDialogOpen}
+          chamadoId={chamadoId}
+          onSuccess={async () => {
+            await fetchChamado(chamadoId);
+            setHistoryRefreshTrigger((prev) => prev + 1);
+          }}
+        />
+      )}
+
+      {chamado && (
+        <ReatribuirChamadoDialog
+          open={reatribuirDialogOpen}
+          onOpenChange={setReatribuirDialogOpen}
+          chamado={chamado as ChamadoDTO}
+          onSuccess={async () => {
+            await fetchChamado(chamado._id);
+            setHistoryRefreshTrigger((prev) => prev + 1);
+          }}
+        />
+      )}
+
+      {chamado && (
+        <AvaliarChamadoDialog
+          open={avaliarDialogOpen}
+          onOpenChange={setAvaliarDialogOpen}
+          chamado={{
+            _id: chamado._id,
+            ticket_number: chamado.ticket_number,
+            titulo: chamado.titulo,
+            assignedToUserId: chamado.assignedToUserId ?? null,
+          }}
+          onSuccess={async () => {
+            await fetchChamado(chamado._id);
+            setHistoryRefreshTrigger((prev) => prev + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

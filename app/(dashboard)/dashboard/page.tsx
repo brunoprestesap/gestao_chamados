@@ -1,15 +1,47 @@
+import {
+  getDashboardPrepostoData,
+  getDashboardSolicitanteData,
+  getDashboardTecnicoData,
+} from '@/app/(dashboard)/dashboard/actions';
+import { DashboardPrepostoContent } from '@/app/(dashboard)/dashboard/_components/DashboardPrepostoContent';
+import { DashboardSolicitanteContent } from '@/app/(dashboard)/dashboard/_components/DashboardSolicitanteContent';
+import { DashboardTecnicoContent } from '@/app/(dashboard)/dashboard/_components/DashboardTecnicoContent';
+import { requireSession } from '@/lib/dal';
 import { AlertTriangle, Clock, Ticket, Wrench } from 'lucide-react';
 
 import { PageHeader } from '@/components/dashboard/header';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await requireSession();
+
+  if (session.role === 'Solicitante') {
+    const data = await getDashboardSolicitanteData();
+    if (data) {
+      return <DashboardSolicitanteContent data={data} />;
+    }
+  }
+
+  if (session.role === 'Preposto') {
+    const data = await getDashboardPrepostoData();
+    if (data) {
+      return <DashboardPrepostoContent data={data} />;
+    }
+  }
+
+  if (session.role === 'Técnico') {
+    const data = await getDashboardTecnicoData();
+    if (data) {
+      return <DashboardTecnicoContent data={data} />;
+    }
+  }
+
+  // Placeholder para outros perfis (Admin)
   return (
     <>
       <PageHeader title="Dashboard" subtitle="Visão geral dos chamados de manutenção" />
 
-      {/* KPIs */}
       <section className="grid gap-4 md:grid-cols-4">
         <KpiCard
           title="Total de Chamados"
@@ -41,14 +73,12 @@ export default function DashboardPage() {
         />
       </section>
 
-      {/* Conteúdo (grids de cards) */}
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Distribuição por Status</CardTitle>
           </CardHeader>
           <CardContent className="h-65">
-            {/* Aqui entra seu donut chart depois */}
             <div className="grid h-full place-items-center text-sm text-muted-foreground">
               Gráfico (donut)
             </div>
@@ -60,7 +90,6 @@ export default function DashboardPage() {
             <CardTitle className="text-base">Chamados por Unidade</CardTitle>
           </CardHeader>
           <CardContent className="h-65">
-            {/* Aqui entra seu bar chart depois */}
             <div className="grid h-full place-items-center text-sm text-muted-foreground">
               Gráfico (barras)
             </div>
@@ -72,7 +101,6 @@ export default function DashboardPage() {
             <CardTitle className="text-base">Por Tipo de Serviço</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Lista estilo “pílula” do screenshot */}
             <div className="flex items-center justify-between rounded-lg bg-amber-50 p-3">
               <div className="flex items-center gap-3">
                 <div className="grid h-9 w-9 place-items-center rounded-md bg-amber-100 text-amber-700">

@@ -1,8 +1,9 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
 
-import { requireManager } from '@/lib/dal';
+import { canManage, requireManager, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
@@ -11,17 +12,27 @@ import {
   ClassificarChamadoSchema,
   type ClassificarChamadoInput,
 } from '@/shared/chamados/chamado.schemas';
-import { AssignTicketSchema, type AssignTicketInput } from '@/shared/chamados/assignment.schemas';
+import {
+  AssignTicketSchema,
+  type AssignTicketInput,
+  ReassignTicketSchema,
+  type ReassignTicketInput,
+} from '@/shared/chamados/assignment.schemas';
+import { CloseTicketSchema, type CloseTicketInput } from '@/shared/chamados/close-ticket.schemas';
 
 export type ClassificarResult = { ok: true } | { ok: false; error: string };
+export type CloseTicketResult = { ok: true } | { ok: false; error: string };
 export type AssignTicketResult =
   | { ok: true; technicianId: string; technicianName: string; strategy: 'MANUAL' | 'FALLBACK' }
+  | { ok: false; error: string };
+export type ReassignTicketResult =
+  | { ok: true; technicianId: string; technicianName: string }
   | { ok: false; error: string };
 
 /**
  * Status considerados "ativos" para cálculo de carga do técnico
  */
-const ACTIVE_STATUSES = ['emvalidacao', 'em atendimento'] as const;
+const ACTIVE_STATUSES = ['emvalidacao', 'validado', 'em atendimento'] as const;
 
 export async function classificarChamadoAction(
   raw: ClassificarChamadoInput,
@@ -55,7 +66,7 @@ export async function classificarChamadoAction(
       { _id: chamadoId },
       {
         $set: {
-          status: 'emvalidacao',
+          status: 'validado',
           naturezaAtendimento,
           finalPriority,
           classificationNotes: classificationNotes ?? '',
@@ -67,7 +78,7 @@ export async function classificarChamadoAction(
 
     const obsParts = [
       `Natureza: ${naturezaAtendimento}, Prioridade: ${finalPriority}`,
-      'Status alterado para em validação.',
+      'Status alterado para Validado.',
     ];
     if (classificationNotes) obsParts.push(`Observações: ${classificationNotes}`);
     const observacoes = obsParts.join(' ');
@@ -76,7 +87,7 @@ export async function classificarChamadoAction(
       userId,
       action: 'classificacao',
       statusAnterior: 'aberto',
-      statusNovo: 'emvalidacao',
+      statusNovo: 'validado',
       observacoes,
     });
 
@@ -86,6 +97,80 @@ export async function classificarChamadoAction(
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao classificar chamado. Tente novamente.',
+    };
+  }
+}
+
+/**
+ * Encerra um chamado (Admin ou Preposto). Pré-condição: status "Concluído".
+ * Update atômico para evitar encerramento duplo.
+ */
+export async function closeTicketAction(raw: CloseTicketInput): Promise<CloseTicketResult> {
+  try {
+    const session = await requireSession();
+    if (!canManage(session.role)) {
+      return { ok: false, error: 'Apenas administradores e prepostos podem encerrar chamados.' };
+    }
+
+    const parsed = CloseTicketSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg =
+        first.ticketId?.[0] ?? first.closureNotes?.[0] ?? 'Dados inválidos. Verifique os campos.';
+      return { ok: false, error: msg };
+    }
+
+    const { ticketId, closureNotes } = parsed.data;
+    await dbConnect();
+
+    const now = new Date();
+    const userId = new Types.ObjectId(session.userId);
+
+    const updated = await ChamadoModel.findOneAndUpdate(
+      { _id: ticketId, status: 'concluído' },
+      {
+        $set: {
+          status: 'encerrado',
+          closedAt: now,
+          closedByUserId: userId,
+          closureNotes: (closureNotes ?? '').trim() || '',
+        },
+      },
+      { new: true },
+    );
+
+    if (!updated) {
+      const existing = await ChamadoModel.findById(ticketId).lean();
+      if (!existing) return { ok: false, error: 'Chamado não encontrado.' };
+      if (existing.status !== 'concluído') {
+        return {
+          ok: false,
+          error: `Encerramento permitido apenas para chamados com status "Concluído". Status atual: ${existing.status}.`,
+        };
+      }
+      return { ok: false, error: 'Não foi possível encerrar o chamado. Tente novamente.' };
+    }
+
+    const obsParts = ['Status alterado para Encerrado.'];
+    if ((closureNotes ?? '').trim()) obsParts.push(`Observações: ${(closureNotes ?? '').trim()}`);
+    await ChamadoHistoryModel.create({
+      chamadoId: updated._id,
+      userId,
+      action: 'encerramento',
+      statusAnterior: 'concluído',
+      statusNovo: 'encerrado',
+      observacoes: obsParts.join(' '),
+    });
+
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${ticketId}`);
+
+    return { ok: true };
+  } catch (e) {
+    console.error('closeTicketAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao encerrar chamado. Tente novamente.',
     };
   }
 }
@@ -181,11 +266,11 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       return { ok: false, error: 'Chamado não encontrado.' };
     }
 
-    // Valida status
-    if (chamado.status !== 'emvalidacao') {
+    // Valida status (Validado ou Em validação para compatibilidade)
+    if (chamado.status !== 'validado' && chamado.status !== 'emvalidacao') {
       return {
         ok: false,
-        error: 'Somente chamados com status "Em validação" podem ser atribuídos.',
+        error: 'Somente chamados com status "Validado" ou "Em validação" podem ser atribuídos.',
       };
     }
 
@@ -273,15 +358,16 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       strategy = 'FALLBACK';
     }
 
-    // Atualiza o chamado de forma atômica
+    // Atualiza o chamado de forma atômica (Validado ou Em validação) e altera status para Em atendimento
     const updateResult = await ChamadoModel.findOneAndUpdate(
       {
         _id: ticketId,
-        status: 'emvalidacao',
+        status: { $in: ['validado', 'emvalidacao'] },
         $or: [{ assignedToUserId: { $exists: false } }, { assignedToUserId: null }],
       },
       {
         $set: {
+          status: 'em atendimento',
           assignedToUserId: selectedTechnician._id,
           assignedAt: now,
           assignedByUserId,
@@ -298,14 +384,14 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       };
     }
 
-    // Registra no histórico
+    // Registra no histórico (status passa para Em atendimento)
     await ChamadoHistoryModel.create({
       chamadoId: chamado._id,
       userId: assignedByUserId,
       action: 'atribuicao_tecnico',
-      statusAnterior: 'emvalidacao',
-      statusNovo: 'emvalidacao', // Status não muda na atribuição
-      observacoes: `Atribuído a ${selectedTechnician.name} (${strategy === 'MANUAL' ? 'Manual' : 'Fallback automático'}). Serviço: ${String(serviceCatalogId)}`,
+      statusAnterior: chamado.status,
+      statusNovo: 'em atendimento',
+      observacoes: `Atribuído a ${selectedTechnician.name} (${strategy === 'MANUAL' ? 'Manual' : 'Fallback automático'}). Status alterado para Em atendimento. Serviço: ${String(serviceCatalogId)}`,
     });
 
     return {
@@ -319,6 +405,144 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao atribuir chamado. Tente novamente.',
+    };
+  }
+}
+
+/**
+ * Reatribui um chamado (status "em atendimento") para outro técnico elegível.
+ * Apenas Admin/Preposto. Mantém status "em atendimento". Registra histórico.
+ */
+export async function reassignTicketAction(
+  raw: ReassignTicketInput,
+): Promise<ReassignTicketResult> {
+  try {
+    const session = await requireManager();
+    const parsed = ReassignTicketSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg =
+        first.ticketId?.[0] ??
+        first.preferredTechnicianId?.[0] ??
+        first.notes?.[0] ??
+        'Dados inválidos. Verifique os campos.';
+      return { ok: false, error: msg };
+    }
+
+    const { ticketId, preferredTechnicianId, notes } = parsed.data;
+    await dbConnect();
+
+    const chamado = await ChamadoModel.findById(ticketId).lean();
+    if (!chamado) {
+      return { ok: false, error: 'Chamado não encontrado.' };
+    }
+
+    if (chamado.status !== 'em atendimento') {
+      return {
+        ok: false,
+        error: 'Somente chamados com status "Em atendimento" podem ser reatribuídos.',
+      };
+    }
+
+    if (!chamado.catalogServiceId) {
+      return { ok: false, error: 'Chamado não possui serviço catalogado.' };
+    }
+
+    const currentAssignedId = chamado.assignedToUserId ? String(chamado.assignedToUserId) : null;
+    if (!currentAssignedId) {
+      return { ok: false, error: 'Chamado não está atribuído a um técnico.' };
+    }
+
+    if (preferredTechnicianId === currentAssignedId) {
+      return { ok: false, error: 'Selecione outro técnico para reatribuir.' };
+    }
+
+    const newTechId = new Types.ObjectId(preferredTechnicianId);
+    const newTech = await UserModel.findById(newTechId).lean();
+    if (!newTech) {
+      return { ok: false, error: 'Técnico selecionado não encontrado.' };
+    }
+
+    if (newTech.role !== 'Técnico' || !newTech.isActive) {
+      return { ok: false, error: 'Usuário selecionado não é um técnico ativo.' };
+    }
+
+    const hasSpecialty =
+      newTech.specialties &&
+      Array.isArray(newTech.specialties) &&
+      newTech.specialties.some((s) => String(s) === String(chamado.catalogServiceId));
+    if (!hasSpecialty) {
+      return {
+        ok: false,
+        error: 'Técnico selecionado não possui a especialidade necessária para este chamado.',
+      };
+    }
+
+    const currentLoad = await ChamadoModel.countDocuments({
+      assignedToUserId: newTechId,
+      status: { $in: [...ACTIVE_STATUSES] },
+    });
+    const maxAssignedTickets = newTech.maxAssignedTickets ?? 5;
+    if (currentLoad >= maxAssignedTickets) {
+      return {
+        ok: false,
+        error: 'Técnico selecionado está sobrecarregado. Escolha outro técnico.',
+      };
+    }
+
+    const now = new Date();
+    const reassignedByUserId = new Types.ObjectId(session.userId);
+
+    const updated = await ChamadoModel.findOneAndUpdate(
+      { _id: ticketId, status: 'em atendimento' },
+      {
+        $set: {
+          assignedToUserId: newTechId,
+          reassignedAt: now,
+          reassignedByUserId,
+          reassignmentNotes: (notes ?? '').trim() || '',
+        },
+      },
+      { new: true },
+    );
+
+    if (!updated) {
+      return {
+        ok: false,
+        error: 'Não foi possível reatribuir. O chamado pode ter mudado de status.',
+      };
+    }
+
+    const previousTech = await UserModel.findById(currentAssignedId).select('name').lean();
+    const previousName = previousTech?.name ?? 'Técnico anterior';
+    const obsParts = [
+      `Reatribuído de ${previousName} para ${newTech.name}.`,
+      `Reatribuído por sessão (Admin/Preposto).`,
+    ];
+    if ((notes ?? '').trim()) obsParts.push(`Observações: ${(notes ?? '').trim()}`);
+
+    await ChamadoHistoryModel.create({
+      chamadoId: updated._id,
+      userId: reassignedByUserId,
+      action: 'reatribuicao_tecnico',
+      statusAnterior: 'em atendimento',
+      statusNovo: 'em atendimento',
+      observacoes: obsParts.join(' '),
+    });
+
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${ticketId}`);
+
+    return {
+      ok: true,
+      technicianId: String(newTech._id),
+      technicianName: newTech.name,
+    };
+  } catch (e) {
+    console.error('reassignTicketAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao reatribuir chamado. Tente novamente.',
     };
   }
 }
