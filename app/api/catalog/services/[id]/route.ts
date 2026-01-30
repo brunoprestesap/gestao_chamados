@@ -80,3 +80,21 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
 
   return NextResponse.json({ item: updated });
 }
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  await dbConnect();
+
+  const { id } = await params;
+
+  if (!Types.ObjectId.isValid(id)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+  }
+
+  const deleted = await ServiceCatalogModel.findByIdAndDelete(id);
+
+  if (!deleted) {
+    return NextResponse.json({ error: 'Serviço não encontrado' }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

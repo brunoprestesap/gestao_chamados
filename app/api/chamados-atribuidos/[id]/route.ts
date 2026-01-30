@@ -53,6 +53,8 @@ function normalizeChamado(
     localExato: c.localExato ?? '',
     tipoServico: c.tipoServico ?? '',
     naturezaAtendimento: c.naturezaAtendimento ?? '',
+    requestedAttendanceNature: c.requestedAttendanceNature ?? null,
+    attendanceNature: c.attendanceNature ?? null,
     grauUrgencia: c.grauUrgencia ?? 'Normal',
     telefoneContato: c.telefoneContato ?? '',
     subtypeId: c.subtypeId ? String(c.subtypeId) : null,

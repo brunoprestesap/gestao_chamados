@@ -19,6 +19,38 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/dashboard/header';
 import { Separator } from '@/components/ui/separator';
 import { formatDate } from '@/lib/utils';
+import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
+
+const formatDateTime = (iso: string) =>
+  new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+
+function getSlaStatusLabel(
+  chamado: ChamadoDetailDTO,
+): 'No prazo' | 'Próximo do vencimento' | 'Atrasado' | null {
+  const sla = chamado.sla;
+  if (!sla?.resolutionDueAt) return null;
+  const now = new Date();
+  const resolutionDueAt = new Date(sla.resolutionDueAt);
+  const resolvedAt = sla.resolvedAt ? new Date(sla.resolvedAt) : null;
+  const resolutionBreachedAt = sla.resolutionBreachedAt ? new Date(sla.resolutionBreachedAt) : null;
+  const finalPriority = (chamado.finalPriority ?? 'NORMAL') as string;
+  const resolutionStartAt = sla.computedAt ? new Date(sla.computedAt) : null;
+
+  if (resolutionBreachedAt != null || (now > resolutionDueAt && resolvedAt == null)) return 'Atrasado';
+  if (resolvedAt != null) return resolutionBreachedAt != null ? 'Atrasado' : 'No prazo';
+  const remainingMs = resolutionDueAt.getTime() - now.getTime();
+  if (remainingMs <= 0) return 'No prazo';
+  if (finalPriority === 'ALTA' && remainingMs <= 4 * 60 * 60 * 1000) return 'Próximo do vencimento';
+  if (resolutionStartAt && remainingMs <= (resolutionDueAt.getTime() - resolutionStartAt.getTime()) * 0.2)
+    return 'Próximo do vencimento';
+  return 'No prazo';
+}
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 import {
   CHAMADO_STATUS_LABELS,
@@ -27,6 +59,19 @@ import {
   STATUS_BADGE,
   STATUS_ICONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
+
+type SlaDetailDTO = {
+  priority: string | null;
+  businessHoursOnly: boolean | null;
+  responseDueAt: string | null;
+  resolutionDueAt: string | null;
+  responseStartedAt: string | null;
+  resolvedAt: string | null;
+  responseBreachedAt: string | null;
+  resolutionBreachedAt: string | null;
+  computedAt: string | null;
+  configVersion: string | null;
+} | null;
 
 type ChamadoDetailDTO = {
   _id: string;
@@ -40,10 +85,14 @@ type ChamadoDetailDTO = {
   localExato: string;
   tipoServico: string;
   naturezaAtendimento: string;
+  requestedAttendanceNature?: string | null;
+  attendanceNature?: string | null;
   grauUrgencia: string;
   telefoneContato: string;
   subtypeId: string | null;
   catalogServiceId: string | null;
+  finalPriority?: string | null;
+  classifiedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   evaluation?: {
@@ -52,6 +101,7 @@ type ChamadoDetailDTO = {
     createdAt?: string | null;
     createdByUserId?: string | null;
   } | null;
+  sla?: SlaDetailDTO;
 };
 
 export default function ChamadoDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -215,9 +265,23 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                 </div>
                 <div>
                   <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-                    Natureza do Atendimento
+                    Natureza solicitada
                   </h4>
-                  <p className="text-sm">{chamado.naturezaAtendimento}</p>
+                  <p className="text-sm">
+                    {chamado.requestedAttendanceNature
+                      ? ATTENDANCE_NATURE_LABELS[chamado.requestedAttendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+                      : chamado.naturezaAtendimento || '—'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                    Natureza aprovada
+                  </h4>
+                  <p className="text-sm">
+                    {chamado.attendanceNature
+                      ? ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+                      : chamado.naturezaAtendimento || '—'}
+                  </p>
                 </div>
                 <div>
                   <h4 className="mb-1 text-sm font-medium text-muted-foreground">
@@ -251,6 +315,95 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </CardContent>
           </Card>
+
+          {/* SLA */}
+          {chamado.sla && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">SLA</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                      Prioridade final
+                    </h4>
+                    <p className="text-sm">{chamado.sla.priority ?? chamado.finalPriority ?? '—'}</p>
+                  </div>
+                  <div>
+                    <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                      Natureza aprovada
+                    </h4>
+                    <p className="text-sm">
+                      {chamado.attendanceNature
+                        ? ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+                        : chamado.naturezaAtendimento || '—'}
+                    </p>
+                  </div>
+                  {chamado.sla.businessHoursOnly != null && (
+                    <div>
+                      <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                        Horário comercial
+                      </h4>
+                      <p className="text-sm">{chamado.sla.businessHoursOnly ? 'Sim (08h–18h, seg–sex)' : 'Não (24x7)'}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                      Prazo de Resposta
+                    </h4>
+                    <p className="text-sm">
+                      {chamado.sla.responseDueAt
+                        ? formatDateTime(chamado.sla.responseDueAt)
+                        : '—'}
+                    </p>
+                    {chamado.sla.responseStartedAt && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Iniciado em {formatDateTime(chamado.sla.responseStartedAt)}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                      Prazo de Solução
+                    </h4>
+                    <p className="text-sm">
+                      {chamado.sla.resolutionDueAt
+                        ? formatDateTime(chamado.sla.resolutionDueAt)
+                        : '—'}
+                    </p>
+                    {chamado.sla.resolvedAt && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Resolvido em {formatDateTime(chamado.sla.resolvedAt)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {(() => {
+                  const slaStatus = getSlaStatusLabel(chamado);
+                  if (!slaStatus) return null;
+                  const statusClass =
+                    slaStatus === 'Atrasado'
+                      ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200'
+                      : slaStatus === 'Próximo do vencimento'
+                        ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200';
+                  return (
+                    <div>
+                      <h4 className="mb-1 text-sm font-medium text-muted-foreground">
+                        Status do SLA
+                      </h4>
+                      <Badge variant="outline" className={statusClass}>
+                        {slaStatus}
+                      </Badge>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Histórico */}
           <Card>

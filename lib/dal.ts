@@ -43,3 +43,13 @@ export async function requireTechnician() {
   if (!isTechnician(session.role)) redirect('/dashboard');
   return session;
 }
+
+export function isAdmin(role?: Role) {
+  return role === 'Admin';
+}
+
+export async function requireAdmin() {
+  const session = await requireSession();
+  if (!isAdmin(session.role)) redirect('/dashboard');
+  return session;
+}

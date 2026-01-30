@@ -1,8 +1,10 @@
 import {
+  getDashboardAdminData,
   getDashboardPrepostoData,
   getDashboardSolicitanteData,
   getDashboardTecnicoData,
 } from '@/app/(dashboard)/dashboard/actions';
+import { DashboardAdminContent } from '@/app/(dashboard)/dashboard/_components/DashboardAdminContent';
 import { DashboardPrepostoContent } from '@/app/(dashboard)/dashboard/_components/DashboardPrepostoContent';
 import { DashboardSolicitanteContent } from '@/app/(dashboard)/dashboard/_components/DashboardSolicitanteContent';
 import { DashboardTecnicoContent } from '@/app/(dashboard)/dashboard/_components/DashboardTecnicoContent';
@@ -15,6 +17,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function DashboardPage() {
   const session = await requireSession();
+
+  if (session.role === 'Admin') {
+    const data = await getDashboardAdminData();
+    if (data) {
+      return <DashboardAdminContent data={data} />;
+    }
+  }
 
   if (session.role === 'Solicitante') {
     const data = await getDashboardSolicitanteData();
@@ -37,7 +46,7 @@ export default async function DashboardPage() {
     }
   }
 
-  // Placeholder para outros perfis (Admin)
+  // Fallback para outros perfis
   return (
     <>
       <PageHeader title="Dashboard" subtitle="Visão geral dos chamados de manutenção" />

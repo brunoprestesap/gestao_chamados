@@ -2,10 +2,11 @@
 
 import { Types } from 'mongoose';
 
-import { requireManager, requireSession, requireTechnician } from '@/lib/dal';
+import { requireAdmin, requireManager, requireSession, requireTechnician } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
+import { ServiceSubTypeModel } from '@/models/ServiceSubType';
 import { UserModel } from '@/models/user.model';
 
 const STATUS_EM_ANDAMENTO = ['aberto', 'emvalidacao', 'em atendimento'] as const;
@@ -47,6 +48,38 @@ export type DashboardPrepostoData = {
   atendimentosPorTecnico: Array<{ tecnicoId: string; nome: string; total: number }>;
 };
 
+/** Status exibidos no card "Chamados no Sistema" (Admin) */
+const ADMIN_CARD_STATUSES = ['aberto', 'emvalidacao', 'em atendimento', 'concluído', 'encerrado'] as const;
+
+export type DashboardAdminData = {
+  /** Contagens por status para card 1 */
+  porStatus: Record<(typeof ADMIN_CARD_STATUSES)[number], number>;
+  /** Chamados críticos/urgentes (natureza Urgente OU prioridade ALTA/EMERGENCIAL) */
+  criticosUrgentes: number;
+  /** Backlog inicial (aberto + em validação) */
+  backlogInicial: number;
+  /** Abertos hoje (createdAt >= today) */
+  abertosHoje: number;
+  /** Encerrados hoje (closedAt >= today) */
+  encerradosHoje: number;
+  /** Técnicos sobrecarregados (carga >= maxAssignedTickets) */
+  tecnicosSobrecarregados: number;
+  /** Técnicos no limite (carga >= 80% do max) */
+  tecnicosNoLimite: number;
+  /** Reatribuições hoje (reassignedAt >= today) */
+  reatribuicoesHoje: number;
+  /** Média global de avaliação (1..5) */
+  mediaAvaliacao: number | null;
+  /** Total de avaliações no período (hoje) - para consistência usamos total global */
+  totalAvaliacoes: number;
+  /** Avaliações negativas (rating <= 2) */
+  avaliacoesNegativas: number;
+  /** Total de usuários */
+  totalUsuarios: number;
+  /** Técnicos ativos */
+  tecnicosAtivos: number;
+};
+
 /**
  * Retorna início do dia (00:00:00) em horário local do servidor.
  */
@@ -63,6 +96,147 @@ function startOfWeek(): Date {
   const d = startOfToday();
   d.setDate(d.getDate() - d.getDay());
   return d;
+}
+
+/**
+ * Busca dados do dashboard do perfil Admin.
+ * Visão global do sistema. Acesso validado por requireAdmin().
+ */
+export async function getDashboardAdminData(): Promise<DashboardAdminData | null> {
+  await requireAdmin();
+  await dbConnect();
+
+  const todayStart = startOfToday();
+
+  const [facetResult] = await ChamadoModel.aggregate<{
+    porStatus: Array<{ _id: string; count: number }>;
+    criticos: [{ total: number }];
+    backlog: [{ total: number }];
+    abertosHoje: [{ total: number }];
+    encerradosHoje: [{ total: number }];
+    reatribuicoesHoje: [{ total: number }];
+    avaliacao: Array<{ avg: number; total: number; negativas: number }>;
+  }>([
+    {
+      $facet: {
+        porStatus: [
+          { $match: { status: { $in: [...ADMIN_CARD_STATUSES] } } },
+          { $group: { _id: '$status', count: { $sum: 1 } } },
+        ],
+        criticos: [
+          {
+            $match: {
+              $or: [
+                { attendanceNature: 'URGENTE' },
+                { naturezaAtendimento: 'Urgente' },
+                { finalPriority: { $in: ['ALTA', 'EMERGENCIAL'] } },
+              ],
+            },
+          },
+          { $count: 'total' },
+        ],
+        backlog: [
+          { $match: { status: { $in: ['aberto', 'emvalidacao'] } } },
+          { $count: 'total' },
+        ],
+        abertosHoje: [
+          { $match: { createdAt: { $gte: todayStart } } },
+          { $count: 'total' },
+        ],
+        encerradosHoje: [
+          {
+            $match: {
+              status: 'encerrado',
+              closedAt: { $gte: todayStart, $ne: null },
+            },
+          },
+          { $count: 'total' },
+        ],
+        reatribuicoesHoje: [
+          { $match: { reassignedAt: { $gte: todayStart, $ne: null } } },
+          { $count: 'total' },
+        ],
+        avaliacao: [
+          {
+            $match: {
+              'evaluation.rating': { $gte: 1, $lte: 5 },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              avg: { $avg: '$evaluation.rating' },
+              total: { $sum: 1 },
+              negativas: {
+                $sum: { $cond: [{ $lte: ['$evaluation.rating', 2] }, 1, 0] },
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  const statusMap = new Map<string, number>();
+  (facetResult?.porStatus ?? []).forEach((r) => statusMap.set(r._id, r.count));
+  const porStatus: Record<(typeof ADMIN_CARD_STATUSES)[number], number> = {
+    aberto: statusMap.get('aberto') ?? 0,
+    emvalidacao: statusMap.get('emvalidacao') ?? 0,
+    'em atendimento': statusMap.get('em atendimento') ?? 0,
+    concluído: statusMap.get('concluído') ?? 0,
+    encerrado: statusMap.get('encerrado') ?? 0,
+  };
+
+  const avaliacaoRow = facetResult?.avaliacao?.[0];
+
+  // Técnicos: sobrecarga e no limite
+  const tecnicos = await UserModel.find(
+    { role: 'Técnico', isActive: true },
+    { _id: 1, maxAssignedTickets: 1 },
+  ).lean();
+  const ids = tecnicos.map((t) => t._id);
+  const cargaAgg =
+    ids.length > 0
+      ? await ChamadoModel.aggregate<{ _id: Types.ObjectId; count: number }>([
+          {
+            $match: {
+              assignedToUserId: { $in: ids },
+              status: { $in: [...ACTIVE_STATUSES] },
+            },
+          },
+          { $group: { _id: '$assignedToUserId', count: { $sum: 1 } } },
+        ])
+      : [];
+  const cargaMap = new Map<string, number>();
+  cargaAgg.forEach((r) => cargaMap.set(String(r._id), r.count));
+
+  let tecnicosSobrecarregados = 0;
+  let tecnicosNoLimite = 0;
+  tecnicos.forEach((t) => {
+    const load = cargaMap.get(String(t._id)) ?? 0;
+    const max = t.maxAssignedTickets ?? 5;
+    const limite80 = Math.ceil(max * 0.8);
+    if (load >= max) tecnicosSobrecarregados += 1;
+    else if (load >= limite80) tecnicosNoLimite += 1;
+  });
+
+  const totalUsuarios = await UserModel.countDocuments();
+
+  return {
+    porStatus,
+    criticosUrgentes: facetResult?.criticos?.[0]?.total ?? 0,
+    backlogInicial: facetResult?.backlog?.[0]?.total ?? 0,
+    abertosHoje: facetResult?.abertosHoje?.[0]?.total ?? 0,
+    encerradosHoje: facetResult?.encerradosHoje?.[0]?.total ?? 0,
+    tecnicosSobrecarregados,
+    tecnicosNoLimite,
+    reatribuicoesHoje: facetResult?.reatribuicoesHoje?.[0]?.total ?? 0,
+    mediaAvaliacao: avaliacaoRow != null ? Math.round(avaliacaoRow.avg * 10) / 10 : null,
+    totalAvaliacoes: avaliacaoRow?.total ?? 0,
+    avaliacoesNegativas: avaliacaoRow?.negativas ?? 0,
+    totalUsuarios,
+    tecnicosAtivos: tecnicos.length,
+  };
 }
 
 /**
@@ -341,7 +515,7 @@ export async function getDashboardTecnicoData(): Promise<DashboardTecnicoData | 
     cargaAtiva: [{ total: number }];
     emAtendimento: [{ total: number }];
     concluidosAguardando: [{ total: number }];
-    chamadosPorCatalogo: Array<{ _id: Types.ObjectId | null; count: number }>;
+    chamadosPorSubtype: Array<{ _id: Types.ObjectId | null; count: number }>;
     ultimosChamados: Array<{
       _id: Types.ObjectId;
       ticket_number: string;
@@ -358,14 +532,23 @@ export async function getDashboardTecnicoData(): Promise<DashboardTecnicoData | 
         ],
         emAtendimento: [{ $match: { status: 'em atendimento' } }, { $count: 'total' }],
         concluidosAguardando: [{ $match: { status: 'concluído' } }, { $count: 'total' }],
-        chamadosPorCatalogo: [
+        chamadosPorSubtype: [
           {
             $match: {
               status: { $in: [...ACTIVE_STATUSES_TECNICO] },
               catalogServiceId: { $exists: true, $ne: null },
             },
           },
-          { $group: { _id: '$catalogServiceId', count: { $sum: 1 } } },
+          {
+            $lookup: {
+              from: 'servicecatalogs',
+              localField: 'catalogServiceId',
+              foreignField: '_id',
+              as: 'catalogDoc',
+            },
+          },
+          { $unwind: '$catalogDoc' },
+          { $group: { _id: '$catalogDoc.subtypeId', count: { $sum: 1 } } },
         ],
         ultimosChamados: [
           { $sort: { assignedAt: -1, updatedAt: -1 } },
@@ -380,23 +563,23 @@ export async function getDashboardTecnicoData(): Promise<DashboardTecnicoData | 
   const maxAssignedTickets = tecnico?.maxAssignedTickets ?? 5;
   const specialtyIds = (tecnico?.specialties ?? []) as Types.ObjectId[];
 
-  const chamadosPorCatalogoMap = new Map<string, number>();
-  (facetResult?.chamadosPorCatalogo ?? []).forEach((r) => {
-    if (r._id) chamadosPorCatalogoMap.set(String(r._id), r.count);
+  const chamadosPorSubtypeMap = new Map<string, number>();
+  (facetResult?.chamadosPorSubtype ?? []).forEach((r) => {
+    if (r._id) chamadosPorSubtypeMap.set(String(r._id), r.count);
   });
 
   let especialidades: Array<{ _id: string; code: string; name: string; chamadosAtivos: number }> =
     [];
   if (specialtyIds.length > 0) {
-    const catalogs = await ServiceCatalogModel.find(
+    const subtypeDocs = await ServiceSubTypeModel.find(
       { _id: { $in: specialtyIds } },
-      { code: 1, name: 1 },
+      { name: 1 },
     ).lean();
-    especialidades = catalogs.map((c) => ({
-      _id: String(c._id),
-      code: c.code,
-      name: c.name,
-      chamadosAtivos: chamadosPorCatalogoMap.get(String(c._id)) ?? 0,
+    especialidades = subtypeDocs.map((s) => ({
+      _id: String(s._id),
+      code: '',
+      name: s.name,
+      chamadosAtivos: chamadosPorSubtypeMap.get(String(s._id)) ?? 0,
     }));
   }
 

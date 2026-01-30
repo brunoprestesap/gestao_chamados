@@ -31,6 +31,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -480,7 +481,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
               name="naturezaAtendimento"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Natureza do Atendimento *</FormLabel>
+                  <FormLabel>Natureza do Atendimento (Solicitada) *</FormLabel>
                   <FormControl>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
                       {NATUREZA_OPTIONS.map((opt) => (
@@ -518,6 +519,11 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                       ))}
                     </div>
                   </FormControl>
+                  <FormDescription className="text-xs">
+                    <strong>Importante:</strong> Esta informação é uma solicitação do usuário. A
+                    natureza final do atendimento, bem como os prazos (SLA), serão definidos pela
+                    equipe de gestão após a análise do chamado.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -529,8 +535,8 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
             >
               <Clock className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 sm:h-5 sm:w-5" />
               <p className="text-xs leading-snug text-blue-900 dark:text-blue-100 sm:text-sm">
-                Horário de Atendimento: Segunda a sexta, das 08:00 às 18:00. O prazo de 3 dias úteis
-                será contado apenas dentro deste horário.
+                Horário de atendimento: segunda a sexta, das 08:00 às 18:00. Os prazos são definidos
+                pela gestão conforme o SLA institucional.
               </p>
             </div>
 
@@ -590,11 +596,10 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                           </SelectContent>
                         </Select>
                       </FormControl>
-                      {catalogServiceId && (
-                        <p className="text-xs text-muted-foreground">
-                          Preenchido automaticamente pelo catálogo de serviços
-                        </p>
-                      )}
+                      <FormDescription className="text-xs">
+                        Classificação sugerida automaticamente. A prioridade final será definida
+                        pela equipe de gestão.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   );

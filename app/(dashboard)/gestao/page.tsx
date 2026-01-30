@@ -140,29 +140,29 @@ export default function GestaoPage() {
   }, [items]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="Gestão de Chamados"
         subtitle="Visualize e classifique chamados. Filtre por texto ou status. Apenas Admin ou Preposto."
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="relative w-full min-w-0 flex-1">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 shrink-0 text-muted-foreground"
             aria-hidden
           />
           <Input
-            placeholder="Buscar por número, título, descrição, local, tipo, natureza..."
+            placeholder="Buscar por número, título, descrição..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="pl-9"
+            className="min-w-0 pl-9"
             aria-label="Buscar chamados"
           />
         </div>
-        <div className="w-full sm:w-56">
+        <div className="w-full shrink-0 sm:w-56">
           <Select value={status} onValueChange={(v) => setStatus(v as 'all' | ChamadoStatus)}>
-            <SelectTrigger aria-label="Filtrar por status">
+            <SelectTrigger aria-label="Filtrar por status" className="w-full">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -193,25 +193,25 @@ export default function GestaoPage() {
         </Card>
       ) : (
         <div className="overflow-x-auto rounded-lg border bg-muted/30 pb-2">
-          <div className="flex min-w-max gap-4 p-4">
+          <div className="flex flex-col gap-4 p-3 sm:p-4 md:min-w-max md:flex-row md:gap-4">
             {KANBAN_STATUSES.map((statusKey) => {
               const columnItems = itemsByStatus[statusKey] ?? [];
               const label = CHAMADO_STATUS_LABELS[statusKey];
               return (
                 <div
                   key={statusKey}
-                  className="flex w-[300px] shrink-0 flex-col rounded-lg border bg-card shadow-sm"
+                  className="flex min-h-0 w-full shrink-0 flex-col rounded-lg border bg-card shadow-sm md:w-[300px]"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-                    <span className="font-semibold text-foreground">{label}</span>
-                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5 sm:px-4 sm:py-3">
+                    <span className="truncate font-semibold text-foreground">{label}</span>
+                    <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-sm font-medium text-muted-foreground">
                       {columnItems.length}
                     </span>
                   </div>
-                  <ScrollArea className="h-[calc(100vh-16rem)] min-h-[280px]">
+                  <ScrollArea className="max-h-[400px] min-h-[200px] md:max-h-none md:h-[calc(100vh-16rem)] md:min-h-[280px]">
                     <div className="flex flex-col gap-3 p-3">
                       {columnItems.length === 0 ? (
-                        <p className="py-8 text-center text-sm text-muted-foreground">
+                        <p className="py-6 text-center text-sm text-muted-foreground md:py-8">
                           Nenhum chamado neste status
                         </p>
                       ) : (

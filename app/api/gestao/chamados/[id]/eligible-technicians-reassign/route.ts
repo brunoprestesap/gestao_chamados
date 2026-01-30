@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
+import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
 
 /**
@@ -56,13 +57,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
-    const serviceCatalogId = chamado.catalogServiceId;
+    // Especialidades do técnico são subtipos; obtém o subtypeId do serviço catalogado
+    const service = await ServiceCatalogModel.findById(chamado.catalogServiceId)
+      .select('subtypeId')
+      .lean();
+    if (!service?.subtypeId) {
+      return NextResponse.json(
+        { error: 'Serviço catalogado do chamado não possui subtipo definido.' },
+        { status: 400 },
+      );
+    }
+    // Normaliza para ObjectId para garantir match na query (especialidades = array de subtypeId)
+    const subtypeId = new Types.ObjectId(String(service.subtypeId));
 
-    // Técnicos com a especialidade, EXCLUINDO o atual
+    // Técnicos com a especialidade (subtipo) exigida pelo chamado, EXCLUINDO o atual
     const tecnicos = await UserModel.find({
       role: 'Técnico',
       isActive: true,
-      specialties: { $in: [serviceCatalogId] },
+      specialties: { $in: [subtypeId] },
       _id: { $ne: currentAssignedId },
     }).lean();
 

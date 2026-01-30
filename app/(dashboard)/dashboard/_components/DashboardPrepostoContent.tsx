@@ -231,83 +231,86 @@ export function DashboardPrepostoContent({ data }: Props) {
         </DashboardCardLink>
       </section>
 
-      {/* Atendimentos realizados por técnico (somente Preposto) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="h-4 w-4" />
-            Atendimentos realizados por técnico
-          </CardTitle>
-          <p className="text-xs font-normal text-muted-foreground">
-            Chamados concluídos ou encerrados atribuídos a cada técnico
-          </p>
-        </CardHeader>
-        <CardContent>
-          {data.atendimentosPorTecnico.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhum técnico ativo ou nenhum atendimento concluído/encerrado.
+      {/* Atendimentos por técnico e Resumo Geral — duas colunas */}
+      <section className="grid gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Atendimentos realizados por técnico (somente Preposto) */}
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4" />
+              Atendimentos realizados por técnico
+            </CardTitle>
+            <p className="text-xs font-normal text-muted-foreground">
+              Chamados concluídos ou encerrados atribuídos a cada técnico
             </p>
-          ) : (
-            <ul className="space-y-2">
-              {[...data.atendimentosPorTecnico]
-                .sort((a, b) => b.total - a.total)
-                .map((item) => (
-                  <li
-                    key={item.tecnicoId}
-                    className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
-                  >
-                    <span className="text-sm font-medium">{item.nome}</span>
-                    <Badge variant="secondary" className="font-semibold">
-                      {item.total} {item.total === 1 ? 'atendimento' : 'atendimentos'}
-                    </Badge>
-                  </li>
-                ))}
-            </ul>
-          )}
-          <Link
-            href="/gestao"
-            className="mt-4 inline-flex items-center text-sm font-medium text-primary hover:underline"
-          >
-            Ir para Gestão de Chamados
-          </Link>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {data.atendimentosPorTecnico.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum técnico ativo ou nenhum atendimento concluído/encerrado.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {[...data.atendimentosPorTecnico]
+                  .sort((a, b) => b.total - a.total)
+                  .map((item) => (
+                    <li
+                      key={item.tecnicoId}
+                      className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
+                    >
+                      <span className="text-sm font-medium">{item.nome}</span>
+                      <Badge variant="secondary" className="font-semibold shrink-0">
+                        {item.total} {item.total === 1 ? 'atendimento' : 'atendimentos'}
+                      </Badge>
+                    </li>
+                  ))}
+              </ul>
+            )}
+            <Link
+              href="/gestao"
+              className="mt-4 inline-flex items-center text-sm font-medium text-primary hover:underline"
+            >
+              Ir para Gestão de Chamados
+            </Link>
+          </CardContent>
+        </Card>
 
-      {/* Resumo Geral */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Wrench className="h-4 w-4" />
-            Resumo Geral
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
-              Em Validação
-              <span className="font-semibold">{data.resumoGeral.emvalidacao}</span>
-            </Badge>
-            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
-              Em Atendimento
-              <span className="font-semibold">{data.resumoGeral['em atendimento']}</span>
-            </Badge>
-            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
-              Concluído
-              <span className="font-semibold">{data.resumoGeral.concluído}</span>
-            </Badge>
-            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
-              Encerrado
-              <span className="font-semibold">{data.resumoGeral.encerrado}</span>
-            </Badge>
-          </div>
-          <Link
-            href="/gestao"
-            className="mt-4 inline-flex items-center text-sm font-medium text-primary hover:underline"
-          >
-            Ir para Gestão de Chamados
-          </Link>
-        </CardContent>
-      </Card>
+        {/* Resumo Geral */}
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Wrench className="h-4 w-4" />
+              Resumo Geral
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1">
+            <div className="flex flex-wrap gap-3">
+              <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
+                Em Validação
+                <span className="font-semibold">{data.resumoGeral.emvalidacao}</span>
+              </Badge>
+              <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
+                Em Atendimento
+                <span className="font-semibold">{data.resumoGeral['em atendimento']}</span>
+              </Badge>
+              <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
+                Concluído
+                <span className="font-semibold">{data.resumoGeral.concluído}</span>
+              </Badge>
+              <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm">
+                Encerrado
+                <span className="font-semibold">{data.resumoGeral.encerrado}</span>
+              </Badge>
+            </div>
+            <Link
+              href="/gestao"
+              className="mt-4 inline-flex items-center text-sm font-medium text-primary hover:underline"
+            >
+              Ir para Gestão de Chamados
+            </Link>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }

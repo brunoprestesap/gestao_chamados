@@ -12,20 +12,87 @@ import {
   Wrench,
 } from 'lucide-react';
 
+/** Roles que podem ver o item. Se ausente, todos os roles têm acesso. */
+export type NavItemRole = 'Admin' | 'Preposto' | 'Solicitante' | 'Técnico';
+
 export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
+  /** Grupo/seção do menu. Usado para agrupar e exibir títulos de seção. */
+  group: 'Principal' | 'Chamados' | 'Gestão' | 'Admin';
+  /** Apenas estes roles veem o item. Se não informado, todos veem. */
+  allowedRoles?: readonly NavItemRole[];
 };
 
+/** Ordem dos grupos na sidebar */
+export const NAV_GROUP_ORDER: readonly NavItem['group'][] = [
+  'Principal',
+  'Chamados',
+  'Gestão',
+  'Admin',
+];
+
 export const NAV_ITEMS: readonly NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Meus Chamados', href: '/meus-chamados', icon: Ticket },
-  { label: 'Chamados Atribuídos', href: '/chamados-atribuidos', icon: TicketCheck },
-  { label: 'Gestão de Chamados', href: '/gestao', icon: ClipboardList },
-  { label: 'Relatório IMR', href: '/relatorio-imr', icon: FileText },
-  { label: 'Catálogo de Serviços', href: '/catalogo', icon: Wrench },
-  { label: 'Unidades', href: '/unidades', icon: Building2 },
-  { label: 'Usuários', href: '/usuarios', icon: Users },
-  { label: 'Configurações SLA', href: '/sla', icon: Settings },
-] as const;
+  {
+    label: 'Dashboard',
+    href: '/dashboard',
+    icon: LayoutDashboard,
+    group: 'Principal',
+  },
+  {
+    label: 'Meus Chamados',
+    href: '/meus-chamados',
+    icon: Ticket,
+    group: 'Principal',
+  },
+  {
+    label: 'Chamados Atribuídos',
+    href: '/chamados-atribuidos',
+    icon: TicketCheck,
+    group: 'Chamados',
+    allowedRoles: ['Técnico'],
+  },
+  {
+    label: 'Gestão',
+    href: '/gestao',
+    icon: ClipboardList,
+    group: 'Gestão',
+    allowedRoles: ['Admin', 'Preposto'],
+  },
+  {
+    label: 'Relatórios',
+    href: '/relatorios/imr',
+    icon: FileText,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'Catálogo',
+    href: '/catalogo',
+    icon: Wrench,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'Unidades',
+    href: '/unidades',
+    icon: Building2,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'Usuários',
+    href: '/usuarios',
+    icon: Users,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'SLA',
+    href: '/sla',
+    icon: Settings,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
+];

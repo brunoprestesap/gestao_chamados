@@ -6,6 +6,7 @@ import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import { ChamadoCreateSchema, ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
@@ -50,6 +51,8 @@ function normalizeChamado(
     localExato: (c.localExato as string) ?? '',
     tipoServico: (c.tipoServico as string) ?? '',
     naturezaAtendimento: (c.naturezaAtendimento as string) ?? '',
+    requestedAttendanceNature: (c.requestedAttendanceNature as string) ?? null,
+    attendanceNature: (c.attendanceNature as string) ?? null,
     grauUrgencia: (c.grauUrgencia as string) ?? 'Normal',
     telefoneContato: (c.telefoneContato as string) ?? '',
     subtypeId: c.subtypeId ? String(c.subtypeId) : null,
@@ -135,7 +138,7 @@ export async function POST(req: Request) {
 
   console.log('Gerando ticket_number:', ticket_number);
 
-  // Prepara os dados do chamado
+  // Prepara os dados do chamado (natureza SOLICITADA apenas informativa)
   const chamadoData = {
     ticket_number: ticket_number.trim(),
     titulo,
@@ -144,6 +147,7 @@ export async function POST(req: Request) {
     localExato: data.localExato,
     tipoServico: data.tipoServico,
     naturezaAtendimento: data.naturezaAtendimento,
+    requestedAttendanceNature: toAttendanceNature(data.naturezaAtendimento),
     grauUrgencia: data.grauUrgencia,
     telefoneContato: data.telefoneContato ?? '',
     subtypeId:

@@ -59,7 +59,11 @@ export function Sidebar() {
         <ScrollArea className="flex-1">
           <nav className="px-3 py-4">
             <div className="space-y-1">
-              {NAV_ITEMS.map((item) => {
+              {NAV_ITEMS.filter((item) => {
+                if (!user?.role) return false;
+                if (!item.allowedRoles) return true;
+                return item.allowedRoles.includes(user.role as (typeof item.allowedRoles)[number]);
+              }).map((item) => {
                 const active =
                   item.href === '/' ? pathname === '/' : pathname?.startsWith(item.href);
 

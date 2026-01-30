@@ -20,11 +20,11 @@ const UserSchema = new Schema(
 
     isActive: { type: Boolean, default: true },
 
-    // Campos específicos para Técnico
+    // Campos específicos para Técnico (IDs dos subtipos de serviço = especialidades)
     specialties: [
       {
         type: Schema.Types.ObjectId,
-        ref: 'ServiceCatalog',
+        ref: 'ServiceSubType',
         required: false,
       },
     ],

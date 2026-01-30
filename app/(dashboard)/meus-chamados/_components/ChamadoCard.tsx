@@ -22,6 +22,41 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
+import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
+
+/** Status de exibição do SLA (resolução) a partir de dados do DTO */
+type SlaStatusDisplay = 'no_prazo' | 'proximo_vencimento' | 'atrasado';
+function getSlaDisplayStatus(
+  chamado: ChamadoDTO,
+): SlaStatusDisplay | null {
+  const sla = chamado.sla;
+  const finalPriority = (chamado.finalPriority ?? 'NORMAL') as 'BAIXA' | 'NORMAL' | 'ALTA' | 'EMERGENCIAL';
+  if (!sla?.resolutionDueAt) return null;
+  const now = new Date();
+  const resolutionDueAt = new Date(sla.resolutionDueAt);
+  const resolvedAt = sla.resolvedAt ? new Date(sla.resolvedAt) : null;
+  const resolutionBreachedAt = sla.resolutionBreachedAt ? new Date(sla.resolutionBreachedAt) : null;
+  const resolutionStartAt = sla.computedAt ? new Date(sla.computedAt) : null;
+
+  if (resolutionBreachedAt != null || (now > resolutionDueAt && resolvedAt == null)) return 'atrasado';
+  if (resolvedAt != null) return resolutionBreachedAt != null ? 'atrasado' : 'no_prazo';
+
+  const remainingMs = resolutionDueAt.getTime() - now.getTime();
+  if (remainingMs <= 0) return 'no_prazo';
+  const fourHoursMs = 4 * 60 * 60 * 1000;
+  if (finalPriority === 'ALTA' && remainingMs <= fourHoursMs) return 'proximo_vencimento';
+  if (resolutionStartAt) {
+    const totalMs = resolutionDueAt.getTime() - resolutionStartAt.getTime();
+    if (totalMs > 0 && remainingMs <= totalMs * 0.2) return 'proximo_vencimento';
+  }
+  return 'no_prazo';
+}
+
+const SLA_STATUS_LABELS: Record<SlaStatusDisplay, string> = {
+  no_prazo: 'No prazo',
+  proximo_vencimento: 'Próximo do vencimento',
+  atrasado: 'Atrasado',
+};
 
 import {
   CHAMADO_STATUS_LABELS,
@@ -31,6 +66,17 @@ import {
 } from '../_constants';
 
 // Types
+export type SlaDTO = {
+  responseDueAt: string | null;
+  resolutionDueAt: string | null;
+  responseStartedAt: string | null;
+  resolvedAt: string | null;
+  responseBreachedAt: string | null;
+  resolutionBreachedAt: string | null;
+  computedAt: string | null;
+  configVersion: string | null;
+} | null;
+
 export type ChamadoDTO = {
   _id: string;
   ticket_number: string;
@@ -43,10 +89,13 @@ export type ChamadoDTO = {
   localExato: string;
   tipoServico: string;
   naturezaAtendimento: string;
+  requestedAttendanceNature?: string | null;
+  attendanceNature?: string | null;
   grauUrgencia: string;
   telefoneContato: string;
   subtypeId: string | null;
   catalogServiceId: string | null;
+  finalPriority?: string | null;
   createdAt: string;
   updatedAt: string;
   evaluation?: {
@@ -55,6 +104,7 @@ export type ChamadoDTO = {
     createdAt?: string | null;
     createdByUserId?: string | null;
   } | null;
+  sla?: SlaDTO;
 };
 
 type Props = {
@@ -242,10 +292,28 @@ export function ChamadoCard({
   const formattedDate = useMemo(() => formatDateTime(chamado.createdAt), [chamado.createdAt]);
   const formattedDateShort = useMemo(() => formatDateShort(chamado.createdAt), [chamado.createdAt]);
 
+  /** Urgente com base na natureza APROVADA (nunca na solicitada) */
   const isUrgente = useMemo(
-    () => chamado.naturezaAtendimento === 'Urgente',
-    [chamado.naturezaAtendimento],
+    () =>
+      chamado.attendanceNature === 'URGENTE' ||
+      (chamado.naturezaAtendimento === 'Urgente' && !chamado.attendanceNature),
+    [chamado.attendanceNature, chamado.naturezaAtendimento],
   );
+
+  const slaStatus = useMemo(() => getSlaDisplayStatus(chamado), [chamado]);
+  const slaTooltip = useMemo(() => {
+    const s = chamado.sla;
+    const parts: string[] = [];
+    if (chamado.finalPriority) parts.push(`Prioridade: ${chamado.finalPriority}`);
+    const approvedLabel =
+      chamado.attendanceNature && ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+        ? ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+        : chamado.naturezaAtendimento;
+    if (approvedLabel) parts.push(`Natureza aprovada: ${approvedLabel}`);
+    if (s?.responseDueAt) parts.push(`Prazo resposta: ${formatDateTime(s.responseDueAt)}`);
+    if (s?.resolutionDueAt) parts.push(`Prazo solução: ${formatDateTime(s.resolutionDueAt)}`);
+    return parts.join(' · ');
+  }, [chamado.sla, chamado.finalPriority, chamado.attendanceNature, chamado.naturezaAtendimento]);
 
   const handleCardClick = useCallback(() => {
     if (hideDetailLink) return;
@@ -373,6 +441,24 @@ export function ChamadoCard({
                           className={cn(compact ? 'mr-1 h-3 w-3' : 'mr-1.5 h-3.5 w-3.5')}
                         />
                         Urgente
+                      </Badge>
+                    )}
+                    {chamado.sla && slaStatus != null && (
+                      <Badge
+                        variant="outline"
+                        title={slaTooltip}
+                        className={cn(
+                          'shrink-0',
+                          compact && 'text-[10px]',
+                          slaStatus === 'atrasado' &&
+                            'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200',
+                          slaStatus === 'proximo_vencimento' &&
+                            'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+                          slaStatus === 'no_prazo' &&
+                            'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
+                        )}
+                      >
+                        {SLA_STATUS_LABELS[slaStatus]}
                       </Badge>
                     )}
                   </div>

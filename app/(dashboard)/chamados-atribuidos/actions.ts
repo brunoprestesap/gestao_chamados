@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 
 import { requireTechnician } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { evaluateResolutionBreach } from '@/lib/sla-utils';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import {
@@ -59,13 +60,25 @@ export async function registerExecutionAction(
       concludedAt: now,
     };
 
+    const resolutionBreachedAt = evaluateResolutionBreach(
+      now,
+      doc.sla?.resolutionDueAt ?? null,
+      doc.sla?.resolvedAt ?? null,
+    );
+
+    const updatePayload: Record<string, unknown> = {
+      status: 'concluído',
+      concludedAt: now,
+      'sla.resolvedAt': now,
+    };
+    if (resolutionBreachedAt) {
+      updatePayload['sla.resolutionBreachedAt'] = resolutionBreachedAt;
+    }
+
     const updateResult = await ChamadoModel.updateOne(
       { _id: ticketId, status: 'em atendimento', assignedToUserId: userId },
       {
-        $set: {
-          status: 'concluído',
-          concludedAt: now,
-        },
+        $set: updatePayload,
         $push: {
           executions: executionDoc,
         },

@@ -7,7 +7,15 @@ import { canManage, requireManager, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
+import {
+  computeSlaDueDatesFromConfig,
+  evaluateResponseBreach,
+  SLA_CONFIG_VERSION,
+} from '@/lib/sla-utils';
+import { SlaConfigModel } from '@/models/SlaConfig';
+import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import {
   ClassificarChamadoSchema,
   type ClassificarChamadoInput,
@@ -62,22 +70,51 @@ export async function classificarChamadoAction(
     const now = new Date();
     const userId = new Types.ObjectId(session.userId);
 
+    const slaConfig = await SlaConfigModel.findOne({
+      priority: finalPriority,
+      isActive: true,
+    }).lean();
+    if (!slaConfig) {
+      return {
+        ok: false,
+        error: `Não há configuração de SLA ativa para a prioridade "${finalPriority}". Configure em Configurações SLA (/sla).`,
+      };
+    }
+
+    const { responseDueAt, resolutionDueAt } = computeSlaDueDatesFromConfig(
+      now,
+      slaConfig.responseTargetMinutes,
+      slaConfig.resolutionTargetMinutes,
+      slaConfig.businessHoursOnly,
+    );
+
+    const attendanceNature = toAttendanceNature(naturezaAtendimento);
+
     await ChamadoModel.updateOne(
       { _id: chamadoId },
       {
         $set: {
           status: 'validado',
           naturezaAtendimento,
+          attendanceNature,
           finalPriority,
           classificationNotes: classificationNotes ?? '',
           classifiedByUserId: userId,
           classifiedAt: now,
+          'sla.priority': finalPriority,
+          'sla.responseTargetMinutes': slaConfig.responseTargetMinutes,
+          'sla.resolutionTargetMinutes': slaConfig.resolutionTargetMinutes,
+          'sla.businessHoursOnly': slaConfig.businessHoursOnly,
+          'sla.responseDueAt': responseDueAt,
+          'sla.resolutionDueAt': resolutionDueAt,
+          'sla.computedAt': now,
+          'sla.configVersion': slaConfig.version ?? SLA_CONFIG_VERSION,
         },
       },
     );
 
     const obsParts = [
-      `Natureza: ${naturezaAtendimento}, Prioridade: ${finalPriority}`,
+      `Natureza aprovada: ${naturezaAtendimento}, Prioridade: ${finalPriority}`,
       'Status alterado para Validado.',
     ];
     if (classificationNotes) obsParts.push(`Observações: ${classificationNotes}`);
@@ -90,6 +127,9 @@ export async function classificarChamadoAction(
       statusNovo: 'validado',
       observacoes,
     });
+
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${chamadoId}`);
 
     return { ok: true };
   } catch (e) {
@@ -179,14 +219,14 @@ export async function closeTicketAction(raw: CloseTicketInput): Promise<CloseTic
  * Busca técnicos elegíveis para um chamado e retorna o melhor candidato (menor carga).
  */
 async function findBestTechnician(
-  serviceCatalogId: Types.ObjectId,
+  subtypeId: Types.ObjectId,
   excludeId?: Types.ObjectId,
 ): Promise<{ technician: { _id: Types.ObjectId; name: string } } | null> {
-  // Busca técnicos ativos com a especialidade
+  // Busca técnicos ativos com a especialidade (subtipo)
   const tecnicos = await UserModel.find({
     role: 'Técnico',
     isActive: true,
-    specialties: { $in: [serviceCatalogId] },
+    specialties: { $in: [subtypeId] },
     ...(excludeId ? { _id: { $ne: excludeId } } : {}),
   }).lean();
 
@@ -287,7 +327,19 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       };
     }
 
-    const serviceCatalogId = chamado.catalogServiceId;
+    // Especialidades são subtipos; obtém o subtypeId do serviço catalogado
+    const service = await ServiceCatalogModel.findById(chamado.catalogServiceId)
+      .select('subtypeId')
+      .lean();
+    if (!service?.subtypeId) {
+      return {
+        ok: false,
+        error: 'Serviço catalogado do chamado não possui subtipo definido.',
+      };
+    }
+    // Normaliza para ObjectId (especialidades do técnico = array de subtypeId)
+    const subtypeId = new Types.ObjectId(String(service.subtypeId));
+
     const assignedByUserId = new Types.ObjectId(session.userId);
     const now = new Date();
     let selectedTechnician: { _id: Types.ObjectId; name: string };
@@ -306,11 +358,11 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
         return { ok: false, error: 'Usuário selecionado não é um técnico ativo.' };
       }
 
-      // Verifica se tem a especialidade
+      // Verifica se o técnico tem a especialidade (subtipo) exigida pelo serviço catalogado do chamado
       const hasSpecialty =
         tecnico.specialties &&
         Array.isArray(tecnico.specialties) &&
-        tecnico.specialties.some((s) => String(s) === String(serviceCatalogId));
+        tecnico.specialties.some((s) => String(s) === String(subtypeId));
 
       if (!hasSpecialty) {
         return {
@@ -329,7 +381,7 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
 
       if (currentLoad >= maxAssignedTickets) {
         // Técnico sobrecarregado - faz fallback
-        const fallback = await findBestTechnician(serviceCatalogId, preferredId);
+        const fallback = await findBestTechnician(subtypeId, preferredId);
         if (!fallback) {
           return {
             ok: false,
@@ -347,7 +399,7 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       }
     } else {
       // Sem preferência - busca automaticamente
-      const best = await findBestTechnician(serviceCatalogId);
+      const best = await findBestTechnician(subtypeId);
       if (!best) {
         return {
           ok: false,
@@ -358,21 +410,31 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       strategy = 'FALLBACK';
     }
 
-    // Atualiza o chamado de forma atômica (Validado ou Em validação) e altera status para Em atendimento
+    const responseStartedAt = now;
+    const responseBreachedAt = evaluateResponseBreach(
+      now,
+      chamado.sla?.responseDueAt ?? null,
+      chamado.sla?.responseStartedAt ?? null,
+    );
+
+    const updatePayload: Record<string, unknown> = {
+      status: 'em atendimento',
+      assignedToUserId: selectedTechnician._id,
+      assignedAt: now,
+      assignedByUserId,
+      'sla.responseStartedAt': responseStartedAt,
+    };
+    if (responseBreachedAt) {
+      updatePayload['sla.responseBreachedAt'] = responseBreachedAt;
+    }
+
     const updateResult = await ChamadoModel.findOneAndUpdate(
       {
         _id: ticketId,
         status: { $in: ['validado', 'emvalidacao'] },
         $or: [{ assignedToUserId: { $exists: false } }, { assignedToUserId: null }],
       },
-      {
-        $set: {
-          status: 'em atendimento',
-          assignedToUserId: selectedTechnician._id,
-          assignedAt: now,
-          assignedByUserId,
-        },
-      },
+      { $set: updatePayload },
       { new: true },
     );
 
@@ -391,8 +453,11 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       action: 'atribuicao_tecnico',
       statusAnterior: chamado.status,
       statusNovo: 'em atendimento',
-      observacoes: `Atribuído a ${selectedTechnician.name} (${strategy === 'MANUAL' ? 'Manual' : 'Fallback automático'}). Status alterado para Em atendimento. Serviço: ${String(serviceCatalogId)}`,
+      observacoes: `Atribuído a ${selectedTechnician.name} (${strategy === 'MANUAL' ? 'Manual' : 'Fallback automático'}). Status alterado para Em atendimento. Especialidade: ${String(subtypeId)}`,
     });
+
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${ticketId}`);
 
     return {
       ok: true,
@@ -467,10 +532,20 @@ export async function reassignTicketAction(
       return { ok: false, error: 'Usuário selecionado não é um técnico ativo.' };
     }
 
+    // Especialidades são subtipos; obtém o subtypeId do serviço do chamado
+    const service = await ServiceCatalogModel.findById(chamado.catalogServiceId)
+      .select('subtypeId')
+      .lean();
+    if (!service?.subtypeId) {
+      return { ok: false, error: 'Serviço catalogado do chamado não possui subtipo definido.' };
+    }
+    // Normaliza para ObjectId (especialidades do técnico = array de subtypeId)
+    const subtypeId = new Types.ObjectId(String(service.subtypeId));
+
     const hasSpecialty =
       newTech.specialties &&
       Array.isArray(newTech.specialties) &&
-      newTech.specialties.some((s) => String(s) === String(chamado.catalogServiceId));
+      newTech.specialties.some((s) => String(s) === String(subtypeId));
     if (!hasSpecialty) {
       return {
         ok: false,
@@ -493,16 +568,29 @@ export async function reassignTicketAction(
     const now = new Date();
     const reassignedByUserId = new Types.ObjectId(session.userId);
 
+    const slaUpdate: Record<string, unknown> = {};
+    const responseStartedAt = chamado.sla?.responseStartedAt ?? now;
+    if (!chamado.sla?.responseStartedAt) {
+      slaUpdate['sla.responseStartedAt'] = now;
+      const responseBreachedAt = evaluateResponseBreach(
+        now,
+        chamado.sla?.responseDueAt ?? null,
+        null,
+      );
+      if (responseBreachedAt) slaUpdate['sla.responseBreachedAt'] = responseBreachedAt;
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      assignedToUserId: newTechId,
+      reassignedAt: now,
+      reassignedByUserId,
+      reassignmentNotes: (notes ?? '').trim() || '',
+      ...slaUpdate,
+    };
+
     const updated = await ChamadoModel.findOneAndUpdate(
       { _id: ticketId, status: 'em atendimento' },
-      {
-        $set: {
-          assignedToUserId: newTechId,
-          reassignedAt: now,
-          reassignedByUserId,
-          reassignmentNotes: (notes ?? '').trim() || '',
-        },
-      },
+      { $set: updatePayload },
       { new: true },
     );
 

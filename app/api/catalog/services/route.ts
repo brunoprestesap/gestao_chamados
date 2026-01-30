@@ -1,6 +1,7 @@
 import '@/models/ServiceType';
 import '@/models/ServiceSubType';
 
+import { MongoServerError } from 'mongodb';
 import { NextResponse } from 'next/server';
 
 import { dbConnect } from '@/lib/db';
@@ -68,18 +69,31 @@ export async function POST(req: Request) {
     }
   }
 
-  const created = await ServiceCatalogModel.create({
-    code: String(body.code).trim(),
-    name: String(body.name).trim(),
-    typeId: String(body.typeId).trim(),
-    subtypeId: String(body.subtypeId).trim(),
-    description: body.description ? String(body.description).trim() : '',
-    priorityDefault: body.priorityDefault || 'Normal',
-    estimatedHours: Number(body.estimatedHours ?? 0),
-    materials: body.materials ? String(body.materials).trim() : '',
-    procedure: body.procedure ? String(body.procedure).trim() : '',
-    isActive: body.isActive ?? true,
-  });
+  try {
+    const created = await ServiceCatalogModel.create({
+      code: String(body.code).trim(),
+      name: String(body.name).trim(),
+      typeId: String(body.typeId).trim(),
+      subtypeId: String(body.subtypeId).trim(),
+      description: body.description ? String(body.description).trim() : '',
+      priorityDefault: body.priorityDefault || 'Normal',
+      estimatedHours: Number(body.estimatedHours ?? 0),
+      materials: body.materials ? String(body.materials).trim() : '',
+      procedure: body.procedure ? String(body.procedure).trim() : '',
+      isActive: body.isActive ?? true,
+    });
 
-  return NextResponse.json({ item: created }, { status: 201 });
+    return NextResponse.json({ item: created }, { status: 201 });
+  } catch (err) {
+    if (err instanceof MongoServerError && err.code === 11000) {
+      const field = err.keyValue?.code != null ? 'code' : Object.keys(err.keyValue ?? {})[0];
+      if (field === 'code') {
+        return NextResponse.json(
+          { error: 'Já existe um serviço com este código. Escolha outro código.' },
+          { status: 409 },
+        );
+      }
+    }
+    throw err;
+  }
 }

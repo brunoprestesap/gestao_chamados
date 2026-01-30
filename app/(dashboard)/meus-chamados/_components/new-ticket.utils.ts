@@ -23,8 +23,10 @@ export function buildTypeIdByTipo(types: { id: string; name: string }[]): Map<st
 }
 
 export const NATUREZA_DESCRIPTIONS: Record<'Padrão' | 'Urgente', string> = {
-  Padrão: 'Atendimento em horário comercial (08h-18h, seg-sex). Prazo: 3 dias úteis.',
-  Urgente: 'Atendimento a qualquer horário. Apenas Fiscal/Gestor pode autorizar.',
+  Padrão:
+    'Atendimento em horário comercial (08h–18h, seg–sex). Sujeito à análise da equipe de gestão.',
+  Urgente:
+    'Solicitação de atendimento fora do horário comercial. Depende de autorização da gestão.',
 };
 
 export const FORM_GRID_CLASS = 'grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5';

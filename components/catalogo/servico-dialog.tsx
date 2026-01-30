@@ -3,6 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { SubtypeSelectWithCreate } from '@/components/catalogo/subtype-select-with-create';
 import { PRIORITIES } from '@/shared/catalog/service.constants';
 import { ServiceCreateSchema } from '@/shared/catalog/service.schemas';
 
@@ -169,7 +171,7 @@ export function ServicoDialog({
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data?.error || 'Erro ao salvar serviço');
+      toast.error(data?.error || 'Erro ao salvar serviço');
       return;
     }
 
@@ -248,21 +250,16 @@ export function ServicoDialog({
                 name="subtypeId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Subtipo</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange} disabled={!typeId}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o subtipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {subtypes.map((s) => (
-                          <SelectItem key={s._id} value={s._id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SubtypeSelectWithCreate
+                      typeId={typeId}
+                      value={field.value}
+                      onChange={field.onChange}
+                      subtypes={subtypes}
+                      onSubtypesRefetch={() => fetchSubtypes(typeId)}
+                      disabled={!typeId}
+                      placeholder="Selecione o subtipo"
+                      label="Subtipo"
+                    />
                     <FormMessage />
                   </FormItem>
                 )}

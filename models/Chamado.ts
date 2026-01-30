@@ -1,6 +1,9 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
-import { CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
+import {
+  ATTENDANCE_NATURE_VALUES,
+  CHAMADO_STATUSES,
+} from '@/shared/chamados/chamado.constants';
 import {
   GRAU_URGENCIA_OPTIONS,
   NATUREZA_OPTIONS,
@@ -38,7 +41,19 @@ const ChamadoSchema = new Schema(
     naturezaAtendimento: {
       type: String,
       enum: NATUREZA_OPTIONS,
-      required: true,
+      required: false,
+    },
+    /** Natureza SOLICITADA na abertura (informativa); NUNCA usada para SLA */
+    requestedAttendanceNature: {
+      type: String,
+      enum: ATTENDANCE_NATURE_VALUES,
+      required: false,
+    },
+    /** Natureza APROVADA na classificação (Admin/Preposto); usada para regras e SLA */
+    attendanceNature: {
+      type: String,
+      enum: ATTENDANCE_NATURE_VALUES,
+      required: false,
     },
     grauUrgencia: {
       type: String,
@@ -57,7 +72,7 @@ const ChamadoSchema = new Schema(
       ref: 'ServiceCatalog',
       required: false,
     },
-    // Classificação (Preposto/Admin) — naturezaAtendimento unificado (criação + classificação)
+    // Classificação (Preposto/Admin)
     finalPriority: {
       type: String,
       enum: ['BAIXA', 'NORMAL', 'ALTA', 'EMERGENCIAL'],
@@ -98,6 +113,21 @@ const ChamadoSchema = new Schema(
         concludedAt: { type: Date, required: true },
       },
     ],
+    // SLA — snapshot da config ativa no momento da classificação (imutável)
+    sla: {
+      priority: { type: String, enum: ['BAIXA', 'NORMAL', 'ALTA', 'EMERGENCIAL'], required: false },
+      responseTargetMinutes: { type: Number, required: false },
+      resolutionTargetMinutes: { type: Number, required: false },
+      businessHoursOnly: { type: Boolean, required: false },
+      responseDueAt: { type: Date, required: false },
+      resolutionDueAt: { type: Date, required: false },
+      responseStartedAt: { type: Date, required: false },
+      resolvedAt: { type: Date, required: false },
+      responseBreachedAt: { type: Date, required: false },
+      resolutionBreachedAt: { type: Date, required: false },
+      computedAt: { type: Date, required: false },
+      configVersion: { type: String, required: false, trim: true },
+    },
   },
   { timestamps: true },
 );

@@ -63,12 +63,17 @@ interface UnitApiResponse {
   name: string;
 }
 
-type ServiceCatalogOption = {
+type SubtypeOption = {
   _id: string;
-  code: string;
   name: string;
+  typeName?: string;
   isActive?: boolean;
 };
+
+/** Exibe "Tipo - Subtipo" (ex.: Manutenção Predial - Elétrica) */
+function subtypeLabel(s: SubtypeOption): string {
+  return s.typeName ? `${s.typeName} - ${s.name}` : s.name;
+}
 
 type Props = {
   open: boolean;
@@ -81,7 +86,7 @@ type Props = {
 export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [units, setUnits] = useState<UnitOption[]>([]);
-  const [serviceCatalogs, setServiceCatalogs] = useState<ServiceCatalogOption[]>([]);
+  const [subtypes, setSubtypes] = useState<SubtypeOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = mode === 'edit' && !!initialData?._id;
@@ -186,23 +191,23 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
     }
   }, []);
 
-  const fetchServiceCatalogs = useCallback(async () => {
+  const fetchSubtypes = useCallback(async () => {
     try {
-      const res = await fetch('/api/catalog/services', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Erro ao carregar serviços');
-      const data = (await res.json().catch(() => ({}))) as { items?: ServiceCatalogOption[] };
-      // Filtra apenas serviços ativos
-      setServiceCatalogs((data.items || []).filter((s) => s.isActive !== false));
+      const res = await fetch('/api/catalog/subtypes', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Erro ao carregar subtipos');
+      const data = (await res.json().catch(() => ({}))) as { items?: SubtypeOption[] };
+      // Filtra apenas subtipos ativos
+      setSubtypes((data.items || []).filter((s) => s.isActive !== false));
     } catch (err) {
-      console.error('Erro ao buscar serviços:', err);
+      console.error('Erro ao buscar subtipos:', err);
     }
   }, []);
 
   useEffect(() => {
     if (!open) return;
     fetchUnits();
-    fetchServiceCatalogs();
-  }, [open, fetchUnits, fetchServiceCatalogs]);
+    fetchSubtypes();
+  }, [open, fetchUnits, fetchSubtypes]);
 
   const isTechnician = form.watch('role') === 'Técnico';
 
@@ -519,11 +524,11 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
                               <SelectValue placeholder="Selecione uma especialidade para adicionar" />
                             </SelectTrigger>
                             <SelectContent>
-                              {serviceCatalogs
+                              {subtypes
                                 .filter((s) => !field.value?.includes(s._id))
                                 .map((s) => (
                                   <SelectItem key={s._id} value={s._id} className="text-sm">
-                                    {s.code} - {s.name}
+                                    {subtypeLabel(s)}
                                   </SelectItem>
                                 ))}
                             </SelectContent>
@@ -531,18 +536,14 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
                           {field.value && field.value.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                               {field.value.map((specialtyId) => {
-                                const specialty = serviceCatalogs.find(
-                                  (s) => s._id === specialtyId,
-                                );
-                                if (!specialty) return null;
+                                const subtype = subtypes.find((s) => s._id === specialtyId);
+                                if (!subtype) return null;
                                 return (
                                   <div
                                     key={specialtyId}
                                     className="flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs"
                                   >
-                                    <span>
-                                      {specialty.code} - {specialty.name}
-                                    </span>
+                                    <span>{subtypeLabel(subtype)}</span>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -551,7 +552,7 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
                                         );
                                       }}
                                       className="ml-1 text-muted-foreground hover:text-destructive"
-                                      aria-label={`Remover ${specialty.name}`}
+                                      aria-label={`Remover ${subtypeLabel(subtype)}`}
                                     >
                                       ×
                                     </button>

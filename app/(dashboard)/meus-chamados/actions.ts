@@ -8,6 +8,7 @@ import { requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import type { NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
 import {
   SubmitEvaluationSchema,
@@ -50,7 +51,7 @@ export async function createTicketAction(
 
     console.log('Gerando ticket_number:', ticket_number);
 
-    // Prepara os dados do chamado
+    // Prepara os dados do chamado (natureza SOLICITADA apenas informativa)
     const chamadoData = {
       ticket_number: ticket_number.trim(),
       titulo,
@@ -59,6 +60,7 @@ export async function createTicketAction(
       localExato: data.localExato,
       tipoServico: data.tipoServico,
       naturezaAtendimento: data.naturezaAtendimento,
+      requestedAttendanceNature: toAttendanceNature(data.naturezaAtendimento),
       grauUrgencia: data.grauUrgencia,
       telefoneContato: data.telefoneContato ?? '',
       subtypeId:
