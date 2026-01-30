@@ -30,8 +30,9 @@ type ServiceItem = {
   code: string;
   name: string;
   description?: string;
-  type: string;
-  subtype: string;
+  /** API pode retornar id (string) ou objeto populado com name */
+  type: string | { _id?: string; name: string };
+  subtype: string | { _id?: string; name: string };
   typeId: string;
   subtypeId: string;
   priorityDefault: 'Baixa' | 'Normal' | 'Alta' | 'Emergencial';
@@ -186,8 +187,12 @@ export function CatalogoServicosClient() {
 
                     <TableCell>
                       <div className="space-y-1">
-                        <Badge variant="secondary">{it.type.name}</Badge>
-                        <p className="text-xs text-muted-foreground">{it.subtype.name}</p>
+                        <Badge variant="secondary">
+                          {typeof it.type === 'string' ? it.type : it.type.name}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground">
+                          {typeof it.subtype === 'string' ? it.subtype : it.subtype.name}
+                        </p>
                       </div>
                     </TableCell>
 

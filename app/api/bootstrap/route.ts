@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import { dbConnect } from '@/lib/db';
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
     name: parsed.data.name,
     email: parsed.data.email ?? '',
     role: 'Admin', // força Admin no primeiro user
-    unitId: parsed.data.unitId ?? null,
+    unitId: parsed.data.unitId ? new Types.ObjectId(parsed.data.unitId) : undefined,
     passwordHash,
     isActive: true,
   });

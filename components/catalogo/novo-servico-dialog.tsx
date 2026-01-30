@@ -56,7 +56,7 @@ export function NovoServicoDialog({
   type ServiceCreateForm = z.infer<typeof ServiceCreateSchema>;
 
   const form = useForm<ServiceCreateForm>({
-    resolver: zodResolver(ServiceCreateSchema),
+    resolver: zodResolver(ServiceCreateSchema) as import('react-hook-form').Resolver<ServiceCreateForm>,
     defaultValues: {
       code: '',
       name: '',

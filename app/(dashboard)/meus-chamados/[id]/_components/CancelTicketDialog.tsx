@@ -21,6 +21,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
+import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,12 +29,12 @@ import { z } from 'zod';
 const CancelTicketSchema = z.object({
   observacoes: z
     .string()
-    .optional()
     .default('')
     .transform((v) => (v ?? '').trim()),
 });
 
-type CancelTicketFormValues = z.infer<typeof CancelTicketSchema>;
+/** Tipo dos valores do formulário após validação (output do schema) */
+type CancelTicketFormValues = z.output<typeof CancelTicketSchema>;
 
 type Props = {
   open: boolean;
@@ -45,7 +46,7 @@ export function CancelTicketDialog({ open, onOpenChange, onCancel }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<CancelTicketFormValues>({
-    resolver: zodResolver(CancelTicketSchema),
+    resolver: zodResolver(CancelTicketSchema) as Resolver<CancelTicketFormValues>,
     defaultValues: {
       observacoes: '',
     },

@@ -11,18 +11,18 @@ export const NewTicketFormSchema = z.object({
     .transform((v) => (v ?? '').trim())
     .refine((v) => v.length > 0, 'Informe o local exato'),
   tipoServico: z.enum(TIPO_SERVICO_OPTIONS, {
-    errorMap: () => ({ message: 'Selecione o tipo de serviço' }),
+    error: 'Selecione o tipo de serviço',
   }),
   descricao: z
     .string()
     .transform((v) => (v ?? '').trim())
     .refine((v) => v.length > 0, 'Descreva o problema encontrado'),
   naturezaAtendimento: z.enum(NATUREZA_OPTIONS, {
-    errorMap: () => ({ message: 'Selecione a natureza do atendimento' }),
+    error: 'Selecione a natureza do atendimento',
   }),
   grauUrgencia: z
     .enum(GRAU_URGENCIA_OPTIONS, {
-      required_error: 'Grau de urgência é obrigatório',
+      error: 'Grau de urgência é obrigatório',
     })
     .default('Normal'),
   telefoneContato: z
@@ -39,4 +39,5 @@ export const NewTicketFormSchema = z.object({
     .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined)),
 });
 
+export type NewTicketFormInput = z.input<typeof NewTicketFormSchema>;
 export type NewTicketFormValues = z.infer<typeof NewTicketFormSchema>;

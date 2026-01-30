@@ -48,7 +48,7 @@ export function UnidadeDialog({
   const desc = mode === 'create' ? 'Cadastre uma unidade.' : 'Atualize os dados da unidade.';
 
   const form = useForm<UnitForm>({
-    resolver: zodResolver(UnitCreateSchema),
+    resolver: zodResolver(UnitCreateSchema) as import('react-hook-form').Resolver<UnitForm>,
     defaultValues: {
       name: '',
       floor: '',

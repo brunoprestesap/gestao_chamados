@@ -1,6 +1,5 @@
 // auth.config.ts
-import type { NextAuthConfig } from 'next-auth';
-
+// next-auth@5 beta não exporta NextAuthConfig de forma que o TS resolva; usamos shape mínima.
 export const authConfig = {
   pages: { signIn: '/login' },
-} satisfies NextAuthConfig;
+} as const;

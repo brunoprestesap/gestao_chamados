@@ -51,6 +51,7 @@ import {
   GRAU_URGENCIA_OPTIONS,
   NATUREZA_OPTIONS,
   NewTicketFormSchema,
+  type NewTicketFormInput,
   type NewTicketFormValues,
   TIPO_SERVICO_OPTIONS,
 } from '@/shared/chamados/new-ticket.schemas';
@@ -74,14 +75,14 @@ type Props = {
 const defaultValues = {
   unitId: '',
   localExato: '',
-  tipoServico: undefined as NewTicketFormValues['tipoServico'] | undefined,
+  tipoServico: undefined,
   descricao: '',
-  naturezaAtendimento: undefined as NewTicketFormValues['naturezaAtendimento'] | undefined,
+  naturezaAtendimento: undefined,
   grauUrgencia: 'Normal' as const,
   telefoneContato: '',
   subtypeId: '',
   catalogServiceId: '',
-};
+} as unknown as NewTicketFormInput;
 
 export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
@@ -90,7 +91,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
   const [subtypes, setSubtypes] = useState<SubtypeOption[]>([]);
   const [catalogServices, setCatalogServices] = useState<CatalogServiceOption[]>([]);
 
-  const form = useForm<NewTicketFormValues>({
+  const form = useForm<NewTicketFormInput>({
     resolver: zodResolver(NewTicketFormSchema),
     defaultValues,
   });
@@ -277,10 +278,21 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogServiceId, catalogServices]);
 
-  async function onSubmit(values: NewTicketFormValues) {
+  async function onSubmit(values: NewTicketFormInput) {
     form.clearErrors('root');
     setSubmitting(true);
-    const result = await createTicketAction(values);
+    const payload: NewTicketFormValues = {
+      unitId: values.unitId,
+      localExato: values.localExato,
+      tipoServico: values.tipoServico,
+      descricao: values.descricao,
+      naturezaAtendimento: values.naturezaAtendimento,
+      grauUrgencia: values.grauUrgencia ?? 'Normal',
+      telefoneContato: values.telefoneContato?.trim() || undefined,
+      subtypeId: values.subtypeId?.trim() || undefined,
+      catalogServiceId: values.catalogServiceId?.trim() || undefined,
+    };
+    const result = await createTicketAction(payload);
     setSubmitting(false);
     if (!result.ok) {
       form.setError('root', { message: result.error });

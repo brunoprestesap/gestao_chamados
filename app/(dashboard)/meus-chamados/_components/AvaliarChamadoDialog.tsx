@@ -98,7 +98,7 @@ export function AvaliarChamadoDialog({ open, onOpenChange, chamado, onSuccess }:
         const result: SubmitEvaluationResult = await submitTicketEvaluationAction({
           ticketId: chamado._id,
           rating: values.rating,
-          ...(values.comment.trim() ? { comment: values.comment.trim() } : {}),
+          comment: values.comment.trim(),
         });
         if (result.ok) {
           onOpenChange(false);

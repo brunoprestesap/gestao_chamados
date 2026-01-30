@@ -67,7 +67,7 @@ export function EncerrarChamadoDialog({ open, onOpenChange, chamadoId, onSuccess
       try {
         const result: CloseTicketResult = await closeTicketAction({
           ticketId: chamadoId,
-          closureNotes: values.closureNotes ? values.closureNotes : undefined,
+          closureNotes: values.closureNotes ?? '',
         });
         if (result.ok) {
           onOpenChange(false);

@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Wrench } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -30,7 +30,7 @@ const LoginFormSchema = z.object({
 
 type LoginForm = z.infer<typeof LoginFormSchema>;
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const search = useSearchParams();
   const callbackUrl = search.get('callbackUrl') || '/dashboard';
@@ -181,5 +181,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen w-full flex items-center justify-center bg-linear-to-br from-slate-100 via-blue-50/80 to-indigo-100/90 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/90 p-4">
+          <div className="text-sm text-muted-foreground">Carregando...</div>
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }

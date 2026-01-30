@@ -91,7 +91,7 @@ export function ServicoDialog({
   };
 
   const form = useForm<ServiceForm>({
-    resolver: zodResolver(ServiceCreateSchema),
+    resolver: zodResolver(ServiceCreateSchema) as import('react-hook-form').Resolver<ServiceForm>,
     defaultValues,
   });
 
@@ -109,7 +109,7 @@ export function ServicoDialog({
       (async () => {
         const list = await fetchSubtypes(defaultValues.typeId);
         // garante que o subtypeId exista na lista (caso item esteja inativo)
-        const exists = list?.some((s) => String(s._id) === String(defaultValues.subtypeId));
+        const exists = list?.some((s: SubtypeItem) => String(s._id) === String(defaultValues.subtypeId));
         if (!exists) form.setValue('subtypeId', '');
       })();
     }

@@ -9,7 +9,7 @@ export const ChamadoHistoryCreateSchema = z.object({
   chamadoId: objectId.min(1, 'ID do chamado é obrigatório'),
   userId: objectId.min(1, 'ID do usuário é obrigatório'),
   action: z.enum(CHAMADO_HISTORY_ACTIONS, {
-    errorMap: () => ({ message: 'Tipo de ação inválido' }),
+    error: 'Tipo de ação inválido',
   }),
   statusAnterior: z.enum(CHAMADO_STATUSES).nullable().optional(),
   statusNovo: z.enum(CHAMADO_STATUSES).nullable().optional(),
