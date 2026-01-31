@@ -181,8 +181,8 @@ export function ServicoDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !submitting && onOpenChange(v)}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{descriptionText}</DialogDescription>
         </DialogHeader>
@@ -349,16 +349,17 @@ export function ServicoDialog({
               )}
             />
 
-            <DialogFooter className="gap-2">
+            <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => onOpenChange(false)}
                 disabled={submitting}
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
                 {submitting ? 'Salvando...' : 'Salvar'}
               </Button>
             </DialogFooter>
