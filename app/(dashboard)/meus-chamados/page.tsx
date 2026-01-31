@@ -80,110 +80,129 @@ export default function MeusChamadosPage() {
   }, [items]);
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <PageHeader
-          title="Meus Chamados"
-          subtitle="Visualize e filtre seus chamados por status ou texto"
-        />
-        <Button onClick={() => setDialogOpen(true)} className="w-full shrink-0 gap-2 sm:w-auto">
-          <Plus className="h-4 w-4" />
-          Novo chamado
-        </Button>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <div className="relative w-full min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 shrink-0 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por título ou descrição..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="min-w-0 pl-9"
-            aria-label="Buscar chamados"
+    <div className="mx-auto w-full max-w-[1920px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="space-y-4 sm:space-y-5 md:space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <PageHeader
+            title="Meus Chamados"
+            subtitle="Visualize e filtre seus chamados por status ou texto"
           />
+          <Button
+            onClick={() => setDialogOpen(true)}
+            className="w-full shrink-0 gap-2 sm:w-auto sm:min-w-[140px]"
+          >
+            <Plus className="h-4 w-4 shrink-0" aria-hidden />
+            Novo chamado
+          </Button>
         </div>
-        <div className="w-full shrink-0 sm:w-56">
-          <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
-            <SelectTrigger className="w-full" aria-label="Filtrar por status">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
-      {loading ? (
-        <div className="grid place-items-center gap-4 py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Carregando chamados...</p>
-        </div>
-      ) : items.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 grid h-14 w-14 place-items-center rounded-full bg-muted">
-              <Ticket className="h-7 w-7 text-muted-foreground" />
-            </div>
-            <p className="font-medium text-foreground">Nenhum chamado encontrado</p>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{emptyMessage}</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border bg-muted/30 pb-2">
-          <div className="flex flex-col gap-4 p-3 sm:p-4 md:min-w-max md:flex-row md:gap-4">
-            {KANBAN_STATUSES.map((statusKey) => {
-              const columnItems = itemsByStatus[statusKey] ?? [];
-              const label = CHAMADO_STATUS_LABELS[statusKey];
-              return (
-                <div
-                  key={statusKey}
-                  className="flex min-h-0 w-full shrink-0 flex-col rounded-lg border bg-card shadow-sm md:w-[300px]"
-                >
-                  <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5 sm:px-4 sm:py-3">
-                    <span className="truncate font-semibold text-foreground">{label}</span>
-                    <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-sm font-medium text-muted-foreground">
-                      {columnItems.length}
-                    </span>
-                  </div>
-                  <ScrollArea className="max-h-[400px] min-h-[200px] md:max-h-none md:h-[calc(100vh-16rem)] md:min-h-[280px]">
-                    <div className="flex flex-col gap-3 p-3">
-                      {columnItems.length === 0 ? (
-                        <p className="py-6 text-center text-sm text-muted-foreground md:py-8">
-                          Nenhum chamado neste status
-                        </p>
-                      ) : (
-                        columnItems.map((c) => (
-                          <ChamadoCard
-                            key={c._id}
-                            compact
-                            chamado={c}
-                            showAvaliar
-                            onAvaliar={(ch) => {
-                              setAvaliarChamado({
-                                _id: ch._id,
-                                ticket_number: ch.ticket_number,
-                                titulo: ch.titulo,
-                                assignedToUserId: ch.assignedToUserId ?? null,
-                              });
-                              setAvaliarDialogOpen(true);
-                            }}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </ScrollArea>
-                </div>
-              );
-            })}
+        {/* Filtros: empilha em mobile, linha em sm+ */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+          <div className="relative w-full min-w-0 sm:flex-1 sm:max-w-md">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              placeholder="Buscar por título ou descrição..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="min-w-0 pl-9 text-base sm:text-sm"
+              aria-label="Buscar chamados"
+            />
+          </div>
+          <div className="w-full shrink-0 sm:w-auto sm:min-w-[180px]">
+            <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+              <SelectTrigger className="w-full sm:w-full" aria-label="Filtrar por status">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      )}
+
+        {loading ? (
+          <div className="grid min-h-[320px] place-items-center gap-4 rounded-xl border border-dashed bg-muted/20 py-16 sm:min-h-[360px]">
+            <Loader2
+              className="h-8 w-8 animate-spin text-muted-foreground sm:h-10 sm:w-10"
+              aria-hidden
+            />
+            <p className="text-sm text-muted-foreground sm:text-base">Carregando chamados...</p>
+          </div>
+        ) : items.length === 0 ? (
+          <Card className="overflow-hidden border-dashed">
+            <CardContent className="flex flex-col items-center justify-center px-4 py-12 text-center sm:py-16">
+              <div className="mb-4 grid h-12 w-12 place-items-center rounded-full bg-muted sm:h-14 sm:w-14">
+                <Ticket className="h-6 w-6 text-muted-foreground sm:h-7 sm:w-7" aria-hidden />
+              </div>
+              <p className="font-medium text-foreground sm:text-lg">Nenhum chamado encontrado</p>
+              <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{emptyMessage}</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="relative">
+            {/* Kanban: scroll horizontal em telas pequenas, colunas flexíveis em desktop */}
+            <div className="overflow-x-auto overflow-y-hidden rounded-xl border bg-muted/20 pb-2 scroll-smooth [-webkit-overflow-scrolling:touch]">
+              <div className="inline-flex min-w-0 gap-3 p-3 sm:gap-4 sm:p-4 md:min-w-full md:flex md:flex-nowrap md:justify-start lg:gap-5">
+                {KANBAN_STATUSES.map((statusKey) => {
+                  const columnItems = itemsByStatus[statusKey] ?? [];
+                  const label = CHAMADO_STATUS_LABELS[statusKey];
+                  return (
+                    <div
+                      key={statusKey}
+                      className="flex h-full min-h-0 w-[280px] shrink-0 flex-col rounded-lg border bg-card shadow-sm sm:w-[300px] md:flex-1 md:min-w-0 md:max-w-[320px] lg:max-w-[340px]"
+                    >
+                      <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5 sm:px-4 sm:py-3">
+                        <span className="truncate text-sm font-semibold text-foreground sm:text-base">
+                          {label}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground sm:text-sm">
+                          {columnItems.length}
+                        </span>
+                      </div>
+                      <ScrollArea className="h-[min(420px,70vh)] flex-1 md:h-[min(520px,calc(100vh-14rem))] md:min-h-[280px]">
+                        <div className="min-h-0">
+                          <div className="flex flex-col gap-2.5 p-2.5 sm:gap-3 sm:p-3">
+                            {columnItems.length === 0 ? (
+                              <p className="py-6 text-center text-xs text-muted-foreground sm:py-8 sm:text-sm">
+                                Nenhum chamado neste status
+                              </p>
+                            ) : (
+                              columnItems.map((c) => (
+                                <ChamadoCard
+                                  key={c._id}
+                                  compact
+                                  chamado={c}
+                                  showAvaliar
+                                  onAvaliar={(ch) => {
+                                    setAvaliarChamado({
+                                      _id: ch._id,
+                                      ticket_number: ch.ticket_number,
+                                      titulo: ch.titulo,
+                                      assignedToUserId: ch.assignedToUserId ?? null,
+                                    });
+                                    setAvaliarDialogOpen(true);
+                                  }}
+                                />
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <NewTicketDialog open={dialogOpen} onOpenChange={setDialogOpen} onSuccess={fetchChamados} />
 
