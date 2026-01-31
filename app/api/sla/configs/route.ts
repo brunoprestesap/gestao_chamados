@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { Types } from 'mongoose';
 
+import { getBusinessCalendarConfig } from '@/lib/expediente-config';
+import { getBusinessMinutesPerDay } from '@/lib/sla-timezone';
 import { requireAdmin, requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { SlaConfigModel } from '@/models/SlaConfig';
@@ -86,10 +88,20 @@ export async function PUT(req: Request) {
     const userId = new Types.ObjectId(session.userId);
     const now = new Date();
     const version = `v${Date.now()}`;
+    const calendarConfig = await getBusinessCalendarConfig();
+    const businessMinutesPerDay = getBusinessMinutesPerDay(calendarConfig);
 
     for (const item of parsed.data.configs) {
-      const responseTargetMinutes = toMinutes(item.responseValue, item.responseUnit as SlaTimeUnit);
-      const resolutionTargetMinutes = toMinutes(item.resolutionValue, item.resolutionUnit as SlaTimeUnit);
+      const responseTargetMinutes = toMinutes(
+        item.responseValue,
+        item.responseUnit as SlaTimeUnit,
+        businessMinutesPerDay,
+      );
+      const resolutionTargetMinutes = toMinutes(
+        item.resolutionValue,
+        item.resolutionUnit as SlaTimeUnit,
+        businessMinutesPerDay,
+      );
 
       await SlaConfigModel.findOneAndUpdate(
         { priority: item.priority },

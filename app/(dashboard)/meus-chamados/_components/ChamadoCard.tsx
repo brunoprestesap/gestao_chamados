@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { cn, formatDateShort, formatDateTime } from '@/lib/utils';
 
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
@@ -208,6 +209,8 @@ export function ChamadoCard({
   compact = false,
 }: Props) {
   const router = useRouter();
+  const timezone = useInstitutionalTimezone();
+  const tzOpt = { timeZone: timezone };
   const StatusIcon = STATUS_ICONS[chamado.status];
   const [additionalData, setAdditionalData] = useState<AdditionalData>({
     userName: null,
@@ -271,8 +274,14 @@ export function ChamadoCard({
     return parts.filter(Boolean).join(' • ');
   }, [chamado.tipoServico, additionalData.subtypeName]);
 
-  const formattedDate = useMemo(() => formatDateTime(chamado.createdAt), [chamado.createdAt]);
-  const formattedDateShort = useMemo(() => formatDateShort(chamado.createdAt), [chamado.createdAt]);
+  const formattedDate = useMemo(
+    () => formatDateTime(chamado.createdAt, tzOpt),
+    [chamado.createdAt, tzOpt.timeZone],
+  );
+  const formattedDateShort = useMemo(
+    () => formatDateShort(chamado.createdAt, tzOpt),
+    [chamado.createdAt, tzOpt.timeZone],
+  );
 
   /** Urgente com base na natureza APROVADA (nunca na solicitada) */
   const isUrgente = useMemo(
@@ -292,10 +301,10 @@ export function ChamadoCard({
         ? ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
         : chamado.naturezaAtendimento;
     if (approvedLabel) parts.push(`Natureza aprovada: ${approvedLabel}`);
-    if (s?.responseDueAt) parts.push(`Prazo resposta: ${formatDateTime(s.responseDueAt)}`);
-    if (s?.resolutionDueAt) parts.push(`Prazo solução: ${formatDateTime(s.resolutionDueAt)}`);
+    if (s?.responseDueAt) parts.push(`Prazo resposta: ${formatDateTime(s.responseDueAt, tzOpt)}`);
+    if (s?.resolutionDueAt) parts.push(`Prazo solução: ${formatDateTime(s.resolutionDueAt, tzOpt)}`);
     return parts.join(' · ');
-  }, [chamado.sla, chamado.finalPriority, chamado.attendanceNature, chamado.naturezaAtendimento]);
+  }, [chamado.sla, chamado.finalPriority, chamado.attendanceNature, chamado.naturezaAtendimento, tzOpt.timeZone]);
 
   const handleCardClick = useCallback(() => {
     if (hideDetailLink) return;

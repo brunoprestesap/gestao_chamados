@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/dashboard/header';
 import { Separator } from '@/components/ui/separator';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
 
@@ -97,6 +98,8 @@ type ChamadoDetailDTO = {
 
 export default function ChamadoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const timezone = useInstitutionalTimezone();
+  const tzOpt = { timeZone: timezone };
   const [loading, setLoading] = useState(true);
   const [chamado, setChamado] = useState<ChamadoDetailDTO | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -295,12 +298,12 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  <span>Aberto em {formatDate(chamado.createdAt)}</span>
+                  <span>Aberto em {formatDate(chamado.createdAt, tzOpt)}</span>
                 </div>
                 {chamado.updatedAt !== chamado.createdAt && (
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    <span>Atualizado em {formatDate(chamado.updatedAt)}</span>
+                    <span>Atualizado em {formatDate(chamado.updatedAt, tzOpt)}</span>
                   </div>
                 )}
               </div>
@@ -347,12 +350,12 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                     </h4>
                     <p className="text-sm">
                       {chamado.sla.responseDueAt
-                        ? formatDateTime(chamado.sla.responseDueAt)
+                        ? formatDateTime(chamado.sla.responseDueAt, tzOpt)
                         : '—'}
                     </p>
                     {chamado.sla.responseStartedAt && (
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        Iniciado em {formatDateTime(chamado.sla.responseStartedAt)}
+                        Iniciado em {formatDateTime(chamado.sla.responseStartedAt, tzOpt)}
                       </p>
                     )}
                   </div>
@@ -362,12 +365,12 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                     </h4>
                     <p className="text-sm">
                       {chamado.sla.resolutionDueAt
-                        ? formatDateTime(chamado.sla.resolutionDueAt)
+                        ? formatDateTime(chamado.sla.resolutionDueAt, tzOpt)
                         : '—'}
                     </p>
                     {chamado.sla.resolvedAt && (
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        Resolvido em {formatDateTime(chamado.sla.resolvedAt)}
+                        Resolvido em {formatDateTime(chamado.sla.resolvedAt, tzOpt)}
                       </p>
                     )}
                   </div>

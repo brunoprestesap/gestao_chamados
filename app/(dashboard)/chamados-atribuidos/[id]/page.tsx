@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/dashboard/header';
 import { Separator } from '@/components/ui/separator';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDate } from '@/lib/utils';
 import {
   CHAMADO_STATUS_LABELS,
@@ -56,6 +57,8 @@ export default function ChamadoAtribuidoDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  const timezone = useInstitutionalTimezone();
+  const tzOpt = { timeZone: timezone };
   const [loading, setLoading] = useState(true);
   const [chamado, setChamado] = useState<ChamadoAtribuidoDetailDTO | null>(null);
   const [chamadoId, setChamadoId] = useState<string | null>(null);
@@ -207,12 +210,12 @@ export default function ChamadoAtribuidoDetailPage({
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  <span>Aberto em {formatDate(chamado.createdAt)}</span>
+                  <span>Aberto em {formatDate(chamado.createdAt, tzOpt)}</span>
                 </div>
                 {chamado.concludedAt && (
                   <div className="flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />
-                    <span>Concluído em {formatDate(chamado.concludedAt)}</span>
+                    <span>Concluído em {formatDate(chamado.concludedAt, tzOpt)}</span>
                   </div>
                 )}
               </div>

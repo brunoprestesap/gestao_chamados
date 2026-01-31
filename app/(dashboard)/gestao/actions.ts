@@ -9,6 +9,7 @@ import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
+import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import {
   computeSlaDueDatesFromConfig,
   evaluateResponseBreach,
@@ -81,11 +82,13 @@ export async function classificarChamadoAction(
       };
     }
 
+    const calendarConfig = await getBusinessCalendarConfig();
     const { responseDueAt, resolutionDueAt } = computeSlaDueDatesFromConfig(
       now,
       slaConfig.responseTargetMinutes,
       slaConfig.resolutionTargetMinutes,
       slaConfig.businessHoursOnly,
+      calendarConfig,
     );
 
     const attendanceNature = toAttendanceNature(naturezaAtendimento);

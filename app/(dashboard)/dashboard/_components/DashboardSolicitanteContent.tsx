@@ -9,6 +9,7 @@ import { NewTicketDialog } from '@/app/(dashboard)/meus-chamados/_components/New
 import { PageHeader } from '@/components/dashboard/header';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDate } from '@/lib/utils';
 import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 import type { ChamadoStatus } from '@/shared/chamados/chamado.constants';
@@ -18,6 +19,8 @@ type Props = {
 };
 
 export function DashboardSolicitanteContent({ data }: Props) {
+  const timezone = useInstitutionalTimezone();
+  const tzOpt = { timeZone: timezone };
   return (
     <div className="space-y-6">
       <PageHeader title="Dashboard" subtitle="Visão geral dos seus chamados de manutenção" />
@@ -138,7 +141,7 @@ export function DashboardSolicitanteContent({ data }: Props) {
                         {CHAMADO_STATUS_LABELS[c.status as ChamadoStatus] ?? c.status}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {formatDate(c.createdAt)}
+                        {formatDate(c.createdAt, tzOpt)}
                       </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>

@@ -27,6 +27,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDateTime } from '@/lib/utils';
 import { RegisterExecutionSchema } from '@/shared/chamados/execution.schemas';
 
@@ -44,6 +45,8 @@ interface Props {
 }
 
 export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess }: Props) {
+  const timezone = useInstitutionalTimezone();
+  const tzOpt = { timeZone: timezone };
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,7 +125,7 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
             <div className="flex items-start gap-2">
               <Clock className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
               <span className="text-blue-900 dark:text-blue-100">
-                Início: {formatDateTime(chamado.createdAt)} (abertura do chamado)
+                Início: {formatDateTime(chamado.createdAt, tzOpt)} (abertura do chamado)
               </span>
             </div>
             <div className="flex items-start gap-2">

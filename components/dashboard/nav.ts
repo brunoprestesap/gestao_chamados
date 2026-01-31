@@ -2,6 +2,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Building2,
+  CalendarClock,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -92,6 +93,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'SLA',
     href: '/sla',
     icon: Settings,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'Expediente',
+    href: '/configuracoes/expediente',
+    icon: CalendarClock,
     group: 'Admin',
     allowedRoles: ['Admin'],
   },

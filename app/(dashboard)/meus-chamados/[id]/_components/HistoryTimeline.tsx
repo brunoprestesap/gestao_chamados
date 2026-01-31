@@ -4,6 +4,7 @@ import { Clock, Loader2, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Card } from '@/components/ui/card';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDate } from '@/lib/utils';
 import { CHAMADO_HISTORY_ACTION_LABELS } from '@/shared/chamados/history.constants';
 import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
@@ -26,6 +27,8 @@ type Props = {
 };
 
 export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
+  const timezone = useInstitutionalTimezone();
+  const tzOpt = { timeZone: timezone };
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<HistoryItemDTO[]>([]);
   const [users, setUsers] = useState<Record<string, string>>({});
@@ -146,7 +149,7 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
               </div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                <span>{formatDate(item.createdAt)}</span>
+                <span>{formatDate(item.createdAt, tzOpt)}</span>
               </div>
             </div>
           </div>

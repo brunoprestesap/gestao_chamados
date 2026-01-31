@@ -12,10 +12,14 @@ export const MAX_REAL_MINUTES = 30 * 24 * 60;
 export const SlaTimeUnit = z.enum(['Horas', 'Dias']);
 export type SlaTimeUnit = z.infer<typeof SlaTimeUnit>;
 
-/** Converte valor + unidade para minutos: Horas → minutos; Dias → 10h úteis por dia */
-export function toMinutes(value: number, unit: SlaTimeUnit): number {
+/** Converte valor + unidade para minutos: Horas → minutos; Dias → businessMinutesPerDay por dia */
+export function toMinutes(
+  value: number,
+  unit: SlaTimeUnit,
+  businessMinutesPerDay: number = BUSINESS_MINUTES_PER_DAY,
+): number {
   if (unit === 'Horas') return Math.round(value * 60);
-  return Math.round(value * BUSINESS_MINUTES_PER_DAY);
+  return Math.round(value * businessMinutesPerDay);
 }
 
 const positiveNumber = z.number().min(0.01, 'Valor deve ser maior que zero');

@@ -30,10 +30,13 @@ type ConfigItem = {
   businessHoursOnly: boolean;
 };
 
-function minutesToValueAndUnit(minutes: number): { value: number; unit: SlaTimeUnit } {
+function minutesToValueAndUnit(
+  minutes: number,
+  businessMinutesPerDay: number = BUSINESS_MINUTES_PER_DAY,
+): { value: number; unit: SlaTimeUnit } {
   if (minutes <= 0) return { value: 1, unit: 'Horas' };
-  if (minutes % BUSINESS_MINUTES_PER_DAY === 0) {
-    return { value: minutes / BUSINESS_MINUTES_PER_DAY, unit: 'Dias' };
+  if (businessMinutesPerDay > 0 && minutes % businessMinutesPerDay === 0) {
+    return { value: minutes / businessMinutesPerDay, unit: 'Dias' };
   }
   return { value: Math.round((minutes / 60) * 10) / 10, unit: 'Horas' };
 }
@@ -83,6 +86,12 @@ const defaultConfig = (priority: (typeof FINAL_PRIORITY_VALUES)[number]): Config
   return defaults[priority] ?? { priority, responseValue: 1, responseUnit: 'Horas', resolutionValue: 1, resolutionUnit: 'Horas', businessHoursOnly: true };
 };
 
+function computeBusinessMinutesPerDay(workdayStart: string, workdayEnd: string): number {
+  const [sh, sm] = workdayStart.split(':').map(Number);
+  const [eh, em] = workdayEnd.split(':').map(Number);
+  return (eh - sh) * 60 + (em - sm);
+}
+
 export default function SlaPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -91,30 +100,50 @@ export default function SlaPage() {
   const [configs, setConfigs] = useState<ConfigItem[]>(() =>
     FINAL_PRIORITY_VALUES.map((p) => defaultConfig(p)),
   );
+  const [expediente, setExpediente] = useState<{
+    timezone: string;
+    workdayStart: string;
+    workdayEnd: string;
+  } | null>(null);
 
   const fetchConfigs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/sla/configs', { cache: 'no-store', credentials: 'same-origin' });
-      if (res.status === 401 || res.status === 403) {
+      const [slaRes, expRes] = await Promise.all([
+        fetch('/api/sla/configs', { cache: 'no-store', credentials: 'same-origin' }),
+        fetch('/api/config/expediente', { cache: 'no-store', credentials: 'same-origin' }),
+      ]);
+      if (slaRes.status === 401 || slaRes.status === 403) {
         router.replace('/dashboard');
         return;
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+      if (!slaRes.ok) {
+        const data = await slaRes.json().catch(() => ({}));
         setError(data.error ?? 'Erro ao carregar configurações');
         return;
       }
-      const data = await res.json();
+      let expData = { timezone: 'America/Belem', workdayStart: '08:00', workdayEnd: '18:00' };
+      if (expRes.ok) {
+        expData = await expRes.json();
+        setExpediente({
+          timezone: expData.timezone ?? 'America/Belem',
+          workdayStart: expData.workdayStart ?? '08:00',
+          workdayEnd: expData.workdayEnd ?? '18:00',
+        });
+      } else {
+        setExpediente(null);
+      }
+      const data = await slaRes.json();
       const items = Array.isArray(data.items) ? data.items : [];
+      const businessMins = computeBusinessMinutesPerDay(expData.workdayStart, expData.workdayEnd);
       const next: ConfigItem[] = FINAL_PRIORITY_VALUES.map((priority) => {
         const raw = items.find((i: { priority: string }) => i.priority === priority);
         if (!raw?.responseTargetMinutes || !raw?.resolutionTargetMinutes) {
           return defaultConfig(priority);
         }
-        const response = minutesToValueAndUnit(raw.responseTargetMinutes);
-        const resolution = minutesToValueAndUnit(raw.resolutionTargetMinutes);
+        const response = minutesToValueAndUnit(raw.responseTargetMinutes, businessMins);
+        const resolution = minutesToValueAndUnit(raw.resolutionTargetMinutes, businessMins);
         return {
           priority,
           responseValue: response.value,
@@ -197,7 +226,9 @@ export default function SlaPage() {
       />
 
       <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-        1 dia útil = 10 horas (08h–18h, seg–sex). Horário comercial: America/Belem.
+        {expediente
+          ? `1 dia útil = ${computeBusinessMinutesPerDay(expediente.workdayStart, expediente.workdayEnd) / 60}h (${expediente.workdayStart}–${expediente.workdayEnd}). Timezone: ${expediente.timezone}. Configure em Expediente.`
+          : '1 dia útil = 10h (08:00–18:00, seg–sex). Timezone: America/Belem. Configure em Expediente.'}
       </p>
 
       {error && (

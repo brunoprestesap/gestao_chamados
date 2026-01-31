@@ -24,6 +24,7 @@ import {
   STATUS_ICONS,
   STATUS_BADGE,
 } from '@/app/(dashboard)/meus-chamados/_constants';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDateTime } from '@/lib/utils';
 import { CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
 
@@ -51,6 +52,8 @@ const STATUS_EM_ATENDIMENTO = 'em atendimento' as const;
 
 export default function ChamadosAtribuidosPage() {
   const router = useRouter();
+  const timezone = useInstitutionalTimezone();
+  const tzOpt = { timeZone: timezone };
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | ChamadoStatus>('all');
@@ -220,7 +223,7 @@ export default function ChamadosAtribuidosPage() {
                                   )}
                                   <span className="flex items-center gap-1">
                                     <Calendar className="h-3 w-3 shrink-0" />
-                                    {formatDateTime(c.createdAt)}
+                                    {formatDateTime(c.createdAt, tzOpt)}
                                   </span>
                                 </div>
                                 <p

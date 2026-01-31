@@ -1,3 +1,4 @@
+import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { requireAdmin } from '@/lib/dal';
 import { formatDate, formatTime } from '@/lib/utils';
 import { computeImrReport } from '@/lib/imr-service';
@@ -67,6 +68,8 @@ export default async function ImrPage({ searchParams }: PageProps) {
 
   const result = await computeImrReport({ dataInicial, dataFinal });
   const dataGeracao = new Date();
+  const expediente = await getBusinessCalendarConfig();
+  const tzOpt = { timeZone: expediente.timezone };
 
   return (
     <div className="space-y-6">
@@ -109,8 +112,8 @@ export default async function ImrPage({ searchParams }: PageProps) {
             <Button type="submit">Aplicar período</Button>
           </form>
           <div className="flex flex-wrap gap-4 border-t pt-3 text-xs text-muted-foreground">
-            <span>Período analisado: {formatDate(result.periodo.dataInicial)} a {formatDate(result.periodo.dataFinal)}</span>
-            <span>Data de geração do relatório: {formatDate(dataGeracao)} às {formatTime(dataGeracao)}</span>
+            <span>Período analisado: {formatDate(result.periodo.dataInicial, tzOpt)} a {formatDate(result.periodo.dataFinal, tzOpt)}</span>
+            <span>Data de geração do relatório: {formatDate(dataGeracao, tzOpt)} às {formatTime(dataGeracao, tzOpt)}</span>
             <span>Responsável (Admin): {session?.username ?? '—'}</span>
           </div>
         </CardContent>
