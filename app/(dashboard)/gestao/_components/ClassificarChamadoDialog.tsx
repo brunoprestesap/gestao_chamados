@@ -227,23 +227,32 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg overflow-y-auto sm:max-h-[90vh]" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>Classificar Chamado</DialogTitle>
+      <DialogContent
+        className="flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg flex-col gap-4 overflow-y-auto rounded-lg p-4 shadow-lg sm:max-h-[90vh] sm:p-6 [&>button]:top-3 [&>button]:right-3 sm:[&>button]:top-4 sm:[&>button]:right-4"
+        showCloseButton
+      >
+        <DialogHeader className="space-y-1 pr-8 sm:pr-0">
+          <DialogTitle className="text-base font-semibold leading-tight sm:text-lg">
+            Classificar Chamado
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="rounded-lg border bg-muted/30 p-4 space-y-1">
-          <p className="font-semibold text-foreground">#{chamado.ticket_number}</p>
-          <p className="text-sm text-muted-foreground">{chamado.titulo || 'Sem título'}</p>
-          <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
-          <p className="text-xs text-muted-foreground pt-1">
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5 sm:p-4 sm:space-y-1">
+          <p className="font-semibold text-foreground break-words text-sm sm:text-base">
+            #{chamado.ticket_number}
+          </p>
+          <p className="text-muted-foreground break-words text-xs sm:text-sm">
+            {chamado.titulo || 'Sem título'}
+          </p>
+          <p className="text-muted-foreground text-xs">{headerSubtitle}</p>
+          <p className="text-muted-foreground pt-1 text-xs">
             <strong>Solicitação do usuário:</strong>{' '}
             {chamado.naturezaAtendimento === 'Urgente' ? 'Atendimento Urgente' : 'Atendimento Padrão'}
           </p>
         </div>
 
         {error && (
-          <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-xs text-destructive sm:text-sm">
             {error}
           </div>
         )}
@@ -254,22 +263,22 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
               control={form.control}
               name="naturezaAtendimento"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
+                <FormItem className="space-y-1.5 sm:space-y-2">
+                  <FormLabel className="flex flex-wrap items-center gap-1.5 text-sm sm:gap-2">
                     Natureza do Atendimento (Aprovada) <span className="text-destructive">*</span>
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                   </FormLabel>
-                  <FormDescription className="text-xs">
+                  <FormDescription className="text-xs leading-relaxed sm:max-w-none">
                     Define o regime de atendimento autorizado pela gestão (horário comercial ou
                     atendimento fora do horário).
                   </FormDescription>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full min-h-10 sm:min-h-9">
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
                       {NATUREZA_OPTIONS.map((v) => (
                         <SelectItem key={v} value={v}>
                           {NATUREZA_LABELS[v]}
@@ -286,21 +295,21 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
               control={form.control}
               name="finalPriority"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
+                <FormItem className="space-y-1.5 sm:space-y-2">
+                  <FormLabel className="text-sm">
                     Prioridade Final <span className="text-destructive">*</span>
                   </FormLabel>
-                  <FormDescription className="text-xs">
+                  <FormDescription className="text-xs leading-relaxed sm:max-w-none">
                     Define o nível de prioridade institucional do chamado e determina os prazos de SLA
                     aplicáveis.
                   </FormDescription>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full min-h-10 sm:min-h-9">
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
                       {FINAL_PRIORITY_VALUES.map((v) => (
                         <SelectItem key={v} value={v}>
                           {PRIORIDADE_LABELS[v]}
@@ -309,11 +318,11 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
                     </SelectContent>
                   </Select>
                   {slaParts && (
-                    <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 space-y-1">
-                      <p className="font-medium">
+                    <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 space-y-1 text-xs sm:text-sm">
+                      <p className="font-medium leading-snug">
                         SLA aplicado automaticamente conforme configuração institucional:
                       </p>
-                      <p>
+                      <p className="leading-relaxed break-words">
                         Resposta em até <strong>{slaParts.respText}</strong> • Solução em até{' '}
                         <strong>{slaParts.resText}</strong> ({slaParts.regime})
                       </p>
@@ -330,7 +339,7 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
                     </div>
                   )}
                   {!slaParts && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs leading-relaxed">
                       Configure os prazos de SLA por prioridade em Configurações SLA (/sla) para
                       exibir o SLA aqui.
                     </p>
@@ -344,12 +353,12 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
               control={form.control}
               name="classificationNotes"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Observações da Classificação</FormLabel>
+                <FormItem className="space-y-1.5">
+                  <FormLabel className="text-sm">Observações da Classificação</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Registre justificativas ou orientações relevantes para o atendimento."
-                      className="resize-none"
+                      className="min-h-[4.5rem] resize-y text-sm sm:min-h-20 sm:text-base"
                       rows={3}
                       {...field}
                     />
@@ -359,13 +368,13 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
               )}
             />
 
-            <div className="rounded-lg border border-blue-200 bg-blue-50/50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/30 space-y-1">
-              <p className="text-sm font-medium flex items-center gap-2">
-                <Zap className="h-4 w-4 shrink-0 text-amber-500" />
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 px-3 py-2.5 dark:border-blue-800 dark:bg-blue-950/30 space-y-1.5 sm:px-4 sm:py-3 sm:space-y-1">
+              <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                <Zap className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
                 Atribuição Automática de Técnico{' '}
                 <span className="text-muted-foreground font-normal">(em breve)</span>
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs leading-relaxed sm:max-w-none">
                 Quando habilitado, o sistema atribuirá o chamado ao técnico disponível com a
                 especialidade adequada.
               </p>
@@ -373,23 +382,28 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
                 <input
                   type="checkbox"
                   disabled
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="h-4 w-4 min-w-[1rem] rounded border-gray-300"
                   aria-hidden
                 />
-                <span className="text-sm text-muted-foreground">Indisponível</span>
+                <span className="text-muted-foreground text-sm">Indisponível</span>
               </label>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="flex flex-col gap-2 pt-2 pb-[env(safe-area-inset-bottom,0)] sm:flex-row sm:justify-end sm:gap-2 sm:pt-0 sm:pb-0">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
                 disabled={submitting}
+                className="order-2 w-full min-h-11 touch-manipulation sm:order-1 sm:w-auto sm:min-h-9"
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="order-1 w-full min-h-11 touch-manipulation sm:order-2 sm:w-auto sm:min-h-9"
+              >
                 {submitting ? 'Classificando…' : 'Classificar Chamado'}
               </Button>
             </DialogFooter>
