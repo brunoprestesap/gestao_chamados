@@ -5,7 +5,8 @@
  * TODO: Feriados — não considerado nesta versão; ponto de extensão futuro.
  */
 
-const TIMEZONE_BELEM_UTC_OFFSET_MS = 3 * 60 * 60 * 1000; // Belem = UTC-3 => UTC = Belem + 3
+/** Belem = UTC-3. Para obter hora/dia em Belem a partir de UTC: subtrair 3h. */
+const TIMEZONE_BELEM_UTC_OFFSET_MS = 3 * 60 * 60 * 1000;
 const BUSINESS_START_HOUR = 8;
 const BUSINESS_END_HOUR = 18;
 const MINUTES_PER_DAY = 24 * 60;
@@ -15,13 +16,13 @@ export type FinalPriority = 'BAIXA' | 'NORMAL' | 'ALTA' | 'EMERGENCIAL';
 
 /** Retorna (dia da semana em Belem 0=Dom..6=Sab, hora fracionada 0-24) */
 function getBelemWeekdayAndHour(date: Date): { dayOfWeek: number; hourFraction: number } {
-  const utcPlus3 = new Date(date.getTime() + TIMEZONE_BELEM_UTC_OFFSET_MS);
-  const dayOfWeek = utcPlus3.getUTCDay();
+  const belemRef = new Date(date.getTime() - TIMEZONE_BELEM_UTC_OFFSET_MS);
+  const dayOfWeek = belemRef.getUTCDay();
   const hourFraction =
-    utcPlus3.getUTCHours() +
-    utcPlus3.getUTCMinutes() / 60 +
-    utcPlus3.getUTCSeconds() / 3600 +
-    utcPlus3.getUTCMilliseconds() / 3600000;
+    belemRef.getUTCHours() +
+    belemRef.getUTCMinutes() / 60 +
+    belemRef.getUTCSeconds() / 3600 +
+    belemRef.getUTCMilliseconds() / 3600000;
   return { dayOfWeek, hourFraction };
 }
 
@@ -47,12 +48,17 @@ export function snapToNextBusinessStart(date: Date): Date {
     d = addDays(d, 2);
   }
 
-  const again = getBelemWeekdayAndHour(d);
+  let again = getBelemWeekdayAndHour(d);
   if (again.dayOfWeek >= 1 && again.dayOfWeek <= 5) {
     if (again.hourFraction < BUSINESS_START_HOUR) {
       d = setBelemTimeTo(d, BUSINESS_START_HOUR, 0, 0, 0);
     } else if (again.hourFraction >= BUSINESS_END_HOUR) {
       d = addDays(d, 1);
+      while (true) {
+        again = getBelemWeekdayAndHour(d);
+        if (again.dayOfWeek >= 1 && again.dayOfWeek <= 5) break;
+        d = addDays(d, 1);
+      }
       d = setBelemTimeTo(d, BUSINESS_START_HOUR, 0, 0, 0);
     }
   } else {
@@ -75,10 +81,18 @@ function setBelemTimeTo(
   s: number,
   ms: number,
 ): Date {
-  const belemMs = date.getTime() + TIMEZONE_BELEM_UTC_OFFSET_MS;
-  const dayStartBelem = Math.floor(belemMs / 86400000) * 86400000;
-  const withTime = dayStartBelem + (h * 3600 + m * 60 + s) * 1000 + ms;
-  return new Date(withTime - TIMEZONE_BELEM_UTC_OFFSET_MS);
+  const belemRef = new Date(date.getTime() - TIMEZONE_BELEM_UTC_OFFSET_MS);
+  const dayStartUtc = Date.UTC(
+    belemRef.getUTCFullYear(),
+    belemRef.getUTCMonth(),
+    belemRef.getUTCDate(),
+    0,
+    0,
+    0,
+    0,
+  );
+  const utcOffsetForBelemHour = (3 + h) * 3600 * 1000 + m * 60 * 1000 + s * 1000 + ms;
+  return new Date(dayStartUtc + utcOffsetForBelemHour);
 }
 
 /**

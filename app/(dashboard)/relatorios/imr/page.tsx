@@ -1,4 +1,5 @@
 import { requireAdmin } from '@/lib/dal';
+import { formatDate, formatTime } from '@/lib/utils';
 import { computeImrReport } from '@/lib/imr-service';
 import { PageHeader } from '@/components/dashboard/header';
 import { Button } from '@/components/ui/button';
@@ -20,14 +21,6 @@ function getCurrentMonthBounds(): { dataInicial: Date; dataFinal: Date } {
   const dataInicial = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
   const dataFinal = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
   return { dataInicial, dataFinal };
-}
-
-function formatDateBR(d: Date): string {
-  return d.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
 }
 
 function formatDateInput(d: Date): string {
@@ -116,8 +109,8 @@ export default async function ImrPage({ searchParams }: PageProps) {
             <Button type="submit">Aplicar período</Button>
           </form>
           <div className="flex flex-wrap gap-4 border-t pt-3 text-xs text-muted-foreground">
-            <span>Período analisado: {formatDateBR(result.periodo.dataInicial)} a {formatDateBR(result.periodo.dataFinal)}</span>
-            <span>Data de geração do relatório: {formatDateBR(dataGeracao)} às {dataGeracao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span>Período analisado: {formatDate(result.periodo.dataInicial)} a {formatDate(result.periodo.dataFinal)}</span>
+            <span>Data de geração do relatório: {formatDate(dataGeracao)} às {formatTime(dataGeracao)}</span>
             <span>Responsável (Admin): {session?.username ?? '—'}</span>
           </div>
         </CardContent>

@@ -27,20 +27,11 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDateTime } from '@/lib/utils';
 import { RegisterExecutionSchema } from '@/shared/chamados/execution.schemas';
 
 const formSchema = RegisterExecutionSchema.omit({ ticketId: true });
 type FormValues = z.infer<typeof formSchema>;
-
-function formatDateTime(iso: string) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
 
 /** Mínimo necessário para o dialog (lista ou detalhe). */
 export type ChamadoExecutionInput = { _id: string; createdAt: string };

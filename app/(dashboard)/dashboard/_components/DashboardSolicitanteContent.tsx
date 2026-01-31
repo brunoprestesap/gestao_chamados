@@ -9,20 +9,13 @@ import { NewTicketDialog } from '@/app/(dashboard)/meus-chamados/_components/New
 import { PageHeader } from '@/components/dashboard/header';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDate } from '@/lib/utils';
 import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 import type { ChamadoStatus } from '@/shared/chamados/chamado.constants';
 
 type Props = {
   data: DashboardSolicitanteData;
 };
-
-function formatDate(d: Date) {
-  return new Date(d).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
 
 export function DashboardSolicitanteContent({ data }: Props) {
   return (

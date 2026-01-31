@@ -24,6 +24,7 @@ import {
   STATUS_ICONS,
   STATUS_BADGE,
 } from '@/app/(dashboard)/meus-chamados/_constants';
+import { formatDateTime } from '@/lib/utils';
 import { CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
 
 const KANBAN_STATUSES = CHAMADO_STATUSES.filter((s) => s !== 'fechado' && s !== 'emvalidacao');
@@ -100,15 +101,6 @@ export default function ChamadosAtribuidosPage() {
     });
     return map;
   }, [items]);
-
-  const formatDate = (iso: string) =>
-    new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso));
 
   return (
     <div className="space-y-6">
@@ -228,7 +220,7 @@ export default function ChamadosAtribuidosPage() {
                                   )}
                                   <span className="flex items-center gap-1">
                                     <Calendar className="h-3 w-3 shrink-0" />
-                                    {formatDate(c.createdAt)}
+                                    {formatDateTime(c.createdAt)}
                                   </span>
                                 </div>
                                 <p

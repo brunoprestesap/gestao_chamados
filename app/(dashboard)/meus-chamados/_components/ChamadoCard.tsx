@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { cn, formatDateShort, formatDateTime } from '@/lib/utils';
 
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
@@ -148,24 +148,6 @@ const GRAU_URGENCIA_COLORS: Record<string, string> = {
   Crítico: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900 dark:text-red-300',
 } as const;
 
-// Utility functions
-const formatDateTime = (dateString: string): string => {
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(dateString));
-};
-
-const formatDateShort = (dateString: string): string => {
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  }).format(new Date(dateString));
-};
 
 const getGrauUrgenciaLabel = (grau: string): string => {
   return GRAU_URGENCIA_LABELS[grau] || grau;
