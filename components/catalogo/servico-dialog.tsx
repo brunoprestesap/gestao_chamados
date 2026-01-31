@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -46,6 +46,9 @@ export type ServiceDTO = {
   description?: string;
   typeId: string;
   subtypeId: string;
+  /** Dados populados pela API (type/subtype) para exibição no modo edição */
+  type?: { id: string; name: string } | null;
+  subtype?: { id: string; name: string } | null;
   priorityDefault: (typeof PRIORITIES)[number];
   estimatedHours: number;
   materials?: string;
@@ -133,6 +136,26 @@ export function ServicoDialog({
     setSubtypes(list);
     return list;
   }
+
+  // No modo edição, inclui o subtipo atual na lista para exibir corretamente
+  // (evita placeholder enquanto subtypes carregam assincronamente)
+  const displaySubtypes = useMemo(() => {
+    const list = [...subtypes];
+    if (
+      mode === 'edit' &&
+      initialData?.subtype &&
+      initialData?.subtypeId &&
+      !list.some((s) => String(s._id) === String(initialData!.subtypeId))
+    ) {
+      list.unshift({
+        _id: initialData.subtypeId,
+        name: initialData.subtype.name,
+        typeId: initialData.typeId,
+        isActive: true,
+      });
+    }
+    return list;
+  }, [subtypes, mode, initialData?.subtype, initialData?.subtypeId, initialData?.typeId]);
 
   useEffect(() => {
     if (!open) return;
@@ -254,7 +277,7 @@ export function ServicoDialog({
                       typeId={typeId}
                       value={field.value}
                       onChange={field.onChange}
-                      subtypes={subtypes}
+                      subtypes={displaySubtypes}
                       onSubtypesRefetch={() => fetchSubtypes(typeId)}
                       disabled={!typeId}
                       placeholder="Selecione o subtipo"
