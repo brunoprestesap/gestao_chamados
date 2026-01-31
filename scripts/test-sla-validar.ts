@@ -65,7 +65,20 @@ const ok4 =
   fmt(r4.resolutionDueAt).includes('03:00');
 console.log('  OK:', ok4 ? '✓' : '✗');
 
+// Cenário 5 (relatado pelo usuário): Sábado 12:07 Belem, ALTA (1h resposta, 8h solução) — deve iniciar seg 08:00
+const c5 = new Date(Date.UTC(2026, 0, 31, 15, 7, 0, 0)); // Sáb 31/01/2026 12:07 Belem
+const r5 = computeSlaDueDatesFromConfig(c5, 60, 480, true); // 1h, 8h, horário comercial
+console.log('\nCenário 5 — Sáb 12:07 ALTA (1h resposta, 8h solução, horário comercial):');
+console.log('  responseDueAt:', fmt(r5.responseDueAt), '(esperado: seg 09:00 — 1h após seg 08:00)');
+console.log('  resolutionDueAt:', fmt(r5.resolutionDueAt), '(esperado: seg 16:00 — 8h após seg 08:00)');
+const ok5 =
+  fmt(r5.responseDueAt).includes('seg') &&
+  fmt(r5.responseDueAt).includes('09:00') &&
+  fmt(r5.resolutionDueAt).includes('seg') &&
+  fmt(r5.resolutionDueAt).includes('16:00');
+console.log('  OK:', ok5 ? '✓' : '✗');
+
 console.log('\n--- Resumo ---');
-const allOk = ok1 && ok2 && ok3 && ok4;
+const allOk = ok1 && ok2 && ok3 && ok4 && ok5;
 console.log(allOk ? 'Todos os cenários passaram ✓' : 'Alguns cenários falharam ✗');
 process.exit(allOk ? 0 : 1);

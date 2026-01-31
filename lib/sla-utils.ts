@@ -41,6 +41,7 @@ export function isWithinBusinessHours(date: Date): boolean {
 export function snapToNextBusinessStart(date: Date): Date {
   const { dayOfWeek, hourFraction } = getBelemWeekdayAndHour(date);
   let d = new Date(date.getTime());
+  const cameFromWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
   if (dayOfWeek === 0) {
     d = addDays(d, 1);
@@ -50,7 +51,9 @@ export function snapToNextBusinessStart(date: Date): Date {
 
   let again = getBelemWeekdayAndHour(d);
   if (again.dayOfWeek >= 1 && again.dayOfWeek <= 5) {
-    if (again.hourFraction < BUSINESS_START_HOUR) {
+    if (cameFromWeekend) {
+      d = setBelemTimeTo(d, BUSINESS_START_HOUR, 0, 0, 0);
+    } else if (again.hourFraction < BUSINESS_START_HOUR) {
       d = setBelemTimeTo(d, BUSINESS_START_HOUR, 0, 0, 0);
     } else if (again.hourFraction >= BUSINESS_END_HOUR) {
       d = addDays(d, 1);
