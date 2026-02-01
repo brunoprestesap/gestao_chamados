@@ -84,7 +84,7 @@ function LoginPageContent() {
             </div>
             <div>
               <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-                Acesso ao Sistema
+                Severino
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Gestão de Chamados de Manutenção

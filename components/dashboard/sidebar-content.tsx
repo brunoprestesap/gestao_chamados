@@ -79,7 +79,7 @@ export function SidebarContent({
           <Wrench className="h-5 w-5" />
         </div>
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-semibold text-sidebar-foreground">Chamados</p>
+          <p className="truncate text-sm font-semibold text-sidebar-foreground">Severino</p>
           <p className="truncate text-xs text-muted-foreground">
             Manutenção Predial & HVAC
           </p>
