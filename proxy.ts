@@ -18,10 +18,11 @@ const protectedPrefixes = [
   '/unidades',
   '/usuarios',
   '/sla',
+  '/configuracoes',
 ];
 
 // Rotas que requerem role de Admin
-const ADMIN_ONLY = ['/usuarios', '/catalogo', '/unidades'];
+const ADMIN_ONLY = ['/usuarios', '/catalogo', '/unidades', '/configuracoes'];
 
 function isProtected(pathname: string) {
   return protectedPrefixes.some((p) => pathname === p || pathname.startsWith(p + '/'));

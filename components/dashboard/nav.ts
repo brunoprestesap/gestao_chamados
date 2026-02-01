@@ -2,6 +2,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Building2,
+  Calendar,
   CalendarClock,
   ClipboardList,
   FileText,
@@ -100,6 +101,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Expediente',
     href: '/configuracoes/expediente',
     icon: CalendarClock,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'Feriados',
+    href: '/configuracoes/feriados',
+    icon: Calendar,
     group: 'Admin',
     allowedRoles: ['Admin'],
   },

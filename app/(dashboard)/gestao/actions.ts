@@ -10,6 +10,7 @@ import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
+import { getActiveHolidaysForRange } from '@/lib/holidays';
 import {
   computeSlaDueDatesFromConfig,
   evaluateResponseBreach,
@@ -83,12 +84,15 @@ export async function classificarChamadoAction(
     }
 
     const calendarConfig = await getBusinessCalendarConfig();
+    const endDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const holidays = await getActiveHolidaysForRange(now, endDate, calendarConfig.timezone);
     const { responseDueAt, resolutionDueAt } = computeSlaDueDatesFromConfig(
       now,
       slaConfig.responseTargetMinutes,
       slaConfig.resolutionTargetMinutes,
       slaConfig.businessHoursOnly,
       calendarConfig,
+      holidays,
     );
 
     const attendanceNature = toAttendanceNature(naturezaAtendimento);

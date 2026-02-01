@@ -1,7 +1,6 @@
 /**
  * Utilitário de SLA — cálculo de prazos em horário comercial e 24x7.
- * Utiliza configuração institucional (timezone, expediente, dias úteis).
- * TODO: Feriados — não considerado nesta versão; ponto de extensão futuro.
+ * Utiliza configuração institucional (timezone, expediente, dias úteis) e feriados.
  */
 
 import type { BusinessCalendarConfig } from '@/lib/expediente-config';
@@ -72,6 +71,7 @@ export const SLA_CONFIG_VERSION = 'v1';
  * Calcula responseDueAt e resolutionDueAt a partir da configuração de SLA (minutos e se é horário comercial).
  * Usado ao classificar: consome a config ativa e persiste no chamado (imutável).
  * @param calendarConfig configuração institucional (timezone, expediente, dias úteis). Se omitida, usa defaults.
+ * @param holidays feriados ativos (YYYY-MM-DD) — dias não úteis no cálculo. Se omitido, não considera feriados.
  */
 export function computeSlaDueDatesFromConfig(
   from: Date,
@@ -79,13 +79,14 @@ export function computeSlaDueDatesFromConfig(
   resolutionTargetMinutes: number,
   businessHoursOnly: boolean,
   calendarConfig?: BusinessCalendarConfig,
+  holidays?: Set<string>,
 ): { responseDueAt: Date; resolutionDueAt: Date } {
   const fromDate = new Date(from);
   const calendar = calendarConfig ?? getDefaultCalendarConfig();
   if (businessHoursOnly) {
     return {
-      responseDueAt: addBusinessMinutesWithConfig(fromDate, responseTargetMinutes, calendar),
-      resolutionDueAt: addBusinessMinutesWithConfig(fromDate, resolutionTargetMinutes, calendar),
+      responseDueAt: addBusinessMinutesWithConfig(fromDate, responseTargetMinutes, calendar, holidays),
+      resolutionDueAt: addBusinessMinutesWithConfig(fromDate, resolutionTargetMinutes, calendar, holidays),
     };
   }
   return {

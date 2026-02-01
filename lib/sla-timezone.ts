@@ -28,6 +28,24 @@ function getTimezoneOffsetMs(timezone: string, date: Date): number {
   return offsetMinutes * 60 * 1000;
 }
 
+/**
+ * Converte uma Date para string "YYYY-MM-DD" no fuso horário configurado.
+ * Usado para comparação com feriados (formato persistido).
+ */
+export function toLocalDateYYYYMMDD(date: Date, timezone: string): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')?.value ?? '0000';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '01';
+  return `${year}-${month}-${day}`;
+}
+
 /** Retorna (dia da semana 0=Dom..6=Sab, hora fracionada 0-24) na timezone configurada. */
 export function getLocalWeekdayAndHour(date: Date, config: BusinessCalendarConfig): { dayOfWeek: number; hourFraction: number } {
   const offsetMs = getTimezoneOffsetMs(config.timezone, date);
@@ -44,6 +62,34 @@ export function getLocalWeekdayAndHour(date: Date, config: BusinessCalendarConfi
 /** Verifica se dayOfWeek está em weekdays (1=Seg..5=Sex para [1,2,3,4,5]). */
 function isWeekday(dayOfWeek: number, weekdays: number[]): boolean {
   return weekdays.includes(dayOfWeek);
+}
+
+/** Dia útil = weekday E não é feriado. */
+function isBusinessDay(
+  dayOfWeek: number,
+  localDateStr: string,
+  config: BusinessCalendarConfig,
+  holidays?: Set<string>,
+): boolean {
+  if (!isWeekday(dayOfWeek, config.weekdays)) return false;
+  if (holidays?.has(localDateStr)) return false;
+  return true;
+}
+
+/** Próximo dia útil (pula finais de semana e feriados). */
+function nextBusinessDay(
+  d: Date,
+  config: BusinessCalendarConfig,
+  holidays?: Set<string>,
+): Date {
+  let current = new Date(d.getTime());
+  for (let i = 0; i < 366; i++) {
+    const { dayOfWeek } = getLocalWeekdayAndHour(current, config);
+    const localStr = toLocalDateYYYYMMDD(current, config.timezone);
+    if (isBusinessDay(dayOfWeek, localStr, config, holidays)) return current;
+    current = addDays(current, 1);
+  }
+  return current;
 }
 
 /** Verifica se hourFraction está entre workdayStart e workdayEnd (exclusive end). */
@@ -85,24 +131,18 @@ function setLocalTimeTo(date: Date, h: number, m: number, s: number, ms: number,
   return new Date(dayStartUtc + utcMins * 60 * 1000);
 }
 
-/** Encontra o próximo dia que está em weekdays a partir de d. */
-function nextWeekday(d: Date, config: BusinessCalendarConfig): Date {
-  let current = new Date(d.getTime());
-  for (let i = 0; i < 8; i++) {
-    const { dayOfWeek } = getLocalWeekdayAndHour(current, config);
-    if (isWeekday(dayOfWeek, config.weekdays)) return current;
-    current = addDays(current, 1);
-  }
-  return current;
-}
-
-export function snapToNextBusinessStart(date: Date, config: BusinessCalendarConfig): Date {
+export function snapToNextBusinessStart(
+  date: Date,
+  config: BusinessCalendarConfig,
+  holidays?: Set<string>,
+): Date {
   const { dayOfWeek, hourFraction } = getLocalWeekdayAndHour(date, config);
-  let d = new Date(date.getTime());
-  const cameFromNonWorkday = !isWeekday(dayOfWeek, config.weekdays);
+  const localStr = toLocalDateYYYYMMDD(date, config.timezone);
+  const cameFromNonWorkday = !isBusinessDay(dayOfWeek, localStr, config, holidays);
 
+  let d = new Date(date.getTime());
   if (cameFromNonWorkday) {
-    d = nextWeekday(d, config);
+    d = nextBusinessDay(d, config, holidays);
   }
 
   const start = parseHHmm(config.workdayStart);
@@ -111,38 +151,44 @@ export function snapToNextBusinessStart(date: Date, config: BusinessCalendarConf
   const endFraction = end.hours + end.minutes / 60;
 
   let again = getLocalWeekdayAndHour(d, config);
-  if (isWeekday(again.dayOfWeek, config.weekdays)) {
+  const againStr = toLocalDateYYYYMMDD(d, config.timezone);
+  if (isBusinessDay(again.dayOfWeek, againStr, config, holidays)) {
     if (cameFromNonWorkday) {
       d = setLocalTimeTo(d, start.hours, start.minutes, 0, 0, config);
     } else if (again.hourFraction < startFraction) {
       d = setLocalTimeTo(d, start.hours, start.minutes, 0, 0, config);
     } else if (again.hourFraction >= endFraction) {
       d = addDays(d, 1);
-      d = nextWeekday(d, config);
+      d = nextBusinessDay(d, config, holidays);
       d = setLocalTimeTo(d, start.hours, start.minutes, 0, 0, config);
     }
   } else {
-    d = nextWeekday(d, config);
+    d = nextBusinessDay(d, config, holidays);
     d = setLocalTimeTo(d, start.hours, start.minutes, 0, 0, config);
   }
   return d;
 }
 
-export function addBusinessMinutesWithConfig(from: Date, minutes: number, config: BusinessCalendarConfig): Date {
+export function addBusinessMinutesWithConfig(
+  from: Date,
+  minutes: number,
+  config: BusinessCalendarConfig,
+  holidays?: Set<string>,
+): Date {
   if (minutes <= 0) return new Date(from.getTime());
 
   const start = parseHHmm(config.workdayStart);
   const end = parseHHmm(config.workdayEnd);
   const startFraction = start.hours + start.minutes / 60;
   const endFraction = end.hours + end.minutes / 60;
-  const minutesPerWorkday = (endFraction - startFraction) * 60;
 
-  let current = snapToNextBusinessStart(new Date(from.getTime()), config);
+  let current = snapToNextBusinessStart(new Date(from.getTime()), config, holidays);
   let remaining = minutes;
 
   while (remaining > 0) {
     const { dayOfWeek, hourFraction } = getLocalWeekdayAndHour(current, config);
-    if (isWeekday(dayOfWeek, config.weekdays)) {
+    const localStr = toLocalDateYYYYMMDD(current, config.timezone);
+    if (isBusinessDay(dayOfWeek, localStr, config, holidays)) {
       const minutesUntilEOD = (endFraction - hourFraction) * 60;
       if (remaining <= minutesUntilEOD) {
         current = new Date(current.getTime() + remaining * 60 * 1000);
@@ -150,10 +196,10 @@ export function addBusinessMinutesWithConfig(from: Date, minutes: number, config
       } else {
         remaining -= minutesUntilEOD;
         current = new Date(current.getTime() + minutesUntilEOD * 60 * 1000);
-        current = snapToNextBusinessStart(current, config);
+        current = snapToNextBusinessStart(current, config, holidays);
       }
     } else {
-      current = snapToNextBusinessStart(current, config);
+      current = snapToNextBusinessStart(current, config, holidays);
     }
   }
   return current;
