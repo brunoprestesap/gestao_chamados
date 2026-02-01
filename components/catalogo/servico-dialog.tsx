@@ -269,7 +269,7 @@ export function ServicoDialog({
                 control={form.control}
                 name="code"
                 render={({ field }) => (
-                  <FormItem className="!gap-y-0">
+                  <FormItem className="gap-y-0!">
                     <FormLabel className="min-h-10 block">Código do Serviço</FormLabel>
                     <FormControl>
                       <Input
@@ -293,7 +293,7 @@ export function ServicoDialog({
                 control={form.control}
                 name="name"
                 render={({ field }) => (
-                  <FormItem className="!gap-y-0">
+                  <FormItem className="gap-y-0!">
                     <FormLabel className="min-h-10 block">Nome do Serviço</FormLabel>
                     <FormControl>
                       <Input

@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
 
+import { SubtypeSelectWithCreate } from '@/components/catalogo/subtype-select-with-create';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,7 +34,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { SubtypeSelectWithCreate } from '@/components/catalogo/subtype-select-with-create';
 import { PRIORITIES } from '@/shared/catalog/service.constants';
 import { ServiceCreateSchema } from '@/shared/catalog/service.schemas';
 import type { ServiceCreateInput } from '@/shared/catalog/service.types';
@@ -124,6 +124,7 @@ export function NovoServicoDialog({
   async function onSubmit(values: ServiceCreateInput) {
     setSubmitting(true);
     // Código é gerado no backend; não enviar
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- omitido no payload
     const { code: _code, ...payload } = values;
     const res = await fetch('/api/catalog/services', {
       method: 'POST',
@@ -168,7 +169,7 @@ export function NovoServicoDialog({
                 control={form.control}
                 name="code"
                 render={({ field }) => (
-                  <FormItem className="!gap-y-0">
+                  <FormItem className="gap-y-0!">
                     <FormLabel className="min-h-10 block">Código do Serviço</FormLabel>
                     <FormControl>
                       <Input
@@ -192,7 +193,7 @@ export function NovoServicoDialog({
                 control={form.control}
                 name="name"
                 render={({ field }) => (
-                  <FormItem className="!gap-y-0">
+                  <FormItem className="gap-y-0!">
                     <FormLabel className="min-h-10 block">
                       Nome do Serviço <span className="text-destructive">*</span>
                     </FormLabel>
