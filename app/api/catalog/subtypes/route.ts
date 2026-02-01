@@ -3,29 +3,47 @@ import { NextResponse } from 'next/server';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
+import '@/models/ServiceType'; // Registra o modelo para populate('typeId')
 
 export async function GET(req: Request) {
-  await dbConnect();
-  const { searchParams } = new URL(req.url);
-  const typeId = (searchParams.get('typeId') || '').trim();
+  try {
+    await dbConnect();
+  } catch (err) {
+    console.error('[GET /api/catalog/subtypes] dbConnect error:', err);
+    return NextResponse.json(
+      { error: 'Erro ao conectar ao banco de dados' },
+      { status: 503 },
+    );
+  }
 
-  const filter: Record<string, unknown> = {};
-  if (typeId) filter.typeId = typeId;
+  try {
+    const { searchParams } = new URL(req.url);
+    const typeId = (searchParams.get('typeId') || '').trim();
 
-  const raw = await ServiceSubTypeModel.find(filter)
-    .sort({ name: 1 })
-    .populate('typeId', 'name')
-    .lean();
+    const filter: Record<string, unknown> = {};
+    if (typeId) filter.typeId = typeId;
 
-  type Populated = (typeof raw)[0] & { typeId?: { _id: unknown; name: string } | null };
-  const items = (raw as Populated[]).map((it) => ({
-    _id: it._id,
-    name: it.name,
-    isActive: it.isActive,
-    typeName: it.typeId?.name ?? '',
-  }));
+    const raw = await ServiceSubTypeModel.find(filter)
+      .sort({ name: 1 })
+      .populate('typeId', 'name')
+      .lean();
 
-  return NextResponse.json({ items });
+    type Populated = (typeof raw)[0] & { typeId?: { _id: unknown; name: string } | null };
+    const items = (raw as Populated[]).map((it) => ({
+      _id: it._id,
+      name: it.name,
+      isActive: it.isActive,
+      typeName: it.typeId?.name ?? '',
+    }));
+
+    return NextResponse.json({ items });
+  } catch (err) {
+    console.error('[GET /api/catalog/subtypes]', err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Erro ao carregar subtipos' },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(req: Request) {

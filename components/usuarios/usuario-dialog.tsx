@@ -87,6 +87,7 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
   const [submitting, setSubmitting] = useState(false);
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [subtypes, setSubtypes] = useState<SubtypeOption[]>([]);
+  const [subtypesError, setSubtypesError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = mode === 'edit' && !!initialData?._id;
@@ -152,6 +153,7 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
   useEffect(() => {
     if (!open) {
       setError(null);
+      setSubtypesError(null);
       return;
     }
     form.reset(defaultValues);
@@ -192,14 +194,19 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
   }, []);
 
   const fetchSubtypes = useCallback(async () => {
+    setSubtypesError(null);
     try {
       const res = await fetch('/api/catalog/subtypes', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Erro ao carregar subtipos');
-      const data = (await res.json().catch(() => ({}))) as { items?: SubtypeOption[] };
-      // Filtra apenas subtipos ativos
+      const data = (await res.json().catch(() => ({}))) as { items?: SubtypeOption[]; error?: string };
+      if (!res.ok) {
+        setSubtypes([]);
+        setSubtypesError(data?.error || 'Erro ao carregar especialidades.');
+        return;
+      }
       setSubtypes((data.items || []).filter((s) => s.isActive !== false));
     } catch (err) {
-      console.error('Erro ao buscar subtipos:', err);
+      setSubtypes([]);
+      setSubtypesError('Erro ao carregar especialidades. Tente novamente.');
     }
   }, []);
 
@@ -291,9 +298,18 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-h-[85vh] p-4 sm:p-6">
-        <DialogHeader className="pb-4">
-          <DialogTitle className="text-lg sm:text-xl">{title}</DialogTitle>
+      <DialogContent
+        className="
+          w-[calc(100%-2rem)] max-w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl
+          max-h-[min(90vh,calc(100vh-2rem))]
+          overflow-y-auto overflow-x-hidden
+          p-4 sm:p-6
+          rounded-lg
+          shadow-xl
+        "
+      >
+        <DialogHeader className="pb-3 sm:pb-4 pr-8 sm:pr-10">
+          <DialogTitle className="text-base sm:text-xl">{title}</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm mt-1">{desc}</DialogDescription>
         </DialogHeader>
 
@@ -510,6 +526,9 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
                         Especialidades{' '}
                         <span className="text-muted-foreground font-normal">(opcional)</span>
                       </FormLabel>
+                      {subtypesError && (
+                        <p className="text-xs text-amber-600 dark:text-amber-500">{subtypesError}</p>
+                      )}
                       <FormControl>
                         <div className="space-y-2">
                           <Select
