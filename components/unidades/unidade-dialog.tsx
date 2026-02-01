@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { UnitCreateSchema } from '@/shared/units/unit.schemas';
 
 type UnitForm = z.infer<typeof UnitCreateSchema>;
@@ -99,15 +100,20 @@ export function UnidadeDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !submitting && onOpenChange(v)}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{desc}</DialogDescription>
+      <DialogContent className="flex max-h-[90dvh] max-w-[calc(100vw-3rem)] flex-col gap-4 overflow-hidden p-4 sm:max-w-xl sm:p-6">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="text-base sm:text-lg">{title}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">{desc}</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <ScrollArea className="flex-1 pr-2">
+              <div className="space-y-4 pb-4">
+                <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
@@ -176,8 +182,10 @@ export function UnidadeDialog({
                 </FormItem>
               )}
             />
+              </div>
+            </ScrollArea>
 
-            <DialogFooter className="gap-2 pt-2">
+            <DialogFooter className="shrink-0 gap-2 border-t pt-4">
               <Button
                 type="button"
                 variant="outline"

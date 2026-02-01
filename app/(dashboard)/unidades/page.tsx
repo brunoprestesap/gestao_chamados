@@ -17,12 +17,12 @@ import {
 } from '@/components/ui/table';
 import { UnidadeDialog, type UnitDTO } from '@/components/unidades/unidade-dialog';
 
+const emptyMessage = 'Nenhuma unidade encontrada.';
+
 export default function UnidadesPage() {
   const [loading, setLoading] = useState(true);
-
   const [q, setQ] = useState('');
   const [items, setItems] = useState<UnitDTO[]>([]);
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [selected, setSelected] = useState<UnitDTO | null>(null);
@@ -43,13 +43,11 @@ export default function UnidadesPage() {
   }
 
   useEffect(() => {
-    // carga inicial
     fetchUnits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    // refetch quando busca mudar
     fetchUnits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryString]);
@@ -80,147 +78,213 @@ export default function UnidadesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header responsivo */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Unidades</h1>
-          <p className="text-sm text-muted-foreground">Cadastre e gerencie as unidades</p>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Unidades</h1>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            Cadastre e gerencie as unidades
+          </p>
         </div>
 
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Unidade
+        <Button onClick={openCreate} className="w-full gap-2 sm:w-auto" size="sm">
+          <Plus className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Nova Unidade</span>
+          <span className="sm:hidden">Nova</span>
         </Button>
       </div>
 
       {/* Busca */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Card className="p-3 sm:p-4">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
           <Input
             placeholder="Buscar unidades..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="pl-9"
+            aria-label="Buscar unidades"
           />
         </div>
-      </div>
+      </Card>
 
-      {/* Tabela */}
+      {/* Desktop: Tabela | Mobile: Cards */}
       <Card className="overflow-hidden">
-        <div className="border-b px-4 py-3">
-          <div className="grid grid-cols-12 gap-2 text-sm font-medium text-muted-foreground">
-            <div className="col-span-4">Unidade</div>
-            <div className="col-span-2">Andar</div>
-            <div className="col-span-3">Responsável</div>
-            <div className="col-span-2 text-center">Status</div>
-            <div className="col-span-1 text-right">Ações</div>
+        {/* Desktop: Tabela */}
+        <div className="hidden md:block">
+          <div className="border-b px-4 py-3">
+            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground sm:text-sm">
+              <div className="col-span-4">Unidade</div>
+              <div className="col-span-2">Andar</div>
+              <div className="col-span-3">Responsável</div>
+              <div className="col-span-2 text-center">Status</div>
+              <div className="col-span-1 text-right">Ações</div>
+            </div>
           </div>
+
+          <Table>
+            <TableHeader className="sr-only">
+              <TableRow>
+                <TableHead>Unidade</TableHead>
+                <TableHead>Andar</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="py-12 text-center text-sm text-muted-foreground"
+                  >
+                    Carregando...
+                  </TableCell>
+                </TableRow>
+              ) : items.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="py-12 text-center text-sm text-muted-foreground"
+                  >
+                    {emptyMessage}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                items.map((row) => (
+                  <TableRow key={row._id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="align-top">
+                      <div className="leading-tight">
+                        <div className="font-semibold">{row.name}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <span className="text-sm">{row.floor}</span>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <div className="leading-tight">
+                        <div className="text-sm font-medium">{row.responsibleName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.responsibleEmail || '—'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.responsiblePhone || '—'}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top text-center">
+                      <Badge
+                        variant={row.isActive ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {row.isActive ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEdit(row)}
+                          aria-label={`Editar ${row.name}`}
+                          className="h-8 w-8"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onDelete(row._id)}
+                          aria-label={`Excluir ${row.name}`}
+                          className="h-8 w-8"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
 
-        <Table>
-          <TableHeader className="hidden">
-            <TableRow>
-              <TableHead>Unidade</TableHead>
-              <TableHead>Andar</TableHead>
-              <TableHead>Responsável</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
+        {/* Mobile: Cards */}
+        <div className="md:hidden">
+          {loading ? (
+            <div className="p-10 text-center text-sm text-muted-foreground">Carregando...</div>
+          ) : items.length === 0 ? (
+            <div className="p-10 text-center text-sm text-muted-foreground">{emptyMessage}</div>
+          ) : (
+            <div className="divide-y">
+              {items.map((row) => (
+                <div
+                  key={row._id}
+                  className="p-4 transition-colors hover:bg-muted/30 active:bg-muted/50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate font-semibold leading-tight">{row.name}</h3>
+                        <Badge
+                          variant={row.isActive ? 'default' : 'secondary'}
+                          className="shrink-0 text-xs"
+                        >
+                          {row.isActive ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </div>
 
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                  Carregando...
-                </TableCell>
-              </TableRow>
-            ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                  Nenhuma unidade encontrada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((row) => (
-                <TableRow key={row._id} className="hover:bg-muted/30">
-                  {/* Unidade */}
-                  <TableCell className="align-top">
-                    <div className="leading-tight">
-                      <div className="font-semibold">{row.name}</div>
-
-                      {/* Mobile: detalhes abaixo */}
-                      <div className="mt-1 space-y-1 text-xs text-muted-foreground md:hidden">
-                        <div>
-                          <span className="font-medium text-foreground/80">Andar:</span> {row.floor}
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground/80">Andar:</span>
+                          <span>{row.floor}</span>
                         </div>
-                        <div>
-                          <span className="font-medium text-foreground/80">Resp.:</span>{' '}
-                          {row.responsibleName}
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground/80">Responsável:</span>
+                          <span className="truncate">{row.responsibleName}</span>
                         </div>
-                        {row.responsibleEmail ? <div>{row.responsibleEmail}</div> : null}
-                        {row.responsiblePhone ? <div>{row.responsiblePhone}</div> : null}
+                        {row.responsibleEmail && (
+                          <div className="truncate sm:max-w-[200px]">{row.responsibleEmail}</div>
+                        )}
+                        {row.responsiblePhone && (
+                          <div className="truncate">{row.responsiblePhone}</div>
+                        )}
                       </div>
                     </div>
-                  </TableCell>
 
-                  {/* Andar (desktop) */}
-                  <TableCell className="hidden align-top md:table-cell">
-                    <span className="text-sm">{row.floor}</span>
-                  </TableCell>
-
-                  {/* Responsável (desktop) */}
-                  <TableCell className="hidden align-top md:table-cell">
-                    <div className="leading-tight">
-                      <div className="text-sm font-medium">{row.responsibleName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.responsibleEmail ? row.responsibleEmail : '—'}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.responsiblePhone ? row.responsiblePhone : '—'}
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  {/* Status */}
-                  <TableCell className="align-top text-center">
-                    <Badge variant={row.isActive ? 'default' : 'secondary'}>
-                      {row.isActive ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </TableCell>
-
-                  {/* Ações */}
-                  <TableCell className="align-top">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex shrink-0 gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => openEdit(row)}
-                        aria-label="Editar"
+                        aria-label={`Editar ${row.name}`}
+                        className="h-10 w-10 min-w-10 touch-manipulation"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => onDelete(row._id)}
-                        aria-label="Excluir"
+                        aria-label={`Excluir ${row.name}`}
+                        className="h-10 w-10 min-w-10 touch-manipulation"
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Card>
 
-      {/* Dialog create/edit */}
       <UnidadeDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
