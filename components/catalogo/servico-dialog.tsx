@@ -246,31 +246,42 @@ export function ServicoDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !submitting && onOpenChange(v)}>
-      <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto p-4 sm:p-6">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{descriptionText}</DialogDescription>
+      <DialogContent
+        className="flex max-h-[85dvh] w-[min(100vw-1rem,calc(100%-2rem))] max-w-4xl flex-col gap-4 overflow-hidden p-4 sm:p-5 md:p-6"
+        aria-describedby="servico-dialog-desc"
+      >
+        <DialogHeader className="shrink-0 space-y-1 pr-8 sm:pr-0">
+          <DialogTitle className="text-base font-semibold sm:text-lg">
+            {title}
+          </DialogTitle>
+          <DialogDescription id="servico-dialog-desc" className="text-sm">
+            {descriptionText}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain sm:gap-6"
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
               <FormField
                 control={form.control}
                 name="code"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Código do Serviço</FormLabel>
+                  <FormItem className="!gap-y-0">
+                    <FormLabel className="min-h-10 block">Código do Serviço</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         value={codePreview}
                         readOnly
-                        className="bg-muted"
-                        placeholder="Selecione o subtipo para ver o preview"
+                        className="min-h-10 bg-muted"
+                        placeholder="Selecione o subtipo para ver o código"
+                        aria-readonly
                       />
                     </FormControl>
-                    <FormDescription>
+                    <FormDescription className="text-xs sm:text-sm">
                       Código gerado automaticamente com base no subtipo do serviço.
                     </FormDescription>
                     <FormMessage />
@@ -282,10 +293,14 @@ export function ServicoDialog({
                 control={form.control}
                 name="name"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome do Serviço</FormLabel>
+                  <FormItem className="!gap-y-0">
+                    <FormLabel className="min-h-10 block">Nome do Serviço</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Troca de lâmpadas" {...field} />
+                      <Input
+                        placeholder="Ex: Troca de lâmpadas"
+                        className="min-h-10"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -293,12 +308,12 @@ export function ServicoDialog({
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="typeId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-2">
                     <FormLabel>Tipo de Serviço</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
@@ -323,7 +338,7 @@ export function ServicoDialog({
                 control={form.control}
                 name="subtypeId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-2">
                     <SubtypeSelectWithCreate
                       typeId={typeId}
                       value={field.value}
@@ -344,22 +359,27 @@ export function ServicoDialog({
               control={form.control}
               name="description"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Descrição</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Descreva o serviço..." {...field} />
+                    <Textarea
+                      placeholder="Descreva o serviço..."
+                      className="min-h-[100px] resize-y"
+                      rows={3}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="priorityDefault"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-2">
                     <FormLabel>Prioridade Padrão</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
@@ -384,10 +404,16 @@ export function ServicoDialog({
                 control={form.control}
                 name="estimatedHours"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-2">
                     <FormLabel>Tempo Estimado (horas)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} {...field} />
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        className="min-h-10"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -399,10 +425,15 @@ export function ServicoDialog({
               control={form.control}
               name="materials"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Materiais Necessários</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Liste os materiais..." {...field} />
+                    <Textarea
+                      placeholder="Liste os materiais normalmente necessários..."
+                      className="min-h-[100px] resize-y"
+                      rows={3}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -413,17 +444,22 @@ export function ServicoDialog({
               control={form.control}
               name="procedure"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Procedimento Padrão</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Descreva o procedimento..." {...field} />
+                    <Textarea
+                      placeholder="Descreva o procedimento padrão de execução..."
+                      className="min-h-[100px] resize-y"
+                      rows={3}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <DialogFooter className="shrink-0 flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -433,7 +469,11 @@ export function ServicoDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto sm:min-w-28"
+                disabled={submitting}
+              >
                 {submitting ? 'Salvando...' : 'Salvar'}
               </Button>
             </DialogFooter>
