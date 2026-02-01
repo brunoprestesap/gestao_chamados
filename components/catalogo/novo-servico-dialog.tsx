@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
@@ -18,6 +18,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -36,6 +37,7 @@ import { SubtypeSelectWithCreate } from '@/components/catalogo/subtype-select-wi
 import { PRIORITIES } from '@/shared/catalog/service.constants';
 import { ServiceCreateSchema } from '@/shared/catalog/service.schemas';
 import type { ServiceCreateInput } from '@/shared/catalog/service.types';
+import { getCodePrefixFromSubtypeName } from '@/shared/catalog/service.utils';
 
 type SubtypeItem = { _id: string; name: string; typeId: string; isActive: boolean };
 
@@ -91,12 +93,42 @@ export function NovoServicoDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeId]);
 
+  const subtypeId = form.watch('subtypeId');
+  const [nextCodePreview, setNextCodePreview] = useState<string>('');
+
+  useEffect(() => {
+    if (!subtypeId) {
+      setNextCodePreview('');
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/catalog/services/next-code?subtypeId=${encodeURIComponent(subtypeId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.nextCode) setNextCodePreview(data.nextCode);
+      })
+      .catch(() => setNextCodePreview(''));
+    return () => {
+      cancelled = true;
+    };
+  }, [subtypeId]);
+
+  const selectedSubtype = useMemo(
+    () => subtypes.find((s) => String(s._id) === String(subtypeId)),
+    [subtypes, subtypeId],
+  );
+  const codePreview =
+    nextCodePreview ||
+    (selectedSubtype?.name ? `${getCodePrefixFromSubtypeName(selectedSubtype.name)}-0001` : '');
+
   async function onSubmit(values: ServiceCreateInput) {
     setSubmitting(true);
+    // Código é gerado no backend; não enviar
+    const { code: _code, ...payload } = values;
     const res = await fetch('/api/catalog/services', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
+      body: JSON.stringify(payload),
     });
     setSubmitting(false);
 
@@ -129,8 +161,17 @@ export function NovoServicoDialog({
                   <FormItem>
                     <FormLabel>Código do Serviço</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: ELET-001" {...field} />
+                      <Input
+                        {...field}
+                        value={codePreview}
+                        readOnly
+                        className="bg-muted"
+                        placeholder="Selecione o subtipo para ver o preview"
+                      />
                     </FormControl>
+                    <FormDescription>
+                      Código gerado automaticamente com base no subtipo do serviço.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -2,8 +2,8 @@ import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
 export const PRIORITIES = ['Baixa', 'Normal', 'Alta', 'Emergencial'] as const;
 
-// AAAA-999
-export const SERVICE_CODE_REGEX = /^[A-Z]{4}-\d{3}$/;
+// AAAA-NNNN (4 dígitos). Aceita AAAA-NNN (legado) para serviços existentes.
+export const SERVICE_CODE_REGEX = /^[A-Z]{4}-\d{3,4}$/;
 
 const ServiceCatalogSchema = new Schema(
   {
@@ -13,8 +13,8 @@ const ServiceCatalogSchema = new Schema(
       unique: true,
       trim: true,
       validate: {
-        validator: (v: string) => SERVICE_CODE_REGEX.test(v),
-        message: 'Code must match AAAA-999 (e.g., ELET-001)',
+        validator: (v: string) => /^[A-Z]{4}-\d{3,4}$/.test(v),
+        message: 'Code must match AAAA-NNNN (e.g., ELET-0001).',
       },
     },
     name: { type: String, required: true, trim: true },

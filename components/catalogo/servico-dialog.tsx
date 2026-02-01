@@ -18,6 +18,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -35,6 +36,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { SubtypeSelectWithCreate } from '@/components/catalogo/subtype-select-with-create';
 import { PRIORITIES } from '@/shared/catalog/service.constants';
 import { ServiceCreateSchema } from '@/shared/catalog/service.schemas';
+import { getCodePrefixFromSubtypeName } from '@/shared/catalog/service.utils';
 
 type ServiceForm = z.infer<typeof ServiceCreateSchema>;
 type SubtypeItem = { _id: string; name: string; typeId: string; isActive: boolean };
@@ -157,6 +159,40 @@ export function ServicoDialog({
     return list;
   }, [subtypes, mode, initialData?.subtype, initialData?.subtypeId, initialData?.typeId]);
 
+  const subtypeId = form.watch('subtypeId');
+  const [nextCodePreview, setNextCodePreview] = useState<string>('');
+
+  useEffect(() => {
+    if (mode !== 'create' || !subtypeId) {
+      setNextCodePreview('');
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/catalog/services/next-code?subtypeId=${encodeURIComponent(subtypeId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.nextCode) setNextCodePreview(data.nextCode);
+      })
+      .catch(() => setNextCodePreview(''));
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, subtypeId]);
+
+  const selectedSubtype = useMemo(
+    () => displaySubtypes.find((s) => String(s._id) === String(subtypeId)),
+    [displaySubtypes, subtypeId],
+  );
+
+  const codePreview =
+    mode === 'edit' && initialData?.code
+      ? initialData.code
+      : mode === 'create' && nextCodePreview
+        ? nextCodePreview
+        : mode === 'create' && selectedSubtype?.name
+          ? `${getCodePrefixFromSubtypeName(selectedSubtype.name)}-0001`
+          : '';
+
   useEffect(() => {
     if (!open) return;
     if (!typeId) {
@@ -184,10 +220,16 @@ export function ServicoDialog({
     const url = isEdit ? `/api/catalog/services/${initialData!._id}` : '/api/catalog/services';
     const method = isEdit ? 'PUT' : 'POST';
 
+    // No create, o código é gerado no backend; nunca enviar
+    const payload = isEdit ? values : (() => {
+      const { code: _code, ...rest } = values;
+      return rest;
+    })();
+
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
+      body: JSON.stringify(payload),
     });
 
     setSubmitting(false);
@@ -220,8 +262,17 @@ export function ServicoDialog({
                   <FormItem>
                     <FormLabel>Código do Serviço</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: ELET-001" {...field} />
+                      <Input
+                        {...field}
+                        value={codePreview}
+                        readOnly
+                        className="bg-muted"
+                        placeholder="Selecione o subtipo para ver o preview"
+                      />
                     </FormControl>
+                    <FormDescription>
+                      Código gerado automaticamente com base no subtipo do serviço.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

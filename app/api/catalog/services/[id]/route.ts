@@ -65,9 +65,11 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     );
   }
 
+  // Nunca alterar o código do serviço (gerado automaticamente no create)
+  const { code: _code, ...dataToUpdate } = parsed.data;
   const updated = await ServiceCatalogModel.findByIdAndUpdate(
     id,
-    { $set: parsed.data },
+    { $set: dataToUpdate },
     {
       new: true,
       runValidators: true,

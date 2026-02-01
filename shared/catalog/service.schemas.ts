@@ -12,10 +12,11 @@ const numberFromInput = z.preprocess(
 );
 
 export const ServiceCreateSchema = z.object({
+  /** Opcional no create: backend gera automaticamente com base no subtipo */
   code: z
     .string()
-    .transform((v) => v.trim().toUpperCase())
-    .refine((v) => SERVICE_CODE_REGEX.test(v), SERVICE_CODE_ERROR),
+    .optional()
+    .transform((v) => (v ? v.trim().toUpperCase() : undefined)),
 
   name: z
     .string()

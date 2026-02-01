@@ -5,7 +5,13 @@ import { MongoServerError } from 'mongodb';
 import { NextResponse } from 'next/server';
 
 import { dbConnect } from '@/lib/db';
+import {
+  buildServiceCode,
+  extractSequential,
+  getCodePrefixFromSubtypeName,
+} from '@/lib/service-code';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
+import { ServiceSubTypeModel } from '@/models/ServiceSubType';
 import { ServiceListQuerySchema } from '@/shared/catalog/service.schemas';
 
 export async function GET(req: Request) {
@@ -61,39 +67,74 @@ export async function POST(req: Request) {
 
   const body = await req.json();
 
-  // validação simples no servidor (a UI também valida)
-  const required = ['code', 'name', 'typeId', 'subtypeId'];
+  // Garantir que nunca usamos code do body - sempre geramos no backend
+  delete body.code;
+
+  // validação: code é gerado automaticamente, não enviado pelo cliente
+  const required = ['name', 'typeId', 'subtypeId'];
   for (const k of required) {
     if (!body?.[k] || String(body[k]).trim() === '') {
       return NextResponse.json({ error: `Missing field: ${k}` }, { status: 400 });
     }
   }
 
-  try {
-    const created = await ServiceCatalogModel.create({
-      code: String(body.code).trim(),
-      name: String(body.name).trim(),
-      typeId: String(body.typeId).trim(),
-      subtypeId: String(body.subtypeId).trim(),
-      description: body.description ? String(body.description).trim() : '',
-      priorityDefault: body.priorityDefault || 'Normal',
-      estimatedHours: Number(body.estimatedHours ?? 0),
-      materials: body.materials ? String(body.materials).trim() : '',
-      procedure: body.procedure ? String(body.procedure).trim() : '',
-      isActive: body.isActive ?? true,
-    });
+  const subtypeId = String(body.subtypeId).trim();
+  const subtype = await ServiceSubTypeModel.findById(subtypeId).lean();
+  if (!subtype) {
+    return NextResponse.json({ error: 'Subtipo não encontrado' }, { status: 400 });
+  }
 
-    return NextResponse.json({ item: created }, { status: 201 });
-  } catch (err) {
-    if (err instanceof MongoServerError && err.code === 11000) {
-      const field = err.keyValue?.code != null ? 'code' : Object.keys(err.keyValue ?? {})[0];
-      if (field === 'code') {
+  const prefix = getCodePrefixFromSubtypeName(subtype.name);
+
+  // Busca todos os serviços com esse prefixo para obter o maior sequencial
+  const withPrefix = await ServiceCatalogModel.find({
+    code: new RegExp(`^${prefix}-\\d+$`),
+  })
+    .select('code')
+    .lean();
+
+  const maxSeq =
+    withPrefix.length === 0
+      ? 0
+      : Math.max(...withPrefix.map((d) => extractSequential((d as { code: string }).code)));
+  const nextSeq = maxSeq + 1;
+
+  const maxRetries = 3;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const code = buildServiceCode(prefix, nextSeq + attempt);
+
+    try {
+      const created = await ServiceCatalogModel.create({
+        code,
+        name: String(body.name).trim(),
+        typeId: String(body.typeId).trim(),
+        subtypeId,
+        description: body.description ? String(body.description).trim() : '',
+        priorityDefault: body.priorityDefault || 'Normal',
+        estimatedHours: Number(body.estimatedHours ?? 0),
+        materials: body.materials ? String(body.materials).trim() : '',
+        procedure: body.procedure ? String(body.procedure).trim() : '',
+        isActive: body.isActive ?? true,
+      });
+
+      return NextResponse.json({ item: created }, { status: 201 });
+    } catch (err) {
+      if (err instanceof MongoServerError && err.code === 11000) {
+        const field = err.keyValue?.code != null ? 'code' : Object.keys(err.keyValue ?? {})[0];
+        if (field === 'code' && attempt < maxRetries - 1) {
+          continue; // retry com próximo número
+        }
         return NextResponse.json(
-          { error: 'Já existe um serviço com este código. Escolha outro código.' },
+          { error: 'Já existe um serviço com este código. Tente novamente.' },
           { status: 409 },
         );
       }
+      throw err;
     }
-    throw err;
   }
+
+  return NextResponse.json(
+    { error: 'Não foi possível gerar código único. Tente novamente.' },
+    { status: 500 },
+  );
 }
