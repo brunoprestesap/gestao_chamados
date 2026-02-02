@@ -1,10 +1,10 @@
 'use client';
 
 import { Loader2, UserCheck, UserX } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import { assignTicketAction, type AssignTicketResult } from '@/app/(dashboard)/gestao/actions';
+import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

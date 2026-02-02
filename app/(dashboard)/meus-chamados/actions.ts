@@ -6,8 +6,11 @@ import { Types } from 'mongoose';
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { emitToRoom } from '@/lib/realtime-emit';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { NotificationModel } from '@/models/Notification';
+import { UserModel } from '@/models/user.model';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import type { NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
 import {
@@ -100,6 +103,39 @@ export async function createTicketAction(
       statusNovo: 'aberto',
       observacoes: `Chamado criado: ${titulo}`,
     });
+
+    // Notificação para Preposto e Admin: novo chamado aberto pelo solicitante
+    const solicitanteUser = await UserModel.findById(session.userId).select('name').lean();
+    const ticketNewPayload = {
+      ticketId: String(doc._id),
+      ticketNumber: doc.ticket_number,
+      title: titulo,
+      openedBy: { id: session.userId, name: solicitanteUser?.name ?? undefined },
+      at: new Date().toISOString(),
+    };
+    const managers = await UserModel.find({
+      role: { $in: ['Preposto', 'Admin'] },
+      isActive: true,
+    })
+      .select('_id')
+      .lean();
+    const notificationTitle = doc.ticket_number
+      ? `Novo chamado #${doc.ticket_number} aberto`
+      : 'Novo chamado aberto';
+    for (const manager of managers) {
+      await NotificationModel.create({
+        userId: manager._id,
+        type: 'ticket:new',
+        title: notificationTitle,
+        body: titulo,
+        data: ticketNewPayload,
+        readAt: null,
+      });
+    }
+    await emitToRoom('managers', 'ticket:new', ticketNewPayload);
+
+    revalidatePath('/meus-chamados');
+    revalidatePath('/gestao');
 
     console.log('Chamado criado com sucesso:', {
       _id: doc._id,

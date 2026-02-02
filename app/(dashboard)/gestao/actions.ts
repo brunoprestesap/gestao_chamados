@@ -5,8 +5,10 @@ import { Types } from 'mongoose';
 
 import { canManage, requireManager, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { emitToRoom } from '@/lib/realtime-emit';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { NotificationModel } from '@/models/Notification';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
@@ -208,6 +210,28 @@ export async function closeTicketAction(raw: CloseTicketInput): Promise<CloseTic
       statusNovo: 'encerrado',
       observacoes: obsParts.join(' '),
     });
+
+    // Notificação para o Solicitante: chamado encerrado por Preposto/Admin
+    const closedByUser = await UserModel.findById(session.userId).select('name').lean();
+    const ticketClosedPayload = {
+      ticketId: String(ticketId),
+      ticketNumber: updated.ticket_number,
+      title: updated.titulo,
+      closedBy: { id: session.userId, name: closedByUser?.name ?? undefined },
+      at: now.toISOString(),
+    };
+    const notificationTitle = updated.ticket_number
+      ? `Chamado #${updated.ticket_number} encerrado`
+      : 'Chamado encerrado';
+    await NotificationModel.create({
+      userId: updated.solicitanteId,
+      type: 'ticket:closed',
+      title: notificationTitle,
+      body: updated.titulo ?? '',
+      data: ticketClosedPayload,
+      readAt: null,
+    });
+    await emitToRoom(`user:${String(updated.solicitanteId)}`, 'ticket:closed', ticketClosedPayload);
 
     revalidatePath('/gestao');
     revalidatePath(`/meus-chamados/${ticketId}`);
@@ -463,12 +487,35 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       observacoes: `Atribuído a ${selectedTechnician.name} (${strategy === 'MANUAL' ? 'Manual' : 'Fallback automático'}). Status alterado para Em atendimento. Especialidade: ${String(subtypeId)}`,
     });
 
+    // Notificação persistida + evento realtime para o técnico (após sucesso no Mongo)
+    const assignedByUser = await UserModel.findById(assignedByUserId).select('name').lean();
+    const technicianIdStr = String(selectedTechnician._id);
+    const ticketAssignedPayload = {
+      ticketId: String(ticketId),
+      ticketNumber: updateResult.ticket_number,
+      title: updateResult.titulo,
+      assignedBy: { id: String(assignedByUserId), name: assignedByUser?.name ?? undefined },
+      assignedTo: { id: technicianIdStr, name: selectedTechnician.name },
+      at: now.toISOString(),
+    };
+    await NotificationModel.create({
+      userId: selectedTechnician._id,
+      type: 'ticket:assigned',
+      title: updateResult.ticket_number
+        ? `Chamado #${updateResult.ticket_number} atribuído a você`
+        : 'Chamado atribuído a você',
+      body: updateResult.titulo ?? '',
+      data: ticketAssignedPayload,
+      readAt: null,
+    });
+    await emitToRoom(`user:${technicianIdStr}`, 'ticket:assigned', ticketAssignedPayload);
+
     revalidatePath('/gestao');
     revalidatePath(`/meus-chamados/${ticketId}`);
 
     return {
       ok: true,
-      technicianId: String(selectedTechnician._id),
+      technicianId: technicianIdStr,
       technicianName: selectedTechnician.name,
       strategy,
     };
