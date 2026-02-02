@@ -36,8 +36,16 @@ console.log('  OK:', ok1 ? '✓' : '✗');
 const c2 = new Date(Date.UTC(2025, 0, 10, 22, 0, 0, 0)); // Sex 19:00 Belem
 const r2 = computeSlaDueDatesFromConfig(c2, 600, 1800, true);
 console.log('\nCenário 2 — Sex 19:00 NORMAL (fora expediente):');
-console.log('  responseDueAt:', fmt(r2.responseDueAt), '(esperado: seg 18:00 — 600min de seg 08:00)');
-console.log('  resolutionDueAt:', fmt(r2.resolutionDueAt), '(esperado: qua 18:00 — 1800min de seg 08:00)');
+console.log(
+  '  responseDueAt:',
+  fmt(r2.responseDueAt),
+  '(esperado: seg 18:00 — 600min de seg 08:00)',
+);
+console.log(
+  '  resolutionDueAt:',
+  fmt(r2.resolutionDueAt),
+  '(esperado: qua 18:00 — 1800min de seg 08:00)',
+);
 const ok2 =
   fmt(r2.responseDueAt).includes('seg') &&
   fmt(r2.responseDueAt).includes('18:00') &&
@@ -70,7 +78,11 @@ const c5 = new Date(Date.UTC(2026, 0, 31, 15, 7, 0, 0)); // Sáb 31/01/2026 12:0
 const r5 = computeSlaDueDatesFromConfig(c5, 60, 480, true); // 1h, 8h, horário comercial
 console.log('\nCenário 5 — Sáb 12:07 ALTA (1h resposta, 8h solução, horário comercial):');
 console.log('  responseDueAt:', fmt(r5.responseDueAt), '(esperado: seg 09:00 — 1h após seg 08:00)');
-console.log('  resolutionDueAt:', fmt(r5.resolutionDueAt), '(esperado: seg 16:00 — 8h após seg 08:00)');
+console.log(
+  '  resolutionDueAt:',
+  fmt(r5.resolutionDueAt),
+  '(esperado: seg 16:00 — 8h após seg 08:00)',
+);
 const ok5 =
   fmt(r5.responseDueAt).includes('seg') &&
   fmt(r5.responseDueAt).includes('09:00') &&

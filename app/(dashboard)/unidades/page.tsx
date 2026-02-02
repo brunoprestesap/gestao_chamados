@@ -178,10 +178,7 @@ export default function UnidadesPage() {
                       </div>
                     </TableCell>
                     <TableCell className="align-top text-center">
-                      <Badge
-                        variant={row.isActive ? 'default' : 'secondary'}
-                        className="text-xs"
-                      >
+                      <Badge variant={row.isActive ? 'default' : 'secondary'} className="text-xs">
                         {row.isActive ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </TableCell>

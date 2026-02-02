@@ -1,9 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
-import {
-  ATTENDANCE_NATURE_VALUES,
-  CHAMADO_STATUSES,
-} from '@/shared/chamados/chamado.constants';
+import { ATTENDANCE_NATURE_VALUES, CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
 import {
   GRAU_URGENCIA_OPTIONS,
   NATUREZA_OPTIONS,

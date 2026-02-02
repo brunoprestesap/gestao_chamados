@@ -23,12 +23,8 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
 
     if (!parsed.success) {
       const first = parsed.error.flatten().fieldErrors;
-      const msg =
-        first.date?.[0] ?? first.name?.[0] ?? first.scope?.[0] ?? 'Dados inválidos.';
-      return NextResponse.json(
-        { error: Array.isArray(msg) ? msg[0] : msg },
-        { status: 400 },
-      );
+      const msg = first.date?.[0] ?? first.name?.[0] ?? first.scope?.[0] ?? 'Dados inválidos.';
+      return NextResponse.json({ error: Array.isArray(msg) ? msg[0] : msg }, { status: 400 });
     }
 
     await dbConnect();

@@ -10,14 +10,21 @@ const dateYYYYMMDD = z
 
 export const HolidayCreateSchema = z.object({
   date: dateYYYYMMDD,
-  name: z.string().min(1, 'Informe o nome do feriado').transform((v) => v.trim()),
+  name: z
+    .string()
+    .min(1, 'Informe o nome do feriado')
+    .transform((v) => v.trim()),
   scope: z.enum(HOLIDAY_SCOPES).default('INSTITUCIONAL'),
   isActive: z.boolean().default(true),
 });
 
 export const HolidayUpdateSchema = z.object({
   date: dateYYYYMMDD.optional(),
-  name: z.string().min(1).transform((v) => v.trim()).optional(),
+  name: z
+    .string()
+    .min(1)
+    .transform((v) => v.trim())
+    .optional(),
   scope: z.enum(HOLIDAY_SCOPES).optional(),
   isActive: z.boolean().optional(),
 });

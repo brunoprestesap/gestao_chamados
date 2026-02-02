@@ -19,8 +19,8 @@ export const useSidebarStore = create<SidebarState>()(
     {
       name: STORAGE_KEY,
       partialize: (state) => ({ collapsed: state.collapsed }),
-    }
-  )
+    },
+  ),
 );
 
 export const SIDEBAR_WIDTH_EXPANDED = 280;

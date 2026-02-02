@@ -76,7 +76,10 @@ export const { auth, signIn, signOut, handlers } = initAuth({
       session,
       token,
     }: {
-      session: { user?: { id?: string; role?: string; [k: string]: unknown }; [k: string]: unknown };
+      session: {
+        user?: { id?: string; role?: string; [k: string]: unknown };
+        [k: string]: unknown;
+      };
       token: { id?: string; role?: string; [k: string]: unknown };
     }) {
       // Encaminha do token -> session

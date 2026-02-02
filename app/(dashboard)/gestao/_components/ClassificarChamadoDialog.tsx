@@ -247,7 +247,9 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
           <p className="text-muted-foreground text-xs">{headerSubtitle}</p>
           <p className="text-muted-foreground pt-1 text-xs">
             <strong>Solicitação do usuário:</strong>{' '}
-            {chamado.naturezaAtendimento === 'Urgente' ? 'Atendimento Urgente' : 'Atendimento Padrão'}
+            {chamado.naturezaAtendimento === 'Urgente'
+              ? 'Atendimento Urgente'
+              : 'Atendimento Padrão'}
           </p>
         </div>
 
@@ -300,8 +302,8 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
                     Prioridade Final <span className="text-destructive">*</span>
                   </FormLabel>
                   <FormDescription className="text-xs leading-relaxed sm:max-w-none">
-                    Define o nível de prioridade institucional do chamado e determina os prazos de SLA
-                    aplicáveis.
+                    Define o nível de prioridade institucional do chamado e determina os prazos de
+                    SLA aplicáveis.
                   </FormDescription>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>

@@ -10,10 +10,7 @@ export async function GET(req: Request) {
     await dbConnect();
   } catch (err) {
     console.error('[GET /api/catalog/subtypes] dbConnect error:', err);
-    return NextResponse.json(
-      { error: 'Erro ao conectar ao banco de dados' },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: 'Erro ao conectar ao banco de dados' }, { status: 503 });
   }
 
   try {

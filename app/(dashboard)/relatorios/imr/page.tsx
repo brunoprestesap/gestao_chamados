@@ -20,7 +20,9 @@ import { Label } from '@/components/ui/label';
 function getCurrentMonthBounds(): { dataInicial: Date; dataFinal: Date } {
   const now = new Date();
   const dataInicial = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
-  const dataFinal = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+  const dataFinal = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
+  );
   return { dataInicial, dataFinal };
 }
 
@@ -55,7 +57,11 @@ export default async function ImrPage({ searchParams }: PageProps) {
   if (sIni && sFim) {
     dataInicial = new Date(sIni + 'T00:00:00.000Z');
     dataFinal = new Date(sFim + 'T23:59:59.999Z');
-    if (Number.isNaN(dataInicial.getTime()) || Number.isNaN(dataFinal.getTime()) || dataInicial > dataFinal) {
+    if (
+      Number.isNaN(dataInicial.getTime()) ||
+      Number.isNaN(dataFinal.getTime()) ||
+      dataInicial > dataFinal
+    ) {
       const bounds = getCurrentMonthBounds();
       dataInicial = bounds.dataInicial;
       dataFinal = bounds.dataFinal;
@@ -112,8 +118,14 @@ export default async function ImrPage({ searchParams }: PageProps) {
             <Button type="submit">Aplicar período</Button>
           </form>
           <div className="flex flex-wrap gap-4 border-t pt-3 text-xs text-muted-foreground">
-            <span>Período analisado: {formatDate(result.periodo.dataInicial, tzOpt)} a {formatDate(result.periodo.dataFinal, tzOpt)}</span>
-            <span>Data de geração do relatório: {formatDate(dataGeracao, tzOpt)} às {formatTime(dataGeracao, tzOpt)}</span>
+            <span>
+              Período analisado: {formatDate(result.periodo.dataInicial, tzOpt)} a{' '}
+              {formatDate(result.periodo.dataFinal, tzOpt)}
+            </span>
+            <span>
+              Data de geração do relatório: {formatDate(dataGeracao, tzOpt)} às{' '}
+              {formatTime(dataGeracao, tzOpt)}
+            </span>
             <span>Responsável (Admin): {session?.username ?? '—'}</span>
           </div>
         </CardContent>
@@ -140,7 +152,9 @@ export default async function ImrPage({ searchParams }: PageProps) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Avaliação média</p>
-              <p className="text-xl font-semibold">{result.avaliacao.totalAvaliacoes > 0 ? result.avaliacao.mediaGeral : '—'}</p>
+              <p className="text-xl font-semibold">
+                {result.avaliacao.totalAvaliacoes > 0 ? result.avaliacao.mediaGeral : '—'}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Chamados críticos fora do SLA</p>
@@ -154,7 +168,9 @@ export default async function ImrPage({ searchParams }: PageProps) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">1) Volume de atendimentos</CardTitle>
-          <p className="text-xs text-muted-foreground">Total de chamados encerrados no período por tipo de serviço</p>
+          <p className="text-xs text-muted-foreground">
+            Total de chamados encerrados no período por tipo de serviço
+          </p>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
@@ -182,7 +198,9 @@ export default async function ImrPage({ searchParams }: PageProps) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">2) Cumprimento de SLA</CardTitle>
-          <p className="text-xs text-muted-foreground">Dentro do prazo: resolutionBreachedAt nulo ou resolvedAt ≤ resolutionDueAt</p>
+          <p className="text-xs text-muted-foreground">
+            Dentro do prazo: resolutionBreachedAt nulo ou resolvedAt ≤ resolutionDueAt
+          </p>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -241,7 +259,9 @@ export default async function ImrPage({ searchParams }: PageProps) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">4) Tempo médio de atendimento</CardTitle>
-          <p className="text-xs text-muted-foreground">resolvedAt − createdAt (ou closedAt quando resolvedAt ausente)</p>
+          <p className="text-xs text-muted-foreground">
+            resolvedAt − createdAt (ou closedAt quando resolvedAt ausente)
+          </p>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -268,13 +288,18 @@ export default async function ImrPage({ searchParams }: PageProps) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">5) Avaliação dos usuários</CardTitle>
-          <p className="text-xs text-muted-foreground">Apenas chamados avaliados (rating 1 a 5). Negativa = rating ≤ 2 com avaliação registrada.</p>
+          <p className="text-xs text-muted-foreground">
+            Apenas chamados avaliados (rating 1 a 5). Negativa = rating ≤ 2 com avaliação
+            registrada.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">Média geral</p>
-              <p className="text-xl font-semibold">{result.avaliacao.totalAvaliacoes > 0 ? result.avaliacao.mediaGeral : '—'}</p>
+              <p className="text-xl font-semibold">
+                {result.avaliacao.totalAvaliacoes > 0 ? result.avaliacao.mediaGeral : '—'}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total de avaliações</p>
@@ -282,11 +307,16 @@ export default async function ImrPage({ searchParams }: PageProps) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Avaliações negativas (≤ 2)</p>
-              <p className="text-xl font-semibold">{result.avaliacao.totalNegativas} ({result.avaliacao.totalAvaliacoes > 0 ? result.avaliacao.percentualNegativas : 0}%)</p>
+              <p className="text-xl font-semibold">
+                {result.avaliacao.totalNegativas} (
+                {result.avaliacao.totalAvaliacoes > 0 ? result.avaliacao.percentualNegativas : 0}%)
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Chamados não avaliados</p>
-              <p className="text-xl font-semibold">{result.avaliacao.totalNaoAvaliados} ({result.avaliacao.percentualNaoAvaliados}%)</p>
+              <p className="text-xl font-semibold">
+                {result.avaliacao.totalNaoAvaliados} ({result.avaliacao.percentualNaoAvaliados}%)
+              </p>
               <p className="mt-0.5 text-xs text-muted-foreground">Não impacta penalidade.</p>
             </div>
           </div>
@@ -297,7 +327,10 @@ export default async function ImrPage({ searchParams }: PageProps) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">6) Penalidades (base para glosa)</CardTitle>
-          <p className="text-xs text-muted-foreground">Apenas avaliação negativa explícita (rating ≤ 2). Chamados não avaliados não geram penalidade.</p>
+          <p className="text-xs text-muted-foreground">
+            Apenas avaliação negativa explícita (rating ≤ 2). Chamados não avaliados não geram
+            penalidade.
+          </p>
         </CardHeader>
         <CardContent>
           <Table>

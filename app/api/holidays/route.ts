@@ -4,10 +4,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { HolidayModel } from '@/models/Holiday';
-import {
-  HolidayCreateSchema,
-  HolidayListQuerySchema,
-} from '@/shared/holidays/holiday.schemas';
+import { HolidayCreateSchema, HolidayListQuerySchema } from '@/shared/holidays/holiday.schemas';
 
 /**
  * GET /api/holidays — Lista feriados. Admin only.
@@ -33,9 +30,7 @@ export async function GET(req: Request) {
       filter.date = { $regex: `^${year}-`, $options: 'i' };
     }
 
-    const items = await HolidayModel.find(filter)
-      .sort({ date: 1 })
-      .lean();
+    const items = await HolidayModel.find(filter).sort({ date: 1 }).lean();
 
     return NextResponse.json({
       items: items.map((d) => ({
@@ -68,12 +63,8 @@ export async function POST(req: Request) {
 
     if (!parsed.success) {
       const first = parsed.error.flatten().fieldErrors;
-      const msg =
-        first.date?.[0] ?? first.name?.[0] ?? first.scope?.[0] ?? 'Dados inválidos.';
-      return NextResponse.json(
-        { error: Array.isArray(msg) ? msg[0] : msg },
-        { status: 400 },
-      );
+      const msg = first.date?.[0] ?? first.name?.[0] ?? first.scope?.[0] ?? 'Dados inválidos.';
+      return NextResponse.json({ error: Array.isArray(msg) ? msg[0] : msg }, { status: 400 });
     }
 
     await dbConnect();
@@ -85,7 +76,9 @@ export async function POST(req: Request) {
     });
     if (existing) {
       return NextResponse.json(
-        { error: `Já existe um feriado cadastrado para a data ${parsed.data.date} (${parsed.data.scope}).` },
+        {
+          error: `Já existe um feriado cadastrado para a data ${parsed.data.date} (${parsed.data.scope}).`,
+        },
         { status: 409 },
       );
     }

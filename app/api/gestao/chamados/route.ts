@@ -5,9 +5,7 @@ import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 
-function normalizeSla(
-  sla: Record<string, unknown> | null | undefined,
-): {
+function normalizeSla(sla: Record<string, unknown> | null | undefined): {
   priority: string | null;
   responseTargetMinutes: number | null;
   resolutionTargetMinutes: number | null;
@@ -24,15 +22,25 @@ function normalizeSla(
   if (!sla || typeof sla !== 'object') return null;
   return {
     priority: (sla.priority as string) ?? null,
-    responseTargetMinutes: typeof sla.responseTargetMinutes === 'number' ? sla.responseTargetMinutes : null,
-    resolutionTargetMinutes: typeof sla.resolutionTargetMinutes === 'number' ? sla.resolutionTargetMinutes : null,
+    responseTargetMinutes:
+      typeof sla.responseTargetMinutes === 'number' ? sla.responseTargetMinutes : null,
+    resolutionTargetMinutes:
+      typeof sla.resolutionTargetMinutes === 'number' ? sla.resolutionTargetMinutes : null,
     businessHoursOnly: typeof sla.businessHoursOnly === 'boolean' ? sla.businessHoursOnly : null,
     responseDueAt: sla.responseDueAt ? new Date(sla.responseDueAt as Date).toISOString() : null,
-    resolutionDueAt: sla.resolutionDueAt ? new Date(sla.resolutionDueAt as Date).toISOString() : null,
-    responseStartedAt: sla.responseStartedAt ? new Date(sla.responseStartedAt as Date).toISOString() : null,
+    resolutionDueAt: sla.resolutionDueAt
+      ? new Date(sla.resolutionDueAt as Date).toISOString()
+      : null,
+    responseStartedAt: sla.responseStartedAt
+      ? new Date(sla.responseStartedAt as Date).toISOString()
+      : null,
     resolvedAt: sla.resolvedAt ? new Date(sla.resolvedAt as Date).toISOString() : null,
-    responseBreachedAt: sla.responseBreachedAt ? new Date(sla.responseBreachedAt as Date).toISOString() : null,
-    resolutionBreachedAt: sla.resolutionBreachedAt ? new Date(sla.resolutionBreachedAt as Date).toISOString() : null,
+    responseBreachedAt: sla.responseBreachedAt
+      ? new Date(sla.responseBreachedAt as Date).toISOString()
+      : null,
+    resolutionBreachedAt: sla.resolutionBreachedAt
+      ? new Date(sla.resolutionBreachedAt as Date).toISOString()
+      : null,
     computedAt: sla.computedAt ? new Date(sla.computedAt as Date).toISOString() : null,
     configVersion: (sla.configVersion as string) ?? null,
   };

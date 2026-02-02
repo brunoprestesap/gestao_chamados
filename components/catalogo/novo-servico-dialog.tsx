@@ -58,7 +58,9 @@ export function NovoServicoDialog({
   type ServiceCreateForm = z.infer<typeof ServiceCreateSchema>;
 
   const form = useForm<ServiceCreateForm>({
-    resolver: zodResolver(ServiceCreateSchema) as import('react-hook-form').Resolver<ServiceCreateForm>,
+    resolver: zodResolver(
+      ServiceCreateSchema,
+    ) as import('react-hook-form').Resolver<ServiceCreateForm>,
     defaultValues: {
       code: '',
       name: '',
@@ -151,9 +153,7 @@ export function NovoServicoDialog({
         aria-describedby="novo-servico-desc"
       >
         <DialogHeader className="shrink-0 space-y-1 pr-8 sm:pr-0">
-          <DialogTitle className="text-base font-semibold sm:text-lg">
-            Novo Serviço
-          </DialogTitle>
+          <DialogTitle className="text-base font-semibold sm:text-lg">Novo Serviço</DialogTitle>
           <DialogDescription id="novo-servico-desc" className="text-sm">
             Cadastre um novo serviço no catálogo.
           </DialogDescription>
@@ -198,11 +198,7 @@ export function NovoServicoDialog({
                       Nome do Serviço <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Ex: Troca de lâmpadas"
-                        className="min-h-10"
-                        {...field}
-                      />
+                      <Input placeholder="Ex: Troca de lâmpadas" className="min-h-10" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -312,13 +308,7 @@ export function NovoServicoDialog({
                   <FormItem className="space-y-2">
                     <FormLabel>Tempo Estimado (horas)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        className="min-h-10"
-                        {...field}
-                      />
+                      <Input type="number" min={0} step={0.5} className="min-h-10" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -374,11 +364,7 @@ export function NovoServicoDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                className="w-full sm:w-auto sm:min-w-28"
-                disabled={submitting}
-              >
+              <Button type="submit" className="w-full sm:w-auto sm:min-w-28" disabled={submitting}>
                 {submitting ? 'Criando...' : 'Criar'}
               </Button>
             </DialogFooter>

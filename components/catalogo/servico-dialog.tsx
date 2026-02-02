@@ -114,7 +114,9 @@ export function ServicoDialog({
       (async () => {
         const list = await fetchSubtypes(defaultValues.typeId);
         // garante que o subtypeId exista na lista (caso item esteja inativo)
-        const exists = list?.some((s: SubtypeItem) => String(s._id) === String(defaultValues.subtypeId));
+        const exists = list?.some(
+          (s: SubtypeItem) => String(s._id) === String(defaultValues.subtypeId),
+        );
         if (!exists) form.setValue('subtypeId', '');
       })();
     }
@@ -221,10 +223,12 @@ export function ServicoDialog({
     const method = isEdit ? 'PUT' : 'POST';
 
     // No create, o código é gerado no backend; nunca enviar
-    const payload = isEdit ? values : (() => {
-      const { code: _code, ...rest } = values;
-      return rest;
-    })();
+    const payload = isEdit
+      ? values
+      : (() => {
+          const { code: _code, ...rest } = values;
+          return rest;
+        })();
 
     const res = await fetch(url, {
       method,
@@ -251,9 +255,7 @@ export function ServicoDialog({
         aria-describedby="servico-dialog-desc"
       >
         <DialogHeader className="shrink-0 space-y-1 pr-8 sm:pr-0">
-          <DialogTitle className="text-base font-semibold sm:text-lg">
-            {title}
-          </DialogTitle>
+          <DialogTitle className="text-base font-semibold sm:text-lg">{title}</DialogTitle>
           <DialogDescription id="servico-dialog-desc" className="text-sm">
             {descriptionText}
           </DialogDescription>
@@ -296,11 +298,7 @@ export function ServicoDialog({
                   <FormItem className="gap-y-0!">
                     <FormLabel className="min-h-10 block">Nome do Serviço</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Ex: Troca de lâmpadas"
-                        className="min-h-10"
-                        {...field}
-                      />
+                      <Input placeholder="Ex: Troca de lâmpadas" className="min-h-10" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -407,13 +405,7 @@ export function ServicoDialog({
                   <FormItem className="space-y-2">
                     <FormLabel>Tempo Estimado (horas)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        className="min-h-10"
-                        {...field}
-                      />
+                      <Input type="number" min={0} step={0.5} className="min-h-10" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -469,11 +461,7 @@ export function ServicoDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                className="w-full sm:w-auto sm:min-w-28"
-                disabled={submitting}
-              >
+              <Button type="submit" className="w-full sm:w-auto sm:min-w-28" disabled={submitting}>
                 {submitting ? 'Salvando...' : 'Salvar'}
               </Button>
             </DialogFooter>

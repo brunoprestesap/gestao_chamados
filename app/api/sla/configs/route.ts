@@ -6,11 +6,7 @@ import { getBusinessMinutesPerDay } from '@/lib/sla-timezone';
 import { requireAdmin, requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { SlaConfigModel } from '@/models/SlaConfig';
-import {
-  SlaConfigSaveSchema,
-  toMinutes,
-  type SlaTimeUnit,
-} from '@/shared/sla/sla-config.schemas';
+import { SlaConfigSaveSchema, toMinutes, type SlaTimeUnit } from '@/shared/sla/sla-config.schemas';
 import { FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
 
 /**
@@ -22,9 +18,7 @@ export async function GET() {
     await requireManager();
     await dbConnect();
 
-    const configs = await SlaConfigModel.find({ isActive: true })
-      .sort({ priority: 1 })
-      .lean();
+    const configs = await SlaConfigModel.find({ isActive: true }).sort({ priority: 1 }).lean();
 
     const byPriority: Record<string, (typeof configs)[0]> = {};
     configs.forEach((c) => {
@@ -76,12 +70,8 @@ export async function PUT(req: Request) {
     const parsed = SlaConfigSaveSchema.safeParse(body);
     if (!parsed.success) {
       const first = parsed.error.flatten().fieldErrors;
-      const msg =
-        first.configs?.[0] ?? first.configs ?? 'Dados inválidos. Verifique os campos.';
-      return NextResponse.json(
-        { error: Array.isArray(msg) ? msg[0] : msg },
-        { status: 400 },
-      );
+      const msg = first.configs?.[0] ?? first.configs ?? 'Dados inválidos. Verifique os campos.';
+      return NextResponse.json({ error: Array.isArray(msg) ? msg[0] : msg }, { status: 400 });
     }
 
     await dbConnect();

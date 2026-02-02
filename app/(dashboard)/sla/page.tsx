@@ -83,7 +83,16 @@ const defaultConfig = (priority: (typeof FINAL_PRIORITY_VALUES)[number]): Config
       businessHoursOnly: false,
     },
   };
-  return defaults[priority] ?? { priority, responseValue: 1, responseUnit: 'Horas', resolutionValue: 1, resolutionUnit: 'Horas', businessHoursOnly: true };
+  return (
+    defaults[priority] ?? {
+      priority,
+      responseValue: 1,
+      responseUnit: 'Horas',
+      resolutionValue: 1,
+      resolutionUnit: 'Horas',
+      businessHoursOnly: true,
+    }
+  );
 };
 
 function computeBusinessMinutesPerDay(workdayStart: string, workdayEnd: string): number {
@@ -287,7 +296,9 @@ export default function SlaPage() {
                     />
                     <Select
                       value={config.resolutionUnit}
-                      onValueChange={(v) => updateConfig(index, { resolutionUnit: v as SlaTimeUnit })}
+                      onValueChange={(v) =>
+                        updateConfig(index, { resolutionUnit: v as SlaTimeUnit })
+                      }
                     >
                       <SelectTrigger className="w-24">
                         <SelectValue />

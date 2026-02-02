@@ -14,13 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   Table,
   TableBody,
@@ -232,9 +226,7 @@ export default function UsuariosPage() {
         <label className="text-xs font-medium text-muted-foreground">Perfil</label>
         <Select
           value={filters.role}
-          onValueChange={(v) =>
-            handleFilterChange('role', v as UserRole | typeof FILTER_ALL_VALUE)
-          }
+          onValueChange={(v) => handleFilterChange('role', v as UserRole | typeof FILTER_ALL_VALUE)}
         >
           <SelectTrigger aria-label="Filtrar por perfil" className="h-11">
             <SelectValue placeholder="Perfil" />
@@ -340,7 +332,10 @@ export default function UsuariosPage() {
                 handleFilterChange('role', v as UserRole | typeof FILTER_ALL_VALUE)
               }
             >
-              <SelectTrigger aria-label="Filtrar por perfil" className="h-11 w-full min-w-[140px] lg:w-[160px]">
+              <SelectTrigger
+                aria-label="Filtrar por perfil"
+                className="h-11 w-full min-w-[140px] lg:w-[160px]"
+              >
                 <SelectValue placeholder="Perfil" />
               </SelectTrigger>
               <SelectContent>
@@ -353,7 +348,10 @@ export default function UsuariosPage() {
               </SelectContent>
             </Select>
             <Select value={filters.unitId} onValueChange={(v) => handleFilterChange('unitId', v)}>
-              <SelectTrigger aria-label="Filtrar por unidade" className="h-11 w-full min-w-[140px] lg:w-[180px]">
+              <SelectTrigger
+                aria-label="Filtrar por unidade"
+                className="h-11 w-full min-w-[140px] lg:w-[180px]"
+              >
                 <SelectValue placeholder="Unidade" />
               </SelectTrigger>
               <SelectContent>
@@ -369,7 +367,10 @@ export default function UsuariosPage() {
               value={filters.status}
               onValueChange={(v) => handleFilterChange('status', v as StatusFilter)}
             >
-              <SelectTrigger aria-label="Filtrar por status" className="h-11 w-full min-w-[120px] lg:w-[140px]">
+              <SelectTrigger
+                aria-label="Filtrar por status"
+                className="h-11 w-full min-w-[120px] lg:w-[140px]"
+              >
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -513,7 +514,9 @@ export default function UsuariosPage() {
                       </TableCell>
 
                       <TableCell>
-                        <span className="text-sm text-muted-foreground">{unitName(row.unitId)}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {unitName(row.unitId)}
+                        </span>
                       </TableCell>
 
                       <TableCell className="text-center">
@@ -537,7 +540,9 @@ export default function UsuariosPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => onToggleActive(row)}
-                            aria-label={row.isActive ? `Inativar ${row.name}` : `Ativar ${row.name}`}
+                            aria-label={
+                              row.isActive ? `Inativar ${row.name}` : `Ativar ${row.name}`
+                            }
                             className="h-9 w-9 touch-manipulation"
                           >
                             {row.isActive ? (
@@ -605,10 +610,7 @@ export default function UsuariosPage() {
                         <span className="font-mono text-xs text-muted-foreground">
                           {row.username}
                         </span>
-                        <Badge
-                          variant={row.isActive ? 'default' : 'secondary'}
-                          className="text-xs"
-                        >
+                        <Badge variant={row.isActive ? 'default' : 'secondary'} className="text-xs">
                           {row.isActive ? 'Ativo' : 'Inativo'}
                         </Badge>
                       </div>

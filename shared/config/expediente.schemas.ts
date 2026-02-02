@@ -7,7 +7,10 @@ const timeSchema = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Formato HH:m
 const weekdaysSchema = z
   .array(z.number().min(0).max(6))
   .min(1, 'Selecione pelo menos 1 dia útil')
-  .refine((arr) => arr.every((d) => (WEEKDAY_VALUES as readonly number[]).includes(d)), 'Dias inválidos');
+  .refine(
+    (arr) => arr.every((d) => (WEEKDAY_VALUES as readonly number[]).includes(d)),
+    'Dias inválidos',
+  );
 
 export const ExpedienteConfigSchema = z
   .object({

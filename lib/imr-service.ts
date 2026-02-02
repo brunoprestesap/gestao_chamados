@@ -337,9 +337,11 @@ export async function computeImrReport(period: ImrPeriod): Promise<ImrResult> {
     mediaGeral: avRow?.media != null ? Math.round(avRow.media * 100) / 100 : 0,
     totalAvaliacoes,
     totalNegativas,
-    percentualNegativas: totalAvaliacoes > 0 ? Math.round((totalNegativas / totalAvaliacoes) * 10000) / 100 : 0,
+    percentualNegativas:
+      totalAvaliacoes > 0 ? Math.round((totalNegativas / totalAvaliacoes) * 10000) / 100 : 0,
     totalNaoAvaliados,
-    percentualNaoAvaliados: totalChamados > 0 ? Math.round((totalNaoAvaliados / totalChamados) * 10000) / 100 : 0,
+    percentualNaoAvaliados:
+      totalChamados > 0 ? Math.round((totalNaoAvaliados / totalChamados) * 10000) / 100 : 0,
   };
 
   const penRow = facet?.penalidades?.[0];
@@ -349,9 +351,21 @@ export async function computeImrReport(period: ImrPeriod): Promise<ImrResult> {
     const a = penRow.avaliacaoNegativa ?? 0;
     const b = penRow.ambos ?? 0;
     penalidades.push(
-      { motivo: 'SLA estourado', quantidade: s, percentualSobreTotal: Math.round((s / totalChamados) * 10000) / 100 },
-      { motivo: 'Avaliação negativa', quantidade: a, percentualSobreTotal: Math.round((a / totalChamados) * 10000) / 100 },
-      { motivo: 'SLA estourado e avaliação negativa', quantidade: b, percentualSobreTotal: Math.round((b / totalChamados) * 10000) / 100 },
+      {
+        motivo: 'SLA estourado',
+        quantidade: s,
+        percentualSobreTotal: Math.round((s / totalChamados) * 10000) / 100,
+      },
+      {
+        motivo: 'Avaliação negativa',
+        quantidade: a,
+        percentualSobreTotal: Math.round((a / totalChamados) * 10000) / 100,
+      },
+      {
+        motivo: 'SLA estourado e avaliação negativa',
+        quantidade: b,
+        percentualSobreTotal: Math.round((b / totalChamados) * 10000) / 100,
+      },
     );
   }
 

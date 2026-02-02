@@ -25,30 +25,33 @@ export function toMinutes(
 const positiveNumber = z.number().min(0.01, 'Valor deve ser maior que zero');
 
 /** Schema para um item de configuração por prioridade (formulário) */
-export const SlaConfigItemSchema = z.object({
-  priority: z.enum(FINAL_PRIORITY_VALUES),
-  responseValue: positiveNumber,
-  responseUnit: SlaTimeUnit,
-  resolutionValue: positiveNumber,
-  resolutionUnit: SlaTimeUnit,
-  businessHoursOnly: z.boolean(),
-}).refine(
-  (data) => {
-    const responseMin = toMinutes(data.responseValue, data.responseUnit);
-    const resolutionMin = toMinutes(data.resolutionValue, data.resolutionUnit);
-    if (data.businessHoursOnly) {
-      return responseMin <= MAX_BUSINESS_MINUTES && resolutionMin <= MAX_BUSINESS_MINUTES;
-    }
-    return responseMin <= MAX_REAL_MINUTES && resolutionMin <= MAX_REAL_MINUTES;
-  },
-  { message: 'Valores excedem o limite máximo permitido' },
-).refine(
-  (data) => {
-    if (data.priority === 'EMERGENCIAL') return true;
-    return data.businessHoursOnly !== false || true;
-  },
-  { message: 'EMERGENCIAL pode usar 24x7 (desmarcar horário comercial)' },
-);
+export const SlaConfigItemSchema = z
+  .object({
+    priority: z.enum(FINAL_PRIORITY_VALUES),
+    responseValue: positiveNumber,
+    responseUnit: SlaTimeUnit,
+    resolutionValue: positiveNumber,
+    resolutionUnit: SlaTimeUnit,
+    businessHoursOnly: z.boolean(),
+  })
+  .refine(
+    (data) => {
+      const responseMin = toMinutes(data.responseValue, data.responseUnit);
+      const resolutionMin = toMinutes(data.resolutionValue, data.resolutionUnit);
+      if (data.businessHoursOnly) {
+        return responseMin <= MAX_BUSINESS_MINUTES && resolutionMin <= MAX_BUSINESS_MINUTES;
+      }
+      return responseMin <= MAX_REAL_MINUTES && resolutionMin <= MAX_REAL_MINUTES;
+    },
+    { message: 'Valores excedem o limite máximo permitido' },
+  )
+  .refine(
+    (data) => {
+      if (data.priority === 'EMERGENCIAL') return true;
+      return data.businessHoursOnly !== false || true;
+    },
+    { message: 'EMERGENCIAL pode usar 24x7 (desmarcar horário comercial)' },
+  );
 
 export type SlaConfigItem = z.infer<typeof SlaConfigItemSchema>;
 

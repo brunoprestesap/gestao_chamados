@@ -3,7 +3,11 @@
 import { motion } from 'framer-motion';
 
 import { SidebarContent } from '@/components/dashboard/sidebar-content';
-import { SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, useSidebarStore } from '@/lib/stores/sidebar-store';
+import {
+  SIDEBAR_WIDTH_COLLAPSED,
+  SIDEBAR_WIDTH_EXPANDED,
+  useSidebarStore,
+} from '@/lib/stores/sidebar-store';
 
 const springTransition = {
   type: 'spring' as const,

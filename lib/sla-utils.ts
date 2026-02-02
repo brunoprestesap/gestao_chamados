@@ -4,10 +4,7 @@
  */
 
 import type { BusinessCalendarConfig } from '@/lib/expediente-config';
-import {
-  addBusinessMinutesWithConfig,
-  getBusinessMinutesPerDay,
-} from '@/lib/sla-timezone';
+import { addBusinessMinutesWithConfig, getBusinessMinutesPerDay } from '@/lib/sla-timezone';
 
 export type FinalPriority = 'BAIXA' | 'NORMAL' | 'ALTA' | 'EMERGENCIAL';
 
@@ -31,19 +28,11 @@ function getDefaultCalendarConfig(): BusinessCalendarConfig {
   };
 }
 
-export function addBusinessHours(
-  from: Date,
-  hours: number,
-  config?: BusinessCalendarConfig,
-): Date {
+export function addBusinessHours(from: Date, hours: number, config?: BusinessCalendarConfig): Date {
   return addBusinessMinutes(from, Math.round(hours * 60), config);
 }
 
-export function addBusinessDays(
-  from: Date,
-  days: number,
-  config?: BusinessCalendarConfig,
-): Date {
+export function addBusinessDays(from: Date, days: number, config?: BusinessCalendarConfig): Date {
   const c = config ?? getDefaultCalendarConfig();
   const minsPerDay = getBusinessMinutesPerDay(c);
   return addBusinessMinutesWithConfig(from, days * minsPerDay, c);
@@ -85,8 +74,18 @@ export function computeSlaDueDatesFromConfig(
   const calendar = calendarConfig ?? getDefaultCalendarConfig();
   if (businessHoursOnly) {
     return {
-      responseDueAt: addBusinessMinutesWithConfig(fromDate, responseTargetMinutes, calendar, holidays),
-      resolutionDueAt: addBusinessMinutesWithConfig(fromDate, resolutionTargetMinutes, calendar, holidays),
+      responseDueAt: addBusinessMinutesWithConfig(
+        fromDate,
+        responseTargetMinutes,
+        calendar,
+        holidays,
+      ),
+      resolutionDueAt: addBusinessMinutesWithConfig(
+        fromDate,
+        resolutionTargetMinutes,
+        calendar,
+        holidays,
+      ),
     };
   }
   return {
@@ -144,7 +143,10 @@ export function getSlaResolutionStatus(
   finalPriority: FinalPriority,
   resolutionStartAt?: Date | null,
 ): SlaStatusDisplay {
-  if (resolutionBreachedAt != null || (resolutionDueAt != null && now > resolutionDueAt && resolvedAt == null)) {
+  if (
+    resolutionBreachedAt != null ||
+    (resolutionDueAt != null && now > resolutionDueAt && resolvedAt == null)
+  ) {
     return 'atrasado';
   }
   if (resolvedAt != null) {

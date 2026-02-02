@@ -194,7 +194,9 @@ export function FeriadoDialog({
                       className="h-4 w-4 rounded"
                     />
                   </FormControl>
-                  <FormLabel className="!mt-0 font-normal">Ativo (considerado no cálculo de SLA)</FormLabel>
+                  <FormLabel className="!mt-0 font-normal">
+                    Ativo (considerado no cálculo de SLA)
+                  </FormLabel>
                   <FormMessage />
                 </FormItem>
               )}

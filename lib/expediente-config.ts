@@ -26,6 +26,7 @@ export async function getBusinessCalendarConfig(): Promise<BusinessCalendarConfi
     timezone: doc.timezone ?? DEFAULTS.timezone,
     workdayStart: doc.workdayStart ?? DEFAULTS.workdayStart,
     workdayEnd: doc.workdayEnd ?? DEFAULTS.workdayEnd,
-    weekdays: Array.isArray(doc.weekdays) && doc.weekdays.length > 0 ? doc.weekdays : DEFAULTS.weekdays,
+    weekdays:
+      Array.isArray(doc.weekdays) && doc.weekdays.length > 0 ? doc.weekdays : DEFAULTS.weekdays,
   };
 }

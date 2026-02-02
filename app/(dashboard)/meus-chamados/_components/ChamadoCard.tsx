@@ -27,11 +27,13 @@ import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
 
 /** Status de exibição do SLA (resolução) a partir de dados do DTO */
 type SlaStatusDisplay = 'no_prazo' | 'proximo_vencimento' | 'atrasado';
-function getSlaDisplayStatus(
-  chamado: ChamadoDTO,
-): SlaStatusDisplay | null {
+function getSlaDisplayStatus(chamado: ChamadoDTO): SlaStatusDisplay | null {
   const sla = chamado.sla;
-  const finalPriority = (chamado.finalPriority ?? 'NORMAL') as 'BAIXA' | 'NORMAL' | 'ALTA' | 'EMERGENCIAL';
+  const finalPriority = (chamado.finalPriority ?? 'NORMAL') as
+    | 'BAIXA'
+    | 'NORMAL'
+    | 'ALTA'
+    | 'EMERGENCIAL';
   if (!sla?.resolutionDueAt) return null;
   const now = new Date();
   const resolutionDueAt = new Date(sla.resolutionDueAt);
@@ -39,7 +41,8 @@ function getSlaDisplayStatus(
   const resolutionBreachedAt = sla.resolutionBreachedAt ? new Date(sla.resolutionBreachedAt) : null;
   const resolutionStartAt = sla.computedAt ? new Date(sla.computedAt) : null;
 
-  if (resolutionBreachedAt != null || (now > resolutionDueAt && resolvedAt == null)) return 'atrasado';
+  if (resolutionBreachedAt != null || (now > resolutionDueAt && resolvedAt == null))
+    return 'atrasado';
   if (resolvedAt != null) return resolutionBreachedAt != null ? 'atrasado' : 'no_prazo';
 
   const remainingMs = resolutionDueAt.getTime() - now.getTime();
@@ -148,7 +151,6 @@ const GRAU_URGENCIA_COLORS: Record<string, string> = {
   Alto: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900 dark:text-orange-300',
   Crítico: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900 dark:text-red-300',
 } as const;
-
 
 const getGrauUrgenciaLabel = (grau: string): string => {
   return GRAU_URGENCIA_LABELS[grau] || grau;
@@ -297,14 +299,24 @@ export function ChamadoCard({
     const parts: string[] = [];
     if (chamado.finalPriority) parts.push(`Prioridade: ${chamado.finalPriority}`);
     const approvedLabel =
-      chamado.attendanceNature && ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
-        ? ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+      chamado.attendanceNature &&
+      ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+        ? ATTENDANCE_NATURE_LABELS[
+            chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS
+          ]
         : chamado.naturezaAtendimento;
     if (approvedLabel) parts.push(`Natureza aprovada: ${approvedLabel}`);
     if (s?.responseDueAt) parts.push(`Prazo resposta: ${formatDateTime(s.responseDueAt, tzOpt)}`);
-    if (s?.resolutionDueAt) parts.push(`Prazo solução: ${formatDateTime(s.resolutionDueAt, tzOpt)}`);
+    if (s?.resolutionDueAt)
+      parts.push(`Prazo solução: ${formatDateTime(s.resolutionDueAt, tzOpt)}`);
     return parts.join(' · ');
-  }, [chamado.sla, chamado.finalPriority, chamado.attendanceNature, chamado.naturezaAtendimento, tzOpt.timeZone]);
+  }, [
+    chamado.sla,
+    chamado.finalPriority,
+    chamado.attendanceNature,
+    chamado.naturezaAtendimento,
+    tzOpt.timeZone,
+  ]);
 
   const handleCardClick = useCallback(() => {
     if (hideDetailLink) return;

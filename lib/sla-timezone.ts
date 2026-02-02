@@ -12,7 +12,9 @@ function parseHHmm(s: string): { hours: number; minutes: number } {
 
 /** Retorna offset em ms (UTC - local) para a timezone na data dada. Positivo = timezone atrás de UTC. */
 function getTimezoneOffsetMs(timezone: string, date: Date): number {
-  const utcNoon = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0));
+  const utcNoon = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0),
+  );
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
     hour: 'numeric',
@@ -47,7 +49,10 @@ export function toLocalDateYYYYMMDD(date: Date, timezone: string): string {
 }
 
 /** Retorna (dia da semana 0=Dom..6=Sab, hora fracionada 0-24) na timezone configurada. */
-export function getLocalWeekdayAndHour(date: Date, config: BusinessCalendarConfig): { dayOfWeek: number; hourFraction: number } {
+export function getLocalWeekdayAndHour(
+  date: Date,
+  config: BusinessCalendarConfig,
+): { dayOfWeek: number; hourFraction: number } {
   const offsetMs = getTimezoneOffsetMs(config.timezone, date);
   const localRef = new Date(date.getTime() - offsetMs);
   const dayOfWeek = localRef.getUTCDay();
@@ -77,11 +82,7 @@ function isBusinessDay(
 }
 
 /** Próximo dia útil (pula finais de semana e feriados). */
-function nextBusinessDay(
-  d: Date,
-  config: BusinessCalendarConfig,
-  holidays?: Set<string>,
-): Date {
+function nextBusinessDay(d: Date, config: BusinessCalendarConfig, holidays?: Set<string>): Date {
   let current = new Date(d.getTime());
   for (let i = 0; i < 366; i++) {
     const { dayOfWeek } = getLocalWeekdayAndHour(current, config);
@@ -113,7 +114,14 @@ function addDays(date: Date, days: number): Date {
 }
 
 /** Define hora local (h, m, s, ms) no dia local de date; retorna UTC. */
-function setLocalTimeTo(date: Date, h: number, m: number, s: number, ms: number, config: BusinessCalendarConfig): Date {
+function setLocalTimeTo(
+  date: Date,
+  h: number,
+  m: number,
+  s: number,
+  ms: number,
+  config: BusinessCalendarConfig,
+): Date {
   const offsetMs = getTimezoneOffsetMs(config.timezone, date);
   const localRef = new Date(date.getTime() - offsetMs);
   const dayStartUtc = Date.UTC(

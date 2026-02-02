@@ -83,16 +83,15 @@ function LoginPageContent() {
               <Wrench className="h-7 w-7" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-                Severino
-              </h1>
+              <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Severino</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Gestão de Chamados de Manutenção
               </p>
             </div>
           </div>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Faça login com sua matrícula e senha para acessar o painel de chamados e acompanhar suas solicitações.
+            Faça login com sua matrícula e senha para acessar o painel de chamados e acompanhar suas
+            solicitações.
           </p>
         </div>
 
@@ -117,11 +116,7 @@ function LoginPageContent() {
             )}
 
             <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-5"
-                noValidate
-              >
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
                 <FormField
                   control={form.control}
                   name="username"

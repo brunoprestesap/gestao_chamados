@@ -114,74 +114,74 @@ export function UnidadeDialog({
             <ScrollArea className="flex-1 pr-2">
               <div className="space-y-4 pb-4">
                 <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome da Unidade *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Auditoria Interna" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome da Unidade *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Auditoria Interna" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="floor"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Andar *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: 4º Andar" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="floor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Andar *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: 4º Andar" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="responsibleName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome do Responsável *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Luciana Santos" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="responsibleName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome do Responsável *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Luciana Santos" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="responsibleEmail"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email do Responsável</FormLabel>
-                  <FormControl>
-                    <Input placeholder="ex: luciana@org.gov.br" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="responsibleEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email do Responsável</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ex: luciana@org.gov.br" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="responsiblePhone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Telefone do Responsável</FormLabel>
-                  <FormControl>
-                    <Input placeholder="(61) 3333-1006" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="responsiblePhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone do Responsável</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(61) 3333-1006" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </ScrollArea>
 

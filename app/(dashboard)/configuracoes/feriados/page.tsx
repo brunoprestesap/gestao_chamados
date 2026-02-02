@@ -124,7 +124,8 @@ export default function FeriadosPage() {
       />
 
       <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-        Alterações afetam apenas novos chamados e novos cálculos de SLA. Chamados já classificados não são alterados.
+        Alterações afetam apenas novos chamados e novos cálculos de SLA. Chamados já classificados
+        não são alterados.
       </p>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -179,13 +180,19 @@ export default function FeriadosPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={5}
+                    className="py-12 text-center text-sm text-muted-foreground"
+                  >
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={5}
+                    className="py-12 text-center text-sm text-muted-foreground"
+                  >
                     {emptyMessage}
                   </TableCell>
                 </TableRow>

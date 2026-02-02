@@ -45,10 +45,7 @@ export async function PUT(req: Request) {
         first.workdayEnd?.[0] ??
         first.weekdays?.[0] ??
         'Dados inválidos. Verifique os campos.';
-      return NextResponse.json(
-        { error: Array.isArray(msg) ? msg[0] : msg },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: Array.isArray(msg) ? msg[0] : msg }, { status: 400 });
     }
 
     await dbConnect();

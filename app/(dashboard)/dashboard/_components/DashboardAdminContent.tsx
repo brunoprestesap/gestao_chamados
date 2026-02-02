@@ -20,7 +20,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-const ADMIN_CARD_STATUSES = ['aberto', 'emvalidacao', 'em atendimento', 'concluído', 'encerrado'] as const;
+const ADMIN_CARD_STATUSES = [
+  'aberto',
+  'emvalidacao',
+  'em atendimento',
+  'concluído',
+  'encerrado',
+] as const;
 
 type Props = {
   data: DashboardAdminData;
@@ -40,7 +46,11 @@ function DashboardCardLink({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <Link href={href} className={cn(cardLinkBase, className)}>{children}</Link>;
+  return (
+    <Link href={href} className={cn(cardLinkBase, className)}>
+      {children}
+    </Link>
+  );
 }
 
 const cardCommon =
@@ -56,16 +66,16 @@ export function DashboardAdminContent({ data }: Props) {
       />
 
       <section
-        className={cn(
-          'grid gap-4 sm:gap-5 sm:grid-cols-2 lg:gap-6 lg:grid-cols-3',
-          'auto-rows-fr',
-        )}
+        className={cn('grid gap-4 sm:gap-5 sm:grid-cols-2 lg:gap-6 lg:grid-cols-3', 'auto-rows-fr')}
       >
         {/* 1) Chamados no Sistema (Visão Geral por Status) */}
         <DashboardCardLink href="/gestao">
           <Card className={cn(cardCommon)}>
             <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-sky-100/70 transition-transform duration-200 group-hover:scale-110 dark:bg-sky-950/30" />
-            <ChevronRight className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden />
+            <ChevronRight
+              className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              aria-hidden
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base sm:text-sm">
                 <Ticket className="h-4 w-4 shrink-0" />
@@ -87,9 +97,17 @@ export function DashboardAdminContent({ data }: Props) {
 
         {/* 2) Chamados Críticos / Urgentes */}
         <DashboardCardLink href="/gestao">
-          <Card className={cn(cardCommon, 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20')}>
+          <Card
+            className={cn(
+              cardCommon,
+              'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20',
+            )}
+          >
             <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-red-200/50 transition-transform duration-200 group-hover:scale-110 dark:bg-red-900/30" />
-            <ChevronRight className="absolute right-3 top-3 h-5 w-5 text-red-600/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-red-400/70" aria-hidden />
+            <ChevronRight
+              className="absolute right-3 top-3 h-5 w-5 text-red-600/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-red-400/70"
+              aria-hidden
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base sm:text-sm">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
@@ -109,9 +127,17 @@ export function DashboardAdminContent({ data }: Props) {
 
         {/* 3) Backlog Inicial */}
         <DashboardCardLink href="/gestao">
-          <Card className={cn(cardCommon, 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20')}>
+          <Card
+            className={cn(
+              cardCommon,
+              'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20',
+            )}
+          >
             <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-200/50 transition-transform duration-200 group-hover:scale-110 dark:bg-amber-900/30" />
-            <ChevronRight className="absolute right-3 top-3 h-5 w-5 text-amber-600/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-amber-400/70" aria-hidden />
+            <ChevronRight
+              className="absolute right-3 top-3 h-5 w-5 text-amber-600/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-amber-400/70"
+              aria-hidden
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base sm:text-sm">
                 <ClipboardList className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -131,7 +157,10 @@ export function DashboardAdminContent({ data }: Props) {
         <DashboardCardLink href="/gestao">
           <Card className={cn(cardCommon)}>
             <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-100/70 transition-transform duration-200 group-hover:scale-110 dark:bg-emerald-950/30" />
-            <ChevronRight className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden />
+            <ChevronRight
+              className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              aria-hidden
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base sm:text-sm">
                 <RefreshCw className="h-4 w-4 shrink-0" />
@@ -158,7 +187,10 @@ export function DashboardAdminContent({ data }: Props) {
         <DashboardCardLink href="/gestao">
           <Card className={cn(cardCommon)}>
             <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-violet-100/70 transition-transform duration-200 group-hover:scale-110 dark:bg-violet-950/30" />
-            <ChevronRight className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden />
+            <ChevronRight
+              className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              aria-hidden
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base sm:text-sm">
                 <Wrench className="h-4 w-4 shrink-0" />
@@ -181,7 +213,10 @@ export function DashboardAdminContent({ data }: Props) {
         <DashboardCardLink href="/gestao">
           <Card className={cn(cardCommon)}>
             <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-orange-100/70 transition-transform duration-200 group-hover:scale-110 dark:bg-orange-950/30" />
-            <ChevronRight className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden />
+            <ChevronRight
+              className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              aria-hidden
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base sm:text-sm">
                 <Loader2 className="h-4 w-4 shrink-0" />
@@ -199,7 +234,10 @@ export function DashboardAdminContent({ data }: Props) {
         <DashboardCardLink href="/gestao">
           <Card className={cn(cardCommon)}>
             <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-yellow-100/70 transition-transform duration-200 group-hover:scale-110 dark:bg-yellow-950/30" />
-            <ChevronRight className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden />
+            <ChevronRight
+              className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              aria-hidden
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base sm:text-sm">
                 <Star className="h-4 w-4 shrink-0" />
@@ -229,7 +267,10 @@ export function DashboardAdminContent({ data }: Props) {
         <DashboardCardLink href="/usuarios">
           <Card className={cn(cardCommon)}>
             <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-slate-100/70 transition-transform duration-200 group-hover:scale-110 dark:bg-slate-950/30" />
-            <ChevronRight className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden />
+            <ChevronRight
+              className="absolute right-3 top-3 h-5 w-5 text-muted-foreground/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              aria-hidden
+            />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base sm:text-sm">
                 <Users className="h-4 w-4 shrink-0" />

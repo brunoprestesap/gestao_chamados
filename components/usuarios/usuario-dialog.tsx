@@ -197,7 +197,10 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
     setSubtypesError(null);
     try {
       const res = await fetch('/api/catalog/subtypes', { cache: 'no-store' });
-      const data = (await res.json().catch(() => ({}))) as { items?: SubtypeOption[]; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        items?: SubtypeOption[];
+        error?: string;
+      };
       if (!res.ok) {
         setSubtypes([]);
         setSubtypesError(data?.error || 'Erro ao carregar especialidades.');
@@ -527,7 +530,9 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
                         <span className="text-muted-foreground font-normal">(opcional)</span>
                       </FormLabel>
                       {subtypesError && (
-                        <p className="text-xs text-amber-600 dark:text-amber-500">{subtypesError}</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-500">
+                          {subtypesError}
+                        </p>
                       )}
                       <FormControl>
                         <div className="space-y-2">

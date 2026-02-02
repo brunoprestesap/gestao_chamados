@@ -49,7 +49,13 @@ export type DashboardPrepostoData = {
 };
 
 /** Status exibidos no card "Chamados no Sistema" (Admin) */
-const ADMIN_CARD_STATUSES = ['aberto', 'emvalidacao', 'em atendimento', 'concluído', 'encerrado'] as const;
+const ADMIN_CARD_STATUSES = [
+  'aberto',
+  'emvalidacao',
+  'em atendimento',
+  'concluído',
+  'encerrado',
+] as const;
 
 export type DashboardAdminData = {
   /** Contagens por status para card 1 */
@@ -135,14 +141,8 @@ export async function getDashboardAdminData(): Promise<DashboardAdminData | null
           },
           { $count: 'total' },
         ],
-        backlog: [
-          { $match: { status: { $in: ['aberto', 'emvalidacao'] } } },
-          { $count: 'total' },
-        ],
-        abertosHoje: [
-          { $match: { createdAt: { $gte: todayStart } } },
-          { $count: 'total' },
-        ],
+        backlog: [{ $match: { status: { $in: ['aberto', 'emvalidacao'] } } }, { $count: 'total' }],
+        abertosHoje: [{ $match: { createdAt: { $gte: todayStart } } }, { $count: 'total' }],
         encerradosHoje: [
           {
             $match: {

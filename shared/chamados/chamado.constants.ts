@@ -30,9 +30,7 @@ export const ATTENDANCE_NATURE_VALUES = ['PADRAO', 'URGENTE'] as const;
 export type AttendanceNature = (typeof ATTENDANCE_NATURE_VALUES)[number];
 
 /** Converte valor do formulário (Padrão/Urgente) para valor persistido (PADRAO/URGENTE) */
-export function toAttendanceNature(
-  formValue: 'Padrão' | 'Urgente',
-): AttendanceNature {
+export function toAttendanceNature(formValue: 'Padrão' | 'Urgente'): AttendanceNature {
   return formValue === 'Urgente' ? 'URGENTE' : 'PADRAO';
 }
 

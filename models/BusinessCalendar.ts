@@ -10,7 +10,8 @@ const BusinessCalendarSchema = new Schema(
       required: true,
       default: [1, 2, 3, 4, 5],
       validate: {
-        validator: (v: number[]) => Array.isArray(v) && v.length >= 1 && v.every((d) => d >= 0 && d <= 6),
+        validator: (v: number[]) =>
+          Array.isArray(v) && v.length >= 1 && v.every((d) => d >= 0 && d <= 6),
         message: 'weekdays deve ter pelo menos 1 dia (0=Dom..6=Sab)',
       },
     },
@@ -29,8 +30,9 @@ if (mongoose.models.BusinessCalendar) {
   delete mongoose.models.BusinessCalendar;
 }
 
-export const BusinessCalendarModel: Model<BusinessCalendarDoc> = mongoose.model<BusinessCalendarDoc>(
-  'BusinessCalendar',
-  BusinessCalendarSchema,
-  'business_calendar',
-);
+export const BusinessCalendarModel: Model<BusinessCalendarDoc> =
+  mongoose.model<BusinessCalendarDoc>(
+    'BusinessCalendar',
+    BusinessCalendarSchema,
+    'business_calendar',
+  );

@@ -180,7 +180,10 @@ export default function GestaoPage() {
 
         {loading ? (
           <div className="grid min-h-[320px] place-items-center gap-4 rounded-xl border border-dashed bg-muted/20 py-16 sm:min-h-[360px]">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground sm:h-10 sm:w-10" aria-hidden />
+            <Loader2
+              className="h-8 w-8 animate-spin text-muted-foreground sm:h-10 sm:w-10"
+              aria-hidden
+            />
             <p className="text-sm text-muted-foreground sm:text-base">Carregando chamados...</p>
           </div>
         ) : items.length === 0 ? (
@@ -227,7 +230,9 @@ export default function GestaoPage() {
                                   key={c._id}
                                   compact
                                   chamado={c}
-                                  onClassificar={c.status === 'aberto' ? handleClassificar : undefined}
+                                  onClassificar={
+                                    c.status === 'aberto' ? handleClassificar : undefined
+                                  }
                                   onAtribuir={
                                     c.status === 'validado' || c.status === 'emvalidacao'
                                       ? handleAtribuir

@@ -34,12 +34,16 @@ function getSlaStatusLabel(
   const finalPriority = (chamado.finalPriority ?? 'NORMAL') as string;
   const resolutionStartAt = sla.computedAt ? new Date(sla.computedAt) : null;
 
-  if (resolutionBreachedAt != null || (now > resolutionDueAt && resolvedAt == null)) return 'Atrasado';
+  if (resolutionBreachedAt != null || (now > resolutionDueAt && resolvedAt == null))
+    return 'Atrasado';
   if (resolvedAt != null) return resolutionBreachedAt != null ? 'Atrasado' : 'No prazo';
   const remainingMs = resolutionDueAt.getTime() - now.getTime();
   if (remainingMs <= 0) return 'No prazo';
   if (finalPriority === 'ALTA' && remainingMs <= 4 * 60 * 60 * 1000) return 'Próximo do vencimento';
-  if (resolutionStartAt && remainingMs <= (resolutionDueAt.getTime() - resolutionStartAt.getTime()) * 0.2)
+  if (
+    resolutionStartAt &&
+    remainingMs <= (resolutionDueAt.getTime() - resolutionStartAt.getTime()) * 0.2
+  )
     return 'Próximo do vencimento';
   return 'No prazo';
 }
@@ -263,7 +267,9 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                   </h4>
                   <p className="text-sm">
                     {chamado.requestedAttendanceNature
-                      ? ATTENDANCE_NATURE_LABELS[chamado.requestedAttendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+                      ? ATTENDANCE_NATURE_LABELS[
+                          chamado.requestedAttendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS
+                        ]
                       : chamado.naturezaAtendimento || '—'}
                   </p>
                 </div>
@@ -273,7 +279,9 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                   </h4>
                   <p className="text-sm">
                     {chamado.attendanceNature
-                      ? ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+                      ? ATTENDANCE_NATURE_LABELS[
+                          chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS
+                        ]
                       : chamado.naturezaAtendimento || '—'}
                   </p>
                 </div>
@@ -322,7 +330,9 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                     <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                       Prioridade final
                     </h4>
-                    <p className="text-sm">{chamado.sla.priority ?? chamado.finalPriority ?? '—'}</p>
+                    <p className="text-sm">
+                      {chamado.sla.priority ?? chamado.finalPriority ?? '—'}
+                    </p>
                   </div>
                   <div>
                     <h4 className="mb-1 text-sm font-medium text-muted-foreground">
@@ -330,7 +340,9 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                     </h4>
                     <p className="text-sm">
                       {chamado.attendanceNature
-                        ? ATTENDANCE_NATURE_LABELS[chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS]
+                        ? ATTENDANCE_NATURE_LABELS[
+                            chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS
+                          ]
                         : chamado.naturezaAtendimento || '—'}
                     </p>
                   </div>
@@ -339,7 +351,9 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                       <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                         Horário comercial
                       </h4>
-                      <p className="text-sm">{chamado.sla.businessHoursOnly ? 'Sim (08h–18h, seg–sex)' : 'Não (24x7)'}</p>
+                      <p className="text-sm">
+                        {chamado.sla.businessHoursOnly ? 'Sim (08h–18h, seg–sex)' : 'Não (24x7)'}
+                      </p>
                     </div>
                   )}
                 </div>
