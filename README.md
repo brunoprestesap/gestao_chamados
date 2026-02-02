@@ -1,62 +1,173 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Severino
 
-## Getting Started
+Sistema de **gestão de chamados** (tickets) com autenticação por perfis, SLA, notificações em tempo real e avaliação de atendimento. Desenvolvido com Next.js, MongoDB e Socket.IO.
 
-First, run the development server:
+## Stack
+
+- **Frontend:** Next.js 16 (App Router), React 19, Tailwind CSS, Radix UI, Framer Motion, Zustand
+- **Backend:** Next.js API Routes, Server Actions, Mongoose
+- **Banco:** MongoDB
+- **Auth:** Next-Auth (JWT em cookie)
+- **Realtime:** Socket.IO (servidor separado na porta 3001)
+
+## Pré-requisitos
+
+- Node.js 20+
+- MongoDB (local ou URI remota)
+- Dois terminais para desenvolvimento (Next + socket-server)
+
+## Instalação
+
+```bash
+# Clone e entre na pasta
+cd severino
+
+# Dependências do app principal
+npm install
+
+# Dependências do socket-server
+cd socket-server && npm install && cd ..
+```
+
+## Variáveis de ambiente
+
+### Raiz do projeto (`.env.local`)
+
+Crie `.env.local` na raiz com:
+
+```env
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017/manutencao
+
+# Next-Auth (sessão)
+AUTH_SECRET=seu-segredo-forte-aqui
+AUTH_COOKIE_NAME=session
+
+# Bootstrap (opcional, para seed/scripts)
+BOOTSTRAP_TOKEN=token-opcional
+
+# Socket: emissão do Next para o socket-server (mesmo segredo do socket-server)
+SOCKET_INTERNAL_SECRET=um-segredo-forte-aqui
+SOCKET_EMIT_URL=http://127.0.0.1:3001/emit
+```
+
+### Socket-server (`socket-server/.env`)
+
+Copie de `socket-server/.env.example` e preencha:
+
+```env
+SOCKET_PORT=3001
+SOCKET_INTERNAL_SECRET=um-segredo-forte-aqui   # mesmo valor do .env.local da raiz
+SOCKET_CORS_ORIGIN=http://localhost:3000
+
+AUTH_SECRET=mesmo-do-next
+AUTH_COOKIE_NAME=session
+```
+
+**Importante:** `SOCKET_INTERNAL_SECRET` deve ser idêntico no `.env.local` (raiz) e no `socket-server/.env`.
+
+## Desenvolvimento
+
+É necessário rodar **dois processos**:
+
+**Terminal 1 – Socket-server (notificações em tempo real):**
+
+```bash
+npm run socket:dev
+# ou: cd socket-server && npm run dev
+```
+
+**Terminal 2 – Next.js:**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000](http://localhost:3000). O socket-server fica em `http://localhost:3001`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Comando                | Descrição                              |
+| ---------------------- | -------------------------------------- |
+| `npm run dev`          | Sobe o Next.js em modo desenvolvimento |
+| `npm run build`        | Build do Next.js                       |
+| `npm run start`        | Sobe o Next.js em produção             |
+| `npm run socket:dev`   | Sobe o socket-server em modo dev       |
+| `npm run socket:build` | Build do socket-server (TypeScript)    |
+| `npm run lint`         | Executa o ESLint                       |
+| `npm run lint:fix`     | Corrige automaticamente o lint         |
+| `npm run format`       | Formata o código com Prettier          |
+| `npm run format:check` | Verifica formatação Prettier           |
 
-## Learn More
+## Estrutura do projeto (resumo)
 
-To learn more about Next.js, take a look at the following resources:
+```
+severino/
+├── app/
+│   ├── (auth)/          # Login
+│   ├── (dashboard)/     # Área logada
+│   │   ├── catalogo/    # Catálogo de serviços
+│   │   ├── chamados-atribuidos/  # Chamados do técnico
+│   │   ├── configuracoes/       # Expediente, feriados
+│   │   ├── dashboard/   # Início por perfil
+│   │   ├── gestao/      # Gestão de chamados (preposto/admin)
+│   │   ├── meus-chamados/  # Abertura e acompanhamento
+│   │   ├── relatorios/imr/
+│   │   ├── sla/         # Configuração de SLA
+│   │   ├── unidades/
+│   │   └── usuarios/
+│   └── api/             # API Routes
+├── components/          # Componentes React (UI, realtime, etc.)
+├── lib/                 # Utilitários, DAL, auth, SLA, notificações
+├── models/              # Modelos Mongoose
+├── shared/              # Schemas Zod, constantes, tipos
+├── socket-server/       # Servidor Socket.IO (Express)
+└── types/
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Funcionalidades principais
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Perfis:** Admin, Preposto, Solicitante, Técnico (controle por `shared/auth`)
+- **Chamados:** Abertura (solicitante), classificação, atribuição, execução, encerramento
+- **SLA:** Configuração por prioridade, prazos de resposta e resolução, horário comercial (08–18h, seg–sex)
+- **Notificações em tempo real:** Socket.IO; notificações persistidas no MongoDB (ver [NOTIFICACOES_REALTIME.md](./NOTIFICACOES_REALTIME.md))
+- **Avaliação:** Após encerramento, apenas o criador do chamado pode avaliar (1–5 e comentário)
+- **Catálogo de serviços:** Tipos e subtipos para classificação de chamados
+- **Unidades e usuários:** CRUD; feriados e expediente em configurações
 
-## Deploy on Vercel
+## Documentação adicional
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **[NOTIFICACOES_REALTIME.md](./NOTIFICACOES_REALTIME.md)** — Arquitetura do Socket.IO, variáveis de ambiente e fluxo de notificações
+- **[DIAGNOSTICO_SLA.md](./DIAGNOSTICO_SLA.md)** — Configuração de SLA, cálculos de prazos e horário comercial
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-# gestao_chamados
-
----
-
-## Verificação — Avaliação de Chamados
+## Verificação — Avaliação de chamados
 
 Cenários manuais para validar o fluxo de avaliação:
 
-### 1. Encerrar chamado sem avaliação → UI mostra "Pendente" e permite avaliar somente ao criador
+### 1. Encerrar chamado sem avaliação
 
 1. Preposto/Admin encerra um chamado (status Concluído → Encerrado).
-2. O criador do chamado acessa **Meus Chamados** ou o **detalhe** do chamado.
-3. **Esperado:**
-   - Card "Avaliação": texto **"Pendente"** e botão **"Avaliar"** (nunca "Avaliado").
-   - Na lista, badge **"Avaliar"** no card (não "Avaliado").
-4. Usuário que **não** é o criador não vê o card de avaliação no detalhe; somente o criador pode avaliar.
+2. O criador acessa **Meus Chamados** ou o **detalhe** do chamado.
+3. **Esperado:** Card "Avaliação" com texto **"Pendente"** e botão **"Avaliar"**; na lista, badge **"Avaliar"**. Usuário que não é o criador não vê o card de avaliação no detalhe.
 
-### 2. Após enviar avaliação → UI muda para "Avaliado" e bloqueia nova avaliação
+### 2. Após enviar avaliação
 
-1. O criador abre o modal **"Avaliar Atendimento"**, escolhe rating 1–5 (e opcionalmente comentário) e clica em **"Enviar Avaliação"**.
-2. **Esperado:**
-   - Modal fecha; lista/detalhe atualizam.
-   - Card "Avaliação": **"Avaliado"** com "· X/5" (X = rating).
-   - Na lista, badge **"Avaliado"** no card.
-   - Botão **"Avaliar"** some; não é possível avaliar de novo.
+1. O criador abre **"Avaliar Atendimento"**, escolhe rating 1–5 (e opcionalmente comentário) e clica em **"Enviar Avaliação"**.
+2. **Esperado:** Modal fecha; card "Avaliação" mostra **"Avaliado"** com "· X/5"; na lista, badge **"Avaliado"**; botão **"Avaliar"** some e não é possível avaliar de novo.
+
+## Produção (PM2)
+
+Após build do Next e do socket-server:
+
+```bash
+npm run build
+npm run socket:build
+pm2 start ecosystem.config.cjs
+```
+
+O `ecosystem.config.cjs` sobe o Next na porta 3000 e o socket-server na 3001.
+
+## Deploy (Vercel e outros)
+
+- O Next.js pode ser deployado na [Vercel](https://vercel.com) ou em qualquer host Node.
+- O **socket-server** precisa de um servidor Node separado (ou outro host que rode Node), com as mesmas variáveis de ambiente descritas em [NOTIFICACOES_REALTIME.md](./NOTIFICACOES_REALTIME.md). Ajuste `SOCKET_EMIT_URL` e `SOCKET_CORS_ORIGIN` para a URL do front em produção.
