@@ -17,7 +17,7 @@ const itemVariants = {
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.18, ease: 'easeOut' },
+    transition: { duration: 0.18, ease: 'easeOut' as const },
   },
 };
 
