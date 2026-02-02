@@ -4,6 +4,7 @@ import { Menu, Wrench } from 'lucide-react';
 import { useState } from 'react';
 
 import { SidebarContent } from '@/components/dashboard/sidebar-content';
+import { NotificationsBell } from '@/components/realtime/NotificationsBell';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
@@ -13,6 +14,7 @@ export function MobileHeader() {
   return (
     <div className="sticky top-0 z-40 border-b border-sidebar-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 md:hidden">
       <div className="flex h-14 items-center gap-3 px-4">
+        <NotificationsBell />
         <Button
           variant="ghost"
           size="icon"

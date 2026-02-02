@@ -5,9 +5,12 @@ import { Types } from 'mongoose';
 
 import { requireTechnician } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { emitToRoom } from '@/lib/realtime-emit';
 import { evaluateResolutionBreach } from '@/lib/sla-utils';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { NotificationModel } from '@/models/Notification';
+import { UserModel } from '@/models/user.model';
 import {
   RegisterExecutionSchema,
   type RegisterExecutionInput,
@@ -101,8 +104,49 @@ export async function registerExecutionAction(
       observacoes: `Execução registrada. Descrição: ${serviceDescription.trim().slice(0, 100)}${serviceDescription.trim().length > 100 ? '…' : ''}`,
     });
 
+    // Notificação para Preposto, Admin e Solicitante: execução registrada pelo técnico
+    const technicianUser = await UserModel.findById(session.userId).select('name').lean();
+    const payload = {
+      ticketId: String(ticketId),
+      ticketNumber: doc.ticket_number,
+      title: doc.titulo,
+      executedBy: { id: session.userId, name: technicianUser?.name ?? undefined },
+      at: now.toISOString(),
+    };
+    const managers = await UserModel.find({
+      role: { $in: ['Preposto', 'Admin'] },
+      isActive: true,
+    })
+      .select('_id')
+      .lean();
+    const notificationTitle = doc.ticket_number
+      ? `Execução registrada no chamado #${doc.ticket_number}`
+      : 'Execução registrada no chamado';
+    for (const manager of managers) {
+      await NotificationModel.create({
+        userId: manager._id,
+        type: 'ticket:execution_registered',
+        title: notificationTitle,
+        body: doc.titulo ?? '',
+        data: payload,
+        readAt: null,
+      });
+    }
+    await NotificationModel.create({
+      userId: doc.solicitanteId,
+      type: 'ticket:execution_registered',
+      title: notificationTitle,
+      body: doc.titulo ?? '',
+      data: payload,
+      readAt: null,
+    });
+    await emitToRoom('managers', 'ticket:execution_registered', payload);
+    await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:execution_registered', payload);
+
     revalidatePath('/chamados-atribuidos');
     revalidatePath(`/chamados-atribuidos/${ticketId}`);
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${ticketId}`);
 
     return { ok: true };
   } catch (e) {
