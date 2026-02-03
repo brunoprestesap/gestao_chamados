@@ -11,6 +11,7 @@ import { UserModel } from '@/models/user.model';
 import { LoginSchema } from '@/shared/auth/auth.schemas';
 
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'session';
+const COOKIE_SECURE = process.env.AUTH_COOKIE_SECURE === 'true';
 
 export async function loginAction(formData: FormData) {
   const raw = {
@@ -45,7 +46,7 @@ export async function loginAction(formData: FormData) {
   (await cookies()).set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: COOKIE_SECURE,
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
   });

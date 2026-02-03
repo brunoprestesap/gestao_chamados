@@ -7,7 +7,6 @@ import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { loginAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -19,6 +18,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+
+import { loginAction } from './actions';
 
 const LoginFormSchema = z.object({
   username: z

@@ -11,9 +11,6 @@ export async function POST(req: Request) {
 
   const token = req.headers.get('x-bootstrap-token');
 
-  console.log('ENV:', process.env.BOOTSTRAP_TOKEN);
-  console.log('HEADER:', req.headers.get('x-bootstrap-token'));
-
   if (!process.env.BOOTSTRAP_TOKEN || token !== process.env.BOOTSTRAP_TOKEN) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
