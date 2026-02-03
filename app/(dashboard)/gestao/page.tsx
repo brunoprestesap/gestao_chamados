@@ -140,15 +140,15 @@ export default function GestaoPage() {
   }, [items]);
 
   return (
-    <div className="mx-auto w-full max-w-[1920px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <div className="space-y-4 sm:space-y-5 md:space-y-6">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-1 flex-col px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden sm:gap-5 md:gap-6">
         <PageHeader
           title="Gestão de Chamados"
           subtitle="Visualize e classifique chamados. Filtre por texto ou status. Apenas Admin ou Preposto."
         />
 
         {/* Filtros: empilha em mobile, linha em sm+ */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+        <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           <div className="relative w-full min-w-0 sm:flex-1 sm:max-w-md">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 shrink-0 text-muted-foreground"
@@ -179,7 +179,7 @@ export default function GestaoPage() {
         </div>
 
         {loading ? (
-          <div className="grid min-h-[320px] place-items-center gap-4 rounded-xl border border-dashed bg-muted/20 py-16 sm:min-h-[360px]">
+          <div className="grid min-h-[280px] flex-1 place-items-center gap-4 rounded-xl border border-dashed bg-muted/20 py-16 sm:min-h-[320px]">
             <Loader2
               className="h-8 w-8 animate-spin text-muted-foreground sm:h-10 sm:w-10"
               aria-hidden
@@ -197,31 +197,37 @@ export default function GestaoPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="relative">
-            {/* Kanban: scroll horizontal em telas pequenas, colunas fixas em desktop */}
-            <div className="overflow-x-auto overflow-y-hidden rounded-xl border bg-muted/20 pb-2 scroll-smooth [-webkit-overflow-scrolling:touch]">
-              <div className="inline-flex min-w-0 gap-3 p-3 sm:gap-4 sm:p-4 md:min-w-full md:flex md:flex-nowrap md:justify-start lg:gap-5">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            {/* Kanban: scroll horizontal em telas pequenas; scroll vertical contido nas colunas */}
+            <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden rounded-xl border bg-muted/20 pb-2 scroll-smooth [-webkit-overflow-scrolling:touch]">
+              <div className="inline-flex h-full min-h-[320px] gap-3 p-3 sm:gap-4 sm:p-4 lg:gap-5">
                 {KANBAN_STATUSES.map((statusKey) => {
                   const columnItems = itemsByStatus[statusKey] ?? [];
                   const label = CHAMADO_STATUS_LABELS[statusKey];
                   return (
                     <div
                       key={statusKey}
-                      className="flex h-full min-h-0 w-[280px] shrink-0 flex-col rounded-lg border bg-card shadow-sm sm:w-[300px] md:flex-1 md:min-w-0 md:max-w-[320px] lg:max-w-[340px]"
+                      className="flex h-full min-h-0 w-[260px] shrink-0 flex-col rounded-lg border bg-card shadow-sm sm:w-[280px] md:min-w-[140px] md:max-w-[200px] md:flex-1 lg:min-w-[160px] lg:max-w-[220px] xl:max-w-[280px]"
                     >
-                      <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5 sm:px-4 sm:py-3">
-                        <span className="truncate text-sm font-semibold text-foreground sm:text-base">
+                      <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-b px-2 py-2 sm:px-3 sm:py-2.5">
+                        <span
+                          className="truncate text-xs font-semibold text-foreground sm:text-sm"
+                          title={label}
+                        >
                           {label}
                         </span>
-                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground sm:text-sm">
+                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground sm:text-xs">
                           {columnItems.length}
                         </span>
                       </div>
-                      <ScrollArea className="h-[min(420px,70vh)] flex-1 md:h-[min(520px,calc(100vh-14rem))] md:min-h-[280px]">
-                        <div className="min-h-0">
-                          <div className="flex flex-col gap-2.5 p-2.5 sm:gap-3 sm:p-3">
+                      <ScrollArea className="min-h-0 flex-1">
+                        <div className="min-h-full">
+                          <div className="flex flex-col gap-2 p-2 sm:gap-2.5 sm:p-3">
                             {columnItems.length === 0 ? (
-                              <p className="py-6 text-center text-xs text-muted-foreground sm:py-8 sm:text-sm">
+                              <p
+                                className="py-4 text-center text-xs text-muted-foreground sm:py-6"
+                                title="Nenhum chamado neste status"
+                              >
                                 Nenhum chamado neste status
                               </p>
                             ) : (

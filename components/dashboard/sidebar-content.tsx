@@ -108,8 +108,18 @@ export function SidebarContent({
               exit="exit"
               transition={{ duration: 0.15 }}
             >
-              <p className="truncate text-sm font-semibold text-sidebar-foreground">Severino</p>
-              <p className="truncate text-xs text-muted-foreground">Manutenção Predial & HVAC</p>
+              <p
+                className="truncate text-sm font-semibold text-sidebar-foreground"
+                title="Severino"
+              >
+                Severino
+              </p>
+              <p
+                className="truncate text-xs text-muted-foreground"
+                title="Manutenção Predial & HVAC"
+              >
+                Manutenção Predial & HVAC
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -238,10 +248,18 @@ export function SidebarContent({
                 exit="exit"
                 transition={{ duration: 0.15 }}
               >
-                <p className="truncate text-sm font-medium text-foreground">
+                <p
+                  className="truncate text-sm font-medium text-foreground"
+                  title={user?.name ?? undefined}
+                >
                   {user?.name ?? 'Carregando…'}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">{user?.role ?? '—'}</p>
+                <p
+                  className="truncate text-xs text-muted-foreground"
+                  title={user?.role ?? undefined}
+                >
+                  {user?.role ?? '—'}
+                </p>
               </motion.div>
             )}
           </AnimatePresence>

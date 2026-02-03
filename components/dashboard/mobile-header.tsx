@@ -28,8 +28,12 @@ export function MobileHeader() {
             <Wrench className="h-4 w-4" />
           </div>
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-semibold">Severino</p>
-            <p className="truncate text-xs text-muted-foreground">Manutenção Predial & HVAC</p>
+            <p className="truncate text-sm font-semibold" title="Severino">
+              Severino
+            </p>
+            <p className="truncate text-xs text-muted-foreground" title="Manutenção Predial & HVAC">
+              Manutenção Predial & HVAC
+            </p>
           </div>
         </div>
       </div>

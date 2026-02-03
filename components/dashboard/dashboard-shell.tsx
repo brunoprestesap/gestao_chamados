@@ -17,11 +17,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <main
         className={cn(
-          'min-h-screen transition-[padding-left] duration-200 ease-out',
+          'flex h-screen min-h-screen flex-col transition-[padding-left] duration-200 ease-out',
           collapsed ? 'md:pl-[72px]' : 'md:pl-[280px]',
         )}
       >
-        <div className="px-4 py-6 md:px-6">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-6 md:px-6">
+          {children}
+        </div>
       </main>
     </>
   );

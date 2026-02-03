@@ -380,12 +380,12 @@ export function ChamadoCard({
       className={cn(
         'group overflow-hidden border border-gray-200 bg-white shadow-sm transition-all hover:shadow-lg hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700',
         !hideDetailLink && 'cursor-pointer',
-        compact && 'shadow-xs',
+        compact && 'min-w-0 shrink-0 shadow-xs',
       )}
       onClick={handleCardClick}
     >
       <CardContent className={cn(compact ? 'p-3' : 'p-6')}>
-        <div className={cn('flex', compact ? 'gap-3' : 'gap-5')}>
+        <div className={cn('flex min-w-0', compact ? 'gap-3' : 'gap-5')}>
           {/* Ícone lateral - elemento visual de destaque */}
           <div className="flex shrink-0 items-start">
             <div
@@ -523,11 +523,16 @@ export function ChamadoCard({
             {/* Seção 3: Metadados contextuais - Agrupados visualmente */}
             <div
               className={cn(
-                'rounded-lg bg-gray-50/50 dark:bg-gray-800/50',
+                'min-w-0 rounded-lg bg-gray-50/50 dark:bg-gray-800/50',
                 compact ? 'p-2' : 'p-3',
               )}
             >
-              <div className={cn('grid grid-cols-1 gap-2.5 sm:grid-cols-2', compact && 'gap-1.5')}>
+              <div
+                className={cn(
+                  'grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2',
+                  compact && 'gap-1.5',
+                )}
+              >
                 {additionalData.unitName && (
                   <MetadataItem
                     icon={Building2}

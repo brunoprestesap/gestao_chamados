@@ -201,9 +201,9 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
 
   if (!chamado) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg font-medium">Chamado não encontrado</p>
+      <div className="mx-auto flex w-full max-w-[1920px] min-h-[400px] items-center justify-center px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="min-w-0 text-center">
+          <p className="wrap-break-word text-lg font-medium">Chamado não encontrado</p>
           <Button onClick={() => router.push('/meus-chamados')} className="mt-4" variant="outline">
             Voltar para Meus Chamados
           </Button>
@@ -215,27 +215,43 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
   const StatusIcon = STATUS_ICONS[chamado.status];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+    <div className="mx-auto w-full max-w-[1920px] space-y-6 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.back()}
+          className="shrink-0"
+          aria-label="Voltar"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Detalhes do Chamado" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         {/* Informações principais */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
+        <div className="min-w-0 space-y-6 lg:col-span-2">
+          <Card className="overflow-hidden">
             <CardHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <CardTitle className="text-xl">{chamado.ticket_number || 'Sem número'}</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">{chamado.titulo}</p>
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 sm:gap-4">
+                <div className="min-w-0 flex-1">
+                  <CardTitle
+                    className="truncate text-xl"
+                    title={chamado.ticket_number || 'Sem número'}
+                  >
+                    {chamado.ticket_number || 'Sem número'}
+                  </CardTitle>
+                  <p
+                    className="mt-1 wrap-break-word text-sm text-muted-foreground"
+                    title={chamado.titulo}
+                  >
+                    {chamado.titulo}
+                  </p>
                 </div>
                 <Badge
                   variant="outline"
-                  className={`border text-sm font-medium ${STATUS_BADGE[chamado.status]}`}
+                  className={`shrink-0 border text-sm font-medium ${STATUS_BADGE[chamado.status]}`}
                 >
                   <StatusIcon className="mr-2 h-4 w-4" />
                   {CHAMADO_STATUS_LABELS[chamado.status]}
@@ -243,29 +259,29 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
+              <div className="min-w-0">
                 <h4 className="mb-2 text-sm font-medium text-muted-foreground">Descrição</h4>
-                <p className="text-sm leading-relaxed">{chamado.descricao}</p>
+                <p className="wrap-break-word text-sm leading-relaxed">{chamado.descricao}</p>
               </div>
 
               <Separator />
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                <div className="min-w-0">
                   <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                     Tipo de Serviço
                   </h4>
-                  <p className="text-sm">{chamado.tipoServico}</p>
+                  <p className="wrap-break-word text-sm">{chamado.tipoServico}</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h4 className="mb-1 text-sm font-medium text-muted-foreground">Local Exato</h4>
-                  <p className="text-sm">{chamado.localExato}</p>
+                  <p className="wrap-break-word text-sm">{chamado.localExato}</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                     Natureza solicitada
                   </h4>
-                  <p className="text-sm">
+                  <p className="wrap-break-word text-sm">
                     {chamado.requestedAttendanceNature
                       ? ATTENDANCE_NATURE_LABELS[
                           chamado.requestedAttendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS
@@ -273,11 +289,11 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                       : chamado.naturezaAtendimento || '—'}
                   </p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                     Natureza aprovada
                   </h4>
-                  <p className="text-sm">
+                  <p className="wrap-break-word text-sm">
                     {chamado.attendanceNature
                       ? ATTENDANCE_NATURE_LABELS[
                           chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS
@@ -285,26 +301,26 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                       : chamado.naturezaAtendimento || '—'}
                   </p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                     Grau de Urgência
                   </h4>
-                  <p className="text-sm">{chamado.grauUrgencia}</p>
+                  <p className="wrap-break-word text-sm">{chamado.grauUrgencia}</p>
                 </div>
                 {chamado.telefoneContato && (
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                       Telefone para Contato
                     </h4>
-                    <p className="text-sm">{chamado.telefoneContato}</p>
+                    <p className="wrap-break-word text-sm">{chamado.telefoneContato}</p>
                   </div>
                 )}
               </div>
 
               <Separator />
 
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs text-muted-foreground sm:gap-4">
+                <div className="flex shrink-0 items-center gap-1">
                   <Clock className="h-3 w-3" />
                   <span>Aberto em {formatDate(chamado.createdAt, tzOpt)}</span>
                 </div>
@@ -320,13 +336,13 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
 
           {/* SLA */}
           {chamado.sla && (
-            <Card>
+            <Card className="overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-base">SLA</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                  <div className="min-w-0">
                     <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                       Prioridade final
                     </h4>
@@ -334,11 +350,11 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                       {chamado.sla.priority ?? chamado.finalPriority ?? '—'}
                     </p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                       Natureza aprovada
                     </h4>
-                    <p className="text-sm">
+                    <p className="wrap-break-word text-sm">
                       {chamado.attendanceNature
                         ? ATTENDANCE_NATURE_LABELS[
                             chamado.attendanceNature as keyof typeof ATTENDANCE_NATURE_LABELS
@@ -347,7 +363,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                     </p>
                   </div>
                   {chamado.sla.businessHoursOnly != null && (
-                    <div>
+                    <div className="min-w-0">
                       <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                         Horário comercial
                       </h4>
@@ -357,8 +373,8 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                   )}
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                  <div className="min-w-0">
                     <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                       Prazo de Resposta
                     </h4>
@@ -373,7 +389,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                       Prazo de Solução
                     </h4>
@@ -399,7 +415,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                         ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
                         : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200';
                   return (
-                    <div>
+                    <div className="min-w-0">
                       <h4 className="mb-1 text-sm font-medium text-muted-foreground">
                         Status do SLA
                       </h4>
@@ -414,11 +430,11 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
           )}
 
           {/* Histórico */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Histórico de Alterações</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0">
               <HistoryTimeline chamadoId={chamado._id} refreshTrigger={historyRefreshTrigger} />
             </CardContent>
           </Card>
@@ -429,8 +445,8 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
           chamado.status !== 'cancelado' &&
           chamado.status !== 'concluído' &&
           chamado.status !== 'encerrado' && (
-            <div className="space-y-4">
-              <Card>
+            <div className="min-w-0 space-y-4">
+              <Card className="overflow-hidden">
                 <CardHeader>
                   <CardTitle className="text-base">Ações</CardTitle>
                 </CardHeader>
@@ -448,8 +464,8 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
           )}
 
         {canManageChamado && chamado.status === 'em atendimento' && (
-          <div className="space-y-4">
-            <Card>
+          <div className="min-w-0 space-y-4">
+            <Card className="overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-base">Ações (Gestão)</CardTitle>
               </CardHeader>
@@ -467,8 +483,8 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {canManageChamado && chamado.status === 'concluído' && (
-          <div className="space-y-4">
-            <Card>
+          <div className="min-w-0 space-y-4">
+            <Card className="overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-base">Ações (Gestão)</CardTitle>
               </CardHeader>
@@ -485,8 +501,8 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {isOwner && chamado.status === 'encerrado' && (
-          <div className="space-y-4">
-            <Card>
+          <div className="min-w-0 space-y-4">
+            <Card className="overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-base">Avaliação</CardTitle>
               </CardHeader>
