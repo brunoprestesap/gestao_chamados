@@ -1,9 +1,9 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signIn } from 'next-auth/react';
 import { Wrench } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
