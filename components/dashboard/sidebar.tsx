@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { logoutAction } from '@/app/(auth)/login/actions';
+import { signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -100,11 +100,15 @@ export function Sidebar() {
               <p className="truncate text-sm font-medium">{user?.name ?? 'Carregando…'}</p>
               <p className="truncate text-xs text-muted-foreground">{user?.role ?? '—'}</p>
             </div>
-            <form action={logoutAction} className="shrink-0">
-              <Button type="submit" variant="ghost" size="icon" title="Sair">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </form>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              title="Sair"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>

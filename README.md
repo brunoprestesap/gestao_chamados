@@ -7,7 +7,7 @@ Sistema de **gestão de chamados** (tickets) com autenticação por perfis, SLA,
 - **Frontend:** Next.js 16 (App Router), React 19, Tailwind CSS, Radix UI, Framer Motion, Zustand
 - **Backend:** Next.js API Routes, Server Actions, Mongoose
 - **Banco:** MongoDB
-- **Auth:** Next-Auth (JWT em cookie)
+- **Auth:** NextAuth v5 (Credentials, JWT em cookie)
 - **Realtime:** Socket.IO (servidor separado na porta 3001)
 
 ## Pré-requisitos
@@ -39,9 +39,11 @@ Crie `.env.local` na raiz com:
 # MongoDB
 MONGODB_URI=mongodb://localhost:27017/manutencao
 
-# Next-Auth (sessão)
+# NextAuth v5 (sessão)
 AUTH_SECRET=seu-segredo-forte-aqui
 AUTH_COOKIE_NAME=session
+# Em produção com HTTPS, use AUTH_COOKIE_SECURE=true para cookies seguros
+# AUTH_COOKIE_SECURE=true
 
 # Bootstrap (opcional, para seed/scripts)
 BOOTSTRAP_TOKEN=token-opcional
@@ -59,12 +61,13 @@ Copie de `socket-server/.env.example` e preencha:
 SOCKET_PORT=3001
 SOCKET_INTERNAL_SECRET=um-segredo-forte-aqui   # mesmo valor do .env.local da raiz
 SOCKET_CORS_ORIGIN=http://localhost:3000
+APP_URL=http://127.0.0.1:3000   # URL do app Next.js (validação de sessão em /api/session/verify)
 
 AUTH_SECRET=mesmo-do-next
 AUTH_COOKIE_NAME=session
 ```
 
-**Importante:** `SOCKET_INTERNAL_SECRET` deve ser idêntico no `.env.local` (raiz) e no `socket-server/.env`.
+**Importante:** `SOCKET_INTERNAL_SECRET` deve ser idêntico no `.env.local` (raiz) e no `socket-server/.env`. Em produção, defina `APP_URL` com a URL pública do app (ex.: `https://seu-dominio.com`).
 
 ## Desenvolvimento
 
@@ -170,4 +173,5 @@ O `ecosystem.config.cjs` sobe o Next na porta 3000 e o socket-server na 3001.
 ## Deploy (Vercel e outros)
 
 - O Next.js pode ser deployado na [Vercel](https://vercel.com) ou em qualquer host Node.
-- O **socket-server** precisa de um servidor Node separado (ou outro host que rode Node), com as mesmas variáveis de ambiente descritas em [NOTIFICACOES_REALTIME.md](./NOTIFICACOES_REALTIME.md). Ajuste `SOCKET_EMIT_URL` e `SOCKET_CORS_ORIGIN` para a URL do front em produção.
+- **Produção com HTTPS:** defina `AUTH_COOKIE_SECURE=true` no ambiente para que o NextAuth use cookies seguros.
+- O **socket-server** precisa de um servidor Node separado (ou outro host que rode Node), com as mesmas variáveis de ambiente descritas em [NOTIFICACOES_REALTIME.md](./NOTIFICACOES_REALTIME.md). Ajuste `SOCKET_EMIT_URL`, `SOCKET_CORS_ORIGIN` e `APP_URL` (URL do app para validação de sessão) para a URL do front em produção.

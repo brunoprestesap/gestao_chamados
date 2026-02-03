@@ -2,9 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { decrypt } from '@/lib/session';
-
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'session';
+import { auth } from '@/auth';
 
 const protectedPrefixes = [
   '/dashboard',
@@ -21,7 +19,6 @@ const protectedPrefixes = [
   '/configuracoes',
 ];
 
-// Rotas que requerem role de Admin
 const ADMIN_ONLY = ['/usuarios', '/catalogo', '/unidades', '/configuracoes'];
 
 function isProtected(pathname: string) {
@@ -43,31 +40,29 @@ function isIgnored(pathname: string) {
   return false;
 }
 
-// ✅ Next 16.1+ usa proxy no lugar de middleware
+// Next 16.1+ usa proxy no lugar de middleware
 export default async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
   if (isIgnored(pathname)) return NextResponse.next();
 
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-  const session = await decrypt(token);
+  const session = await auth();
 
-  // /login é público; se já logado, manda pro /dashboard
+  const userId = session?.user?.id;
+  const role = session?.user?.role;
+
   if (isPublic(pathname)) {
-    if (session?.userId) return NextResponse.redirect(new URL('/dashboard', req.url));
+    if (userId) return NextResponse.redirect(new URL('/dashboard', req.url));
     return NextResponse.next();
   }
 
-  // Protege páginas do dashboard e módulos - requer login
-  if (isProtected(pathname) && !session?.userId) {
+  if (isProtected(pathname) && !userId) {
     const url = new URL('/login', req.url);
     url.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(url);
   }
 
-  // Verifica se a rota requer admin e se o usuário tem role de Admin
-  if (isAdminRoute(pathname) && session?.role !== 'Admin') {
-    // Redireciona para home se não for admin
+  if (isAdminRoute(pathname) && role !== 'Admin') {
     return NextResponse.redirect(new URL('/', req.url));
   }
 

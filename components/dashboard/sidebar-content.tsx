@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { logoutAction } from '@/app/(auth)/login/actions';
+import { signOut } from 'next-auth/react';
 import { NAV_GROUP_ORDER, NAV_ITEMS } from '@/components/dashboard/nav';
 import type { NavItem } from '@/components/dashboard/nav';
 import { SidebarToggle } from '@/components/sidebar/sidebar-toggle';
@@ -263,15 +263,16 @@ export function SidebarContent({
               </motion.div>
             )}
           </AnimatePresence>
-          <form action={logoutAction} className="shrink-0">
+          <div className="shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  type="submit"
+                  type="button"
                   variant="ghost"
                   size="icon"
                   aria-label="Sair"
                   className={collapsed ? 'size-9' : undefined}
+                  onClick={() => signOut({ callbackUrl: '/login' })}
                 >
                   <LogOut className="h-4 w-4" aria-hidden />
                 </Button>
@@ -280,7 +281,7 @@ export function SidebarContent({
                 Sair
               </TooltipContent>
             </Tooltip>
-          </form>
+          </div>
         </div>
       </div>
     </div>

@@ -1,57 +1,76 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { z } from 'zod';
 
 import { authConfig } from '@/auth.config';
-import client from '@/lib/db';
+import { dbConnect } from '@/lib/db';
+import { UserModel } from '@/models/user.model';
+import type { UserRole } from '@/shared/auth/auth.constants';
 
 /** Workaround: next-auth@5 beta — default export não é reconhecido como callable pelo TS (moduleResolution: bundler). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const initAuth = NextAuth as (config: any) => any;
 
-type DbUser = {
-  _id: any;
-  email: string;
-  name?: string;
-  passwordHash: string;
-  role: 'user' | 'admin';
-};
+const CredentialsSchema = z.object({
+  username: z
+    .string()
+    .min(1)
+    .transform((v) => v.trim().toLowerCase()),
+  password: z.string().min(6),
+});
 
-async function getUserByEmail(email: string): Promise<DbUser | null> {
-  await client.connect();
-  return client.db().collection<DbUser>('users').findOne({ email });
-}
+const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'session';
+const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
 export const { auth, signIn, signOut, handlers } = initAuth({
   ...authConfig,
 
-  // Credentials normalmente usa JWT strategy (role vai no token)
-  session: { strategy: 'jwt' },
+  trustHost: true,
+
+  session: {
+    strategy: 'jwt',
+    maxAge: SEVEN_DAYS,
+  },
+
+  cookies: {
+    sessionToken: {
+      name: COOKIE_NAME,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: SEVEN_DAYS,
+        secure: process.env.NODE_ENV === 'production' || process.env.AUTH_COOKIE_SECURE === 'true',
+      },
+    },
+  },
 
   providers: [
     Credentials({
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        username: { label: 'Matrícula', type: 'text' },
         password: { label: 'Senha', type: 'password' },
       },
       async authorize(credentials) {
-        const parsed = z
-          .object({ email: z.string().email(), password: z.string().min(6) })
-          .safeParse(credentials);
+        const parsed = CredentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const user = await getUserByEmail(parsed.data.email);
-        if (!user) return null;
+        await dbConnect();
+        const user = await UserModel.findOne({ username: parsed.data.username }).lean();
+        if (!user || !user.isActive || !user.passwordHash) return null;
 
         const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
         if (!ok) return null;
 
         return {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name ?? user.email,
-          role: user.role,
+          id: String(user._id),
+          username: user.username,
+          name: user.name ?? user.username,
+          email: user.email ?? null,
+          role: user.role as UserRole,
+          unitId: user.unitId ? String(user.unitId) : null,
+          isActive: user.isActive,
         };
       },
     }),
@@ -62,13 +81,30 @@ export const { auth, signIn, signOut, handlers } = initAuth({
       token,
       user,
     }: {
-      token: { id?: string; role?: string; [k: string]: unknown };
-      user?: { id: string; role?: string; [k: string]: unknown };
+      token: {
+        userId?: string;
+        username?: string;
+        role?: UserRole;
+        unitId?: string | null;
+        isActive?: boolean;
+        id?: string;
+        [k: string]: unknown;
+      };
+      user?: {
+        id: string;
+        username?: string;
+        role?: UserRole;
+        unitId?: string | null;
+        isActive?: boolean;
+      };
     }) {
-      // Primeira vez (login): `user` existe
       if (user) {
+        token.userId = user.id;
         token.id = user.id;
+        token.username = user.username;
         token.role = user.role;
+        token.unitId = user.unitId ?? null;
+        token.isActive = user.isActive;
       }
       return token;
     },
@@ -77,15 +113,31 @@ export const { auth, signIn, signOut, handlers } = initAuth({
       token,
     }: {
       session: {
-        user?: { id?: string; role?: string; [k: string]: unknown };
+        user: {
+          id?: string;
+          username?: string;
+          role?: UserRole;
+          unitId?: string | null;
+          isActive?: boolean;
+          [k: string]: unknown;
+        };
         [k: string]: unknown;
       };
-      token: { id?: string; role?: string; [k: string]: unknown };
+      token: {
+        userId?: string;
+        username?: string;
+        role?: UserRole;
+        unitId?: string | null;
+        isActive?: boolean;
+        id?: string;
+      };
     }) {
-      // Encaminha do token -> session
       if (session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
+        session.user.id = token.userId ?? token.id ?? '';
+        session.user.username = token.username ?? '';
+        session.user.role = token.role ?? 'Solicitante';
+        session.user.unitId = token.unitId ?? null;
+        session.user.isActive = token.isActive ?? true;
       }
       return session;
     },

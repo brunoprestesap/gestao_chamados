@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { signIn } from 'next-auth/react';
 import { Wrench } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -18,8 +19,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-
-import { loginAction } from './actions';
 
 const LoginFormSchema = z.object({
   username: z
@@ -49,16 +48,16 @@ function LoginPageContent() {
     setAuthError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('username', values.username);
-      formData.append('password', values.password);
-
-      const result = await loginAction(formData);
+      const result = await signIn('credentials', {
+        username: values.username,
+        password: values.password,
+        redirect: false,
+      });
 
       setSubmitting(false);
 
-      if (!result.ok) {
-        setAuthError(result.error || 'Matrícula ou senha incorretos. Verifique e tente novamente.');
+      if (result?.error || !result?.ok) {
+        setAuthError('Matrícula ou senha incorretos. Verifique e tente novamente.');
         return;
       }
 

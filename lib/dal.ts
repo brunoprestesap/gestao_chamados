@@ -1,21 +1,33 @@
-// app/lib/dal.ts
 import 'server-only';
 
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 
-import type { Role } from './session';
-import { decrypt } from './session';
+import { auth } from '@/auth';
 
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'session';
+import type { UserRole } from '@/shared/auth/auth.constants';
 
-export const verifySession = cache(async () => {
-  const token = (await cookies()).get(COOKIE_NAME)?.value;
-  const session = await decrypt(token);
+export type Role = UserRole;
 
-  if (!session?.userId || !session.isActive) return null;
-  return session;
+export type SessionLike = {
+  userId: string;
+  username: string;
+  role: Role;
+  unitId?: string | null;
+  isActive: boolean;
+};
+
+export const verifySession = cache(async (): Promise<SessionLike | null> => {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.isActive) return null;
+
+  return {
+    userId: session.user.id,
+    username: session.user.username ?? '',
+    role: session.user.role as Role,
+    unitId: session.user.unitId ?? null,
+    isActive: session.user.isActive,
+  };
 });
 
 export async function requireSession() {
