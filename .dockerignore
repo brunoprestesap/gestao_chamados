@@ -1,0 +1,20 @@
+# Dependências e build
+node_modules
+.next
+npm-debug.log*
+
+# Socket-server (build separado, tem seu próprio Dockerfile)
+socket-server
+
+# Dev e ambiente
+.env*
+!.env.example
+
+# Git e IDE
+.git
+.gitignore
+.vscode
+.claude
+
+# Docs
+*.md

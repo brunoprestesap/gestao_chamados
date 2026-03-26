@@ -42,6 +42,7 @@ const MANAGERS_ROOM = 'managers';
 const PORT = Number(process.env.SOCKET_PORT ?? 3001);
 const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET ?? '';
 const CORS_ORIGIN = process.env.SOCKET_CORS_ORIGIN ?? 'http://localhost:3000';
+const TRUSTED_PROXIES = process.env.SOCKET_TRUSTED_PROXIES ?? '';
 
 const app = express();
 const httpServer = createServer(app);
@@ -107,6 +108,18 @@ function isLocalhost(ip: string): boolean {
   return normalized === '127.0.0.1' || normalized === '::1';
 }
 
+function isTrustedSource(ip: string): boolean {
+  if (isLocalhost(ip)) return true;
+  if (!TRUSTED_PROXIES) return false;
+  // Em Docker, aceitar IPs de rede privada quando SOCKET_TRUSTED_PROXIES está configurado
+  const normalized = ip.replace(/^::ffff:/, '');
+  return (
+    normalized.startsWith('10.') ||
+    normalized.startsWith('172.') ||
+    normalized.startsWith('192.168.')
+  );
+}
+
 app.post('/emit', (req, res) => {
   const secret = req.headers['x-internal-secret'];
   if (!INTERNAL_SECRET || typeof secret !== 'string' || secret !== INTERNAL_SECRET) {
@@ -116,7 +129,7 @@ app.post('/emit', (req, res) => {
     (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ??
     req.socket.remoteAddress ??
     '';
-  if (!isLocalhost(clientIp)) {
+  if (!isTrustedSource(clientIp)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const body = req.body as EmitBody;

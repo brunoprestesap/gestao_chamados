@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Documentacao interna (nao versionar)
+DEPLOY_INTERNO.md
+
 # vercel
 .vercel
 

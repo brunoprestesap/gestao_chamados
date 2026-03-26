@@ -41,7 +41,7 @@ export const { auth, signIn, signOut, handlers } = initAuth({
         sameSite: 'lax',
         path: '/',
         maxAge: SEVEN_DAYS,
-        secure: process.env.NODE_ENV === 'production' || process.env.AUTH_COOKIE_SECURE === 'true',
+        secure: process.env.AUTH_COOKIE_SECURE === 'true',
       },
     },
   },
