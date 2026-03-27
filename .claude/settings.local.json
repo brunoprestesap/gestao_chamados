@@ -49,7 +49,11 @@
       "Bash(grep -r \"pages.*signOut\\\\|redirect.*logout\\\\|signOut.*page\" /c/Users/ap20256.JFAP/Desktop/projetos/severino --include=*.ts --include=*.tsx)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(ssh manutencao@172.18.3.48 \"cd /opt/severino && git pull\")",
+      "Bash(sshpass -p '123mudar' ssh -o StrictHostKeyChecking=no manutencao@172.18.3.48 \"cd /opt/severino && git pull\")",
+      "Bash(winget install:*)",
+      "Bash(sshpass -p '123mudar' ssh -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no manutencao@172.18.3.48 \"echo ok\")"
     ]
   }
 }
