@@ -53,7 +53,10 @@
       "Bash(ssh manutencao@172.18.3.48 \"cd /opt/severino && git pull\")",
       "Bash(sshpass -p '123mudar' ssh -o StrictHostKeyChecking=no manutencao@172.18.3.48 \"cd /opt/severino && git pull\")",
       "Bash(winget install:*)",
-      "Bash(sshpass -p '123mudar' ssh -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no manutencao@172.18.3.48 \"echo ok\")"
+      "Bash(sshpass -p '123mudar' ssh -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no manutencao@172.18.3.48 \"echo ok\")",
+      "Bash(chmod +x /Users/brunoprestes/projects/gestao_chamados/socket-server/node_modules/.bin/tsx)",
+      "Bash(node scripts/seed.js)",
+      "Bash(docker exec:*)"
     ]
   }
 }

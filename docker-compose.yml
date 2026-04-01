@@ -47,6 +47,8 @@ services:
     networks:
       - severino
     restart: unless-stopped
+    ports:
+      - '27017:27017'
 
   nginx:
     image: nginx:alpine
