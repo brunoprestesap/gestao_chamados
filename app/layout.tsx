@@ -8,6 +8,9 @@ import { AuthSessionProvider } from '@/components/providers/session-provider';
 export const metadata: Metadata = {
   title: 'Severino',
   description: 'Sistema de gerenciamento de chamados da manutenção',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({

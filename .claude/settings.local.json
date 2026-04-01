@@ -56,7 +56,13 @@
       "Bash(sshpass -p '123mudar' ssh -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no manutencao@172.18.3.48 \"echo ok\")",
       "Bash(chmod +x /Users/brunoprestes/projects/gestao_chamados/socket-server/node_modules/.bin/tsx)",
       "Bash(node scripts/seed.js)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(npx next:*)",
+      "Bash(npx shadcn@latest add tabs)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")"
     ]
   }
 }

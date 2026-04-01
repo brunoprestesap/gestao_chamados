@@ -11,8 +11,8 @@ import {
 
 const springTransition = {
   type: 'spring' as const,
-  stiffness: 260,
-  damping: 30,
+  stiffness: 300,
+  damping: 32,
 };
 
 export function Sidebar() {
@@ -20,7 +20,7 @@ export function Sidebar() {
 
   return (
     <motion.aside
-      className="hidden md:fixed md:inset-y-0 md:left-0 md:z-50 md:flex md:flex-col border-r border-border bg-background overflow-hidden"
+      className="hidden md:fixed md:inset-y-0 md:left-0 md:z-50 md:flex md:flex-col overflow-hidden bg-sidebar text-sidebar-foreground"
       initial={false}
       animate={{
         width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED,

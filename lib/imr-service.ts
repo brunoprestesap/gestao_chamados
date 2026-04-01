@@ -2,26 +2,30 @@
  * IMR — Índice de Medição de Resultados.
  * Relatório gerencial: indicadores de desempenho de chamados encerrados no período.
  * Cálculos determinísticos e reproduzíveis (aggregations MongoDB).
+ *
+ * IMPORTANTE: todos os indicadores são computados em uma ÚNICA aggregation com $facet,
+ * agrupando por tipoServico. O resultado geral é derivado somando os tipos no JS —
+ * evitando N+1 queries para cada tipo de serviço.
  */
 
 import 'server-only';
 
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
+import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 
-/** Período de apuração: chamados encerrados (closedAt) dentro do intervalo, inclusive. */
+/* ─────────────────────────── Types públicos ─────────────────────────── */
+
 export type ImrPeriod = {
   dataInicial: Date;
   dataFinal: Date;
 };
 
-/** Volume por tipo de serviço */
 export type ImrVolumePorTipo = {
   tipoServico: string;
   total: number;
 };
 
-/** Cumprimento de SLA (resolução) */
 export type ImrSlaCumprimento = {
   totalDentro: number;
   totalFora: number;
@@ -29,7 +33,6 @@ export type ImrSlaCumprimento = {
   percentualFora: number;
 };
 
-/** SLA por prioridade */
 export type ImrSlaPorPrioridade = {
   prioridade: string;
   total: number;
@@ -39,26 +42,34 @@ export type ImrSlaPorPrioridade = {
   percentualFora: number;
 };
 
-/** Avaliação dos usuários (apenas chamados avaliados com rating 1–5) */
 export type ImrAvaliacao = {
   mediaGeral: number;
   totalAvaliacoes: number;
   percentualNegativas: number;
   totalNegativas: number;
-  /** Chamados encerrados no período sem avaliação registrada (transparência; não gera penalidade) */
   totalNaoAvaliados: number;
   percentualNaoAvaliados: number;
 };
 
-/** Penalidades (base para glosa) */
 export type ImrPenalidade = {
   motivo: string;
   quantidade: number;
   percentualSobreTotal: number;
 };
 
-export type ImrResult = {
-  periodo: ImrPeriod;
+export type ImrResultPorTipo = {
+  tipoServico: string;
+  totalChamados: number;
+  sla: ImrSlaCumprimento;
+  slaPorPrioridade: ImrSlaPorPrioridade[];
+  tempoMedioMs: number | null;
+  avaliacao: ImrAvaliacao;
+  penalidades: ImrPenalidade[];
+  chamadosForaSla: number;
+};
+
+/** Dados do resumo geral (passados ao componente de abas). */
+export type ImrResumoGeral = {
   totalChamados: number;
   volumePorTipo: ImrVolumePorTipo[];
   sla: ImrSlaCumprimento;
@@ -67,25 +78,36 @@ export type ImrResult = {
   tempoMedioPorTipo: { tipoServico: string; tempoMedioMs: number }[];
   avaliacao: ImrAvaliacao;
   penalidades: ImrPenalidade[];
-  /** Chamados fora do SLA (para quadro-resumo "críticos") */
   chamadosForaSla: number;
 };
 
-/** Retorna data final ao fim do dia (23:59:59.999) no mesmo dia civil. */
+export type ImrResult = {
+  periodo: ImrPeriod;
+  resumoGeral: ImrResumoGeral;
+  porTipoServico: ImrResultPorTipo[];
+};
+
+/* ─────────────────────────── Helpers internos ─────────────────────────── */
+
 function endOfDay(d: Date): Date {
   const x = new Date(d);
   x.setUTCHours(23, 59, 59, 999);
   return x;
 }
 
-/** Início do dia 00:00:00.000 */
 function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setUTCHours(0, 0, 0, 0);
   return x;
 }
 
-/** Condição SLA atendido (para uso em $cond): resolutionBreachedAt == null OU resolvedAt <= resolutionDueAt. */
+/** Calcula percentual arredondado para 2 casas. Retorna 0 se denominador for 0. */
+function pct(numerador: number, denominador: number): number {
+  return denominador > 0 ? Math.round((numerador / denominador) * 10000) / 100 : 0;
+}
+
+/* ─────────────────────────── Expressões SLA ─────────────────────────── */
+
 const DENTRO_SLA_CONDITION = {
   $or: [
     { $eq: ['$sla.resolutionBreachedAt', null] },
@@ -107,270 +129,302 @@ function foraSlaExpr(): Record<string, unknown> {
   return { $cond: { if: DENTRO_SLA_CONDITION, then: 0, else: 1 } };
 }
 
+/* ─────────────────────────── Facet unificado ─────────────────────────── */
+
 /**
- * Calcula todos os indicadores do IMR para o período.
- * Uma única aggregation com $facet para evitar N+1 e garantir reprodutibilidade.
+ * Tipo do resultado bruto da aggregation unificada.
+ * Todos os facets agrupam por tipoServico, permitindo derivar tanto o
+ * resultado geral (soma) quanto o resultado por tipo (filtro por _id).
  */
-export async function computeImrReport(period: ImrPeriod): Promise<ImrResult> {
-  await dbConnect();
+type UnifiedFacetResult = {
+  totalPorTipo: Array<{ _id: string; count: number }>;
+  slaPorTipo: Array<{ _id: string; dentro: number; fora: number; total: number }>;
+  slaPorTipoEPrioridade: Array<{
+    _id: { tipo: string; prioridade: string };
+    total: number;
+    dentro: number;
+    fora: number;
+  }>;
+  tempoPorTipo: Array<{ _id: string; somaMs: number; count: number }>;
+  avaliacaoPorTipo: Array<{
+    _id: string;
+    somaRating: number;
+    total: number;
+    negativas: number;
+  }>;
+  penalidadesPorTipo: Array<{
+    _id: string;
+    slaEstourado: number;
+    avaliacaoNegativa: number;
+    ambos: number;
+  }>;
+};
 
-  const start = startOfDay(period.dataInicial);
-  const end = endOfDay(period.dataFinal);
+/** Facets unificados — uma única passada sobre os documentos. */
+function unifiedFacets() {
+  return {
+    totalPorTipo: [
+      { $group: { _id: '$tipoServico', count: { $sum: 1 } } },
+      { $sort: { _id: 1 as const } },
+    ],
 
-  const matchBase = {
-    status: 'encerrado' as const,
-    closedAt: { $gte: start, $lte: end, $ne: null },
-  };
+    slaPorTipo: [
+      {
+        $group: {
+          _id: '$tipoServico',
+          dentro: { $sum: dentroSlaExpr() },
+          fora: { $sum: foraSlaExpr() },
+          total: { $sum: 1 },
+        },
+      },
+    ],
 
-  type FacetResult = {
-    total: [{ count: number }];
-    volumePorTipo: Array<{ _id: string; total: number }>;
-    sla: Array<{ dentro: number; fora: number; total: number }>;
-    slaPorPrioridade: Array<{
-      _id: string;
-      total: number;
-      dentro: number;
-      fora: number;
-    }>;
-    tempoMedio: Array<{ avgMs: number | null }>;
-    tempoMedioPorTipo: Array<{ _id: string; avgMs: number }>;
-    avaliacao: Array<{
-      media: number;
-      total: number;
-      negativas: number;
-    }>;
-    penalidades: Array<{
-      slaEstourado: number;
-      avaliacaoNegativa: number;
-      ambos: number;
-    }>;
-  };
+    slaPorTipoEPrioridade: [
+      {
+        $group: {
+          _id: {
+            tipo: '$tipoServico',
+            prioridade: { $ifNull: ['$finalPriority', '$sla.priority'] },
+          },
+          total: { $sum: 1 },
+          dentro: { $sum: dentroSlaExpr() },
+          fora: { $sum: foraSlaExpr() },
+        },
+      },
+      { $sort: { '_id.prioridade': 1 as const } },
+    ],
 
-  const [facet] = await ChamadoModel.aggregate<FacetResult>([
-    { $match: matchBase },
-    {
-      $facet: {
-        total: [{ $count: 'count' }],
-        volumePorTipo: [
-          { $group: { _id: '$tipoServico', total: { $sum: 1 } } },
-          { $sort: { _id: 1 } },
-        ],
-        sla: [
-          {
-            $group: {
-              _id: null,
-              dentro: { $sum: dentroSlaExpr() },
-              fora: { $sum: foraSlaExpr() },
-              total: { $sum: 1 },
-            },
+    tempoPorTipo: [
+      {
+        $project: {
+          tipoServico: 1,
+          resolvedOrClosed: { $ifNull: ['$sla.resolvedAt', '$closedAt'] },
+          createdAt: 1,
+        },
+      },
+      { $match: { resolvedOrClosed: { $ne: null }, createdAt: { $ne: null } } },
+      {
+        $project: {
+          tipoServico: 1,
+          diffMs: { $subtract: ['$resolvedOrClosed', '$createdAt'] },
+        },
+      },
+      {
+        $group: {
+          _id: '$tipoServico',
+          somaMs: { $sum: '$diffMs' },
+          count: { $sum: 1 },
+        },
+      },
+    ],
+
+    avaliacaoPorTipo: [
+      { $match: { 'evaluation.rating': { $gte: 1, $lte: 5 } } },
+      {
+        $group: {
+          _id: '$tipoServico',
+          somaRating: { $sum: '$evaluation.rating' },
+          total: { $sum: 1 },
+          negativas: {
+            $sum: { $cond: [{ $lte: ['$evaluation.rating', 2] }, 1, 0] },
           },
-        ],
-        slaPorPrioridade: [
-          {
-            $group: {
-              _id: { $ifNull: ['$finalPriority', '$sla.priority'] },
-              total: { $sum: 1 },
-              dentro: { $sum: dentroSlaExpr() },
-              fora: { $sum: foraSlaExpr() },
-            },
-          },
-          { $sort: { _id: 1 } },
-        ],
-        tempoMedio: [
-          {
-            $project: {
-              resolvedOrClosed: {
-                $ifNull: ['$sla.resolvedAt', '$closedAt'],
-              },
-              createdAt: 1,
-            },
-          },
-          {
-            $match: {
-              resolvedOrClosed: { $ne: null },
-              createdAt: { $ne: null },
-            },
-          },
-          {
-            $project: {
-              diffMs: { $subtract: ['$resolvedOrClosed', '$createdAt'] },
-            },
-          },
-          {
-            $group: {
-              _id: null,
-              avgMs: { $avg: '$diffMs' },
-            },
-          },
-        ],
-        tempoMedioPorTipo: [
-          {
-            $project: {
-              tipoServico: 1,
-              resolvedOrClosed: { $ifNull: ['$sla.resolvedAt', '$closedAt'] },
-              createdAt: 1,
-            },
-          },
-          {
-            $match: {
-              resolvedOrClosed: { $ne: null },
-              createdAt: { $ne: null },
-            },
-          },
-          {
-            $project: {
-              tipoServico: 1,
-              diffMs: { $subtract: ['$resolvedOrClosed', '$createdAt'] },
-            },
-          },
-          {
-            $group: {
-              _id: '$tipoServico',
-              avgMs: { $avg: '$diffMs' },
-            },
-          },
-          { $sort: { _id: 1 } },
-        ],
-        avaliacao: [
-          {
-            $match: {
-              'evaluation.rating': { $gte: 1, $lte: 5 },
-            },
-          },
-          {
-            $group: {
-              _id: null,
-              media: { $avg: '$evaluation.rating' },
-              total: { $sum: 1 },
-              negativas: {
-                $sum: { $cond: [{ $lte: ['$evaluation.rating', 2] }, 1, 0] },
-              },
-            },
-          },
-        ],
-        penalidades: [
-          {
-            $project: {
-              foraSla: foraSlaExpr(),
-              // Avaliação negativa SOMENTE quando existe avaliação explícita (rating 1–5) e rating ≤ 2.
-              // Chamados sem avaliação (rating ausente/null/fora do range) NÃO contam como negativa.
-              avaliacaoNegativa: {
-                $cond: [
-                  {
-                    $and: [
-                      { $gte: ['$evaluation.rating', 1] },
-                      { $lte: ['$evaluation.rating', 2] },
-                    ],
-                  },
-                  1,
-                  0,
+        },
+      },
+    ],
+
+    penalidadesPorTipo: [
+      {
+        $project: {
+          tipoServico: 1,
+          foraSla: foraSlaExpr(),
+          avaliacaoNegativa: {
+            $cond: [
+              {
+                $and: [
+                  { $gte: ['$evaluation.rating', 1] },
+                  { $lte: ['$evaluation.rating', 2] },
                 ],
               },
-            },
+              1,
+              0,
+            ],
           },
-          {
-            $group: {
-              _id: null,
-              slaEstourado: { $sum: '$foraSla' },
-              avaliacaoNegativa: { $sum: '$avaliacaoNegativa' },
-              ambos: {
-                $sum: {
-                  $cond: [
-                    { $and: [{ $eq: ['$foraSla', 1] }, { $eq: ['$avaliacaoNegativa', 1] }] },
-                    1,
-                    0,
-                  ],
-                },
-              },
-            },
-          },
-        ],
+        },
       },
-    },
-  ]);
-
-  const totalChamados = facet?.total?.[0]?.count ?? 0;
-
-  const volumePorTipo: ImrVolumePorTipo[] = (facet?.volumePorTipo ?? []).map((v) => ({
-    tipoServico: v._id ?? '—',
-    total: v.total ?? 0,
-  }));
-
-  const slaRow = facet?.sla?.[0];
-  const totalDentro = slaRow?.dentro ?? 0;
-  const totalFora = slaRow?.fora ?? 0;
-  const slaTotal = slaRow?.total ?? 0;
-  const sla: ImrSlaCumprimento = {
-    totalDentro,
-    totalFora,
-    percentualDentro: slaTotal > 0 ? Math.round((totalDentro / slaTotal) * 10000) / 100 : 0,
-    percentualFora: slaTotal > 0 ? Math.round((totalFora / slaTotal) * 10000) / 100 : 0,
+      {
+        $group: {
+          _id: '$tipoServico',
+          slaEstourado: { $sum: '$foraSla' },
+          avaliacaoNegativa: { $sum: '$avaliacaoNegativa' },
+          ambos: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ['$foraSla', 1] }, { $eq: ['$avaliacaoNegativa', 1] }] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ],
   };
+}
 
-  const slaPorPrioridade: ImrSlaPorPrioridade[] = (facet?.slaPorPrioridade ?? []).map((p) => {
-    const total = p.total ?? 0;
-    const dentro = p.dentro ?? 0;
-    const fora = p.fora ?? 0;
-    return {
-      prioridade: p._id ?? '—',
-      total,
-      dentroSla: dentro,
-      foraSla: fora,
-      percentualDentro: total > 0 ? Math.round((dentro / total) * 10000) / 100 : 0,
-      percentualFora: total > 0 ? Math.round((fora / total) * 10000) / 100 : 0,
-    };
-  });
+/* ─────────────────────────── Transformação ─────────────────────────── */
 
-  const tempoMedioRow = facet?.tempoMedio?.[0];
-  const tempoMedioMs = tempoMedioRow?.avgMs ?? null;
+function buildSlaCumprimento(dentro: number, fora: number, total: number): ImrSlaCumprimento {
+  return {
+    totalDentro: dentro,
+    totalFora: fora,
+    percentualDentro: pct(dentro, total),
+    percentualFora: pct(fora, total),
+  };
+}
 
-  const tempoMedioPorTipo = (facet?.tempoMedioPorTipo ?? []).map((t) => ({
-    tipoServico: t._id ?? '—',
-    tempoMedioMs: t.avgMs ?? 0,
+function buildSlaPorPrioridade(
+  rows: Array<{ prioridade: string; total: number; dentro: number; fora: number }>,
+): ImrSlaPorPrioridade[] {
+  return rows.map((r) => ({
+    prioridade: r.prioridade,
+    total: r.total,
+    dentroSla: r.dentro,
+    foraSla: r.fora,
+    percentualDentro: pct(r.dentro, r.total),
+    percentualFora: pct(r.fora, r.total),
   }));
+}
 
-  const avRow = facet?.avaliacao?.[0];
-  const totalAvaliacoes = avRow?.total ?? 0;
-  const totalNegativas = avRow?.negativas ?? 0;
+function buildAvaliacao(
+  somaRating: number,
+  totalAvaliacoes: number,
+  totalNegativas: number,
+  totalChamados: number,
+): ImrAvaliacao {
   const totalNaoAvaliados = Math.max(0, totalChamados - totalAvaliacoes);
-  const avaliacao: ImrAvaliacao = {
-    mediaGeral: avRow?.media != null ? Math.round(avRow.media * 100) / 100 : 0,
+  return {
+    mediaGeral: totalAvaliacoes > 0 ? Math.round((somaRating / totalAvaliacoes) * 100) / 100 : 0,
     totalAvaliacoes,
     totalNegativas,
-    percentualNegativas:
-      totalAvaliacoes > 0 ? Math.round((totalNegativas / totalAvaliacoes) * 10000) / 100 : 0,
+    percentualNegativas: pct(totalNegativas, totalAvaliacoes),
     totalNaoAvaliados,
-    percentualNaoAvaliados:
-      totalChamados > 0 ? Math.round((totalNaoAvaliados / totalChamados) * 10000) / 100 : 0,
+    percentualNaoAvaliados: pct(totalNaoAvaliados, totalChamados),
   };
+}
 
-  const penRow = facet?.penalidades?.[0];
-  const penalidades: ImrPenalidade[] = [];
-  if (penRow && totalChamados > 0) {
-    const s = penRow.slaEstourado ?? 0;
-    const a = penRow.avaliacaoNegativa ?? 0;
-    const b = penRow.ambos ?? 0;
-    penalidades.push(
-      {
-        motivo: 'SLA estourado',
-        quantidade: s,
-        percentualSobreTotal: Math.round((s / totalChamados) * 10000) / 100,
-      },
-      {
-        motivo: 'Avaliação negativa',
-        quantidade: a,
-        percentualSobreTotal: Math.round((a / totalChamados) * 10000) / 100,
-      },
-      {
-        motivo: 'SLA estourado e avaliação negativa',
-        quantidade: b,
-        percentualSobreTotal: Math.round((b / totalChamados) * 10000) / 100,
-      },
-    );
+function buildPenalidades(
+  slaEstourado: number,
+  avaliacaoNegativa: number,
+  ambos: number,
+  totalChamados: number,
+): ImrPenalidade[] {
+  if (totalChamados === 0) return [];
+  return [
+    {
+      motivo: 'SLA estourado',
+      quantidade: slaEstourado,
+      percentualSobreTotal: pct(slaEstourado, totalChamados),
+    },
+    {
+      motivo: 'Avaliação negativa',
+      quantidade: avaliacaoNegativa,
+      percentualSobreTotal: pct(avaliacaoNegativa, totalChamados),
+    },
+    {
+      motivo: 'SLA estourado e avaliação negativa',
+      quantidade: ambos,
+      percentualSobreTotal: pct(ambos, totalChamados),
+    },
+  ];
+}
+
+/** Extrai indicadores de um tipo de serviço específico a partir do facet unificado. */
+function extractPerType(facet: UnifiedFacetResult, tipo: string): ImrResultPorTipo {
+  const totalRow = facet.totalPorTipo.find((r) => r._id === tipo);
+  const totalChamados = totalRow?.count ?? 0;
+
+  const slaRow = facet.slaPorTipo.find((r) => r._id === tipo);
+  const sla = buildSlaCumprimento(slaRow?.dentro ?? 0, slaRow?.fora ?? 0, slaRow?.total ?? 0);
+
+  const prioridadeRows = facet.slaPorTipoEPrioridade
+    .filter((r) => r._id.tipo === tipo)
+    .map((r) => ({ prioridade: r._id.prioridade ?? '—', total: r.total, dentro: r.dentro, fora: r.fora }));
+  const slaPorPrioridade = buildSlaPorPrioridade(prioridadeRows);
+
+  const tempoRow = facet.tempoPorTipo.find((r) => r._id === tipo);
+  const tempoMedioMs = tempoRow && tempoRow.count > 0 ? tempoRow.somaMs / tempoRow.count : null;
+
+  const avRow = facet.avaliacaoPorTipo.find((r) => r._id === tipo);
+  const avaliacao = buildAvaliacao(
+    avRow?.somaRating ?? 0,
+    avRow?.total ?? 0,
+    avRow?.negativas ?? 0,
+    totalChamados,
+  );
+
+  const penRow = facet.penalidadesPorTipo.find((r) => r._id === tipo);
+  const penalidades = buildPenalidades(
+    penRow?.slaEstourado ?? 0,
+    penRow?.avaliacaoNegativa ?? 0,
+    penRow?.ambos ?? 0,
+    totalChamados,
+  );
+
+  return { tipoServico: tipo, totalChamados, sla, slaPorPrioridade, tempoMedioMs, avaliacao, penalidades, chamadosForaSla: sla.totalFora };
+}
+
+/** Agrega os resultados de todos os tipos para produzir o resumo geral. */
+function buildResumoGeral(facet: UnifiedFacetResult): ImrResumoGeral {
+  const volumePorTipo: ImrVolumePorTipo[] = facet.totalPorTipo.map((r) => ({
+    tipoServico: r._id ?? '—',
+    total: r.count,
+  }));
+  const totalChamados = facet.totalPorTipo.reduce((acc, r) => acc + r.count, 0);
+
+  // SLA global: soma dos tipos
+  const slaDentro = facet.slaPorTipo.reduce((acc, r) => acc + r.dentro, 0);
+  const slaFora = facet.slaPorTipo.reduce((acc, r) => acc + r.fora, 0);
+  const slaTotal = facet.slaPorTipo.reduce((acc, r) => acc + r.total, 0);
+  const sla = buildSlaCumprimento(slaDentro, slaFora, slaTotal);
+
+  // SLA por prioridade global: agrupar por prioridade (somando tipos)
+  const prioridadeMap = new Map<string, { total: number; dentro: number; fora: number }>();
+  for (const r of facet.slaPorTipoEPrioridade) {
+    const key = r._id.prioridade ?? '—';
+    const existing = prioridadeMap.get(key) ?? { total: 0, dentro: 0, fora: 0 };
+    existing.total += r.total;
+    existing.dentro += r.dentro;
+    existing.fora += r.fora;
+    prioridadeMap.set(key, existing);
   }
+  const slaPorPrioridade = buildSlaPorPrioridade(
+    [...prioridadeMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([prioridade, vals]) => ({ prioridade, ...vals })),
+  );
+
+  // Tempo médio global: média ponderada (somaMs total / count total)
+  const tempoSomaMs = facet.tempoPorTipo.reduce((acc, r) => acc + r.somaMs, 0);
+  const tempoCount = facet.tempoPorTipo.reduce((acc, r) => acc + r.count, 0);
+  const tempoMedioMs = tempoCount > 0 ? tempoSomaMs / tempoCount : null;
+  const tempoMedioPorTipo = facet.tempoPorTipo
+    .filter((r) => r.count > 0)
+    .map((r) => ({ tipoServico: r._id ?? '—', tempoMedioMs: r.somaMs / r.count }))
+    .sort((a, b) => a.tipoServico.localeCompare(b.tipoServico));
+
+  // Avaliação global: soma de todos os tipos
+  const avSomaRating = facet.avaliacaoPorTipo.reduce((acc, r) => acc + r.somaRating, 0);
+  const avTotal = facet.avaliacaoPorTipo.reduce((acc, r) => acc + r.total, 0);
+  const avNegativas = facet.avaliacaoPorTipo.reduce((acc, r) => acc + r.negativas, 0);
+  const avaliacao = buildAvaliacao(avSomaRating, avTotal, avNegativas, totalChamados);
+
+  // Penalidades global: soma de todos os tipos
+  const penSlaEstourado = facet.penalidadesPorTipo.reduce((acc, r) => acc + r.slaEstourado, 0);
+  const penAvalNegativa = facet.penalidadesPorTipo.reduce((acc, r) => acc + r.avaliacaoNegativa, 0);
+  const penAmbos = facet.penalidadesPorTipo.reduce((acc, r) => acc + r.ambos, 0);
+  const penalidades = buildPenalidades(penSlaEstourado, penAvalNegativa, penAmbos, totalChamados);
 
   return {
-    periodo: { dataInicial: start, dataFinal: end },
     totalChamados,
     volumePorTipo,
     sla,
@@ -379,6 +433,38 @@ export async function computeImrReport(period: ImrPeriod): Promise<ImrResult> {
     tempoMedioPorTipo,
     avaliacao,
     penalidades,
-    chamadosForaSla: totalFora,
+    chamadosForaSla: sla.totalFora,
+  };
+}
+
+/* ─────────────────────────── Função pública ─────────────────────────── */
+
+/**
+ * Calcula todos os indicadores do IMR para o período em uma ÚNICA aggregation.
+ * Os resultados por tipo e o resumo geral são derivados do mesmo dataset.
+ */
+export async function computeImrReport(period: ImrPeriod): Promise<ImrResult> {
+  await dbConnect();
+
+  const start = startOfDay(period.dataInicial);
+  const end = endOfDay(period.dataFinal);
+
+  const [facet] = await ChamadoModel.aggregate<UnifiedFacetResult>([
+    {
+      $match: {
+        status: 'encerrado' as const,
+        closedAt: { $gte: start, $lte: end, $ne: null },
+      },
+    },
+    { $facet: unifiedFacets() },
+  ]);
+
+  const resumoGeral = buildResumoGeral(facet);
+  const porTipoServico = TIPO_SERVICO_OPTIONS.map((tipo) => extractPerType(facet, tipo));
+
+  return {
+    periodo: { dataInicial: start, dataFinal: end },
+    resumoGeral,
+    porTipoServico,
   };
 }

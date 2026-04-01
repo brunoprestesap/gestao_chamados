@@ -1,10 +1,11 @@
 'use client';
 
-import { Menu, Wrench } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useState } from 'react';
 
 import { SidebarContent } from '@/components/dashboard/sidebar-content';
 import { NotificationsBell } from '@/components/realtime/NotificationsBell';
+import { SeverinoLogo } from '@/components/severino-logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
@@ -12,30 +13,24 @@ export function MobileHeader() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="sticky top-0 z-40 border-b border-sidebar-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 md:hidden">
+    <div className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-xl md:hidden">
       <div className="flex h-14 items-center gap-3 px-4">
-        <NotificationsBell />
         <Button
           variant="ghost"
           size="icon"
+          className="h-9 w-9 text-foreground/70 hover:text-foreground"
           onClick={() => setOpen(true)}
           aria-label="Abrir menu de navegação"
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-            <Wrench className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-semibold" title="Severino">
-              Severino
-            </p>
-            <p className="truncate text-xs text-muted-foreground" title="Manutenção Predial & HVAC">
-              Manutenção Predial & HVAC
-            </p>
-          </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <SeverinoLogo size={30} />
+          <p className="truncate text-sm font-bold tracking-tight" title="Severino">
+            Severino
+          </p>
         </div>
+        <NotificationsBell />
       </div>
 
       <Sheet open={open} onOpenChange={setOpen}>

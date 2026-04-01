@@ -18,6 +18,7 @@ export function buildTypeIdByTipo(types: { id: string; name: string }[]): Map<st
       n.includes('arcondicionado')
     )
       m.set('Ar-Condicionado', t.id);
+    if (n.includes('elevador')) m.set('Elevador', t.id);
   }
   return m;
 }

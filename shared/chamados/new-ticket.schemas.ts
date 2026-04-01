@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const TIPO_SERVICO_OPTIONS = ['Manutenção Predial', 'Ar-Condicionado'] as const;
+export const TIPO_SERVICO_OPTIONS = ['Manutenção Predial', 'Ar-Condicionado', 'Elevador'] as const;
 export const NATUREZA_OPTIONS = ['Padrão', 'Urgente'] as const;
 export const GRAU_URGENCIA_OPTIONS = ['Baixo', 'Normal', 'Alto', 'Crítico'] as const;
 

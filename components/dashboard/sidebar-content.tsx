@@ -1,18 +1,18 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { LogOut, Wrench } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { signOut } from 'next-auth/react';
-import { NAV_GROUP_ORDER, NAV_ITEMS } from '@/components/dashboard/nav';
 import type { NavItem } from '@/components/dashboard/nav';
+import { NAV_GROUP_ORDER, NAV_ITEMS } from '@/components/dashboard/nav';
+import { SeverinoLogo } from '@/components/severino-logo';
 import { SidebarToggle } from '@/components/sidebar/sidebar-toggle';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -80,23 +80,26 @@ export function SidebarContent({
     return groupItems(filtered);
   }, [user?.role]);
 
+  const sidebarClasses = inDrawer
+    ? 'bg-sidebar text-sidebar-foreground'
+    : '';
+
   return (
     <div
       className={cn(
-        'flex h-full flex-col bg-linear-to-br from-slate-100 via-blue-50/80 to-indigo-100/90 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/90 text-foreground',
+        'flex h-full flex-col',
+        sidebarClasses,
         inDrawer && 'pt-14',
       )}
     >
-      {/* Cabeçalho */}
+      {/* Header */}
       <div
         className={cn(
-          'flex shrink-0 items-center border-b border-sidebar-border py-4',
+          'flex shrink-0 items-center border-b border-sidebar-border py-5',
           collapsed ? 'flex-col justify-center gap-2 px-0' : 'gap-3 px-5',
         )}
       >
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-          <Wrench className="h-5 w-5" aria-hidden />
-        </div>
+        <SeverinoLogo size={36} />
         <AnimatePresence mode="wait">
           {!collapsed && (
             <motion.div
@@ -109,16 +112,16 @@ export function SidebarContent({
               transition={{ duration: 0.15 }}
             >
               <p
-                className="truncate text-sm font-semibold text-sidebar-foreground"
+                className="truncate text-sm font-bold tracking-tight text-sidebar-foreground"
                 title="Severino"
               >
                 Severino
               </p>
               <p
-                className="truncate text-xs text-muted-foreground"
-                title="Manutenção Predial & HVAC"
+                className="truncate text-[11px] text-sidebar-foreground/50"
+                title="Gestão de Chamados"
               >
-                Manutenção Predial & HVAC
+                Gestão de Chamados
               </p>
             </motion.div>
           )}
@@ -132,22 +135,22 @@ export function SidebarContent({
               exit={{ opacity: 0 }}
               className="shrink-0"
             >
-              <SidebarToggle />
+              <SidebarToggle className="text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-hover" />
             </motion.div>
           </AnimatePresence>
         )}
       </div>
 
-      {/* Navegação em grupos */}
+      {/* Navigation */}
       <ScrollArea className="flex-1">
-        <nav className={cn('flex flex-col px-3 py-4', collapsed ? 'gap-2' : 'gap-6')}>
+        <nav className={cn('flex flex-col px-3 py-4', collapsed ? 'gap-2' : 'gap-5')}>
           {grouped.map(({ group, items }) => (
-            <div key={group} className="space-y-1">
+            <div key={group} className="space-y-0.5">
               <AnimatePresence mode="wait">
                 {!collapsed && (
                   <motion.p
                     key={`title-${group}`}
-                    className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                    className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/35"
                     aria-hidden
                     variants={labelVariants}
                     initial="initial"
@@ -171,17 +174,25 @@ export function SidebarContent({
                       href={item.href}
                       onClick={onNavigate}
                       className={cn(
-                        'flex items-center rounded-md border-l-[3px] py-2 text-sm transition-colors duration-200',
+                        'group/item flex items-center rounded-lg py-2.5 text-[13px] font-medium transition-all duration-150',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2',
                         collapsed
-                          ? 'justify-center border-transparent px-0 pl-0'
-                          : 'gap-3 pr-3 pl-[10px]',
+                          ? 'justify-center px-2.5'
+                          : 'gap-3 px-3',
                         isActive
-                          ? 'border-sidebar-primary bg-sidebar-active text-sidebar-active-foreground font-semibold rounded-r-md [&_svg]:text-sidebar-active-foreground hover:bg-sidebar-active/90 dark:hover:bg-sidebar-active/80'
-                          : 'border-transparent text-muted-foreground hover:bg-sidebar-hover hover:text-sidebar-hover-foreground hover:rounded-r-md',
+                          ? 'bg-sidebar-active font-semibold text-sidebar-active-foreground'
+                          : 'text-sidebar-foreground/65 hover:bg-sidebar-hover hover:text-sidebar-hover-foreground',
                       )}
                     >
-                      <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                      <Icon
+                        className={cn(
+                          'h-[18px] w-[18px] shrink-0 transition-colors',
+                          isActive
+                            ? 'text-sidebar-primary'
+                            : 'text-sidebar-foreground/50 group-hover/item:text-sidebar-foreground/80',
+                        )}
+                        aria-hidden
+                      />
                       <AnimatePresence mode="wait">
                         {!collapsed && (
                           <motion.span
@@ -221,9 +232,7 @@ export function SidebarContent({
         </nav>
       </ScrollArea>
 
-      <Separator />
-
-      {/* Rodapé: usuário + Sair */}
+      {/* Footer: user + logout */}
       <div
         className={cn(
           'shrink-0 border-t border-sidebar-border p-4',
@@ -232,7 +241,7 @@ export function SidebarContent({
       >
         <div className={cn('flex items-center gap-3', collapsed && 'flex-col gap-2')}>
           <div
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sidebar-accent text-xs font-semibold uppercase text-sidebar-accent-foreground"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-400 to-blue-600 text-[12px] font-bold text-white shadow-lg shadow-indigo-500/20"
             aria-hidden
           >
             {user?.name?.charAt(0) ?? user?.username?.charAt(0) ?? '?'}
@@ -249,13 +258,13 @@ export function SidebarContent({
                 transition={{ duration: 0.15 }}
               >
                 <p
-                  className="truncate text-sm font-medium text-foreground"
+                  className="truncate text-sm font-medium text-sidebar-foreground"
                   title={user?.name ?? undefined}
                 >
-                  {user?.name ?? 'Carregando…'}
+                  {user?.name ?? 'Carregando...'}
                 </p>
                 <p
-                  className="truncate text-xs text-muted-foreground"
+                  className="truncate text-[11px] text-sidebar-foreground/45"
                   title={user?.role ?? undefined}
                 >
                   {user?.role ?? '—'}
@@ -271,7 +280,10 @@ export function SidebarContent({
                   variant="ghost"
                   size="icon"
                   aria-label="Sair"
-                  className={collapsed ? 'size-9' : undefined}
+                  className={cn(
+                    'h-8 w-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-hover',
+                    collapsed && 'h-9 w-9',
+                  )}
                   onClick={() => signOut({ callbackUrl: '/login' })}
                 >
                   <LogOut className="h-4 w-4" aria-hidden />

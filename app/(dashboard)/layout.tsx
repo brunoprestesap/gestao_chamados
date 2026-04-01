@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <ExpedienteConfigProvider>
       <RealtimeProvider>
-        <div className="min-h-screen bg-muted/40">
+        <div className="min-h-screen bg-background">
           <MobileHeader />
           <DashboardShell>{children}</DashboardShell>
         </div>

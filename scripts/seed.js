@@ -40,11 +40,13 @@ print("--- Criando tipos de serviço ---");
 const types = db.servicetypes.insertMany([
   { name: "Manutenção Predial", isActive: true, createdAt: now, updatedAt: now },
   { name: "Ar-Condicionado", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Elevador", isActive: true, createdAt: now, updatedAt: now },
 ]);
 printjson(types.insertedIds);
 
 const tPredial = types.insertedIds[0];
 const tAC = types.insertedIds[1];
+const tElevador = types.insertedIds[2];
 
 // -------------------------------------------------------
 // 3. Subtipos de Serviço
@@ -61,6 +63,11 @@ const subtypes = db.servicesubtypes.insertMany([
   { typeId: tAC, name: "Manutenção Preventiva", isActive: true, createdAt: now, updatedAt: now },
   { typeId: tAC, name: "Manutenção Corretiva", isActive: true, createdAt: now, updatedAt: now },
   { typeId: tAC, name: "Instalação", isActive: true, createdAt: now, updatedAt: now },
+  // Elevador
+  { typeId: tElevador, name: "Manutenção Preventiva", isActive: true, createdAt: now, updatedAt: now },
+  { typeId: tElevador, name: "Manutenção Corretiva", isActive: true, createdAt: now, updatedAt: now },
+  { typeId: tElevador, name: "Modernização", isActive: true, createdAt: now, updatedAt: now },
+  { typeId: tElevador, name: "Instalação e Montagem", isActive: true, createdAt: now, updatedAt: now },
 ]);
 printjson(subtypes.insertedIds);
 
@@ -72,6 +79,10 @@ const stTI = subtypes.insertedIds[4];
 const stPreventivaAC = subtypes.insertedIds[5];
 const stCorretivaAC = subtypes.insertedIds[6];
 const stInstalacaoAC = subtypes.insertedIds[7];
+const stPreventivaElev = subtypes.insertedIds[8];
+const stCorretivaElev = subtypes.insertedIds[9];
+const stModernizacaoElev = subtypes.insertedIds[10];
+const stInstalacaoElev = subtypes.insertedIds[11];
 
 // -------------------------------------------------------
 // 4. Catálogo de Serviços
@@ -100,6 +111,21 @@ db.servicecatalogs.insertMany([
   { code: "CLIM-0001", name: "Manutenção preventiva de ar-condicionado", description: "Limpeza de filtros, verificação de gás e funcionamento geral", typeId: tAC, subtypeId: stPreventivaAC, priorityDefault: "Baixa", estimatedHours: 2, materials: "Filtro, produto de limpeza", procedure: "", isActive: true, createdAt: now, updatedAt: now },
   { code: "CLIM-0002", name: "Reparo de ar-condicionado", description: "Conserto de equipamento com defeito", typeId: tAC, subtypeId: stCorretivaAC, priorityDefault: "Alta", estimatedHours: 4, materials: "Peças conforme diagnóstico", procedure: "", isActive: true, createdAt: now, updatedAt: now },
   { code: "CLIM-0003", name: "Instalação de ar-condicionado", description: "Instalação de novo equipamento de climatização", typeId: tAC, subtypeId: stInstalacaoAC, priorityDefault: "Normal", estimatedHours: 6, materials: "Suporte, tubulação, dreno", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  // Elevador > Manutenção Preventiva
+  { code: "ELEV-0001", name: "Inspeção geral do elevador", description: "Verificação de cabos, polias, freios e sistema de segurança", typeId: tElevador, subtypeId: stPreventivaElev, priorityDefault: "Normal", estimatedHours: 3, materials: "Lubrificante, ferramentas de inspeção", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  { code: "ELEV-0002", name: "Lubrificação de guias e componentes", description: "Lubrificação periódica das guias, trilhos e partes móveis", typeId: tElevador, subtypeId: stPreventivaElev, priorityDefault: "Baixa", estimatedHours: 2, materials: "Óleo lubrificante, graxa", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  { code: "ELEV-0003", name: "Verificação do sistema de segurança", description: "Teste de freios de emergência, limitador de velocidade e para-quedas", typeId: tElevador, subtypeId: stPreventivaElev, priorityDefault: "Alta", estimatedHours: 4, materials: "Equipamento de teste", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  // Elevador > Manutenção Corretiva
+  { code: "ELEV-0004", name: "Reparo de porta do elevador", description: "Conserto de portas que não abrem, fecham ou travam", typeId: tElevador, subtypeId: stCorretivaElev, priorityDefault: "Alta", estimatedHours: 3, materials: "Rolamentos, sensores, trilhos", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  { code: "ELEV-0005", name: "Reparo do sistema de tração", description: "Correção de falhas no motor, cabos de aço ou polias", typeId: tElevador, subtypeId: stCorretivaElev, priorityDefault: "Emergencial", estimatedHours: 8, materials: "Cabos, polias, peças do motor", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  { code: "ELEV-0006", name: "Reparo do painel de comando", description: "Substituição ou reparo de botões, display e placa eletrônica", typeId: tElevador, subtypeId: stCorretivaElev, priorityDefault: "Normal", estimatedHours: 4, materials: "Botões, placa, display", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  { code: "ELEV-0007", name: "Elevador parado / preso entre andares", description: "Atendimento emergencial para elevador travado com ou sem passageiros", typeId: tElevador, subtypeId: stCorretivaElev, priorityDefault: "Emergencial", estimatedHours: 2, materials: "Conforme diagnóstico", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  { code: "ELEV-0008", name: "Nivelamento irregular de cabine", description: "Correção de desnivelamento entre cabine e andar", typeId: tElevador, subtypeId: stCorretivaElev, priorityDefault: "Alta", estimatedHours: 3, materials: "Sensores, encoder", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  // Elevador > Modernização
+  { code: "ELEV-0009", name: "Modernização de painel de comando", description: "Substituição do quadro de comando por tecnologia atualizada", typeId: tElevador, subtypeId: stModernizacaoElev, priorityDefault: "Normal", estimatedHours: 16, materials: "Quadro de comando, fiação", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  { code: "ELEV-0010", name: "Substituição de cabos de aço", description: "Troca completa dos cabos de tração do elevador", typeId: tElevador, subtypeId: stModernizacaoElev, priorityDefault: "Alta", estimatedHours: 12, materials: "Cabos de aço, grampos", procedure: "", isActive: true, createdAt: now, updatedAt: now },
+  // Elevador > Instalação e Montagem
+  { code: "ELEV-0011", name: "Instalação de novo elevador", description: "Montagem e instalação completa de elevador novo", typeId: tElevador, subtypeId: stInstalacaoElev, priorityDefault: "Normal", estimatedHours: 160, materials: "Elevador completo, materiais de fixação", procedure: "", isActive: true, createdAt: now, updatedAt: now },
 ]);
 
 // -------------------------------------------------------
@@ -169,6 +195,7 @@ print("");
 print("Tipos de Serviço:");
 print("  Manutenção Predial — subtipos: Elétrica, Hidráulica, Civil, Marcenaria, TI e Infraestrutura");
 print("  Ar-Condicionado    — subtipos: Manutenção Preventiva, Manutenção Corretiva, Instalação");
+print("  Elevador           — subtipos: Manutenção Preventiva, Manutenção Corretiva, Modernização, Instalação e Montagem");
 print("");
 print("Usuários criados (senha: 123456 para todos):");
 print("  admin         - Admin");

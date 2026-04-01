@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertTriangle, Clock, Wind, Wrench } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, Clock, Wind, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -370,35 +370,46 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                 <FormItem>
                   <FormLabel>Tipo de Serviço *</FormLabel>
                   <FormControl>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-                      {TIPO_SERVICO_OPTIONS.map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => field.onChange(opt)}
-                          className={cn(
-                            'flex items-center gap-3 sm:min-h-14',
-                            CARD_BASE_CLASS,
-                            field.value === opt ? CARD_SELECTED_CLASS : CARD_UNSELECTED_CLASS,
-                          )}
-                        >
-                          <div
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
+                      {TIPO_SERVICO_OPTIONS.map((opt) => {
+                        const iconConfig =
+                          opt === 'Manutenção Predial'
+                            ? {
+                                bg: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+                                icon: <Wrench className="h-4 w-4 sm:h-5 sm:w-5" />,
+                              }
+                            : opt === 'Ar-Condicionado'
+                              ? {
+                                  bg: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+                                  icon: <Wind className="h-4 w-4 sm:h-5 sm:w-5" />,
+                                }
+                              : {
+                                  bg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+                                  icon: <ArrowUpDown className="h-4 w-4 sm:h-5 sm:w-5" />,
+                                };
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => field.onChange(opt)}
                             className={cn(
-                              'grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10',
-                              opt === 'Manutenção Predial'
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                                : 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+                              'flex items-center gap-3 sm:min-h-14',
+                              CARD_BASE_CLASS,
+                              field.value === opt ? CARD_SELECTED_CLASS : CARD_UNSELECTED_CLASS,
                             )}
                           >
-                            {opt === 'Manutenção Predial' ? (
-                              <Wrench className="h-4 w-4 sm:h-5 sm:w-5" />
-                            ) : (
-                              <Wind className="h-4 w-4 sm:h-5 sm:w-5" />
-                            )}
-                          </div>
-                          <span className="text-sm font-medium sm:text-base">{opt}</span>
-                        </button>
-                      ))}
+                            <div
+                              className={cn(
+                                'grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10',
+                                iconConfig.bg,
+                              )}
+                            >
+                              {iconConfig.icon}
+                            </div>
+                            <span className="text-sm font-medium sm:text-base">{opt}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </FormControl>
                   <FormMessage />

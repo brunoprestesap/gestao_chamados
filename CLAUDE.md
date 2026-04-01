@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Tailwind CSS v4** + **shadcn/ui** (estilo New York) + **Radix UI** + **Lucide** icons
 - **Zustand** (sidebar), **React Hook Form** + **Zod** (formulários/validação)
 - **Framer Motion** (animações), **Sonner** (toasts)
+- **Design System**: paleta indigo/blue com sidebar escura, cards `rounded-2xl`, efeitos glass (backdrop-blur) e micro-interações (hover lift + scale)
 - **PM2** para produção (`ecosystem.config.cjs`)
 
 ## Comandos
@@ -103,16 +104,55 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **User** — Roles, especialidades (técnicos via `specialties` → `ServiceSubType`), `maxAssignedTickets` (default 5)
 - **ChamadoHistory** — Auditoria de todas as ações
 - **SlaConfig** — Configuração SLA por prioridade
-- **ServiceCatalog/ServiceType/ServiceSubType** — Catálogo hierárquico de serviços
+- **ServiceCatalog/ServiceType/ServiceSubType** — Catálogo hierárquico de serviços (tipos: Manutenção Predial, Ar-Condicionado, Elevador)
 - **Notification** — Notificações persistentes (fallback do Socket.IO)
 - **Unit** — Unidades/departamentos
 - **Holiday/BusinessCalendar** — Feriados e horário de expediente
+
+### Relatório IMR (Índice de Medição de Resultados)
+
+- Rota: `/relatorios/imr` — acesso restrito a Admin (`requireAdmin()`)
+- Serviço: `lib/imr-service.ts` → `computeImrReport()` — **uma única aggregation** MongoDB com `$facet` unificado
+- Todos os facets agrupam por `tipoServico`, permitindo derivar o resumo geral (soma em JS) e os resultados por tipo (filtro por `_id`) sem queries adicionais
+- Tipos de serviço: definidos em `TIPO_SERVICO_OPTIONS` (`shared/chamados/new-ticket.schemas.ts`)
+- Indicadores: volume, SLA (cumprimento + por prioridade), tempo médio de atendimento, avaliação dos usuários, penalidades (base para glosa)
+- UI com abas (shadcn/ui Tabs): **Resumo Geral** | **Manutenção Predial** | **Ar-Condicionado**
+- Componentes de seção reutilizáveis em `app/(dashboard)/relatorios/imr/_components/imr-sections.tsx`
+- Componente de abas (client) em `app/(dashboard)/relatorios/imr/_components/imr-tipo-servico-tabs.tsx`
+- Tipos públicos exportados: `ImrResult`, `ImrResumoGeral`, `ImrResultPorTipo`, `ImrSlaCumprimento`, `ImrSlaPorPrioridade`, `ImrAvaliacao`, `ImrPenalidade`
 
 ### Validação
 
 - Schemas Zod em `shared/<domain>/*.schemas.ts` (co-localizados por domínio)
 - `safeParse()` em todos os handlers — nunca throw em validação
 - Tipos compartilhados entre server/client via `shared/`
+
+### UI / Design System
+
+#### Paleta de Cores (`app/globals.css`)
+
+- **Primary**: indigo/blue (`oklch 0.488 0.200 264`) — usado em botões, links, accent stripes e focus rings
+- **Sidebar escura**: fundo dark indigo (`oklch 0.175 0.025 265`) com texto claro — contraste forte com o conteúdo principal
+- **Background**: levemente azulado (`oklch 0.985 0.002 260`) em vez de branco puro
+- Todas as cores do tema possuem leve tint azulado (hue ~260) para coesão visual
+- Dark mode: variantes escuras com os mesmos hues, ajustadas para legibilidade
+
+#### Layout do Dashboard
+
+- **Sidebar** (`components/sidebar/sidebar.tsx`): fixa à esquerda, animada com Framer Motion (spring), colapsável via Zustand. Largura: 280px expandida / 72px colapsada
+- **Sidebar Content** (`components/dashboard/sidebar-content.tsx`): navegação agrupada por seção (Principal, Chamados, Gestão, Admin), filtrada por role do usuário. Footer com avatar + logout
+- **Dashboard Shell** (`components/dashboard/dashboard-shell.tsx`): header desktop fixo com `backdrop-blur-xl` + sino de notificações; conteúdo com `max-w-7xl` centralizado
+- **Mobile Header** (`components/dashboard/mobile-header.tsx`): sticky com backdrop blur, menu hamburger abre Sheet lateral com a mesma `SidebarContent`
+
+#### Padrões de Componentes
+
+- **Cards**: `rounded-2xl`, `border-border/50`, hover com `shadow-lg` + `-translate-y-0.5` (micro lift)
+- **Accent stripe**: barra de 3px no topo dos cards com gradiente colorido, opacidade 60%→100% no hover
+- **Icon containers**: `rounded-xl`, cores por contexto (sky, amber, emerald, etc.), `scale-105` no hover
+- **KPI Card** (`components/dashboard/kpi-card.tsx`): componente reutilizável para métricas com título, valor, helper text e ícone
+- **PageHeader** (`components/dashboard/header.tsx`): título + subtítulo + slot opcional `actions`
+- **Botões primários**: gradiente `from-indigo-600 to-blue-600` com shadow colorida (`shadow-indigo-500/20`)
+- **Inputs do login**: `rounded-xl` com ícone à esquerda e transição de borda no focus
 
 ## Variáveis de Ambiente
 
@@ -131,12 +171,19 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 
 | Tarefa | Arquivos-chave |
 |--------|---------------|
+| Novo tipo de serviço | `shared/chamados/new-ticket.schemas.ts` (TIPO_SERVICO_OPTIONS), `app/(dashboard)/meus-chamados/_components/new-ticket.utils.ts` (buildTypeIdByTipo), `app/(dashboard)/meus-chamados/_components/NewTicketDialog.tsx` (ícone/cor), `scripts/seed.js` (seed de tipo, subtipos e catálogo) |
 | Novo evento Socket.IO | `shared/socket.ts`, `socket-server/src/index.ts`, `lib/realtime-emit.ts` |
 | Novo status de chamado | `shared/chamados/chamado.constants.ts`, `models/Chamado.ts` |
 | Novo role gate | `lib/dal.ts` (adicionar `requireXxx()`) |
 | Nova prioridade SLA | `models/Chamado.ts`, `shared/sla/sla-config.schemas.ts`, `lib/sla-utils.ts` |
 | Novo schema de validação | `shared/<domain>/*.schemas.ts` com Zod |
 | Config de expediente | `lib/expediente-config.ts` + API `/config/expediente` |
+| Relatório IMR | `lib/imr-service.ts`, `app/(dashboard)/relatorios/imr/page.tsx`, `_components/imr-sections.tsx`, `_components/imr-tipo-servico-tabs.tsx` |
+| Novo indicador IMR | `lib/imr-service.ts` (facet em `unifiedFacets()`, extração em `extractPerType()` e `buildResumoGeral()`), seção UI em `imr-sections.tsx` |
+| Alterar paleta/tema | `app/globals.css` (variáveis CSS `:root` e `.dark`) |
+| Novo card de dashboard | Seguir padrão `MetricCard`/`StatCard` nos `_components/Dashboard*Content.tsx` (rounded-2xl, accent stripe, hover lift) |
+| Alterar sidebar | `components/sidebar/sidebar.tsx` (container), `components/dashboard/sidebar-content.tsx` (conteúdo/nav), `components/dashboard/nav.ts` (itens de menu) |
+| Alterar layout dashboard | `components/dashboard/dashboard-shell.tsx` (shell + header desktop), `components/dashboard/mobile-header.tsx` (mobile), `app/(dashboard)/layout.tsx` |
 
 ## Deploy
 
