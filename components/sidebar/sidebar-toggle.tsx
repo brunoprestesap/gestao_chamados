@@ -3,9 +3,8 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-
 import { useSidebarStore } from '@/lib/stores/sidebar-store';
+import { cn } from '@/lib/utils';
 
 type SidebarToggleProps = {
   className?: string;

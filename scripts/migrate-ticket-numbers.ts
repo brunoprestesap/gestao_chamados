@@ -3,9 +3,9 @@
  * Execute este script uma vez para migrar os dados existentes
  */
 
+import { generateTicketNumber } from '../lib/chamado-utils';
 import { dbConnect } from '../lib/db';
 import { ChamadoModel } from '../models/Chamado';
-import { generateTicketNumber } from '../lib/chamado-utils';
 
 async function migrateTicketNumbers() {
   try {

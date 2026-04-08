@@ -3,11 +3,10 @@
 import { Clock, Loader2, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { Card } from '@/components/ui/card';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDate } from '@/lib/utils';
-import { CHAMADO_HISTORY_ACTION_LABELS } from '@/shared/chamados/history.constants';
 import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
+import { CHAMADO_HISTORY_ACTION_LABELS } from '@/shared/chamados/history.constants';
 
 type HistoryItemDTO = {
   _id: string;

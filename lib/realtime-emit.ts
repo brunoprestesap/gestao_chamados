@@ -6,9 +6,9 @@
 
 import type {
   TicketAssignedPayload,
-  TicketNewPayload,
-  TicketExecutionRegisteredPayload,
   TicketClosedPayload,
+  TicketExecutionRegisteredPayload,
+  TicketNewPayload,
 } from '@/shared/socket';
 
 const EMIT_URL = process.env.SOCKET_EMIT_URL ?? 'http://127.0.0.1:3001/emit';

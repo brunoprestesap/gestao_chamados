@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { SubtypeSelectWithCreate } from '@/components/catalogo/subtype-select-with-create';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,7 +34,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { SubtypeSelectWithCreate } from '@/components/catalogo/subtype-select-with-create';
 import { PRIORITIES } from '@/shared/catalog/service.constants';
 import { ServiceCreateSchema } from '@/shared/catalog/service.schemas';
 import { getCodePrefixFromSubtypeName } from '@/shared/catalog/service.utils';

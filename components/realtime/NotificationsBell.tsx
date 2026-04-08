@@ -1,8 +1,8 @@
 'use client';
 
 import { Bell } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 

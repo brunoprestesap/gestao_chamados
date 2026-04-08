@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { PRIORITIES, SERVICE_CODE_ERROR, SERVICE_CODE_REGEX } from './service.constants';
+import { PRIORITIES } from './service.constants';
 
 /**
  * Campo numérico para RHF + Input (string -> number) e também para backend.

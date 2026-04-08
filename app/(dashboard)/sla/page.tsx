@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { BUSINESS_MINUTES_PER_DAY } from '@/shared/sla/sla-config.schemas';
 import { FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
+import { BUSINESS_MINUTES_PER_DAY } from '@/shared/sla/sla-config.schemas';
 
 type SlaTimeUnit = 'Horas' | 'Dias';
 

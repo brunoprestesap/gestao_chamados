@@ -9,8 +9,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { NavItem } from '@/components/dashboard/nav';
 import { NAV_GROUP_ORDER, NAV_ITEMS } from '@/components/dashboard/nav';
-import { SigmaLogo } from '@/components/sigma-logo';
 import { SidebarToggle } from '@/components/sidebar/sidebar-toggle';
+import { SigmaLogo } from '@/components/sigma-logo';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';

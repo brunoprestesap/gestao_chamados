@@ -1,5 +1,6 @@
-import { dbConnect } from './db';
 import { ChamadoModel } from '@/models/Chamado';
+
+import { dbConnect } from './db';
 
 /**
  * Gera o próximo número de ticket no formato CHM-YYYY-NNNNN

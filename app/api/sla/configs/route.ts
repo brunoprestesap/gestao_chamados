@@ -1,13 +1,13 @@
-import { NextResponse } from 'next/server';
 import { Types } from 'mongoose';
+import { NextResponse } from 'next/server';
 
-import { getBusinessCalendarConfig } from '@/lib/expediente-config';
-import { getBusinessMinutesPerDay } from '@/lib/sla-timezone';
 import { requireAdmin, requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { getBusinessCalendarConfig } from '@/lib/expediente-config';
+import { getBusinessMinutesPerDay } from '@/lib/sla-timezone';
 import { SlaConfigModel } from '@/models/SlaConfig';
-import { SlaConfigSaveSchema, toMinutes, type SlaTimeUnit } from '@/shared/sla/sla-config.schemas';
 import { FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
+import { SlaConfigSaveSchema, type SlaTimeUnit,toMinutes } from '@/shared/sla/sla-config.schemas';
 
 /**
  * GET /api/sla/configs

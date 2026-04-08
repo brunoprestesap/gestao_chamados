@@ -158,7 +158,7 @@ export function snapToNextBusinessStart(
   const startFraction = start.hours + start.minutes / 60;
   const endFraction = end.hours + end.minutes / 60;
 
-  let again = getLocalWeekdayAndHour(d, config);
+  const again = getLocalWeekdayAndHour(d, config);
   const againStr = toLocalDateYYYYMMDD(d, config.timezone);
   if (isBusinessDay(again.dayOfWeek, againStr, config, holidays)) {
     if (cameFromNonWorkday) {

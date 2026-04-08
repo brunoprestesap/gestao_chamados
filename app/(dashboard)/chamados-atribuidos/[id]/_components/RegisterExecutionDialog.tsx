@@ -10,6 +10,7 @@ import {
   registerExecutionAction,
   type RegisterExecutionResult,
 } from '@/app/(dashboard)/chamados-atribuidos/actions';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,7 +28,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDateTime } from '@/lib/utils';
 import { RegisterExecutionSchema } from '@/shared/chamados/execution.schemas';
 

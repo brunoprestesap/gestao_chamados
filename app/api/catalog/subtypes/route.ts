@@ -1,9 +1,10 @@
+import '@/models/ServiceType'; // Registra o modelo para populate('typeId')
+
 import { NextResponse } from 'next/server';
 
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
-import '@/models/ServiceType'; // Registra o modelo para populate('typeId')
 
 export async function GET(req: Request) {
   try {

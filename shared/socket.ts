@@ -46,6 +46,7 @@ export interface ServerToClientEvents {
   'ticket:closed': (payload: TicketClosedPayload) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ClientToServerEvents {
   // vazio por enquanto; eventos do cliente para o servidor podem ser adicionados aqui
 }

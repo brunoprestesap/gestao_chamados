@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
 import { MongoClient, ServerApiVersion } from 'mongodb';
+import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI!;
 

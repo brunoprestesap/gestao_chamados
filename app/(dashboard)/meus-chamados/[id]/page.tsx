@@ -4,21 +4,20 @@ import { ArrowLeft, Clock, Loader2, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
-import {
-  AvaliarChamadoDialog,
-  type AvaliarChamadoDialogChamado,
-} from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
-import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
-import { CancelTicketDialog } from '@/app/(dashboard)/meus-chamados/[id]/_components/CancelTicketDialog';
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
+import {
+  AvaliarChamadoDialog,
+} from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
+import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
+import { CancelTicketDialog } from '@/app/(dashboard)/meus-chamados/[id]/_components/CancelTicketDialog';
+import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
+import { PageHeader } from '@/components/dashboard/header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PageHeader } from '@/components/dashboard/header';
 import { Separator } from '@/components/ui/separator';
-import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
 
@@ -47,14 +46,13 @@ function getSlaStatusLabel(
     return 'Próximo do vencimento';
   return 'No prazo';
 }
-import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 import {
   CHAMADO_STATUS_LABELS,
   type ChamadoStatus,
-  STATUS_ACCENT,
   STATUS_BADGE,
   STATUS_ICONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
+import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
 type SlaDetailDTO = {
   priority: string | null;

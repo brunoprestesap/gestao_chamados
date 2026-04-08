@@ -4,21 +4,21 @@ import { ArrowLeft, CheckCircle2, Clock, Loader2, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
 import { RegisterExecutionDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/RegisterExecutionDialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PageHeader } from '@/components/dashboard/header';
-import { Separator } from '@/components/ui/separator';
-import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
-import { formatDate } from '@/lib/utils';
 import {
   CHAMADO_STATUS_LABELS,
   type ChamadoStatus,
   STATUS_BADGE,
   STATUS_ICONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
+import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
+import { PageHeader } from '@/components/dashboard/header';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { formatDate } from '@/lib/utils';
 
 export type ChamadoAtribuidoDetailDTO = {
   _id: string;

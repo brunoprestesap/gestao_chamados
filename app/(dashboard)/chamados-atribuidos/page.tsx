@@ -5,10 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { RegisterExecutionDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/RegisterExecutionDialog';
+import {
+  CHAMADO_STATUS_LABELS,
+  type ChamadoStatus,
+  STATUS_BADGE,
+  STATUS_ICONS,
+  STATUS_OPTIONS,
+} from '@/app/(dashboard)/meus-chamados/_constants';
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { PageHeader } from '@/components/dashboard/header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -16,15 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  CHAMADO_STATUS_LABELS,
-  type ChamadoStatus,
-  STATUS_OPTIONS,
-  STATUS_ICONS,
-  STATUS_BADGE,
-} from '@/app/(dashboard)/meus-chamados/_constants';
-import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDateTime } from '@/lib/utils';
 import { CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
 

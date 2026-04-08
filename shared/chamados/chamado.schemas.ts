@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CHAMADO_STATUSES, FINAL_PRIORITY_VALUES, type ChamadoStatus } from './chamado.constants';
+import { CHAMADO_STATUSES,FINAL_PRIORITY_VALUES } from './chamado.constants';
 import {
   GRAU_URGENCIA_OPTIONS,
   NATUREZA_OPTIONS,

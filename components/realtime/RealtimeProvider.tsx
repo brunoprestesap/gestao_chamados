@@ -10,9 +10,9 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
   TicketAssignedPayload,
-  TicketNewPayload,
-  TicketExecutionRegisteredPayload,
   TicketClosedPayload,
+  TicketExecutionRegisteredPayload,
+  TicketNewPayload,
 } from '@/shared/socket';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

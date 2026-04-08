@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { dbConnect } from '@/lib/db';
 import { verifySession } from '@/lib/dal';
+import { dbConnect } from '@/lib/db';
 import { UserModel } from '@/models/user.model';
 
 export async function GET() {

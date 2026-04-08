@@ -1,7 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
+import { revalidatePath } from 'next/cache';
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { requireSession } from '@/lib/dal';
@@ -12,11 +12,11 @@ import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
-import type { NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
 import {
-  SubmitEvaluationSchema,
   type SubmitEvaluationInput,
+  SubmitEvaluationSchema,
 } from '@/shared/chamados/evaluation.schemas';
+import type { NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
 
 /**
  * Gera um título automático para o chamado baseado nos dados do formulário.

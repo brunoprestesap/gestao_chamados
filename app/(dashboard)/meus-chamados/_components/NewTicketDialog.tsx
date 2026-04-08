@@ -50,8 +50,8 @@ import { cn } from '@/lib/utils';
 import {
   GRAU_URGENCIA_OPTIONS,
   NATUREZA_OPTIONS,
-  NewTicketFormSchema,
   type NewTicketFormInput,
+  NewTicketFormSchema,
   type NewTicketFormValues,
   TIPO_SERVICO_OPTIONS,
 } from '@/shared/chamados/new-ticket.schemas';

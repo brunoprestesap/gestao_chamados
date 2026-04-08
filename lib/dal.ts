@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { cache } from 'react';
 
 import { auth } from '@/auth';
-
 import type { UserRole } from '@/shared/auth/auth.constants';
 
 export type Role = UserRole;

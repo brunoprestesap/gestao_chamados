@@ -26,6 +26,10 @@ export default defineConfig([
       // TypeScript
       '@typescript-eslint/no-explicit-any': 'warn',
 
+      // React Compiler (informativo, não bloqueia CI)
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
+
       // Imports
       'unused-imports/no-unused-imports': 'error',
       'unused-imports/no-unused-vars': [
@@ -40,5 +44,5 @@ export default defineConfig([
     },
   },
 
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts']),
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts', 'socket-server/dist/**']),
 ]);

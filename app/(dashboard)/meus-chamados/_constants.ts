@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 
 import {
-  CHAMADO_STATUSES,
   CHAMADO_STATUS_LABELS,
+  CHAMADO_STATUSES,
   type ChamadoStatus,
 } from '@/shared/chamados/chamado.constants';
 

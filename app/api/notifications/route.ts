@@ -1,9 +1,9 @@
+import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { NotificationModel } from '@/models/Notification';
-import { Types } from 'mongoose';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

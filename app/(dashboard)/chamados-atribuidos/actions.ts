@@ -1,7 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
+import { revalidatePath } from 'next/cache';
 
 import { requireTechnician } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
@@ -12,8 +12,8 @@ import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
 import {
-  RegisterExecutionSchema,
   type RegisterExecutionInput,
+  RegisterExecutionSchema,
 } from '@/shared/chamados/execution.schemas';
 
 export type RegisterExecutionResult = { ok: true } | { ok: false; error: string };

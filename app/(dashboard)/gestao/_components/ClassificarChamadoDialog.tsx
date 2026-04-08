@@ -7,8 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import { classificarChamadoAction, type ClassificarResult } from '@/app/(dashboard)/gestao/actions';
+import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -36,8 +36,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { FINAL_PRIORITY_VALUES, type FinalPriority } from '@/shared/chamados/chamado.constants';
 import {
-  ClassificarChamadoSchema,
   type ClassificarChamadoInput,
+  ClassificarChamadoSchema,
 } from '@/shared/chamados/chamado.schemas';
 import { NATUREZA_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 import { BUSINESS_MINUTES_PER_DAY } from '@/shared/sla/sla-config.schemas';

@@ -16,14 +16,13 @@ import {
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { cn, formatDateShort, formatDateTime } from '@/lib/utils';
-
-import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
+import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
 /** Status de exibição do SLA (resolução) a partir de dados do DTO */
 type SlaStatusDisplay = 'no_prazo' | 'proximo_vencimento' | 'atrasado';

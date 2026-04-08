@@ -4,6 +4,7 @@ import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { PageHeader } from '@/components/dashboard/header';
+import { FeriadoDialog, type HolidayDTO } from '@/components/holidays/feriado-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -23,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { FeriadoDialog, type HolidayDTO } from '@/components/holidays/feriado-dialog';
 
 const SCOPE_LABELS: Record<string, string> = {
   NACIONAL: 'Nacional',

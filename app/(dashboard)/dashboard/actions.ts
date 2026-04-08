@@ -5,7 +5,6 @@ import { Types } from 'mongoose';
 import { requireAdmin, requireManager, requireSession, requireTechnician } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
-import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
 import { UserModel } from '@/models/user.model';
 
