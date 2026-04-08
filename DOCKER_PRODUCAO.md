@@ -1,285 +1,279 @@
-# Deploy em produção com Docker
+# Deploy em Produção com Docker (VPS)
 
-Este documento descreve como colocar a aplicação **Sigma** em produção usando Docker: arquivos necessários, variáveis de ambiente e passos de uso.
-
-## Visão geral da aplicação
-
-| Componente        | Tecnologia              | Porta |
-| ----------------- | ----------------------- | ----- |
-| **Next.js**       | App principal (Next 16) | 3000  |
-| **socket-server** | Express + Socket.IO     | 3001  |
-| **MongoDB**       | Banco de dados          | 27017 |
+Guia completo para deploy e atualização do **Sigma** em VPS usando Docker Compose.
 
 ---
 
-## 1. Alteração no `next.config.ts`
+## Arquitetura
 
-Para o Docker usar o output standalone (build enxuto), adicione `output: 'standalone'`:
+| Container         | Tecnologia              | Porta interna | Exposição externa         |
+| ----------------- | ----------------------- | ------------- | ------------------------- |
+| **next-app**      | Next.js 16 (standalone) | 3000          | Via Nginx                 |
+| **socket-server** | Express + Socket.IO     | 3001          | Via Nginx (`/socket.io/`) |
+| **mongodb**       | MongoDB 7               | 27017         | 27017 (host)              |
+| **nginx**         | Nginx Alpine            | 80            | Porta configurável        |
 
-```ts
-import type { NextConfig } from 'next';
+O Nginx atua como proxy reverso unificado na porta 80, roteando:
+- `/` → **next-app:3000**
+- `/socket.io/` → **socket-server:3001** (com upgrade WebSocket)
 
-const nextConfig: NextConfig = {
-  reactCompiler: true,
-  output: 'standalone',
-};
+---
 
-export default nextConfig;
+## 1. Setup Inicial (primeira vez)
+
+### 1.1 Pré-requisitos na VPS
+
+- Ubuntu Server 22.04+ (ou qualquer distro com Docker)
+- Docker Engine + Docker Compose plugin
+- Git
+
+O script `deploy.sh` automatiza a instalação do Docker, firewall e clone do repositório:
+
+```bash
+chmod +x deploy.sh && sudo ./deploy.sh
 ```
 
----
+### 1.2 Clonar o repositório
 
-## 2. `.dockerignore` (raiz do projeto)
-
-Crie na raiz do projeto para evitar enviar arquivos desnecessários ao build do Next:
-
-```gitignore
-# Dependências e build
-node_modules
-.next
-npm-debug.log*
-
-# Socket-server (build separado; evita copiar para o contexto do Next)
-socket-server/node_modules
-socket-server/dist
-
-# Dev e ambiente
-.env*
-!.env.example
-
-# Git e IDE
-.git
-.gitignore
-.vscode
-*.md
+```bash
+cd /opt
+git clone <url-do-repositorio> severino
+cd severino
 ```
 
----
+### 1.3 Configurar variáveis de ambiente
 
-## 3. Dockerfile do Next.js (raiz do projeto)
-
-Crie o arquivo **`Dockerfile`** na raiz (ao lado de `package.json`):
-
-```dockerfile
-# --- Estágio de build ---
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-# --- Estágio de produção ---
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
-
-EXPOSE 3000
-
-CMD ["node", "server.js"]
-```
-
----
-
-## 4. Dockerfile do socket-server
-
-Crie o arquivo **`socket-server/Dockerfile`** dentro da pasta `socket-server`:
-
-```dockerfile
-# --- Estágio de build ---
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-# --- Estágio de produção ---
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
-ENV NODE_ENV=production
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 app
-
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-
-USER app
-
-EXPOSE 3001
-
-CMD ["node", "dist/index.js"]
-```
-
----
-
-## 5. `docker-compose.yml` (raiz do projeto)
-
-Crie **`docker-compose.yml`** na raiz:
-
-```yaml
-services:
-  next-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - '3000:3000'
-    environment:
-      NODE_ENV: production
-      MONGODB_URI: mongodb://mongodb:27017/manutencao
-      AUTH_SECRET: ${AUTH_SECRET}
-      AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-session}
-      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      SOCKET_INTERNAL_SECRET: ${SOCKET_INTERNAL_SECRET}
-      SOCKET_EMIT_URL: http://socket-server:3001/emit
-      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:3001}
-    depends_on:
-      mongodb:
-        condition: service_started
-    restart: unless-stopped
-
-  socket-server:
-    build:
-      context: ./socket-server
-      dockerfile: Dockerfile
-    ports:
-      - '3001:3001'
-    environment:
-      NODE_ENV: production
-      SOCKET_PORT: 3001
-      SOCKET_INTERNAL_SECRET: ${SOCKET_INTERNAL_SECRET}
-      SOCKET_CORS_ORIGIN: ${SOCKET_CORS_ORIGIN:-http://localhost:3000}
-      APP_URL: http://next-app:3000
-    depends_on:
-      next-app:
-        condition: service_started
-    restart: unless-stopped
-
-  mongodb:
-    image: mongo:7
-    ports:
-      - '27017:27017'
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      MONGO_INITDB_DATABASE: manutencao
-    restart: unless-stopped
-
-volumes:
-  mongodb_data:
-```
-
----
-
-## 6. Variáveis de ambiente
-
-### Obrigatórias (definir em `.env` na raiz)
-
-| Variável                 | Descrição                                                     |
-| ------------------------ | ------------------------------------------------------------- |
-| `AUTH_SECRET`            | Segredo do NextAuth (gerar um forte em produção).             |
-| `SOCKET_INTERNAL_SECRET` | Mesmo valor no Next e no socket-server; protege POST `/emit`. |
-
-### Opcionais / produção
-
-| Variável                 | Padrão                  | Descrição                                                                                                                            |
-| ------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `AUTH_COOKIE_NAME`       | `session`               | Nome do cookie de sessão.                                                                                                            |
-| `AUTH_COOKIE_SECURE`     | `false`                 | Use `true` em produção com HTTPS.                                                                                                    |
-| `NEXT_PUBLIC_SOCKET_URL` | `http://localhost:3001` | URL pública do Socket (usada no browser). Em produção: domínio real (ex.: `https://seu-dominio.com` se o proxy encaminhar o socket). |
-| `SOCKET_CORS_ORIGIN`     | `http://localhost:3000` | Origem do front. Em produção: URL pública do app (ex.: `https://seu-dominio.com`).                                                   |
-
-### Exemplo de `.env` na raiz (desenvolvimento local com Docker)
+Criar o arquivo `.env` na raiz do projeto:
 
 ```env
-AUTH_SECRET=um-segredo-forte-aqui
-SOCKET_INTERNAL_SECRET=um-segredo-forte-aqui
-NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
-SOCKET_CORS_ORIGIN=http://localhost:3000
+# Obrigatórias
+AUTH_SECRET=<gerar-com-openssl-rand-base64-32>
+SOCKET_INTERNAL_SECRET=<gerar-com-openssl-rand-base64-32>
+
+# URLs públicas (ajustar para o IP/domínio real da VPS)
+NEXT_PUBLIC_SOCKET_URL=http://IP_DA_VPS
+SOCKET_CORS_ORIGIN=http://IP_DA_VPS
+AUTH_URL=http://IP_DA_VPS
+
+# Opcionais
+AUTH_COOKIE_NAME=session
+AUTH_COOKIE_SECURE=false          # true se usar HTTPS
+APP_PORT=80                       # porta do Nginx no host
 ```
 
-**Não commitar** o `.env` com valores reais. Use `.env.example` apenas com chaves sem valores sensíveis.
+> **Importante**: `NEXT_PUBLIC_SOCKET_URL` deve ser a URL acessível pelo browser (o Nginx roteia `/socket.io/` para o socket-server internamente).
+
+### 1.4 Subir os containers
+
+```bash
+docker compose up -d --build
+```
+
+### 1.5 Popular o banco (seed)
+
+```bash
+docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js
+```
+
+O seed cria: unidades, tipos/subtipos de serviço, catálogo, usuários, configurações de SLA, calendário comercial e feriados.
+
+**Credenciais padrão** (senha `123456` para todos):
+
+| Username        | Role        | Observação            |
+| --------------- | ----------- | --------------------- |
+| `admin`         | Admin       | Setor de TI           |
+| `preposto01`    | Preposto    | Diretoria Geral       |
+| `tecnico01`     | Técnico     | Predial + AC          |
+| `tecnico02`     | Técnico     | Predial               |
+| `tecnico03`     | Técnico     | Ar-Condicionado       |
+| `solicitante01` | Solicitante | RH                    |
+| `solicitante02` | Solicitante | Financeiro            |
+
+> **Atenção**: O seed usa `insertMany` com `ordered: true`. Se rodar novamente em banco já populado, itens duplicados causam erro e itens novos do mesmo batch não são inseridos. Para re-semear, limpe as collections primeiro (veja seção 4).
+
+### 1.6 Verificar
+
+```bash
+docker compose ps            # Status dos containers
+docker compose logs -f       # Logs em tempo real
+```
+
+Acessar: `http://IP_DA_VPS`
 
 ---
 
-## 7. Passos de uso (ordem recomendada)
+## 2. Atualizar a Aplicação (deploy de atualizações)
 
-1. **Alterar `next.config.ts`**  
-   Adicionar `output: 'standalone'` (conteúdo na seção 1).
+Conectar via SSH na VPS e rodar:
 
-2. **Criar `.dockerignore`** na raiz  
-   Conteúdo da seção 2.
+```bash
+cd /opt/severino
+git pull origin main
+docker compose up -d --build
+```
 
-3. **Criar `Dockerfile`** na raiz  
-   Conteúdo da seção 3.
+O `--build` reconstrói apenas as imagens que mudaram (next-app e/ou socket-server). O MongoDB e Nginx não são afetados.
 
-4. **Criar `socket-server/Dockerfile`**  
-   Conteúdo da seção 4.
+### Após atualizar, se necessário
 
-5. **Criar `docker-compose.yml`** na raiz  
-   Conteúdo da seção 5.
-
-6. **Criar `.env`** na raiz  
-   Com `AUTH_SECRET` e `SOCKET_INTERNAL_SECRET` (e as demais conforme necessário).
-
-7. **Subir os serviços**  
-   Na raiz do projeto:
-
-   ```bash
-   docker compose up --build
-   ```
-
-   - App: **http://localhost:3000**
-   - Socket (para o cliente): padrão `NEXT_PUBLIC_SOCKET_URL=http://localhost:3001`
-
-8. **Produção**  
-   Ajustar `.env` com domínio real, HTTPS e `AUTH_COOKIE_SECURE=true`. Garantir que o proxy reverso encaminhe o tráfego do Socket para o serviço `socket-server:3001` e que `NEXT_PUBLIC_SOCKET_URL` e `SOCKET_CORS_ORIGIN` correspondam à URL que o browser usa.
+- **Se o seed mudou** (novos tipos, subtipos, etc.): veja seção 4
+- **Limpar imagens antigas**: `docker image prune -f`
 
 ---
 
-## 8. Produção com proxy reverso (HTTPS)
+## 3. Comandos Úteis
 
-Em produção é comum usar Nginx, Traefik ou Caddy na frente:
+```bash
+# Status
+docker compose ps
 
-- Terminar HTTPS.
-- Encaminhar:
-  - `https://seu-dominio.com` → **next-app:3000**
-  - Socket (por path ou subdomínio) → **socket-server:3001**
+# Logs
+docker compose logs -f                    # Todos os serviços
+docker compose logs -f next-app           # Apenas Next.js
+docker compose logs -f socket-server      # Apenas Socket.IO
 
-Assim, `NEXT_PUBLIC_SOCKET_URL` e `SOCKET_CORS_ORIGIN` ficam alinhados ao domínio acessado pelo usuário.
+# Reiniciar um serviço específico
+docker compose restart next-app
+
+# Parar tudo
+docker compose down
+
+# Parar e remover volumes (CUIDADO: apaga dados do MongoDB)
+docker compose down -v
+
+# Acessar shell do MongoDB
+docker exec -it severino-mongodb-1 mongosh manutencao
+
+# Limpar imagens não utilizadas
+docker image prune -f
+```
 
 ---
 
-## 9. Observação: POST `/emit` e rede Docker
+## 4. Re-semear o Banco de Dados
 
-O socket-server pode restringir o POST `/emit` a `127.0.0.1` / `::1`. No Docker, as requisições partem do container **next-app**, então o IP de origem não será localhost. Se o código do socket-server checar o IP do cliente, será preciso ajustar para aceitar a rede interna do Docker (por exemplo, a rede padrão do Compose) ou confiar apenas no header `x-internal-secret` e não depender só do IP. Verifique em `socket-server/src/index.ts` a rota POST `/emit` e a validação de IP.
+Se o seed foi atualizado com novos dados, é necessário limpar as collections antes de re-executar (o `insertMany` não faz upsert):
+
+```bash
+# Limpar todas as collections do seed
+docker exec -i severino-mongodb-1 mongosh manutencao --eval "
+db.units.drop();
+db.servicetypes.drop();
+db.servicesubtypes.drop();
+db.servicecatalogs.drop();
+db.users.drop();
+db.sla_configs.drop();
+db.business_calendar.drop();
+db.holidays.drop();
+"
+
+# Re-executar o seed
+docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js
+```
+
+> **Atenção**: Isso apaga todos os usuários e dados de catálogo. Chamados (`chamados`), histórico (`chamadohistories`) e notificações (`notifications`) **não** são afetados. Se houver dados de produção em `users`, faça backup antes.
 
 ---
 
-## 10. MongoDB em produção
+## 5. Arquivos de Configuração
 
-Para produção com maior resiliência, considere usar um MongoDB gerenciado (ex.: Atlas) em vez do container. Nesse caso, remova ou não use o serviço `mongodb` no `docker-compose` e defina `MONGODB_URI` no serviço `next-app` com a string de conexão do serviço gerenciado.
+| Arquivo                    | Descrição                                              |
+| -------------------------- | ------------------------------------------------------ |
+| `docker-compose.yml`       | Orquestra os 4 serviços (next, socket, mongo, nginx)   |
+| `Dockerfile`               | Build multi-stage do Next.js (standalone)               |
+| `socket-server/Dockerfile` | Build multi-stage do socket-server                      |
+| `nginx/default.conf`       | Proxy reverso: `/` → Next, `/socket.io/` → Socket      |
+| `.dockerignore`            | Exclui node_modules, .next, .env do contexto de build   |
+| `socket-server/.dockerignore` | Exclui node_modules e dist do contexto do socket     |
+| `.env`                     | Variáveis de ambiente (não versionado)                  |
+| `scripts/seed.js`          | Dados iniciais do banco                                 |
+| `deploy.sh`                | Script de setup inicial da VPS                          |
+
+---
+
+## 6. Variáveis de Ambiente
+
+### App (next-app)
+
+| Variável                 | Descrição                                    | Definida em          |
+| ------------------------ | -------------------------------------------- | -------------------- |
+| `MONGODB_URI`            | Connection string do MongoDB                 | docker-compose.yml   |
+| `AUTH_SECRET`            | Segredo do NextAuth (JWT)                    | `.env`               |
+| `AUTH_COOKIE_NAME`       | Nome do cookie de sessão                     | `.env`               |
+| `AUTH_COOKIE_SECURE`     | `true` para HTTPS                            | `.env`               |
+| `AUTH_URL`               | URL pública da aplicação                     | `.env`               |
+| `SOCKET_INTERNAL_SECRET` | Secret para comunicação Next → Socket        | `.env`               |
+| `SOCKET_EMIT_URL`        | URL interna do socket (rede Docker)          | docker-compose.yml   |
+| `NEXT_PUBLIC_SOCKET_URL` | URL pública do socket (acesso pelo browser)  | `.env`               |
+
+### Socket Server
+
+| Variável                 | Descrição                                    | Definida em          |
+| ------------------------ | -------------------------------------------- | -------------------- |
+| `SOCKET_PORT`            | Porta do servidor (3001)                     | docker-compose.yml   |
+| `SOCKET_INTERNAL_SECRET` | Deve coincidir com o do next-app             | `.env`               |
+| `SOCKET_CORS_ORIGIN`     | Origem permitida para CORS                   | `.env`               |
+| `SOCKET_TRUSTED_PROXIES` | IPs/hosts confiáveis (rede Docker)           | docker-compose.yml   |
+| `APP_URL`                | URL interna do Next.js (validação de sessão) | docker-compose.yml   |
+
+---
+
+## 7. Troubleshooting
+
+### Erro de merge conflict ao fazer `git pull`
+
+Se houve alterações locais na VPS:
+
+```bash
+git stash --include-untracked
+git pull origin main
+# Se precisar reaplicar: git stash pop
+# Se não precisar: git stash drop
+```
+
+Se ficar em estado de conflito:
+
+```bash
+git reset HEAD <arquivo>
+git checkout -- <arquivo>
+```
+
+### Container não sobe / erro de build
+
+```bash
+docker compose logs <servico>       # Ver erro específico
+docker compose build --no-cache     # Forçar rebuild completo
+```
+
+### Socket.IO não conecta no browser
+
+- Verificar se `NEXT_PUBLIC_SOCKET_URL` aponta para o IP/domínio acessível pelo browser
+- Verificar se `SOCKET_CORS_ORIGIN` corresponde à URL do app
+- No setup com Nginx, ambas devem apontar para o mesmo endereço (ex: `http://172.18.3.48`), pois o Nginx roteia `/socket.io/` internamente
+
+### Seed falha com duplicate key
+
+O banco já contém dados. Limpe as collections antes (seção 4) ou insira apenas os registros novos manualmente.
+
+---
+
+## 8. HTTPS (produção com domínio)
+
+Para habilitar HTTPS, adicione um serviço Certbot ou use Traefik/Caddy. Com Nginx + Certbot:
+
+1. Configurar domínio DNS apontando para o IP da VPS
+2. Adicionar volume para certificados no `nginx` do docker-compose
+3. Atualizar `nginx/default.conf` com bloco SSL
+4. Ajustar variáveis: `AUTH_COOKIE_SECURE=true`, URLs com `https://`
+
+---
+
+## 9. Backup do MongoDB
+
+```bash
+# Backup
+docker exec severino-mongodb-1 mongodump --db manutencao --archive > backup_$(date +%Y%m%d).archive
+
+# Restore
+docker exec -i severino-mongodb-1 mongorestore --db manutencao --archive < backup_20260408.archive
+```

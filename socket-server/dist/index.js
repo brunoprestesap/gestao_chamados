@@ -10,6 +10,7 @@ import cors from 'cors';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+
 import { verifyHandshakeSession } from './auth.js';
 const ALLOWED_EVENTS = new Set(['ticket:assigned']);
 const ROOM_REGEX = /^user:[a-zA-Z0-9_-]+$/;

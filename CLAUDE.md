@@ -184,9 +184,26 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Novo card de dashboard | Seguir padrão `MetricCard`/`StatCard` nos `_components/Dashboard*Content.tsx` (rounded-2xl, accent stripe, hover lift) |
 | Alterar sidebar | `components/sidebar/sidebar.tsx` (container), `components/dashboard/sidebar-content.tsx` (conteúdo/nav), `components/dashboard/nav.ts` (itens de menu) |
 | Alterar layout dashboard | `components/dashboard/dashboard-shell.tsx` (shell + header desktop), `components/dashboard/mobile-header.tsx` (mobile), `app/(dashboard)/layout.tsx` |
+| Deploy Docker (VPS) | `DOCKER_PRODUCAO.md`, `docker-compose.yml`, `Dockerfile`, `socket-server/Dockerfile`, `nginx/default.conf`, `deploy.sh`, `scripts/seed.js` |
 
 ## Deploy
 
-- **PM2**: `ecosystem.config.cjs` sobe Next (3000) e Socket (3001)
-- **Docker**: documentado em `DOCKER_PRODUCAO.md`
-- Socket-server precisa de host Node separado se deploy no Vercel
+### Docker (VPS) — Recomendado
+
+Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
+
+- **VPS**: `/opt/severino` — 4 containers: next-app, socket-server, mongodb, nginx
+- **Nginx** como proxy reverso na porta 80 (`/` → Next, `/socket.io/` → Socket)
+- **Atualizar**: `git pull origin main && docker compose up -d --build`
+- **Seed**: `docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js`
+- **Re-semear**: limpar collections antes (seed usa `insertMany` ordered, para no primeiro duplicado)
+- **Variáveis**: `.env` na raiz (não versionado) — `AUTH_SECRET`, `SOCKET_INTERNAL_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `SOCKET_CORS_ORIGIN`, `AUTH_URL`
+
+### PM2 (alternativa sem Docker)
+
+- `ecosystem.config.cjs` sobe Next (3000) e Socket (3001)
+- Requer Node.js e MongoDB instalados diretamente no servidor
+
+### Vercel
+
+- Socket-server precisa de host Node separado (Vercel não suporta WebSocket)

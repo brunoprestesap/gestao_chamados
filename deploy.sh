@@ -7,8 +7,8 @@
 
 set -euo pipefail
 
-APP_DIR="/opt/sigma"
-REPO_URL=""  # Preencha com a URL do repositório Git
+APP_DIR="/opt/severino"
+REPO_URL="https://github.com/brunoprestesap/gestao_chamados.git"
 
 echo "=== Sigma — Deploy em Ubuntu Server 24.04 ==="
 

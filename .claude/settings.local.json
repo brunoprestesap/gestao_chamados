@@ -62,7 +62,10 @@
       "Bash(npm run:*)",
       "Bash(npx next:*)",
       "Bash(npx shadcn@latest add tabs)",
-      "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
+      "Bash(ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new manutencao@172.18.3.48 \"echo 'Conexão OK'\")",
+      "Bash(gh run:*)",
+      "Bash(grep -oP '\\\\S+$')"
     ]
   }
 }
