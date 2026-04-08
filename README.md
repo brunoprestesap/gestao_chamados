@@ -1,4 +1,4 @@
-# Severino
+# Sigma - Sistema Integrado de Manutenção
 
 Sistema de gestão de chamados (tickets) com autenticação por perfis, controle de SLA, notificações em tempo real e avaliação de atendimento.
 
@@ -53,8 +53,8 @@ O desenvolvimento exige **dois terminais simultâneos** (aplicação Next.js + s
 
 ```bash
 # 1. Clone o repositório
-git clone <url-do-repositorio> severino
-cd severino
+git clone <url-do-repositorio> sigma
+cd sigma
 
 # 2. Instale as dependências da aplicação principal
 npm install
@@ -179,7 +179,7 @@ npm run dev
 ## Estrutura do Projeto
 
 ```
-severino/
+sigma/
 ├── app/
 │   ├── (auth)/                  # Página de login
 │   ├── (dashboard)/             # Área autenticada

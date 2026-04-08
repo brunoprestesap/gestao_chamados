@@ -1,6 +1,6 @@
 # Deploy em produção com Docker
 
-Este documento descreve como colocar a aplicação **Severino** em produção usando Docker: arquivos necessários, variáveis de ambiente e passos de uso.
+Este documento descreve como colocar a aplicação **Sigma** em produção usando Docker: arquivos necessários, variáveis de ambiente e passos de uso.
 
 ## Visão geral da aplicação
 

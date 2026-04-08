@@ -6,8 +6,8 @@ import { Toaster } from 'sonner';
 import { AuthSessionProvider } from '@/components/providers/session-provider';
 
 export const metadata: Metadata = {
-  title: 'Severino',
-  description: 'Sistema de gerenciamento de chamados da manutenção',
+  title: 'Sigma - Sistema Integrado de Manutenção',
+  description: 'Sistema integrado de gerenciamento de chamados de manutenção',
   icons: {
     icon: '/icon.svg',
   },

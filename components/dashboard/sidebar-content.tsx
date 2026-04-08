@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { NavItem } from '@/components/dashboard/nav';
 import { NAV_GROUP_ORDER, NAV_ITEMS } from '@/components/dashboard/nav';
-import { SeverinoLogo } from '@/components/severino-logo';
+import { SigmaLogo } from '@/components/sigma-logo';
 import { SidebarToggle } from '@/components/sidebar/sidebar-toggle';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -99,7 +99,7 @@ export function SidebarContent({
           collapsed ? 'flex-col justify-center gap-2 px-0' : 'gap-3 px-5',
         )}
       >
-        <SeverinoLogo size={36} />
+        <SigmaLogo size={36} />
         <AnimatePresence mode="wait">
           {!collapsed && (
             <motion.div
@@ -113,9 +113,9 @@ export function SidebarContent({
             >
               <p
                 className="truncate text-sm font-bold tracking-tight text-sidebar-foreground"
-                title="Severino"
+                title="Sigma"
               >
-                Severino
+                Sigma
               </p>
               <p
                 className="truncate text-[11px] text-sidebar-foreground/50"

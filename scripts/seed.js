@@ -1,7 +1,7 @@
 /**
- * Seed inicial para o Severino.
+ * Seed inicial para o Sigma.
  * Executar via mongosh dentro do container MongoDB:
- *   docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js
+ *   docker exec -i sigma-mongodb-1 mongosh manutencao < scripts/seed.js
  *
  * Cria: admin, unidades, usuários, tipos/subtipos de serviço,
  *       catálogo de serviços, SLA configs e calendário comercial.

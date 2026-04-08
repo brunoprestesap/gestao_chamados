@@ -5,14 +5,14 @@ const LINE_COLOR = '#3B5BDB';
 const CHECK_COLOR = '#4F46E5';
 
 /**
- * Ícone do Severino — combina um ticket/chamado (retângulo com linhas)
+ * Ícone do Sigma — combina um ticket/chamado (retângulo com linhas)
  * e uma chave de manutenção (wrench), representando gestão de chamados
  * de manutenção.
  *
  * Usa cores sólidas (sem <defs>/<linearGradient>) para evitar colisão
  * de IDs SVG e hydration mismatch quando múltiplas instâncias coexistem.
  */
-export function SeverinoLogo({
+export function SigmaLogo({
   className,
   size = 32,
 }: {

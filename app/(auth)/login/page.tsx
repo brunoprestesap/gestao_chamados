@@ -20,7 +20,7 @@ import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { SeverinoLogo } from '@/components/severino-logo';
+import { SigmaLogo } from '@/components/sigma-logo';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -130,11 +130,11 @@ function BrandingPanel() {
           transition={{ duration: 0.5 }}
           className="mb-8 flex items-center gap-4"
         >
-          <SeverinoLogo size={52} />
+          <SigmaLogo size={52} />
           <div>
-            <h1 className="text-3xl font-bold tracking-tight lg:text-4xl">Severino</h1>
+            <h1 className="text-3xl font-bold tracking-tight lg:text-4xl">Sigma</h1>
             <p className="mt-1 text-sm font-medium text-indigo-200">
-              Gestão de Chamados de Manutenção
+              Sistema Integrado de Manutenção
             </p>
           </div>
         </motion.div>
@@ -234,10 +234,10 @@ function LoginPageContent() {
           transition={{ duration: 0.4 }}
           className="mb-8 flex items-center gap-3 lg:hidden"
         >
-          <SeverinoLogo size={48} />
+          <SigmaLogo size={48} />
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Severino</h1>
-            <p className="text-xs text-muted-foreground">Gestão de Chamados</p>
+            <h1 className="text-xl font-bold tracking-tight">Sigma</h1>
+            <p className="text-xs text-muted-foreground">Sistema Integrado de Manutenção</p>
           </div>
         </motion.div>
 
@@ -375,7 +375,7 @@ function LoginPageContent() {
 
         {/* Footer */}
         <p className="absolute bottom-5 text-xs text-muted-foreground/50">
-          Severino &copy; {new Date().getFullYear()}
+          Sigma &copy; {new Date().getFullYear()}
         </p>
       </div>
     </div>

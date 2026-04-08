@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # ============================================================
-# deploy.sh — Setup inicial do Severino em Ubuntu Server 24.04
+# deploy.sh — Setup inicial do Sigma em Ubuntu Server 24.04
 # Uso: curl/scp este script para a VPS e execute:
 #   chmod +x deploy.sh && sudo ./deploy.sh
 # ============================================================
 
 set -euo pipefail
 
-APP_DIR="/opt/severino"
+APP_DIR="/opt/sigma"
 REPO_URL=""  # Preencha com a URL do repositório Git
 
-echo "=== Severino — Deploy em Ubuntu Server 24.04 ==="
+echo "=== Sigma — Deploy em Ubuntu Server 24.04 ==="
 
 # -----------------------------------------------
 # 1. Atualizar sistema e instalar dependências
@@ -94,7 +94,7 @@ if [ ! -f .env ]; then
 
   echo ""
   echo "  ╔══════════════════════════════════════════════════════════════╗"
-  echo "  ║  IMPORTANTE: Edite /opt/severino/.env antes de continuar!   ║"
+  echo "  ║  IMPORTANTE: Edite /opt/sigma/.env antes de continuar!   ║"
   echo "  ║  Configure NEXT_PUBLIC_SOCKET_URL e SOCKET_CORS_ORIGIN      ║"
   echo "  ║  com o IP ou domínio real da VPS.                           ║"
   echo "  ╚══════════════════════════════════════════════════════════════╝"

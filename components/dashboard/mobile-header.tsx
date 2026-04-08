@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { SidebarContent } from '@/components/dashboard/sidebar-content';
 import { NotificationsBell } from '@/components/realtime/NotificationsBell';
-import { SeverinoLogo } from '@/components/severino-logo';
+import { SigmaLogo } from '@/components/sigma-logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
@@ -25,9 +25,9 @@ export function MobileHeader() {
           <Menu className="h-5 w-5" />
         </Button>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <SeverinoLogo size={30} />
-          <p className="truncate text-sm font-bold tracking-tight" title="Severino">
-            Severino
+          <SigmaLogo size={30} />
+          <p className="truncate text-sm font-bold tracking-tight" title="Sigma">
+            Sigma
           </p>
         </div>
         <NotificationsBell />
