@@ -69,7 +69,9 @@
       "Bash(xargs grep:*)",
       "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
       "Bash(npm install:*)",
-      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); console.log\\('SOCKET_INTERNAL_SECRET:', process.env.SOCKET_INTERNAL_SECRET ? 'LOADED' : 'MISSING'\\); console.log\\('AUTH_SECRET:', process.env.AUTH_SECRET ? 'LOADED' : 'MISSING'\\);\")"
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); console.log\\('SOCKET_INTERNAL_SECRET:', process.env.SOCKET_INTERNAL_SECRET ? 'LOADED' : 'MISSING'\\); console.log\\('AUTH_SECRET:', process.env.AUTH_SECRET ? 'LOADED' : 'MISSING'\\);\")",
+      "Bash(git rm:*)",
+      "Bash(git status:*)"
     ]
   }
 }
