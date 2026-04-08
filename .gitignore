@@ -45,3 +45,6 @@ next-env.d.ts
 
 # socket-server build output
 socket-server/dist/
+
+# backups
+/backups/

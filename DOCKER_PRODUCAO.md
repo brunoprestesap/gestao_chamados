@@ -343,10 +343,102 @@ Para habilitar HTTPS, adicione um serviço Certbot ou use Traefik/Caddy. Com Ngi
 
 ## 9. Backup do MongoDB
 
-```bash
-# Backup
-docker exec severino-mongodb-1 mongodump --db manutencao --archive > backup_$(date +%Y%m%d).archive
+### 9.1 Backup manual (rápido)
 
-# Restore
-docker exec -i severino-mongodb-1 mongorestore --db manutencao --archive < backup_20260408.archive
+```bash
+cd /opt/severino
+./scripts/backup-mongodb.sh
+```
+
+O script:
+- Gera dump comprimido (gzip) em `/opt/severino/backups/`
+- Verifica integridade do backup (dry-run restore)
+- Remove backups com mais de 30 dias (configurável)
+- Previne execução concorrente via lock file
+- Gera log com resumo (tamanho, duração, total em disco)
+
+### 9.2 Backup automático (cron)
+
+Configurar execução diária às 02:00:
+
+```bash
+# Editar crontab do root
+sudo crontab -e
+
+# Adicionar a linha:
+0 2 * * * /opt/severino/scripts/backup-mongodb.sh >> /var/log/severino-backup.log 2>&1
+```
+
+Para verificar se o cron está ativo:
+
+```bash
+sudo crontab -l | grep severino
+```
+
+### 9.3 Configuração
+
+O script aceita variáveis de ambiente para personalização:
+
+| Variável          | Padrão                     | Descrição                          |
+| ----------------- | -------------------------- | ---------------------------------- |
+| `MONGO_CONTAINER` | `severino-mongodb-1`       | Nome do container MongoDB          |
+| `MONGO_DB`        | `manutencao`               | Nome do banco de dados             |
+| `BACKUP_DIR`      | `/opt/severino/backups`    | Diretório de destino dos backups   |
+| `RETENTION_DAYS`  | `30`                       | Dias para manter backups antigos   |
+
+Exemplo com configuração customizada:
+
+```bash
+BACKUP_DIR=/mnt/nfs/backups RETENTION_DAYS=60 ./scripts/backup-mongodb.sh
+```
+
+### 9.4 Restaurar backup
+
+```bash
+cd /opt/severino
+
+# Restaurar o backup mais recente
+./scripts/restore-mongodb.sh
+
+# Restaurar um backup específico
+./scripts/restore-mongodb.sh backups/manutencao_20260408_020000.archive.gz
+```
+
+O script de restore:
+- Se nenhum arquivo for informado, usa o backup mais recente
+- Pede confirmação antes de sobrescrever (digitar `sim`)
+- Cria backup de segurança automático antes do restore
+- Usa `--drop` para substituir collections existentes
+- Exibe contagem de documentos por collection após restauração
+
+### 9.5 Backup externo (offsite)
+
+Para proteção contra falha do servidor, copie os backups para um local externo:
+
+```bash
+# Via rsync (outro servidor)
+rsync -avz /opt/severino/backups/ usuario@servidor-backup:/backups/severino/
+
+# Via rclone (S3, Google Drive, etc.)
+rclone sync /opt/severino/backups/ remote:severino-backups/
+```
+
+Exemplo de cron combinado (backup + sync diário):
+
+```bash
+0 2 * * * /opt/severino/scripts/backup-mongodb.sh >> /var/log/severino-backup.log 2>&1
+30 2 * * * rsync -avz /opt/severino/backups/ usuario@servidor-backup:/backups/severino/ >> /var/log/severino-backup.log 2>&1
+```
+
+### 9.6 Monitorar backups
+
+```bash
+# Verificar logs do último backup
+tail -20 /var/log/severino-backup.log
+
+# Listar backups existentes (mais recente primeiro)
+ls -lhtr /opt/severino/backups/
+
+# Espaço em disco usado por backups
+du -sh /opt/severino/backups/
 ```

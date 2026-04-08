@@ -228,6 +228,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Alterar sidebar | `components/sidebar/sidebar.tsx` (container), `components/dashboard/sidebar-content.tsx` (conteúdo/nav), `components/dashboard/nav.ts` (itens de menu) |
 | Alterar layout dashboard | `components/dashboard/dashboard-shell.tsx` (shell + header desktop), `components/dashboard/mobile-header.tsx` (mobile), `app/(dashboard)/layout.tsx` |
 | Deploy Docker (VPS) | `DOCKER_PRODUCAO.md`, `docker-compose.yml`, `Dockerfile`, `socket-server/Dockerfile`, `nginx/default.conf`, `deploy.sh`, `scripts/seed.js` |
+| Backup MongoDB | `scripts/backup-mongodb.sh` (backup), `scripts/restore-mongodb.sh` (restore), `DOCKER_PRODUCAO.md` seção 9 |
 | CI/CD | `.github/workflows/ci.yml` (lint + build), `.github/workflows/deploy.yml` (deploy via self-hosted runner) |
 | Configurar LDAP/AD | `lib/ldap.ts` (cliente), `auth.ts` (fluxo authorize), `.env.example` (variáveis), `docker-compose.yml` (repassar env) |
 | Alterar fluxo de login | `app/(auth)/login/actions.ts` (Server Action), `app/(auth)/login/page.tsx` (formulário), `auth.ts` (authorize) |
