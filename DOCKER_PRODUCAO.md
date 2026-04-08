@@ -59,6 +59,15 @@ AUTH_URL=http://IP_DA_VPS
 AUTH_COOKIE_NAME=session
 AUTH_COOKIE_SECURE=false          # true se usar HTTPS
 APP_PORT=80                       # porta do Nginx no host
+
+# LDAP / Active Directory (opcional — se omitido, apenas autenticação local)
+LDAP_URL=ldaps://ad.empresa.com:636
+LDAP_BASE_DN=DC=empresa,DC=com
+LDAP_BIND_DN=CN=svc-sigma,OU=ServiceAccounts,DC=empresa,DC=com
+LDAP_BIND_PASSWORD=senha-da-conta-de-servico
+LDAP_USER_SEARCH_FILTER=(sAMAccountName={{username}})
+LDAP_TLS_REJECT_UNAUTHORIZED=false    # false para certificados de CA interna
+LDAP_DEBUG=false                       # true para logs detalhados
 ```
 
 > **Importante**: `NEXT_PUBLIC_SOCKET_URL` deve ser a URL acessível pelo browser (o Nginx roteia `/socket.io/` para o socket-server internamente).
@@ -245,6 +254,20 @@ journalctl -u actions.runner.brunoprestesap-gestao_chamados.srvmanutencao-ap -f
 | `SOCKET_EMIT_URL`        | URL interna do socket (rede Docker)          | docker-compose.yml   |
 | `NEXT_PUBLIC_SOCKET_URL` | URL pública do socket (acesso pelo browser)  | `.env`               |
 
+### LDAP / Active Directory (opcional)
+
+| Variável                       | Descrição                                         | Definida em |
+| ------------------------------ | ------------------------------------------------- | ----------- |
+| `LDAP_URL`                     | URL do servidor LDAP (`ldaps://...` ou `ldap://`) | `.env`      |
+| `LDAP_BASE_DN`                 | Base DN para busca de usuários                    | `.env`      |
+| `LDAP_BIND_DN`                 | DN da conta de serviço (para buscar usuários)      | `.env`      |
+| `LDAP_BIND_PASSWORD`           | Senha da conta de serviço                         | `.env`      |
+| `LDAP_USER_SEARCH_FILTER`      | Filtro LDAP (padrão: `(sAMAccountName={{username}})`) | `.env`  |
+| `LDAP_TLS_REJECT_UNAUTHORIZED` | `false` para certificados auto-assinados/CA interna | `.env`    |
+| `LDAP_DEBUG`                   | `true` para logs detalhados de autenticação       | `.env`      |
+
+> Se `LDAP_URL` não estiver definido, apenas autenticação local (senha no banco) será usada. Usuários autenticados via LDAP que não existem no MongoDB são provisionados automaticamente com role `Solicitante`.
+
 ### Socket Server
 
 | Variável                 | Descrição                                    | Definida em          |
@@ -289,6 +312,17 @@ docker compose build --no-cache     # Forçar rebuild completo
 - Verificar se `NEXT_PUBLIC_SOCKET_URL` aponta para o IP/domínio acessível pelo browser
 - Verificar se `SOCKET_CORS_ORIGIN` corresponde à URL do app
 - No setup com Nginx, ambas devem apontar para o mesmo endereço (ex: `http://172.18.3.48`), pois o Nginx roteia `/socket.io/` internamente
+
+### LDAP: login falha mesmo com credenciais corretas
+
+1. Ativar debug: `LDAP_DEBUG=true` no `.env`, rebuildar e verificar logs:
+   ```bash
+   docker logs severino-next-app-1 -f --tail 50
+   ```
+2. **"Unbalanced parens in filter"**: filtro LDAP malformado. Não usar `{{username}}` como default no docker-compose (conflito de sintaxe). Definir `LDAP_USER_SEARCH_FILTER` explicitamente no `.env`.
+3. **"invalid_credentials" para conta local**: username coincide com conta no AD. Usuários com `passwordHash` no banco fazem fallback para senha local automaticamente.
+4. **Erro de TLS/certificado**: usar `LDAP_TLS_REJECT_UNAUTHORIZED=false` para CA interna.
+5. **Endpoint de diagnóstico** (dev): `GET /api/debug-ldap?username=LOGIN` retorna status detalhado do LDAP e MongoDB.
 
 ### Seed falha com duplicate key
 

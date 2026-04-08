@@ -10,7 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript 5** (strict) + React Compiler habilitado
 - **MongoDB** via **Mongoose** (sem Prisma — schemas manuais em `models/`)
-- **NextAuth v5** (beta) — Credentials com JWT em cookie HTTP-only
+- **NextAuth v5** (beta) — Credentials com JWT em cookie HTTP-only + **LDAP/AD** opcional
+- **ldapts** — cliente LDAP/AD Promise-based para autenticação corporativa
 - **Socket.IO** — servidor Express separado (porta 3001) para notificações em tempo real
 - **Tailwind CSS v4** + **shadcn/ui** (estilo New York) + **Radix UI** + **Lucide** icons
 - **Zustand** (sidebar), **React Hook Form** + **Zod** (formulários/validação)
@@ -49,12 +50,45 @@ Não há framework de testes configurado.
 
 ### Autenticação & Autorização
 
-- Login por `username` (matrícula, lowercase) + senha (min 6 chars), hash com bcryptjs
+- Login por `username` (matrícula, lowercase) + senha, via **LDAP/AD** (prioritário) ou **senha local** (bcryptjs)
 - JWT em cookie seguro, sessão de 7 dias
+- Login via **Server Action** (`app/(auth)/login/actions.ts`) que chama `signIn` server-side (não usa `signIn` do `next-auth/react`)
 - DAL centralizada em `lib/dal.ts` com `verifySession()` usando `React.cache()` para memoização por request
 - Guards: `requireSession()`, `requireManager()`, `requireTechnician()`, `requireAdmin()` — redirecionam para `/dashboard` se não autorizado
 - 4 roles: **Admin**, **Preposto**, **Solicitante**, **Técnico**
 - Workaround de tipo em `auth.ts` (NextAuth v5 beta não exporta `NextAuthConfig` corretamente)
+
+#### LDAP/AD (opcional)
+
+- Configuração em variáveis de ambiente (`LDAP_URL`, `LDAP_BASE_DN`, `LDAP_BIND_DN`, `LDAP_BIND_PASSWORD`)
+- Se variáveis LDAP ausentes → apenas autenticação local (comportamento original)
+- Cliente LDAP em `lib/ldap.ts` usando pacote `ldapts` (Promise-based, TypeScript nativo)
+- Busca por `sAMAccountName` (configurável via `LDAP_USER_SEARCH_FILTER`)
+- Two-phase bind: conta de serviço busca DN do usuário → bind com credenciais do usuário
+- Timeout de 5s, proteção contra LDAP injection no filtro de busca
+
+#### Fluxo de autenticação (`auth.ts` → `authorize`)
+
+1. Busca usuário no MongoDB por `username`
+2. Se LDAP configurado → `authenticateWithLdap(username, password)`
+   - `success` → autenticado
+   - `invalid_credentials` + tem `passwordHash` → fallback para senha local (colisão de username AD vs app)
+   - `invalid_credentials` + sem `passwordHash` → negar (usuário LDAP-only)
+   - `not_found` ou `error` → fallback para senha local
+3. Se LDAP não configurado ou fallback → `bcrypt.compare()` contra `passwordHash`
+
+#### Auto-provisionamento LDAP
+
+- Primeiro login via LDAP de usuário inexistente no MongoDB → cria automaticamente
+- Atributos importados do AD: `displayName` → `name`, `mail` → `email`, `department` → `unitId` (busca Unit por nome)
+- Role padrão: `Solicitante`
+- `passwordHash` fica vazio (campo opcional no model User — permite usuários LDAP-only)
+
+#### Logs de debug
+
+- `LDAP_DEBUG=true` ativa logs detalhados (`[LDAP:debug]` e `[Auth:debug]`) via `console.warn`
+- Útil para diagnosticar: bind de serviço, busca de DN, validação de senha, provisionamento
+- Em produção: `docker logs severino-next-app-1 -f --tail 50`
 
 ### Server Actions
 
@@ -101,7 +135,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 ### Modelos Mongoose
 
 - **Chamado** — Ticket com ciclo completo + campos SLA (`responseDueAt`, `resolutionDueAt`)
-- **User** — Roles, especialidades (técnicos via `specialties` → `ServiceSubType`), `maxAssignedTickets` (default 5)
+- **User** — Roles, especialidades (técnicos via `specialties` → `ServiceSubType`), `maxAssignedTickets` (default 5), `passwordHash` opcional (permite usuários LDAP-only)
 - **ChamadoHistory** — Auditoria de todas as ações
 - **SlaConfig** — Configuração SLA por prioridade
 - **ServiceCatalog/ServiceType/ServiceSubType** — Catálogo hierárquico de serviços (tipos: Manutenção Predial, Ar-Condicionado, Elevador)
@@ -162,6 +196,15 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `NEXT_PUBLIC_SOCKET_URL` — URL pública do socket para o browser
 - `BOOTSTRAP_TOKEN` — protege endpoint `/api/bootstrap`
 
+### LDAP/AD (opcional — `/.env.local` ou `.env` na VPS)
+- `LDAP_URL` — URL do servidor LDAP (ex: `ldaps://ad.empresa.com:636`)
+- `LDAP_BASE_DN` — Base DN para busca (ex: `DC=empresa,DC=com`)
+- `LDAP_BIND_DN` — DN da conta de serviço para busca
+- `LDAP_BIND_PASSWORD` — Senha da conta de serviço
+- `LDAP_USER_SEARCH_FILTER` — Filtro de busca (padrão: `(sAMAccountName={{username}})`)
+- `LDAP_TLS_REJECT_UNAUTHORIZED` — `false` para certificados auto-assinados/CA interna
+- `LDAP_DEBUG` — `true` para logs detalhados de autenticação
+
 ### Socket Server (`socket-server/.env`)
 - `SOCKET_PORT`, `SOCKET_CORS_ORIGIN`, `APP_URL`
 - `SOCKET_INTERNAL_SECRET` (deve coincidir com app principal)
@@ -186,6 +229,9 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Alterar layout dashboard | `components/dashboard/dashboard-shell.tsx` (shell + header desktop), `components/dashboard/mobile-header.tsx` (mobile), `app/(dashboard)/layout.tsx` |
 | Deploy Docker (VPS) | `DOCKER_PRODUCAO.md`, `docker-compose.yml`, `Dockerfile`, `socket-server/Dockerfile`, `nginx/default.conf`, `deploy.sh`, `scripts/seed.js` |
 | CI/CD | `.github/workflows/ci.yml` (lint + build), `.github/workflows/deploy.yml` (deploy via self-hosted runner) |
+| Configurar LDAP/AD | `lib/ldap.ts` (cliente), `auth.ts` (fluxo authorize), `.env.example` (variáveis), `docker-compose.yml` (repassar env) |
+| Alterar fluxo de login | `app/(auth)/login/actions.ts` (Server Action), `app/(auth)/login/page.tsx` (formulário), `auth.ts` (authorize) |
+| Debug autenticação | `LDAP_DEBUG=true` no `.env`, logs via `docker logs severino-next-app-1 -f` |
 
 ## CI/CD
 
