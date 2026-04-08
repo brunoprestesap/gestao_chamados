@@ -13,6 +13,13 @@ services:
       SOCKET_EMIT_URL: http://socket-server:3001/emit
       NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
       AUTH_URL: ${AUTH_URL:-http://localhost}
+      LDAP_URL: ${LDAP_URL:-}
+      LDAP_BASE_DN: ${LDAP_BASE_DN:-}
+      LDAP_BIND_DN: ${LDAP_BIND_DN:-}
+      LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-}
+      LDAP_USER_SEARCH_FILTER: ${LDAP_USER_SEARCH_FILTER:-(sAMAccountName={{username}})}
+      LDAP_TLS_REJECT_UNAUTHORIZED: ${LDAP_TLS_REJECT_UNAUTHORIZED:-true}
+      LDAP_DEBUG: ${LDAP_DEBUG:-false}
     depends_on:
       mongodb:
         condition: service_started
