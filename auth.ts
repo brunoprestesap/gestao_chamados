@@ -103,8 +103,14 @@ export const { auth, signIn, signOut, handlers } = initAuth({
             authenticated = true;
             ldapProfile = ldapResult.profile;
           } else if (ldapResult.status === 'invalid_credentials') {
-            authDebug('Senha inválida no LDAP → negando acesso (sem fallback local)');
-            return null;
+            // Se o usuário tem senha local (passwordHash), permite fallback
+            // (pode ser colisão de username entre app e AD)
+            if (user?.passwordHash) {
+              authDebug('Senha inválida no LDAP, mas usuário tem senha local → tentando fallback');
+            } else {
+              authDebug('Senha inválida no LDAP → negando acesso (usuário LDAP-only, sem fallback)');
+              return null;
+            }
           }
           // 'not_found' ou 'error' → continua para autenticação local
         } else {
