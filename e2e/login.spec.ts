@@ -16,7 +16,8 @@ test.describe('Login', () => {
 
     // Deve permanecer em /login e exibir alerta de erro
     await expect(page).toHaveURL(/\/login/);
-    const alert = page.getByRole('alert');
+    // Usa seletor específico (Next.js adiciona __next-route-announcer__ com role="alert")
+    const alert = page.locator('[role="alert"][aria-live="polite"]');
     await expect(alert).toBeVisible();
     await expect(alert).toContainText(/incorretos/i);
   });
@@ -25,9 +26,9 @@ test.describe('Login', () => {
     await page.goto('/login');
     await page.getByRole('button', { name: 'Entrar' }).click();
 
-    // Deve exibir mensagens de validação do formulário
+    // Deve exibir mensagem de validação específica
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByText(/matrícula/i)).toBeVisible();
+    await expect(page.getByText('Informe sua matrícula')).toBeVisible();
   });
 
   test('login com cada role funciona', async ({ page }) => {
