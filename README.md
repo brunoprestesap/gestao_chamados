@@ -17,6 +17,7 @@ Sistema de gestão de chamados (tickets) com autenticação por perfis, controle
 - [Funcionalidades](#funcionalidades)
 - [Perfis de Usuário](#perfis-de-usuário)
 - [Fluxo do Chamado](#fluxo-do-chamado)
+- [Autenticação LDAP/AD](#autenticação-ldapad)
 - [Produção](#produção)
 - [Documentação Complementar](#documentação-complementar)
 
@@ -41,7 +42,7 @@ O desenvolvimento exige **dois terminais simultâneos** (aplicação Next.js + s
 | Frontend    | Next.js 16 (App Router), React 19, Tailwind CSS v4, Radix UI, Framer Motion |
 | Backend     | Next.js API Routes, Server Actions, Mongoose                           |
 | Banco       | MongoDB                                                                |
-| Auth        | NextAuth v5 (Credentials, JWT em cookie HTTP-only)                     |
+| Auth        | NextAuth v5 (Credentials, JWT em cookie HTTP-only) + LDAP/AD opcional (ldapts) |
 | Realtime    | Socket.IO (servidor Express separado, porta 3001)                      |
 | Estado      | Zustand (sidebar), React Hook Form + Zod (formulários)                 |
 | UI          | shadcn/ui (New York), Lucide icons, Sonner (toasts)                    |
@@ -86,6 +87,15 @@ SOCKET_EMIT_URL=http://127.0.0.1:3001/emit
 
 # Bootstrap (opcional — protege endpoint /api/bootstrap para seed)
 # BOOTSTRAP_TOKEN=<token-opcional>
+
+# LDAP / Active Directory (opcional — se omitido, apenas autenticação local)
+# LDAP_URL=ldaps://ad.empresa.com:636
+# LDAP_BASE_DN=DC=empresa,DC=com
+# LDAP_BIND_DN=CN=svc-sigma,OU=ServiceAccounts,DC=empresa,DC=com
+# LDAP_BIND_PASSWORD=senha-da-conta-de-servico
+# LDAP_USER_SEARCH_FILTER=(sAMAccountName={{username}})
+# LDAP_TLS_REJECT_UNAUTHORIZED=false
+# LDAP_DEBUG=false
 ```
 
 ### Socket-server — `socket-server/.env`
@@ -159,7 +169,8 @@ npm run dev
 │  API Routes           │──▶│  POST /emit (interno)      │
 │  Server Actions       │   │  Validação de sessão       │
 │  NextAuth v5 (JWT)    │   │  via GET /api/session/     │
-│  Mongoose ODM         │   │  verify (callback)         │
+│  LDAP/AD (opcional)   │   │  verify (callback)         │
+│  Mongoose ODM         │   │                            │
 └──────────┬────────────┘   └────────────────────────────┘
            │
            ▼
@@ -181,7 +192,7 @@ npm run dev
 ```
 sigma/
 ├── app/
-│   ├── (auth)/                  # Página de login
+│   ├── (auth)/                  # Login (Server Action + LDAP/AD)
 │   ├── (dashboard)/             # Área autenticada
 │   │   ├── catalogo/            #   Catálogo de serviços
 │   │   ├── chamados-atribuidos/ #   Chamados do técnico
@@ -202,6 +213,7 @@ sigma/
 ├── lib/                         # Lógica de negócio e utilitários
 │   ├── dal.ts                   #   Data Access Layer (auth guards)
 │   ├── db.ts                    #   Conexão MongoDB
+│   ├── ldap.ts                  #   Cliente LDAP/AD (autenticação corporativa)
 │   ├── realtime-emit.ts         #   Emissão de eventos Socket.IO
 │   ├── sla-utils.ts             #   Cálculo de SLA
 │   └── sla-timezone.ts          #   SLA com timezone e expediente
@@ -225,6 +237,8 @@ sigma/
 
 | Funcionalidade                  | Descrição                                                                 |
 |---------------------------------|---------------------------------------------------------------------------|
+| Autenticação LDAP/AD            | Login integrado com Active Directory, com fallback para senha local       |
+| Auto-provisionamento            | Primeiro login via LDAP cria usuário automaticamente (role: Solicitante)  |
 | Gestão de chamados              | Abertura, classificação, atribuição, execução e encerramento              |
 | Controle de SLA                 | Prazos de resposta e resolução por prioridade, respeitando expediente     |
 | Notificações em tempo real      | Eventos via Socket.IO com fallback para persistência no MongoDB           |
@@ -272,6 +286,52 @@ sigma/
 ```
 
 **Status possíveis:** `aberto` → `validado` → `em_atendimento` → `concluído` → `encerrado` | `cancelado`
+
+---
+
+## Autenticação LDAP/AD
+
+O sistema suporta autenticação integrada com **Active Directory / LDAP**, com fallback automático para senha local.
+
+### Fluxo de autenticação
+
+```
+Usuário submete matrícula + senha
+  │
+  ▼
+LDAP configurado?
+  │── NÃO → autenticação local (bcrypt)
+  │── SIM ↓
+  ▼
+Busca usuário no AD (sAMAccountName)
+  │── Não encontrado → fallback local
+  │── Encontrado → valida senha no AD
+  │     │── Senha correta → login OK (provisiona se necessário)
+  │     │── Senha errada + tem senha local → fallback local
+  │     │── Senha errada + sem senha local → acesso negado
+```
+
+### Auto-provisionamento
+
+No primeiro login via LDAP, se o usuário não existir no MongoDB, ele é criado automaticamente com:
+- **Nome**: `displayName` do AD
+- **Email**: `mail` do AD
+- **Unidade**: `department` do AD (mapeado para Unit por nome)
+- **Role**: `Solicitante`
+
+### Configuração
+
+Adicione as variáveis LDAP ao `.env.local` (dev) ou `.env` (produção). Consulte a seção [Configuração de Ambiente](#configuração-de-ambiente) para detalhes.
+
+Para debug, ative `LDAP_DEBUG=true` e monitore os logs:
+
+```bash
+# Desenvolvimento
+# Logs aparecem no terminal do Next.js
+
+# Produção (Docker)
+docker logs severino-next-app-1 -f --tail 50
+```
 
 ---
 
