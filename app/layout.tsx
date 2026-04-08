@@ -1,9 +1,10 @@
 import './globals.css';
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Toaster } from 'sonner';
 
 import { AuthSessionProvider } from '@/components/providers/session-provider';
+import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register';
 
 export const metadata: Metadata = {
   title: 'Sigma - Sistema Integrado de Manutenção',
@@ -11,6 +12,21 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icon.svg',
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Sigma',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#4f46e5',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -25,6 +41,7 @@ export default function RootLayout({
           {children}
           <Toaster richColors position="top-center" closeButton />
         </AuthSessionProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );
