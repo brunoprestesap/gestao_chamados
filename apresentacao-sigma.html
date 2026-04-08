@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGMA - Apresentação</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --indigo-300: #a5b4fc;
+    --indigo-400: #818cf8;
+    --indigo-500: #6366f1;
+    --indigo-600: #4f46e5;
+    --blue-500: #3b82f6;
+    --blue-600: #2563eb;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+    --emerald-500: #10b981;
+    --amber-500: #f59e0b;
+    --red-500: #ef4444;
+    --violet-500: #8b5cf6;
+    --sky-500: #0ea5e9;
+    --teal-500: #14b8a6;
+  }
+
+  html { font-family: 'Inter', system-ui, sans-serif; scroll-behavior: smooth; }
+
+  body {
+    background: var(--slate-900);
+    color: white;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .slides-container { width: 100vw; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateX(60px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .slide.active { opacity: 1; transform: translateX(0); pointer-events: auto; }
+  .slide.prev { opacity: 0; transform: translateX(-60px); }
+
+  .nav-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 40px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(99, 102, 241, 0.15);
+    z-index: 100;
+  }
+
+  .nav-btn {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: var(--indigo-300);
+    padding: 10px 24px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .nav-btn:hover { background: rgba(99, 102, 241, 0.3); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .slide-counter {
+    font-size: 13px;
+    color: var(--slate-400);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--indigo-500), var(--blue-500));
+    transition: width 0.4s ease;
+    z-index: 101;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--indigo-400), var(--blue-500), var(--violet-500));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-title {
+    font-size: 42px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+
+  .slide-subtitle {
+    font-size: 18px;
+    color: var(--slate-400);
+    margin-bottom: 48px;
+    font-weight: 400;
+    max-width: 700px;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+  }
+
+  .badge-indigo {
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--indigo-300);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+  }
+
+  .card {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(99, 102, 241, 0.12);
+    border-radius: 20px;
+    padding: 32px;
+    backdrop-filter: blur(8px);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.1);
+  }
+
+  .card-accent { position: relative; overflow: hidden; }
+
+  .card-accent::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--indigo-500), var(--blue-500));
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+
+  .card-accent:hover::before { opacity: 1; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; max-width: 1000px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; width: 100%; max-width: 1100px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; width: 100%; max-width: 1100px; }
+
+  .icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 16px;
+    transition: transform 0.2s;
+  }
+
+  .icon-circle:hover { transform: scale(1.05); }
+
+  .ic-indigo { background: rgba(99, 102, 241, 0.15); color: var(--indigo-400); }
+  .ic-emerald { background: rgba(16, 185, 129, 0.15); color: var(--emerald-500); }
+  .ic-amber { background: rgba(245, 158, 11, 0.15); color: var(--amber-500); }
+  .ic-sky { background: rgba(14, 165, 233, 0.15); color: var(--sky-500); }
+  .ic-violet { background: rgba(139, 92, 246, 0.15); color: var(--violet-500); }
+  .ic-red { background: rgba(239, 68, 68, 0.15); color: var(--red-500); }
+  .ic-teal { background: rgba(20, 184, 166, 0.15); color: var(--teal-500); }
+  .ic-blue { background: rgba(59, 130, 246, 0.15); color: var(--blue-500); }
+
+  .flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 1100px; }
+
+  .flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 20px;
+    border-radius: 16px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(99, 102, 241, 0.12);
+    min-width: 120px;
+    text-align: center;
+  }
+
+  .flow-step .step-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .flow-step .step-label { font-size: 13px; font-weight: 600; color: white; }
+  .flow-step .step-role { font-size: 11px; color: var(--slate-400); }
+  .flow-arrow { font-size: 20px; color: var(--indigo-400); }
+
+  .role-card { text-align: center; padding: 36px 24px; }
+
+  .role-card .role-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 20px;
+  }
+
+  .role-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+  .role-card p { font-size: 13px; color: var(--slate-400); line-height: 1.6; }
+
+  .feature-item { display: flex; gap: 16px; align-items: flex-start; }
+
+  .feature-item .fi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .feature-item h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .feature-item p { font-size: 13px; color: var(--slate-400); line-height: 1.5; }
+
+  .col-features { display: flex; flex-direction: column; gap: 24px; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--indigo-400);
+    margin-bottom: 16px;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    width: 100%;
+    max-width: 1100px;
+    align-items: start;
+  }
+
+  .stack-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(99, 102, 241, 0.08);
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .kpi-card { padding: 24px; text-align: left; }
+
+  .kpi-card .kpi-label {
+    font-size: 12px;
+    color: var(--slate-400);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+
+  .kpi-card .kpi-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+
+  .kpi-card .kpi-detail { font-size: 12px; color: var(--slate-500); }
+
+  .kanban-preview { display: flex; gap: 16px; width: 100%; max-width: 1100px; overflow-x: auto; }
+
+  .kanban-col {
+    flex: 1;
+    min-width: 180px;
+    background: rgba(30, 41, 59, 0.4);
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(99, 102, 241, 0.08);
+  }
+
+  .kanban-col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  }
+
+  .kanban-col-header .col-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .kanban-col-header .col-count {
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--indigo-300);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .kanban-ticket {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(99, 102, 241, 0.1);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .kanban-ticket .kt-num {
+    font-family: 'Courier New', monospace;
+    color: var(--indigo-400);
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .kanban-ticket .kt-title { font-weight: 500; color: var(--slate-200); margin-bottom: 6px; line-height: 1.4; }
+  .kanban-ticket .kt-meta { color: var(--slate-500); font-size: 10px; }
+
+  .sla-bar-container { width: 100%; max-width: 500px; }
+
+  .sla-item { margin-bottom: 20px; }
+  .sla-item .sla-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+  .sla-item .sla-label { font-weight: 600; }
+  .sla-item .sla-value { color: var(--slate-400); }
+
+  .sla-item .sla-track {
+    height: 8px;
+    background: rgba(30, 41, 59, 0.8);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .sla-item .sla-fill { height: 100%; border-radius: 999px; transition: width 1s ease; }
+
+  .cover-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+      var(--slate-900);
+  }
+
+  .cover-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .cover-content { position: relative; z-index: 1; text-align: center; }
+
+  .cover-logo {
+    width: 88px;
+    height: 88px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, var(--indigo-600), var(--blue-600));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 32px;
+    font-size: 40px;
+    font-weight: 900;
+    box-shadow: 0 16px 48px rgba(99, 102, 241, 0.3);
+    color: white;
+  }
+
+  .cover-title {
+    font-size: 56px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    margin-bottom: 8px;
+    line-height: 1;
+  }
+
+  .cover-full-name {
+    font-size: 20px;
+    color: var(--slate-400);
+    font-weight: 400;
+    margin-bottom: 32px;
+    letter-spacing: 0.02em;
+  }
+
+  .cover-tagline {
+    font-size: 16px;
+    color: var(--slate-500);
+    max-width: 500px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+  }
+
+  .cover-pills { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  .cover-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--slate-300);
+    backdrop-filter: blur(8px);
+  }
+
+  .cover-pill .pill-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .benefit-num { font-size: 48px; font-weight: 900; line-height: 1; margin-bottom: 8px; }
+  .benefit-label { font-size: 14px; color: var(--slate-400); line-height: 1.5; }
+
+  .config-table {
+    width: 100%;
+    max-width: 900px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .config-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--indigo-400);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+  }
+
+  .config-table td {
+    padding: 14px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+    color: var(--slate-300);
+  }
+
+  .config-table tr:hover td { background: rgba(99, 102, 241, 0.04); }
+  .config-table .module-name { font-weight: 600; color: white; }
+
+  .timeline { display: flex; flex-direction: column; gap: 0; max-width: 600px; width: 100%; }
+
+  .timeline-item { display: flex; gap: 20px; padding: 20px 0; position: relative; }
+
+  .timeline-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 56px;
+    bottom: 0;
+    width: 2px;
+    background: rgba(99, 102, 241, 0.2);
+  }
+
+  .timeline-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .timeline-content h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .timeline-content p { font-size: 13px; color: var(--slate-400); line-height: 1.5; }
+
+  .kb-hint {
+    position: fixed;
+    bottom: 70px;
+    right: 40px;
+    font-size: 11px;
+    color: var(--slate-600);
+    z-index: 99;
+  }
+
+  .kb-hint kbd {
+    padding: 2px 8px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<div class="slides-container" id="slidesContainer">
+
+  <!-- ===== SLIDE 1: CAPA ===== -->
+  <div class="slide active" data-slide="0">
+    <div class="cover-bg"></div>
+    <div class="cover-grid"></div>
+    <div class="cover-content">
+      <div class="cover-logo">&Sigma;</div>
+      <h1 class="cover-title gradient-text">SIGMA</h1>
+      <p class="cover-full-name">Sistema Integrado de Gestão de Manutenção</p>
+      <p class="cover-tagline">
+        Controle completo de chamados, SLA e catálogo de serviços para operações de manutenção predial.
+      </p>
+      <div class="cover-pills">
+        <div class="cover-pill"><span class="pill-dot" style="background: var(--indigo-500)"></span>Chamados</div>
+        <div class="cover-pill"><span class="pill-dot" style="background: var(--emerald-500)"></span>SLA</div>
+        <div class="cover-pill"><span class="pill-dot" style="background: var(--amber-500)"></span>Catálogo</div>
+        <div class="cover-pill"><span class="pill-dot" style="background: var(--sky-500)"></span>Relatórios</div>
+        <div class="cover-pill"><span class="pill-dot" style="background: var(--violet-500)"></span>Tempo Real</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 2: PROBLEMA & SOLUÇÃO ===== -->
+  <div class="slide" data-slide="1">
+    <span class="badge badge-indigo">Contexto</span>
+    <h2 class="slide-title gradient-text">Por que o SIGMA?</h2>
+    <p class="slide-subtitle">
+      Desafios comuns na gestão de manutenção predial e como o SIGMA os resolve.
+    </p>
+    <div class="grid-2">
+      <div>
+        <p class="section-label" style="color: var(--red-500);">&#x26A0; Antes</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-red">&#x2717;</div>
+            <div><h4>Solicitações informais</h4><p>Pedidos por telefone, e-mail ou presencialmente, sem rastreio</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-red">&#x2717;</div>
+            <div><h4>Sem controle de prazos</h4><p>Impossível medir cumprimento de prazos contratuais</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-red">&#x2717;</div>
+            <div><h4>Falta de visibilidade</h4><p>Gestor sem panorama da operação e gargalos</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-red">&#x2717;</div>
+            <div><h4>Sem dados para fiscalização</h4><p>Relatórios manuais, propensos a erro</p></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label" style="color: var(--emerald-500);">&#x2714; Com o SIGMA</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x2714;</div>
+            <div><h4>Abertura digital de chamados</h4><p>Qualquer colaborador abre chamado pelo sistema, 24/7</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x2714;</div>
+            <div><h4>SLA automatizado</h4><p>Prazos calculados por prioridade, com alertas automáticos</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x2714;</div>
+            <div><h4>Painéis por perfil</h4><p>Cada papel visualiza o que precisa em tempo real</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x2714;</div>
+            <div><h4>Relatório IMR automatizado</h4><p>Índice de Medição de Resultados gerado automaticamente</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 3: PERFIS DE USUÁRIO ===== -->
+  <div class="slide" data-slide="2">
+    <span class="badge badge-indigo">Perfis</span>
+    <h2 class="slide-title gradient-text">Quatro Perfis, Uma Plataforma</h2>
+    <p class="slide-subtitle">
+      Cada tipo de usuário acessa funcionalidades e visões específicas para o seu papel.
+    </p>
+    <div class="grid-4">
+      <div class="card card-accent role-card">
+        <div class="role-icon ic-sky" style="background: rgba(14, 165, 233, 0.15);">&#x1F4DD;</div>
+        <h3 style="color: var(--sky-500);">Solicitante</h3>
+        <p>Abre chamados, acompanha o andamento e avalia o atendimento ao final</p>
+      </div>
+      <div class="card card-accent role-card">
+        <div class="role-icon ic-violet" style="background: rgba(139, 92, 246, 0.15);">&#x1F527;</div>
+        <h3 style="color: var(--violet-500);">Técnico</h3>
+        <p>Visualiza chamados atribuídos, registra execução e gerencia sua carga de trabalho</p>
+      </div>
+      <div class="card card-accent role-card">
+        <div class="role-icon ic-amber" style="background: rgba(245, 158, 11, 0.15);">&#x1F4CB;</div>
+        <h3 style="color: var(--amber-500);">Preposto / Fiscal</h3>
+        <p>Classifica, atribui, reatribui chamados e monitora indicadores operacionais</p>
+      </div>
+      <div class="card card-accent role-card">
+        <div class="role-icon ic-indigo" style="background: rgba(99, 102, 241, 0.15);">&#x2699;</div>
+        <h3 style="color: var(--indigo-400);">Administrador</h3>
+        <p>Visão global, configurações de SLA, catálogo, relatórios e gestão completa do sistema</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 4: CICLO DE VIDA ===== -->
+  <div class="slide" data-slide="3">
+    <span class="badge badge-indigo">Fluxo</span>
+    <h2 class="slide-title gradient-text">Ciclo de Vida do Chamado</h2>
+    <p class="slide-subtitle">
+      Cada etapa tem responsável definido, registro em trilha de auditoria e notificações em tempo real.
+    </p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-icon ic-sky">&#x270F;</div>
+        <span class="step-label">Aberto</span>
+        <span class="step-role">Solicitante</span>
+      </div>
+      <span class="flow-arrow">&#x27A1;</span>
+      <div class="flow-step">
+        <div class="step-icon ic-amber">&#x1F50D;</div>
+        <span class="step-label">Classificado</span>
+        <span class="step-role">Preposto</span>
+      </div>
+      <span class="flow-arrow">&#x27A1;</span>
+      <div class="flow-step">
+        <div class="step-icon ic-violet">&#x1F465;</div>
+        <span class="step-label">Atribuído</span>
+        <span class="step-role">Preposto</span>
+      </div>
+      <span class="flow-arrow">&#x27A1;</span>
+      <div class="flow-step">
+        <div class="step-icon ic-blue">&#x1F6E0;</div>
+        <span class="step-label">Em Atendimento</span>
+        <span class="step-role">Técnico</span>
+      </div>
+      <span class="flow-arrow">&#x27A1;</span>
+      <div class="flow-step">
+        <div class="step-icon ic-teal">&#x2705;</div>
+        <span class="step-label">Concluído</span>
+        <span class="step-role">Técnico</span>
+      </div>
+      <span class="flow-arrow">&#x27A1;</span>
+      <div class="flow-step">
+        <div class="step-icon ic-emerald">&#x1F4E6;</div>
+        <span class="step-label">Encerrado</span>
+        <span class="step-role">Preposto</span>
+      </div>
+      <span class="flow-arrow">&#x27A1;</span>
+      <div class="flow-step">
+        <div class="step-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--amber-500);">&#x2B50;</div>
+        <span class="step-label">Avaliado</span>
+        <span class="step-role">Solicitante</span>
+      </div>
+    </div>
+    <div style="margin-top: 32px; display: flex; gap: 24px; flex-wrap: wrap; justify-content: center;">
+      <div class="stack-item" style="font-size: 12px;">
+        <span style="color: var(--indigo-400);">&#x1F514;</span> Notificações instantâneas a cada mudança de status
+      </div>
+      <div class="stack-item" style="font-size: 12px;">
+        <span style="color: var(--emerald-500);">&#x1F4DC;</span> Histórico completo de auditoria por chamado
+      </div>
+      <div class="stack-item" style="font-size: 12px;">
+        <span style="color: var(--amber-500);">&#x23F1;</span> SLA calculado automaticamente na classificação
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 5: VISÃO DO SOLICITANTE ===== -->
+  <div class="slide" data-slide="4">
+    <span class="badge badge-indigo">&#x1F4DD; Solicitante</span>
+    <h2 class="slide-title gradient-text">Visão do Solicitante</h2>
+    <p class="slide-subtitle">
+      Abertura de chamados simplificada, acompanhamento visual e avaliação do atendimento.
+    </p>
+    <div class="grid-2">
+      <div>
+        <p class="section-label">Painel de Indicadores</p>
+        <div class="grid-2" style="gap: 12px;">
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Em andamento</div>
+            <div class="kpi-value" style="color: var(--amber-500);">3</div>
+            <div class="kpi-detail">Chamados ativos</div>
+          </div>
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Avaliações pendentes</div>
+            <div class="kpi-value" style="color: var(--violet-500);">2</div>
+            <div class="kpi-detail">Aguardando sua nota</div>
+          </div>
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Encerrados</div>
+            <div class="kpi-value" style="color: var(--emerald-500);">18</div>
+            <div class="kpi-detail">15 avaliados</div>
+          </div>
+          <div class="card kpi-card" style="border: 2px dashed rgba(99, 102, 241, 0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+            <div style="font-size: 28px; color: var(--indigo-400); margin-bottom: 8px;">&#x2795;</div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--indigo-300);">Novo Chamado</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label">Funcionalidades</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-indigo">&#x1F4E8;</div>
+            <div><h4>Abertura simplificada</h4><p>Selecione tipo de serviço, local e descreva a necessidade</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-sky">&#x1F4CA;</div>
+            <div><h4>Quadro visual por status</h4><p>Acompanhe seus chamados organizados por etapa em colunas visuais</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-amber">&#x2B50;</div>
+            <div><h4>Avaliação de atendimento</h4><p>Nota de 1 a 5 + comentário ao final do chamado</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x1F514;</div>
+            <div><h4>Notificações</h4><p>Alertas em tempo real quando seu chamado muda de status</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 6: VISÃO DO TÉCNICO ===== -->
+  <div class="slide" data-slide="5">
+    <span class="badge badge-indigo">&#x1F527; Técnico</span>
+    <h2 class="slide-title gradient-text">Visão do Técnico</h2>
+    <p class="slide-subtitle">
+      Foco na carga de trabalho, execução e especialidades.
+    </p>
+    <div class="grid-2">
+      <div>
+        <p class="section-label">Painel de Indicadores</p>
+        <div class="grid-2" style="gap: 12px;">
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Carga de trabalho</div>
+            <div class="kpi-value" style="color: var(--blue-500);">3 <span style="font-size: 18px; color: var(--slate-500);">/ 5</span></div>
+            <div class="kpi-detail">Atribuições ativas / limite</div>
+          </div>
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Em atendimento</div>
+            <div class="kpi-value" style="color: var(--violet-500);">2</div>
+            <div class="kpi-detail">Em execução agora</div>
+          </div>
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Prontos p/ concluir</div>
+            <div class="kpi-value" style="color: var(--amber-500);">1</div>
+            <div class="kpi-detail">Aguardando registro</div>
+          </div>
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Concluídos</div>
+            <div class="kpi-value" style="color: var(--emerald-500);">4</div>
+            <div class="kpi-detail">Aguardando encerramento</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label">Funcionalidades</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-blue">&#x1F3AF;</div>
+            <div><h4>Chamados atribuídos</h4><p>Visualização exclusiva dos chamados designados ao técnico</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-violet">&#x1F4DD;</div>
+            <div><h4>Registro de execução</h4><p>Confirma a conclusão do serviço diretamente no sistema</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-teal">&#x1F50D;</div>
+            <div><h4>Especialidades</h4><p>Lista de serviços e especialidades com contagem de chamados ativos</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-indigo">&#x1F4F1;</div>
+            <div><h4>Acesso pelo celular</h4><p>Funciona em celular e tablet para uso em campo</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 7: VISÃO DO PREPOSTO ===== -->
+  <div class="slide" data-slide="6">
+    <span class="badge badge-indigo">&#x1F4CB; Preposto / Fiscal</span>
+    <h2 class="slide-title gradient-text">Visão do Preposto</h2>
+    <p class="slide-subtitle">
+      Painel operacional com pontos de ação: classificação, atribuição e monitoramento.
+    </p>
+    <div class="grid-2">
+      <div>
+        <p class="section-label">Painel — Indicadores Operacionais</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Aguard. classificação</div>
+            <div class="kpi-value" style="color: var(--amber-500);">5</div>
+          </div>
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Aguard. atribuição</div>
+            <div class="kpi-value" style="color: var(--sky-500);">3</div>
+          </div>
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Em atendimento</div>
+            <div class="kpi-value" style="color: var(--violet-500);">12</div>
+          </div>
+          <div class="card kpi-card card-accent">
+            <div class="kpi-label">Encerrados hoje</div>
+            <div class="kpi-value" style="color: var(--emerald-500);">7</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label">Ações do Preposto</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-amber">&#x1F3F7;</div>
+            <div><h4>Classificar chamados</h4><p>Define tipo de serviço e prioridade final (dispara contagem de SLA)</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-sky">&#x1F465;</div>
+            <div><h4>Atribuir a técnicos</h4><p>Designa técnico por especialidade e carga de trabalho</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-violet">&#x1F504;</div>
+            <div><h4>Reatribuir</h4><p>Transfere chamado para outro técnico quando necessário</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x1F512;</div>
+            <div><h4>Encerrar chamados</h4><p>Fecha o chamado concluído e libera avaliação ao solicitante</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 8: VISÃO DO ADMIN ===== -->
+  <div class="slide" data-slide="7">
+    <span class="badge badge-indigo">&#x2699; Administrador</span>
+    <h2 class="slide-title gradient-text">Visão do Administrador</h2>
+    <p class="slide-subtitle">
+      Visão global do sistema: saúde operacional, gargalos e qualidade do atendimento.
+    </p>
+    <div class="grid-4" style="gap: 16px;">
+      <div class="card kpi-card card-accent">
+        <div class="kpi-label">No sistema</div>
+        <div class="kpi-value gradient-text">142</div>
+        <div class="kpi-detail">Total de chamados</div>
+      </div>
+      <div class="card kpi-card card-accent">
+        <div class="kpi-label">Críticos / Urgentes</div>
+        <div class="kpi-value" style="color: var(--red-500);">8</div>
+        <div class="kpi-detail">Prioridade alta/emergencial</div>
+      </div>
+      <div class="card kpi-card card-accent">
+        <div class="kpi-label">Backlog inicial</div>
+        <div class="kpi-value" style="color: var(--amber-500);">15</div>
+        <div class="kpi-detail">Abertos + em validação</div>
+      </div>
+      <div class="card kpi-card card-accent">
+        <div class="kpi-label">Produtividade hoje</div>
+        <div class="kpi-value" style="color: var(--emerald-500);">+9</div>
+        <div class="kpi-detail">Abertos: 4 | Fechados: 9</div>
+      </div>
+      <div class="card kpi-card card-accent">
+        <div class="kpi-label">Capacidade técnicos</div>
+        <div class="kpi-value" style="color: var(--violet-500);">2</div>
+        <div class="kpi-detail">Sobrecarregados</div>
+      </div>
+      <div class="card kpi-card card-accent">
+        <div class="kpi-label">Reatribuições</div>
+        <div class="kpi-value" style="color: var(--sky-500);">3</div>
+        <div class="kpi-detail">Hoje</div>
+      </div>
+      <div class="card kpi-card card-accent">
+        <div class="kpi-label">Avaliação</div>
+        <div class="kpi-value" style="color: var(--amber-500);">4.2 &#x2B50;</div>
+        <div class="kpi-detail">87 avaliações</div>
+      </div>
+      <div class="card kpi-card card-accent">
+        <div class="kpi-label">Usuários / Técnicos</div>
+        <div class="kpi-value" style="color: var(--teal-500);">48 <span style="font-size: 16px; color: var(--slate-500);">/ 12</span></div>
+        <div class="kpi-detail">Ativos no sistema</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 9: QUADRO KANBAN ===== -->
+  <div class="slide" data-slide="8">
+    <span class="badge badge-indigo">Gestão</span>
+    <h2 class="slide-title gradient-text">Gestão Visual de Chamados</h2>
+    <p class="slide-subtitle">
+      Chamados organizados por status em colunas visuais. Ações contextuais em cada etapa.
+    </p>
+    <div class="kanban-preview">
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color: var(--sky-500);">Aberto</span>
+          <span class="col-count">3</span>
+        </div>
+        <div class="kanban-ticket">
+          <div class="kt-num">#2024-0089</div>
+          <div class="kt-title">Vazamento no banheiro 3&ordm; andar</div>
+          <div class="kt-meta">Bloco A &bull; 08/04/2026</div>
+        </div>
+        <div class="kanban-ticket">
+          <div class="kt-num">#2024-0090</div>
+          <div class="kt-title">Lâmpada queimada sala 201</div>
+          <div class="kt-meta">Bloco B &bull; 08/04/2026</div>
+        </div>
+      </div>
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color: var(--amber-500);">Validado</span>
+          <span class="col-count">2</span>
+        </div>
+        <div class="kanban-ticket">
+          <div class="kt-num">#2024-0085</div>
+          <div class="kt-title">Ar-condicionado com ruído</div>
+          <div class="kt-meta">Bloco C &bull; 07/04/2026</div>
+        </div>
+      </div>
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color: var(--violet-500);">Em Atendimento</span>
+          <span class="col-count">5</span>
+        </div>
+        <div class="kanban-ticket">
+          <div class="kt-num">#2024-0078</div>
+          <div class="kt-title">Reparo elevador social</div>
+          <div class="kt-meta">Torre 1 &bull; 05/04/2026</div>
+        </div>
+        <div class="kanban-ticket">
+          <div class="kt-num">#2024-0080</div>
+          <div class="kt-title">Troca de fechadura sala 105</div>
+          <div class="kt-meta">Bloco A &bull; 06/04/2026</div>
+        </div>
+      </div>
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color: var(--teal-500);">Concluído</span>
+          <span class="col-count">4</span>
+        </div>
+        <div class="kanban-ticket">
+          <div class="kt-num">#2024-0071</div>
+          <div class="kt-title">Pintura corredor térreo</div>
+          <div class="kt-meta">Bloco B &bull; 03/04/2026</div>
+        </div>
+      </div>
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span class="col-title" style="color: var(--emerald-500);">Encerrado</span>
+          <span class="col-count">28</span>
+        </div>
+        <div class="kanban-ticket">
+          <div class="kt-num">#2024-0065</div>
+          <div class="kt-title">Manutenção preventiva gerador</div>
+          <div class="kt-meta">Subsolo &bull; 01/04/2026</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 10: SLA ===== -->
+  <div class="slide" data-slide="9">
+    <span class="badge badge-indigo">SLA</span>
+    <h2 class="slide-title gradient-text">Controle de Prazos (SLA)</h2>
+    <p class="slide-subtitle">
+      Prazos de resposta e solução calculados automaticamente conforme a prioridade de cada chamado.
+    </p>
+    <div class="two-col">
+      <div>
+        <p class="section-label">Prazos por Prioridade</p>
+        <div class="sla-bar-container">
+          <div class="sla-item">
+            <div class="sla-header">
+              <span class="sla-label" style="color: var(--red-500);">&#x1F534; Emergencial</span>
+              <span class="sla-value">Resposta: 1h &bull; Solução: 4h (24x7)</span>
+            </div>
+            <div class="sla-track"><div class="sla-fill" style="width: 95%; background: linear-gradient(90deg, var(--red-500), #f97316);"></div></div>
+          </div>
+          <div class="sla-item">
+            <div class="sla-header">
+              <span class="sla-label" style="color: var(--amber-500);">&#x1F7E0; Alta</span>
+              <span class="sla-value">Resposta: 2h &bull; Solução: 8h</span>
+            </div>
+            <div class="sla-track"><div class="sla-fill" style="width: 75%; background: linear-gradient(90deg, var(--amber-500), #f59e0b);"></div></div>
+          </div>
+          <div class="sla-item">
+            <div class="sla-header">
+              <span class="sla-label" style="color: var(--blue-500);">&#x1F535; Normal</span>
+              <span class="sla-value">Resposta: 4h &bull; Solução: 24h</span>
+            </div>
+            <div class="sla-track"><div class="sla-fill" style="width: 50%; background: linear-gradient(90deg, var(--blue-500), var(--indigo-500));"></div></div>
+          </div>
+          <div class="sla-item">
+            <div class="sla-header">
+              <span class="sla-label" style="color: var(--emerald-500);">&#x1F7E2; Baixa</span>
+              <span class="sla-value">Resposta: 8h &bull; Solução: 48h</span>
+            </div>
+            <div class="sla-track"><div class="sla-fill" style="width: 30%; background: linear-gradient(90deg, var(--emerald-500), var(--teal-500));"></div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label">Como funciona</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-indigo">&#x1F4F8;</div>
+            <div><h4>Prazo congelado na classificação</h4><p>O prazo é definido no momento em que o preposto classifica. Alterações posteriores na tabela não afetam chamados já classificados.</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-amber">&#x1F4C5;</div>
+            <div><h4>Respeita expediente e feriados</h4><p>A contagem de prazo considera apenas horário comercial (ex: 08h–18h), fins de semana e feriados cadastrados.</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-red">&#x26A0;</div>
+            <div><h4>Alertas visuais automáticos</h4><p><strong>Atrasado</strong> (prazo estourado), <strong>Próximo do vencimento</strong> (menos de 20% do tempo restante) ou <strong>No prazo</strong>.</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x2699;</div>
+            <div><h4>Totalmente configurável</h4><p>O administrador ajusta prazos, fuso horário, dias úteis e pode liberar atendimento 24x7 para emergências.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 11: RELATÓRIO IMR ===== -->
+  <div class="slide" data-slide="10">
+    <span class="badge badge-indigo">Relatórios</span>
+    <h2 class="slide-title gradient-text">Relatório IMR</h2>
+    <p class="slide-subtitle">
+      Índice de Medição de Resultados — indicadores de desempenho para fiscalização contratual.
+    </p>
+    <div class="grid-3">
+      <div class="card card-accent" style="padding: 28px;">
+        <div class="icon-circle ic-indigo">&#x1F4CA;</div>
+        <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Volume de Chamados</h4>
+        <p style="font-size: 13px; color: var(--slate-400); line-height: 1.5;">Total abertos, encerrados e em andamento no período selecionado.</p>
+      </div>
+      <div class="card card-accent" style="padding: 28px;">
+        <div class="icon-circle ic-emerald">&#x23F1;</div>
+        <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Cumprimento de SLA</h4>
+        <p style="font-size: 13px; color: var(--slate-400); line-height: 1.5;">% de chamados atendidos dentro do prazo, global e por prioridade.</p>
+      </div>
+      <div class="card card-accent" style="padding: 28px;">
+        <div class="icon-circle ic-sky">&#x23F3;</div>
+        <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Tempo Médio</h4>
+        <p style="font-size: 13px; color: var(--slate-400); line-height: 1.5;">Tempo médio de resposta e de resolução dos atendimentos.</p>
+      </div>
+      <div class="card card-accent" style="padding: 28px;">
+        <div class="icon-circle ic-amber">&#x2B50;</div>
+        <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Avaliação dos Usuários</h4>
+        <p style="font-size: 13px; color: var(--slate-400); line-height: 1.5;">Média de satisfação (1–5) e distribuição das notas por período.</p>
+      </div>
+      <div class="card card-accent" style="padding: 28px;">
+        <div class="icon-circle ic-red">&#x1F4C9;</div>
+        <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Penalidades / Glosa</h4>
+        <p style="font-size: 13px; color: var(--slate-400); line-height: 1.5;">Base de cálculo para penalidades contratuais por descumprimento de prazo.</p>
+      </div>
+      <div class="card card-accent" style="padding: 28px;">
+        <div class="icon-circle ic-violet">&#x1F4C1;</div>
+        <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Por Tipo de Serviço</h4>
+        <p style="font-size: 13px; color: var(--slate-400); line-height: 1.5;">Resultados separados: Manutenção Predial, Ar-Condicionado, Elevador, etc.</p>
+      </div>
+    </div>
+    <div style="margin-top: 24px; text-align: center;">
+      <div class="stack-item" style="display: inline-flex; font-size: 12px; color: var(--slate-400);">
+        &#x1F4C6; Filtro por período &bull; Geração automática &bull; Nome do responsável pela emissão
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 12: MÓDULOS ADMIN ===== -->
+  <div class="slide" data-slide="11">
+    <span class="badge badge-indigo">Configurações</span>
+    <h2 class="slide-title gradient-text">Módulos de Configuração</h2>
+    <p class="slide-subtitle">
+      Ferramentas administrativas para manter o sistema alinhado à operação.
+    </p>
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Módulo</th>
+          <th>O que faz</th>
+          <th>Destaques</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="module-name">&#x1F4D6; Catálogo de Serviços</td>
+          <td>Gerencia os tipos de serviço disponíveis para abertura de chamados</td>
+          <td>Organização hierárquica, prioridade padrão e horas estimadas</td>
+        </tr>
+        <tr>
+          <td class="module-name">&#x1F465; Usuários</td>
+          <td>Cadastro de colaboradores, perfis de acesso e unidades</td>
+          <td>Filtros por perfil e unidade; login integrado com rede corporativa</td>
+        </tr>
+        <tr>
+          <td class="module-name">&#x1F3E2; Unidades</td>
+          <td>Prédios, andares e responsáveis por cada localidade</td>
+          <td>Nome, andar, contato do responsável</td>
+        </tr>
+        <tr>
+          <td class="module-name">&#x23F1; SLA</td>
+          <td>Define prazos de resposta e solução para cada nível de prioridade</td>
+          <td>4 prioridades, opção de atendimento 24x7</td>
+        </tr>
+        <tr>
+          <td class="module-name">&#x1F553; Expediente</td>
+          <td>Configura horário de trabalho e fuso horário</td>
+          <td>Horário de início/fim e dias da semana úteis</td>
+        </tr>
+        <tr>
+          <td class="module-name">&#x1F4C5; Feriados</td>
+          <td>Cadastra dias não-úteis considerados no cálculo de prazo</td>
+          <td>Feriados nacionais, estaduais, municipais e institucionais</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== SLIDE 13: NOTIFICAÇÕES ===== -->
+  <div class="slide" data-slide="12">
+    <span class="badge badge-indigo">Comunicação</span>
+    <h2 class="slide-title gradient-text">Notificações em Tempo Real</h2>
+    <p class="slide-subtitle">
+      Cada mudança de status gera uma notificação instantânea para os envolvidos, sem necessidade de atualizar a página.
+    </p>
+    <div class="grid-2" style="max-width: 900px;">
+      <div>
+        <p class="section-label">O que é notificado</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-sky">&#x1F4E9;</div>
+            <div><h4>Novo chamado aberto</h4><p>Prepostos e administradores recebem alerta imediato</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-violet">&#x1F465;</div>
+            <div><h4>Chamado atribuído</h4><p>Técnico designado é notificado na hora</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-amber">&#x1F6E0;</div>
+            <div><h4>Execução registrada</h4><p>Preposto é avisado que o técnico concluiu o serviço</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x2705;</div>
+            <div><h4>Chamado encerrado</h4><p>Solicitante é avisado e pode avaliar o atendimento</p></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label">Como funciona</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-indigo">&#x26A1;</div>
+            <div><h4>Instantâneo</h4><p>A notificação aparece na tela do destinatário em tempo real, sem precisar recarregar</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-teal">&#x1F514;</div>
+            <div><h4>Sino de notificações</h4><p>Ícone no topo da tela mostra contagem de novas notificações e lista as recentes</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-blue">&#x1F465;</div>
+            <div><h4>Direcionada por perfil</h4><p>Cada notificação chega apenas a quem precisa agir: o técnico, o preposto ou o solicitante</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-amber">&#x1F4BE;</div>
+            <div><h4>Nenhuma notificação perdida</h4><p>Se o destinatário estiver offline, a notificação fica salva e aparece quando ele acessar o sistema</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 14: ACESSO & SEGURANÇA ===== -->
+  <div class="slide" data-slide="13">
+    <span class="badge badge-indigo">Acesso</span>
+    <h2 class="slide-title gradient-text">Login e Segurança</h2>
+    <p class="slide-subtitle">
+      Acesso integrado com a rede corporativa, sem necessidade de criar senha separada.
+    </p>
+    <div class="grid-2" style="max-width: 900px;">
+      <div>
+        <p class="section-label">Como o usuário acessa</p>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot ic-indigo">1</div>
+            <div class="timeline-content">
+              <h4>Informa matrícula e senha</h4>
+              <p>Mesma senha que já usa para acessar a rede / computador</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot ic-violet">2</div>
+            <div class="timeline-content">
+              <h4>Validação automática</h4>
+              <p>O sistema verifica a identidade na rede corporativa</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot ic-amber">3</div>
+            <div class="timeline-content">
+              <h4>Primeiro acesso? Tudo automático</h4>
+              <p>Nome, e-mail e unidade são importados da rede — não precisa preencher cadastro</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot ic-emerald">4</div>
+            <div class="timeline-content">
+              <h4>Sessão segura por 7 dias</h4>
+              <p>Não precisa digitar senha toda vez que abrir o sistema</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label">Segurança & Controle de Acesso</p>
+        <div class="col-features">
+          <div class="feature-item">
+            <div class="fi-icon ic-indigo">&#x1F310;</div>
+            <div><h4>Integrado com a rede corporativa</h4><p>Login com a mesma credencial de rede — sem mais uma senha para lembrar</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-emerald">&#x1F464;</div>
+            <div><h4>Cadastro automático</h4><p>No primeiro login, o sistema importa os dados do colaborador automaticamente</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-amber">&#x1F6E1;</div>
+            <div><h4>Acesso por perfil</h4><p>Cada usuário vê apenas as funcionalidades e informações do seu perfil</p></div>
+          </div>
+          <div class="feature-item">
+            <div class="fi-icon ic-red">&#x1F510;</div>
+            <div><h4>Proteção em todas as telas</h4><p>O sistema verifica as permissões do usuário antes de mostrar qualquer informação</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 15: BENEFÍCIOS ===== -->
+  <div class="slide" data-slide="14">
+    <span class="badge badge-indigo">Resultados</span>
+    <h2 class="slide-title gradient-text">Benefícios Esperados</h2>
+    <p class="slide-subtitle">
+      Impacto direto na eficiência operacional e na qualidade da fiscalização contratual.
+    </p>
+    <div class="grid-3">
+      <div class="card card-accent" style="padding: 32px; text-align: center;">
+        <div class="benefit-num gradient-text">100%</div>
+        <div class="benefit-label">Rastreabilidade<br>de chamados</div>
+      </div>
+      <div class="card card-accent" style="padding: 32px; text-align: center;">
+        <div class="benefit-num" style="color: var(--emerald-500);">&#x23F1;</div>
+        <div class="benefit-label">Prazos automatizados<br>com alertas proativos</div>
+      </div>
+      <div class="card card-accent" style="padding: 32px; text-align: center;">
+        <div class="benefit-num" style="color: var(--amber-500);">IMR</div>
+        <div class="benefit-label">Relatório de resultados<br>gerado automaticamente</div>
+      </div>
+      <div class="card card-accent" style="padding: 32px; text-align: center;">
+        <div class="benefit-num" style="color: var(--sky-500);">&#x1F514;</div>
+        <div class="benefit-label">Notificações instantâneas<br>para todos os envolvidos</div>
+      </div>
+      <div class="card card-accent" style="padding: 32px; text-align: center;">
+        <div class="benefit-num" style="color: var(--violet-500);">4</div>
+        <div class="benefit-label">Painéis personalizados<br>por perfil de usuário</div>
+      </div>
+      <div class="card card-accent" style="padding: 32px; text-align: center;">
+        <div class="benefit-num" style="color: var(--teal-500);">&#x1F4DC;</div>
+        <div class="benefit-label">Histórico completo<br>de todas as ações</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 16: ENCERRAMENTO ===== -->
+  <div class="slide" data-slide="15">
+    <div class="cover-bg"></div>
+    <div class="cover-grid"></div>
+    <div class="cover-content">
+      <div class="cover-logo" style="width: 72px; height: 72px; border-radius: 20px; font-size: 32px;">&Sigma;</div>
+      <h2 class="slide-title gradient-text" style="font-size: 48px; margin-bottom: 16px;">Obrigado!</h2>
+      <p class="cover-full-name" style="margin-bottom: 24px;">SIGMA — Sistema Integrado de Gestão de Manutenção</p>
+      <p class="cover-tagline" style="margin-bottom: 40px;">
+        Pronto para transformar a gestão de manutenção predial com controle, transparência e eficiência.
+      </p>
+      <div class="cover-pills">
+        <div class="cover-pill">&#x1F4BB; Demonstração ao vivo</div>
+        <div class="cover-pill">&#x2753; Perguntas</div>
+        <div class="cover-pill">&#x1F4C5; Próximos passos</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- NAVIGATION BAR -->
+<nav class="nav-bar">
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)">&#x2190; Anterior</button>
+  <span class="slide-counter" id="counter">1 / 16</span>
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)">Próximo &#x2192;</button>
+</nav>
+
+<div class="kb-hint">
+  <kbd>&#x2190;</kbd> <kbd>&#x2192;</kbd> ou <kbd>Space</kbd> para navegar
+</div>
+
+<script>
+  let current = 0;
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  function updateSlide() {
+    slides.forEach((s, i) => {
+      s.classList.remove('active', 'prev');
+      if (i === current) s.classList.add('active');
+      else if (i < current) s.classList.add('prev');
+    });
+    counter.textContent = `${current + 1} / ${total}`;
+    progress.style.width = `${((current + 1) / total) * 100}%`;
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === total - 1;
+  }
+
+  function changeSlide(dir) {
+    const next = current + dir;
+    if (next >= 0 && next < total) {
+      current = next;
+      updateSlide();
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); changeSlide(1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); changeSlide(-1); }
+    if (e.key === 'Home') { e.preventDefault(); current = 0; updateSlide(); }
+    if (e.key === 'End') { e.preventDefault(); current = total - 1; updateSlide(); }
+  });
+
+  updateSlide();
+</script>
+
+</body>
+</html>
