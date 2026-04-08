@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-build:
+    name: Lint & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Build Next.js
+        env:
+          MONGODB_URI: mongodb://placeholder:27017/build
+          AUTH_SECRET: build-secret-placeholder
+          SOCKET_INTERNAL_SECRET: build-secret-placeholder
+          SOCKET_EMIT_URL: http://placeholder:3001/emit
+          NEXT_PUBLIC_SOCKET_URL: http://placeholder:3001
+        run: npm run build
+
+  build-socket:
+    name: Build Socket Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: socket-server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: socket-server
+        run: npm ci
+
+      - name: Build
+        working-directory: socket-server
+        run: npm run build
