@@ -207,7 +207,7 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
         return;
       }
       setSubtypes((data.items || []).filter((s) => s.isActive !== false));
-    } catch (err) {
+    } catch {
       setSubtypes([]);
       setSubtypesError('Erro ao carregar especialidades. Tente novamente.');
     }
