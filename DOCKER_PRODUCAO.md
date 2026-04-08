@@ -104,7 +104,23 @@ Acessar: `http://IP_DA_VPS`
 
 ## 2. Atualizar a Aplicação (deploy de atualizações)
 
-Conectar via SSH na VPS e rodar:
+### Automático (CI/CD) — Recomendado
+
+O deploy é automático via GitHub Actions. Basta fazer push na branch `main`:
+
+```bash
+git push origin main
+```
+
+O fluxo é:
+1. **CI** roda no GitHub (lint + build Next.js + build socket-server)
+2. **Deploy** roda no self-hosted runner na VPS (`git pull` + `docker compose up -d --build`)
+
+O self-hosted runner está instalado em `/opt/actions-runner` e roda como o usuário `github-runner`.
+
+### Manual (fallback)
+
+Se necessário, conectar via SSH na VPS e rodar:
 
 ```bash
 cd /opt/severino
@@ -188,6 +204,29 @@ docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js
 | `.env`                     | Variáveis de ambiente (não versionado)                  |
 | `scripts/seed.js`          | Dados iniciais do banco                                 |
 | `deploy.sh`                | Script de setup inicial da VPS                          |
+| `.github/workflows/ci.yml` | CI: lint + build em push/PR na main                    |
+| `.github/workflows/deploy.yml` | CD: deploy via self-hosted runner                  |
+
+---
+
+## 5.1. Self-Hosted Runner (CI/CD)
+
+O deploy automático usa um GitHub Actions self-hosted runner instalado na VPS (rede interna, sem acesso SSH externo).
+
+- **Localização**: `/opt/actions-runner`
+- **Usuário**: `github-runner` (com acesso ao Docker)
+- **Serviço**: `actions.runner.brunoprestesap-gestao_chamados.srvmanutencao-ap`
+
+```bash
+# Verificar status do runner
+sudo systemctl status actions.runner.brunoprestesap-gestao_chamados.srvmanutencao-ap
+
+# Reiniciar
+sudo ./svc.sh stop && sudo ./svc.sh start
+
+# Logs
+journalctl -u actions.runner.brunoprestesap-gestao_chamados.srvmanutencao-ap -f
+```
 
 ---
 
