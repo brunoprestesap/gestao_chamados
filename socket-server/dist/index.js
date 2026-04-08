@@ -6,17 +6,24 @@
  *
  * Em produção: /emit aceita apenas 127.0.0.1 / ::1. Não logue secrets.
  */
+import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-
 import { verifyHandshakeSession } from './auth.js';
-const ALLOWED_EVENTS = new Set(['ticket:assigned']);
+const ALLOWED_EVENTS = new Set([
+    'ticket:assigned',
+    'ticket:new',
+    'ticket:execution_registered',
+    'ticket:closed',
+]);
 const ROOM_REGEX = /^user:[a-zA-Z0-9_-]+$/;
+const MANAGERS_ROOM = 'managers';
 const PORT = Number(process.env.SOCKET_PORT ?? 3001);
 const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET ?? '';
 const CORS_ORIGIN = process.env.SOCKET_CORS_ORIGIN ?? 'http://localhost:3000';
+const TRUSTED_PROXIES = process.env.SOCKET_TRUSTED_PROXIES ?? '';
 const app = express();
 const httpServer = createServer(app);
 app.use(cors({
@@ -38,20 +45,40 @@ io.use(async (socket, next) => {
         return next(new Error('Unauthorized'));
     }
     socket.data.userId = session.userId;
+    socket.data.role = session.role;
     next();
 });
 io.on('connection', (socket) => {
     const userId = socket.data.userId;
+    const role = socket.data.role;
     const room = `user:${userId}`;
     socket.join(room);
-    console.log(`[socket-server] user ${userId} joined room ${room}`);
+    if (role === 'Preposto' || role === 'Admin') {
+        socket.join(MANAGERS_ROOM);
+    }
+    if (process.env.NODE_ENV === 'development') {
+        console.warn(`[socket-server] user ${userId} joined room ${room}`);
+    }
     socket.on('disconnect', () => {
-        console.log(`[socket-server] user ${userId} disconnected`);
+        if (process.env.NODE_ENV === 'development') {
+            console.warn(`[socket-server] user ${userId} disconnected`);
+        }
     });
 });
 function isLocalhost(ip) {
     const normalized = ip.replace(/^::ffff:/, '');
     return normalized === '127.0.0.1' || normalized === '::1';
+}
+function isTrustedSource(ip) {
+    if (isLocalhost(ip))
+        return true;
+    if (!TRUSTED_PROXIES)
+        return false;
+    // Em Docker, aceitar IPs de rede privada quando SOCKET_TRUSTED_PROXIES está configurado
+    const normalized = ip.replace(/^::ffff:/, '');
+    return (normalized.startsWith('10.') ||
+        normalized.startsWith('172.') ||
+        normalized.startsWith('192.168.'));
 }
 app.post('/emit', (req, res) => {
     const secret = req.headers['x-internal-secret'];
@@ -61,7 +88,7 @@ app.post('/emit', (req, res) => {
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ??
         req.socket.remoteAddress ??
         '';
-    if (!isLocalhost(clientIp)) {
+    if (!isTrustedSource(clientIp)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
     const body = req.body;
@@ -74,16 +101,17 @@ app.post('/emit', (req, res) => {
     if (!ALLOWED_EVENTS.has(body.event)) {
         return res.status(400).json({ error: 'Event not allowed' });
     }
-    if (!ROOM_REGEX.test(body.room)) {
+    const roomAllowed = body.room === MANAGERS_ROOM || ROOM_REGEX.test(body.room);
+    if (!roomAllowed) {
         return res.status(400).json({ error: 'Invalid room format' });
     }
     io.to(body.room).emit(body.event, body.payload);
     res.json({ ok: true });
 });
 httpServer.listen(PORT, () => {
-    console.log(`[socket-server] listening on port ${PORT}`);
+    console.warn(`[socket-server] listening on port ${PORT}`);
     if (!INTERNAL_SECRET) {
         console.warn('[socket-server] SOCKET_INTERNAL_SECRET não definido; POST /emit rejeitará todas as requisições.');
     }
-    console.log(`[socket-server] CORS origin: ${CORS_ORIGIN} (troque SOCKET_CORS_ORIGIN para o host real em produção)`);
+    console.warn(`[socket-server] CORS origin: ${CORS_ORIGIN} (troque SOCKET_CORS_ORIGIN para o host real em produção)`);
 });

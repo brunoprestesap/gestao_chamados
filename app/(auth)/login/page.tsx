@@ -14,8 +14,7 @@ import {
   User,
   Wrench,
 } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -31,6 +30,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+
+import { loginAction } from './actions';
 
 const LoginFormSchema = z.object({
   username: z
@@ -178,7 +179,6 @@ function BrandingPanel() {
 /*  Login form                                                         */
 /* ------------------------------------------------------------------ */
 function LoginPageContent() {
-  const router = useRouter();
   const search = useSearchParams();
   const callbackUrl = search.get('callbackUrl') || '/dashboard';
 
@@ -196,25 +196,15 @@ function LoginPageContent() {
     setAuthError(null);
 
     try {
-      const result = await signIn('credentials', {
-        username: values.username,
-        password: values.password,
-        redirect: false,
-      });
+      const result = await loginAction(values.username, values.password, callbackUrl);
 
+      // Se chegou aqui sem throw, houve erro de autenticação
       setSubmitting(false);
-
-      if (result?.error || !result?.ok) {
-        setAuthError('Matrícula ou senha incorretos. Verifique e tente novamente.');
-        return;
+      if (!result.ok) {
+        setAuthError(result.error ?? 'Matrícula ou senha incorretos. Verifique e tente novamente.');
       }
-
-      router.replace(callbackUrl);
-      router.refresh();
-    } catch (error) {
-      setSubmitting(false);
-      setAuthError('Não foi possível acessar. Tente novamente em instantes.');
-      console.error('Erro no login:', error);
+    } catch {
+      // signIn bem-sucedido lança NEXT_REDIRECT — o Next.js trata o redirect automaticamente
     }
   }
 

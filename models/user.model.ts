@@ -12,7 +12,7 @@ const UserSchema = new Schema(
     // email agora pode ser opcional (se quiser usar depois)
     email: { type: String, required: false, trim: true, lowercase: true },
 
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String, required: false },
 
     role: { type: String, enum: USER_ROLES, required: true, default: 'Solicitante' },
 

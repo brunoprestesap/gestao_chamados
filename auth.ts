@@ -5,8 +5,16 @@ import { z } from 'zod';
 
 import { authConfig } from '@/auth.config';
 import { dbConnect } from '@/lib/db';
+import { authenticateWithLdap, isLdapConfigured, type LdapUserProfile } from '@/lib/ldap';
+import { UnitModel } from '@/models/unit';
 import { UserModel } from '@/models/user.model';
 import type { UserRole } from '@/shared/auth/auth.constants';
+
+const AUTH_DEBUG = process.env.LDAP_DEBUG === 'true';
+
+function authDebug(...args: unknown[]) {
+  if (AUTH_DEBUG) console.warn('[Auth:debug]', ...args);
+}
 
 /** Workaround: next-auth@5 beta — default export não é reconhecido como callable pelo TS (moduleResolution: bundler). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,7 +25,7 @@ const CredentialsSchema = z.object({
     .string()
     .min(1)
     .transform((v) => v.trim().toLowerCase()),
-  password: z.string().min(6),
+  password: z.string().min(1),
 });
 
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'session';
@@ -53,15 +61,108 @@ export const { auth, signIn, signOut, handlers } = initAuth({
         password: { label: 'Senha', type: 'password' },
       },
       async authorize(credentials) {
+        console.error('[Auth] ── authorize() chamado ──', {
+          hasCredentials: !!credentials,
+          ldapDebug: process.env.LDAP_DEBUG,
+          ldapUrl: process.env.LDAP_URL ? '(definido)' : '(vazio)',
+          ldapBaseDn: process.env.LDAP_BASE_DN ? '(definido)' : '(vazio)',
+          ldapBindDn: process.env.LDAP_BIND_DN ? '(definido)' : '(vazio)',
+        });
+
         const parsed = CredentialsSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+        if (!parsed.success) {
+          console.error('[Auth] Validação Zod falhou:', parsed.error.flatten());
+          return null;
+        }
+
+        authDebug(`Tentativa de login: "${parsed.data.username}"`);
 
         await dbConnect();
-        const user = await UserModel.findOne({ username: parsed.data.username }).lean();
-        if (!user || !user.isActive || !user.passwordHash) return null;
+        let user = await UserModel.findOne({ username: parsed.data.username }).lean();
 
-        const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
-        if (!ok) return null;
+        authDebug(
+          user
+            ? `Usuário encontrado no MongoDB (id: ${String(user._id)}, role: ${user.role}, ativo: ${user.isActive})`
+            : 'Usuário NÃO encontrado no MongoDB',
+        );
+
+        // ── Fase 1: Tentar autenticação LDAP ──
+        let authenticated = false;
+        let ldapProfile: LdapUserProfile | null = null;
+
+        if (isLdapConfigured()) {
+          authDebug('LDAP configurado, tentando autenticação LDAP...');
+          const ldapResult = await authenticateWithLdap(
+            parsed.data.username,
+            parsed.data.password,
+          );
+
+          authDebug('Resultado LDAP:', ldapResult.status);
+
+          if (ldapResult.status === 'success') {
+            authenticated = true;
+            ldapProfile = ldapResult.profile;
+          } else if (ldapResult.status === 'invalid_credentials') {
+            authDebug('Senha inválida no LDAP → negando acesso (sem fallback local)');
+            return null;
+          }
+          // 'not_found' ou 'error' → continua para autenticação local
+        } else {
+          authDebug('LDAP não configurado, usando apenas autenticação local');
+        }
+
+        // ── Fase 2: Auto-provisionar usuário LDAP ──
+        if (authenticated && !user && ldapProfile) {
+          authDebug('Provisionando novo usuário a partir do LDAP...');
+
+          const unitId = ldapProfile.department
+            ? (
+                await UnitModel.findOne({
+                  name: { $regex: `^${ldapProfile.department}$`, $options: 'i' },
+                  isActive: true,
+                }).lean()
+              )?._id ?? null
+            : null;
+
+          authDebug(
+            ldapProfile.department
+              ? `Department AD: "${ldapProfile.department}" → Unit MongoDB: ${unitId ? String(unitId) : 'não encontrada'}`
+              : 'Sem department no AD',
+          );
+
+          const doc = new UserModel({
+            username: parsed.data.username,
+            name: ldapProfile.displayName ?? parsed.data.username,
+            email: ldapProfile.email ?? undefined,
+            role: 'Solicitante',
+            ...(unitId ? { unitId } : {}),
+            isActive: true,
+          });
+          await doc.save();
+
+          user = await UserModel.findById(doc._id).lean();
+          authDebug(`Usuário provisionado com sucesso (id: ${String(doc._id)})`);
+        }
+
+        // Usuário deve existir e estar ativo
+        if (!user || !user.isActive) {
+          authDebug('Acesso negado: usuário inexistente ou inativo');
+          return null;
+        }
+
+        // ── Fase 3: Fallback para senha local ──
+        if (!authenticated && user.passwordHash) {
+          authDebug('Tentando autenticação local (bcrypt)...');
+          authenticated = await bcrypt.compare(parsed.data.password, user.passwordHash);
+          authDebug(authenticated ? 'Autenticação local OK' : 'Senha local inválida');
+        }
+
+        if (!authenticated) {
+          authDebug('Acesso negado: nenhum método de autenticação teve sucesso');
+          return null;
+        }
+
+        authDebug(`Login bem-sucedido: "${user.username}" (role: ${user.role})`);
 
         return {
           id: String(user._id),

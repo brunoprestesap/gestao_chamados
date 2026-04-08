@@ -65,7 +65,11 @@
       "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
       "Bash(ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new manutencao@172.18.3.48 \"echo 'Conexão OK'\")",
       "Bash(gh run:*)",
-      "Bash(grep -oP '\\\\S+$')"
+      "Bash(grep -oP '\\\\S+$')",
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
+      "Bash(npm install:*)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); console.log\\('SOCKET_INTERNAL_SECRET:', process.env.SOCKET_INTERNAL_SECRET ? 'LOADED' : 'MISSING'\\); console.log\\('AUTH_SECRET:', process.env.AUTH_SECRET ? 'LOADED' : 'MISSING'\\);\")"
     ]
   }
 }
