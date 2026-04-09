@@ -102,6 +102,8 @@ const ChamadoSchema = new Schema(
       createdAt: { type: Date, required: false },
       createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     },
+    // Rastreabilidade — chamado gerado por agendamento recorrente
+    originTemplateId: { type: Schema.Types.ObjectId, ref: 'RecurringTicket', required: false },
     // Execuções do serviço (registro do técnico)
     executions: [
       {
@@ -159,6 +161,7 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   classifiedByUserId?: Types.ObjectId;
   assignedToUserId?: Types.ObjectId;
   assignedByUserId?: Types.ObjectId;
+  originTemplateId?: Types.ObjectId;
   concludedAt?: Date;
   slaPausedAt?: Date;
   totalPausedMinutes?: number;

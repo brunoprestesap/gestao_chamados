@@ -85,7 +85,10 @@
       "Bash(git stash:*)",
       "Bash(grep -v \"^next$\")",
       "Bash(git checkout:*)",
-      "Bash(npx shadcn@latest add skeleton --yes)"
+      "Bash(npx shadcn@latest add skeleton --yes)",
+      "Bash(npm test:*)",
+      "Bash(node -e \"console.log\\('TZ offset \\(mins\\):', new Date\\(\\).getTimezoneOffset\\(\\), 'UTC offset hours:', -new Date\\(\\).getTimezoneOffset\\(\\)/60\\)\")",
+      "Bash(git -C /c/Users/ap20256.JFAP/Desktop/projetos/severino stash)"
     ]
   }
 }

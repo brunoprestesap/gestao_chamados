@@ -139,6 +139,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **ChamadoHistory** — Auditoria de todas as ações
 - **SlaConfig** — Configuração SLA por prioridade
 - **ServiceCatalog/ServiceType/ServiceSubType** — Catálogo hierárquico de serviços (tipos: Manutenção Predial, Ar-Condicionado, Elevador)
+- **RecurringTicket** — Agendamentos recorrentes de chamados (manutenção preventiva), com recorrência semanal/mensal/custom e campo `originTemplateId` no Chamado para rastreabilidade
 - **Notification** — Notificações persistentes (fallback do Socket.IO)
 - **Unit** — Unidades/departamentos
 - **Holiday/BusinessCalendar** — Feriados e horário de expediente
@@ -196,6 +197,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `SOCKET_INTERNAL_SECRET`, `SOCKET_EMIT_URL` — comunicação Next→Socket
 - `NEXT_PUBLIC_SOCKET_URL` — URL pública do socket para o browser
 - `BOOTSTRAP_TOKEN` — protege endpoint `/api/bootstrap`
+- `CRON_SECRET` — protege endpoint `/api/cron/recurring-tickets` (chamados recorrentes)
 
 ### LDAP/AD (opcional — `/.env.local` ou `.env` na VPS)
 
@@ -236,6 +238,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Configurar LDAP/AD       | `lib/ldap.ts` (cliente), `auth.ts` (fluxo authorize), `.env.example` (variáveis), `docker-compose.yml` (repassar env)                                                                                                                                                                   |
 | Alterar fluxo de login   | `app/(auth)/login/actions.ts` (Server Action), `app/(auth)/login/page.tsx` (formulário), `auth.ts` (authorize)                                                                                                                                                                          |
 | Debug autenticação       | `LDAP_DEBUG=true` no `.env`, logs via `docker logs severino-next-app-1 -f`                                                                                                                                                                                                              |
+| Chamados recorrentes     | `models/RecurringTicket.ts`, `shared/chamados/recurring-ticket.schemas.ts`, `lib/recurring-job.ts`, `lib/recurring-utils.ts`, `app/(dashboard)/gestao/recurring/`, `app/api/cron/recurring-tickets/route.ts`                                                                            |
 
 ## CI/CD
 
