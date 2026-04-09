@@ -1,8 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertTriangle, ArrowUpDown, Clock, Wind, Wrench } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, ArrowUpDown, BookmarkPlus, Clock, List, Wind, Wrench } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import {
@@ -19,7 +19,13 @@ import {
   optionalSelectValue,
   SELECT_TRIGGER_FULL_CLASS,
 } from '@/app/(dashboard)/meus-chamados/_components/new-ticket.utils';
+import { SaveAsTemplateDialog } from '@/app/(dashboard)/meus-chamados/_components/SaveAsTemplateDialog';
+import {
+  TemplateManager,
+  TemplateSelector,
+} from '@/app/(dashboard)/meus-chamados/_components/TemplateSelector';
 import { createTicketAction, notifyAttachmentAction } from '@/app/(dashboard)/meus-chamados/actions';
+import { incrementTemplateUsageAction } from '@/app/(dashboard)/meus-chamados/template-actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -56,6 +62,7 @@ import {
   type NewTicketFormValues,
   TIPO_SERVICO_OPTIONS,
 } from '@/shared/chamados/new-ticket.schemas';
+import type { TemplateListItem } from '@/shared/chamados/ticket-template.schemas';
 
 type UnitOption = { id: string; name: string; responsiblePhone?: string };
 type TypeOption = { id: string; name: string };
@@ -92,6 +99,11 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
   const [types, setTypes] = useState<TypeOption[]>([]);
   const [subtypes, setSubtypes] = useState<SubtypeOption[]>([]);
   const [catalogServices, setCatalogServices] = useState<CatalogServiceOption[]>([]);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false);
+  const [templateRefreshKey, setTemplateRefreshKey] = useState(0);
+  const [sessionRole, setSessionRole] = useState('');
+  const [sessionUserId, setSessionUserId] = useState('');
 
   const form = useForm<NewTicketFormInput>({
     resolver: zodResolver(NewTicketFormSchema),
@@ -139,6 +151,10 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
 
       setUnits(normalizedUnits);
       setTypes(typesList.map((t) => ({ id: String(t._id), name: t.name })));
+
+      // Captura role e userId da sessão para templates
+      if (sessionData.role) setSessionRole(sessionData.role);
+      if (sessionData.userId) setSessionUserId(sessionData.userId);
 
       // Preenche unitId automaticamente com a unidade de lotação do usuário
       if (sessionData.unitId) {
@@ -280,6 +296,29 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogServiceId, catalogServices]);
 
+  const handleTemplateSelect = useCallback(
+    (template: TemplateListItem) => {
+      const newValues: Partial<NewTicketFormInput> = {};
+      if (template.unitId) newValues.unitId = template.unitId;
+      if (template.tipoServico)
+        newValues.tipoServico = template.tipoServico as NewTicketFormInput['tipoServico'];
+      if (template.descricao) newValues.descricao = template.descricao;
+      if (template.naturezaAtendimento)
+        newValues.naturezaAtendimento =
+          template.naturezaAtendimento as NewTicketFormInput['naturezaAtendimento'];
+      if (template.grauUrgencia)
+        newValues.grauUrgencia = template.grauUrgencia as NewTicketFormInput['grauUrgencia'];
+      if (template.subtypeId) newValues.subtypeId = template.subtypeId;
+      if (template.catalogServiceId) newValues.catalogServiceId = template.catalogServiceId;
+
+      const current = form.getValues();
+      form.reset({ ...current, ...newValues });
+
+      void incrementTemplateUsageAction(template.id);
+    },
+    [form],
+  );
+
   async function onSubmit(values: NewTicketFormInput) {
     form.clearErrors('root');
     setSubmitting(true);
@@ -344,6 +383,12 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
               'pb-6 sm:gap-5 sm:pb-0',
             )}
           >
+            {/* Template selector */}
+            <TemplateSelector
+              onSelect={handleTemplateSelect}
+              refreshKey={templateRefreshKey}
+            />
+
             <div className={FORM_GRID_CLASS}>
               <FormField
                 control={form.control}
@@ -707,28 +752,83 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
 
             <DialogFooter
               className={cn(
-                'shrink-0 flex-col gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-2 sm:pt-0',
+                'shrink-0 flex-col gap-2 pt-2 sm:flex-row sm:justify-between sm:gap-2 sm:pt-0',
               )}
             >
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={submitting}
-                className="order-2 w-full sm:order-1 sm:w-auto"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="order-1 w-full sm:order-2 sm:w-auto"
-              >
-                {submitting ? 'Abrindo…' : 'Abrir Chamado'}
-              </Button>
+              <div className="order-3 flex gap-2 sm:order-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSaveTemplateOpen(true)}
+                  disabled={submitting}
+                  className="gap-1.5 text-xs text-muted-foreground"
+                  aria-label="Salvar formulário atual como template"
+                >
+                  <BookmarkPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">Salvar como template</span>
+                  <span className="sm:hidden">Template</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setManageTemplatesOpen(true)}
+                  disabled={submitting}
+                  className="gap-1.5 text-xs text-muted-foreground"
+                  aria-label="Gerenciar templates salvos"
+                >
+                  <List className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">Gerenciar</span>
+                </Button>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={submitting}
+                  className="order-2 w-full sm:order-1 sm:w-auto"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="order-1 w-full sm:order-2 sm:w-auto"
+                >
+                  {submitting ? 'Abrindo…' : 'Abrir Chamado'}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </Form>
+
+        {/* Save as template dialog */}
+        <SaveAsTemplateDialog
+          open={saveTemplateOpen}
+          onOpenChange={setSaveTemplateOpen}
+          formValues={form.getValues()}
+          canCreateGlobal={sessionRole === 'Admin' || sessionRole === 'Preposto'}
+          onSaved={() => setTemplateRefreshKey((k) => k + 1)}
+        />
+
+        {/* Manage templates dialog */}
+        <Dialog open={manageTemplatesOpen} onOpenChange={setManageTemplatesOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <List className="h-4 w-4" aria-hidden="true" />
+                Gerenciar Templates
+              </DialogTitle>
+            </DialogHeader>
+            <TemplateManager
+              sessionRole={sessionRole}
+              sessionUserId={sessionUserId}
+              onDeleted={() => setTemplateRefreshKey((k) => k + 1)}
+            />
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
