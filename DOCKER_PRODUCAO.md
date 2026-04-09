@@ -50,10 +50,10 @@ Criar o arquivo `.env` na raiz do projeto:
 AUTH_SECRET=<gerar-com-openssl-rand-base64-32>
 SOCKET_INTERNAL_SECRET=<gerar-com-openssl-rand-base64-32>
 
-# URLs públicas (ajustar para o IP/domínio real da VPS)
-NEXT_PUBLIC_SOCKET_URL=http://IP_DA_VPS
-SOCKET_CORS_ORIGIN=http://IP_DA_VPS
-AUTH_URL=http://IP_DA_VPS
+# URLs públicas
+NEXT_PUBLIC_SOCKET_URL=http://sigma.ap.trf1.gov.br
+SOCKET_CORS_ORIGIN=http://sigma.ap.trf1.gov.br
+AUTH_URL=http://sigma.ap.trf1.gov.br
 
 # Opcionais
 AUTH_COOKIE_NAME=session
@@ -107,7 +107,7 @@ docker compose ps            # Status dos containers
 docker compose logs -f       # Logs em tempo real
 ```
 
-Acessar: `http://IP_DA_VPS`
+Acessar: `http://sigma.ap.trf1.gov.br`
 
 ---
 

@@ -15,7 +15,7 @@ ENV SOCKET_INTERNAL_SECRET="build-secret-placeholder"
 ENV SOCKET_EMIT_URL="http://placeholder:3001/emit"
 
 # NEXT_PUBLIC_* é embutido no bundle JS durante o build — precisa do valor real
-ARG NEXT_PUBLIC_SOCKET_URL="http://localhost:3001"
+ARG NEXT_PUBLIC_SOCKET_URL="http://sigma.ap.trf1.gov.br"
 ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
 
 RUN npm run build

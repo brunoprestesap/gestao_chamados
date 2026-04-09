@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:3001}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://sigma.ap.trf1.gov.br}
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/manutencao
@@ -14,7 +14,7 @@ services:
       SOCKET_INTERNAL_SECRET: ${SOCKET_INTERNAL_SECRET}
       SOCKET_EMIT_URL: http://socket-server:3001/emit
       NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
-      AUTH_URL: ${AUTH_URL:-http://localhost}
+      AUTH_URL: ${AUTH_URL:-http://sigma.ap.trf1.gov.br}
       LDAP_URL: ${LDAP_URL:-}
       LDAP_BASE_DN: ${LDAP_BASE_DN:-}
       LDAP_BIND_DN: ${LDAP_BIND_DN:-}
