@@ -30,6 +30,7 @@ import {
 } from '@/app/(dashboard)/meus-chamados/_constants';
 import { AttachmentGallery } from '@/app/(dashboard)/meus-chamados/[id]/_components/AttachmentGallery';
 import { CancelTicketDialog } from '@/app/(dashboard)/meus-chamados/[id]/_components/CancelTicketDialog';
+import { CommentThread } from '@/app/(dashboard)/meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { PageHeader } from '@/components/dashboard/header';
@@ -219,6 +220,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
   const [isOwner, setIsOwner] = useState(false);
   const [canManageChamado, setCanManageChamado] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -254,6 +256,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
         const sessionData = await sessionRes.json().catch(() => ({}));
         setIsOwner(String(chamadoItem.solicitanteId) === sessionData.userId);
         setCanManageChamado(sessionData.role === 'Admin' || sessionData.role === 'Preposto');
+        setUserRole(sessionData.role ?? null);
       }
     } catch (error) {
       console.error('Erro ao buscar chamado:', error);
@@ -524,6 +527,11 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
               <HistoryTimeline chamadoId={chamado._id} refreshTrigger={historyRefreshTrigger} />
             </CardContent>
           </Card>
+
+          {/* Comentários */}
+          {userRole && (
+            <CommentThread chamadoId={chamado._id} userRole={userRole} />
+          )}
 
           {/* Attachments card */}
           <Card className="group relative overflow-hidden rounded-2xl border-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/4">

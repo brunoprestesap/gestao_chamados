@@ -14,6 +14,7 @@ import {
   STATUS_ICONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
 import { AttachmentGallery } from '@/app/(dashboard)/meus-chamados/[id]/_components/AttachmentGallery';
+import { CommentThread } from '@/app/(dashboard)/meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { PageHeader } from '@/components/dashboard/header';
@@ -70,6 +71,7 @@ export default function ChamadoAtribuidoDetailPage({
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
   const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -82,7 +84,15 @@ export default function ChamadoAtribuidoDetailPage({
   async function fetchChamado(id: string) {
     setLoading(true);
     try {
-      const res = await fetch(`/api/chamados-atribuidos/${id}`, { cache: 'no-store' });
+      const [res, sessionRes] = await Promise.all([
+        fetch(`/api/chamados-atribuidos/${id}`, { cache: 'no-store' }),
+        fetch('/api/session', { cache: 'no-store' }),
+      ]);
+
+      if (sessionRes.ok) {
+        const sessionData = await sessionRes.json().catch(() => ({}));
+        if (sessionData.role) setUserRole(sessionData.role);
+      }
 
       if (res.status === 401) {
         router.replace('/login?callbackUrl=/chamados-atribuidos');
@@ -240,6 +250,11 @@ export default function ChamadoAtribuidoDetailPage({
               <HistoryTimeline chamadoId={chamado._id} refreshTrigger={historyRefreshTrigger} />
             </CardContent>
           </Card>
+
+          {/* Comentários */}
+          {userRole && (
+            <CommentThread chamadoId={chamado._id} userRole={userRole} />
+          )}
 
           {/* Anexos */}
           <Card className="overflow-hidden">
