@@ -39,9 +39,18 @@ function getClosedTicketUrl(payload: TicketClosedPayload): string {
   return `/meus-chamados/${payload.ticketId}`;
 }
 
+function emitNotificationEvent() {
+  window.dispatchEvent(new CustomEvent('notification:new'));
+}
+
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const routerRef = useRef(router);
   const socketRef = useRef<TypedSocket | null>(null);
+
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
 
   useEffect(() => {
     if (socketRef.current != null) {
@@ -59,13 +68,13 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
     socket.on('connect', () => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[RealtimeProvider] connected');
+        console.warn('[RealtimeProvider] connected');
       }
     });
 
     socket.on('disconnect', (reason) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[RealtimeProvider] disconnect', reason);
+        console.warn('[RealtimeProvider] disconnect', reason);
       }
     });
 
@@ -95,10 +104,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         action: {
           label: 'Abrir',
           onClick: () => {
-            router.push(url);
+            routerRef.current.push(url);
           },
         },
       });
+      emitNotificationEvent();
     });
 
     socket.on('ticket:new', (payload: TicketNewPayload) => {
@@ -121,10 +131,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         action: {
           label: 'Ver gestão',
           onClick: () => {
-            router.push(url);
+            routerRef.current.push(url);
           },
         },
       });
+      emitNotificationEvent();
     });
 
     socket.on('ticket:execution_registered', (payload: TicketExecutionRegisteredPayload) => {
@@ -147,10 +158,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         action: {
           label: 'Ver chamado',
           onClick: () => {
-            router.push(url);
+            routerRef.current.push(url);
           },
         },
       });
+      emitNotificationEvent();
     });
 
     socket.on('ticket:closed', (payload: TicketClosedPayload) => {
@@ -173,10 +185,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         action: {
           label: 'Ver chamado',
           onClick: () => {
-            router.push(url);
+            routerRef.current.push(url);
           },
         },
       });
+      emitNotificationEvent();
     });
 
     socketRef.current = socket;
@@ -184,7 +197,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [router]);
+  }, []);
 
   return <>{children}</>;
 }

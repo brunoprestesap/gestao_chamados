@@ -81,7 +81,10 @@
       "Read(//tmp/**)",
       "Bash(node -e ':*)",
       "Bash(ls -la /c/Users/ap20256.JFAP/Desktop/projetos/severino/.env*)",
-      "Bash(npm ci:*)"
+      "Bash(npm ci:*)",
+      "Bash(git stash:*)",
+      "Bash(grep -v \"^next$\")",
+      "Bash(git checkout:*)"
     ]
   }
 }

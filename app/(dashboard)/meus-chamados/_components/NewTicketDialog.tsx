@@ -19,7 +19,7 @@ import {
   optionalSelectValue,
   SELECT_TRIGGER_FULL_CLASS,
 } from '@/app/(dashboard)/meus-chamados/_components/new-ticket.utils';
-import { createTicketAction } from '@/app/(dashboard)/meus-chamados/actions';
+import { createTicketAction, notifyAttachmentAction } from '@/app/(dashboard)/meus-chamados/actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FileUpload, uploadDeferredFiles } from '@/components/ui/file-upload';
 import {
   Form,
   FormControl,
@@ -86,6 +87,7 @@ const defaultValues = {
 
 export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [types, setTypes] = useState<TypeOption[]>([]);
   const [subtypes, setSubtypes] = useState<SubtypeOption[]>([]);
@@ -293,11 +295,31 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
       catalogServiceId: values.catalogServiceId?.trim() || undefined,
     };
     const result = await createTicketAction(payload);
-    setSubmitting(false);
     if (!result.ok) {
+      setSubmitting(false);
       form.setError('root', { message: result.error });
       return;
     }
+
+    // Upload pending files (fire-and-forget, don't block dialog close)
+    if (pendingFiles.length > 0) {
+      const totalFiles = pendingFiles.length;
+      void uploadDeferredFiles(pendingFiles, result.ticketId, 'abertura').then((uploaded) => {
+        for (const file of uploaded) {
+          void notifyAttachmentAction({
+            chamadoId: result.ticketId,
+            attachmentId: file._id,
+          });
+        }
+        if (uploaded.length < totalFiles) {
+          // Some files failed — user can add them on the detail page
+          console.warn(`[NewTicketDialog] ${totalFiles - uploaded.length} anexos falharam no upload`);
+        }
+      });
+      setPendingFiles([]);
+    }
+
+    setSubmitting(false);
     onOpenChange(false);
     onSuccess?.();
   }
@@ -662,6 +684,20 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                     </FormItem>
                   );
                 }}
+              />
+            </div>
+
+            {/* Anexos */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                Anexos{' '}
+                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+              </p>
+              <FileUpload
+                mode="deferred"
+                context="abertura"
+                onFilesChange={setPendingFiles}
+                maxFiles={20}
               />
             </div>
 

@@ -93,15 +93,20 @@ export function EncerrarChamadoDialog({ open, onOpenChange, chamadoId, onSuccess
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md" showCloseButton>
-        <DialogHeader>
+      <DialogContent
+        className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-4 overflow-y-auto p-4 sm:max-w-md sm:p-6 [&>button]:right-3 [&>button]:top-3 sm:[&>button]:right-4 sm:[&>button]:top-4"
+        showCloseButton
+      >
+        <DialogHeader className="pr-8 sm:pr-0">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
               <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <DialogTitle>Encerrar Chamado</DialogTitle>
-              <DialogDescription className="mt-1">
+              <DialogTitle className="text-base font-semibold sm:text-lg">
+                Encerrar Chamado
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-xs sm:text-sm">
                 Confirma o encerramento deste chamado? Esta ação finalizará o atendimento.
               </DialogDescription>
             </div>
@@ -109,7 +114,7 @@ export function EncerrarChamadoDialog({ open, onOpenChange, chamadoId, onSuccess
         </DialogHeader>
 
         {error && (
-          <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-xl border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive sm:text-sm">
             {error}
           </div>
         )}
@@ -134,18 +139,19 @@ export function EncerrarChamadoDialog({ open, onOpenChange, chamadoId, onSuccess
               )}
             />
 
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="flex flex-col gap-2 pt-2 pb-[env(safe-area-inset-bottom,0)] sm:flex-row sm:justify-end sm:gap-2 sm:pt-0 sm:pb-0">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
                 disabled={submitting}
+                className="order-2 w-full min-h-11 touch-manipulation sm:order-1 sm:w-auto sm:min-h-9"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                className="order-1 w-full min-h-11 touch-manipulation bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 sm:order-2 sm:w-auto sm:min-h-9"
                 disabled={submitting}
               >
                 {submitting ? 'Encerrando…' : 'Encerrar'}

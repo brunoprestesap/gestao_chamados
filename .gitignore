@@ -48,3 +48,6 @@ socket-server/dist/
 
 # backups
 /backups/
+
+# uploads (runtime, não versionar)
+/data/uploads/

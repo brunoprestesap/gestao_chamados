@@ -164,12 +164,30 @@ describe('AssignTicketSchema', () => {
 // ── ReassignTicketSchema ─────────────────────────────────────────
 
 describe('ReassignTicketSchema', () => {
-  it('aceita input válido', () => {
+  it('aceita input válido com justificativa', () => {
+    const result = ReassignTicketSchema.safeParse({
+      ticketId: VALID_ID,
+      preferredTechnicianId: VALID_ID,
+      notes: 'Justificativa válida para reatribuição',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita notes ausente (obrigatório)', () => {
     const result = ReassignTicketSchema.safeParse({
       ticketId: VALID_ID,
       preferredTechnicianId: VALID_ID,
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita notes com menos de 10 caracteres', () => {
+    const result = ReassignTicketSchema.safeParse({
+      ticketId: VALID_ID,
+      preferredTechnicianId: VALID_ID,
+      notes: '123456789',
+    });
+    expect(result.success).toBe(false);
   });
 
   it('rejeita notes > 2000 chars', () => {

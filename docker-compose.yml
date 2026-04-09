@@ -22,6 +22,8 @@ services:
       LDAP_USER_SEARCH_FILTER: ${LDAP_USER_SEARCH_FILTER:-}
       LDAP_TLS_REJECT_UNAUTHORIZED: ${LDAP_TLS_REJECT_UNAUTHORIZED:-true}
       LDAP_DEBUG: ${LDAP_DEBUG:-false}
+    volumes:
+      - ./uploads:/app/data/uploads
     depends_on:
       mongodb:
         condition: service_started

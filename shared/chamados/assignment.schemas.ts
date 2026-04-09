@@ -12,7 +12,7 @@ export type AssignTicketInput = z.infer<typeof AssignTicketSchema>;
 export const ReassignTicketSchema = z.object({
   ticketId: objectId,
   preferredTechnicianId: objectId,
-  notes: z.string().max(2000).optional(),
+  notes: z.string().min(10, 'Justificativa deve ter no mínimo 10 caracteres').max(2000),
 });
 
 export type ReassignTicketInput = z.infer<typeof ReassignTicketSchema>;

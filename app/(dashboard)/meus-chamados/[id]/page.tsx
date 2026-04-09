@@ -10,6 +10,7 @@ import {
   AvaliarChamadoDialog,
 } from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
 import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
+import { AttachmentGallery } from '@/app/(dashboard)/meus-chamados/[id]/_components/AttachmentGallery';
 import { CancelTicketDialog } from '@/app/(dashboard)/meus-chamados/[id]/_components/CancelTicketDialog';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
@@ -434,6 +435,16 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
             </CardHeader>
             <CardContent className="min-w-0">
               <HistoryTimeline chamadoId={chamado._id} refreshTrigger={historyRefreshTrigger} />
+            </CardContent>
+          </Card>
+
+          {/* Anexos */}
+          <Card className="overflow-hidden">
+            <CardContent className="pt-5">
+              <AttachmentGallery
+                chamadoId={chamado._id}
+                canUpload={chamado.status !== 'encerrado' && chamado.status !== 'cancelado'}
+              />
             </CardContent>
           </Card>
         </div>

@@ -5,6 +5,10 @@ const NOTIFICATION_TYPES = [
   'ticket:new',
   'ticket:execution_registered',
   'ticket:closed',
+  'ticket:comment_added',
+  'ticket:attachment_added',
+  'ticket:paused',
+  'ticket:resumed',
 ] as const;
 
 const NotificationSchema = new Schema(

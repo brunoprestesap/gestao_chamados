@@ -4,14 +4,21 @@ import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
-import { requireSession } from '@/lib/dal';
+import { canManage, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { emitToRoom } from '@/lib/realtime-emit';
+import { AttachmentModel } from '@/models/Attachment';
 import { ChamadoModel } from '@/models/Chamado';
+import { ChamadoCommentModel } from '@/models/ChamadoComment';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
+import {
+  type NotifyAttachmentInput,
+  NotifyAttachmentSchema,
+} from '@/shared/chamados/attachment.schemas';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
+import { type AddCommentInput, AddCommentSchema } from '@/shared/chamados/comment.schemas';
 import {
   type SubmitEvaluationInput,
   SubmitEvaluationSchema,
@@ -37,7 +44,7 @@ function generateTitulo(data: NewTicketFormValues): string {
  */
 export async function createTicketAction(
   data: NewTicketFormValues,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; ticketId: string } | { ok: false; error: string }> {
   try {
     const session = await requireSession();
     await dbConnect();
@@ -51,8 +58,6 @@ export async function createTicketAction(
     if (!ticket_number || ticket_number.trim() === '') {
       throw new Error('Falha ao gerar número do ticket');
     }
-
-    console.log('Gerando ticket_number:', ticket_number);
 
     // Prepara os dados do chamado (natureza SOLICITADA apenas informativa)
     const chamadoData = {
@@ -77,12 +82,6 @@ export async function createTicketAction(
       status: 'aberto' as const,
       solicitanteId: new Types.ObjectId(session.userId),
     };
-
-    console.log('Dados do chamado a serem criados:', {
-      ...chamadoData,
-      solicitanteId: String(chamadoData.solicitanteId),
-      unitId: String(chamadoData.unitId),
-    });
 
     // Cria o documento do chamado
     const doc = await ChamadoModel.create(chamadoData);
@@ -137,12 +136,7 @@ export async function createTicketAction(
     revalidatePath('/meus-chamados');
     revalidatePath('/gestao');
 
-    console.log('Chamado criado com sucesso:', {
-      _id: doc._id,
-      ticket_number: doc.ticket_number,
-    });
-
-    return { ok: true };
+    return { ok: true, ticketId: String(doc._id) };
   } catch (error) {
     console.error('Erro ao criar chamado:', error);
     if (error instanceof Error) {
@@ -239,6 +233,302 @@ export async function submitTicketEvaluationAction(
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao enviar avaliação. Tente novamente.',
+    };
+  }
+}
+
+/**
+ * Adiciona um comentário a um chamado.
+ * Regras de acesso: solicitante, técnico atribuído, Admin ou Preposto.
+ * Comentários internos só podem ser criados por Técnico, Admin ou Preposto.
+ */
+export async function addCommentAction(
+  raw: AddCommentInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const session = await requireSession();
+    const parsed = AddCommentSchema.safeParse(raw);
+    if (!parsed.success) {
+      const flat = parsed.error.flatten().fieldErrors;
+      const msg =
+        flat.chamadoId?.[0] ?? flat.content?.[0] ?? flat.visibility?.[0] ?? 'Dados inválidos.';
+      return { ok: false, error: msg };
+    }
+
+    const { chamadoId, content, visibility } = parsed.data;
+    await dbConnect();
+
+    const chamado = await ChamadoModel.findById(chamadoId)
+      .select('solicitanteId assignedToUserId ticket_number titulo')
+      .lean();
+    if (!chamado) {
+      return { ok: false, error: 'Chamado não encontrado.' };
+    }
+
+    const isManager = canManage(session.role);
+    const isSolicitante = String(chamado.solicitanteId) === session.userId;
+    const isAssignedTech =
+      chamado.assignedToUserId && String(chamado.assignedToUserId) === session.userId;
+
+    if (!isSolicitante && !isAssignedTech && !isManager) {
+      return { ok: false, error: 'Você não tem permissão para comentar neste chamado.' };
+    }
+
+    // Solicitante puro (sem ser também gestor ou técnico atribuído) sempre cria público
+    const isPureRequester = isSolicitante && !isManager && !isAssignedTech;
+    const finalVisibility = isPureRequester ? 'publico' : visibility;
+
+    const userId = new Types.ObjectId(session.userId);
+
+    await ChamadoCommentModel.create({
+      chamadoId: new Types.ObjectId(chamadoId),
+      userId,
+      content,
+      visibility: finalVisibility,
+    });
+
+    // Registra no histórico
+    const preview = content.length > 100 ? content.slice(0, 100) + '…' : content;
+    await ChamadoHistoryModel.create({
+      chamadoId: new Types.ObjectId(chamadoId),
+      userId,
+      action: 'comentario',
+      observacoes: preview,
+    });
+
+    // Notificação via Socket.IO (fire-and-forget, em paralelo)
+    const user = await UserModel.findById(session.userId).select('name').lean();
+    const now = new Date().toISOString();
+    const payload = {
+      ticketId: chamadoId,
+      ticketNumber: chamado.ticket_number ?? undefined,
+      title: chamado.titulo ?? undefined,
+      commentBy: { id: session.userId, name: user?.name ?? undefined },
+      visibility: finalVisibility as 'publico' | 'interno',
+      at: now,
+    };
+
+    const notifyTitle = chamado.ticket_number
+      ? `Novo comentário no chamado #${chamado.ticket_number}`
+      : 'Novo comentário no chamado';
+
+    const emitPromises: Promise<unknown>[] = [];
+    const notificationRecipients: Types.ObjectId[] = [];
+
+    // Notificar solicitante (se não for o autor e se o comentário for público)
+    const solicitanteId = chamado.solicitanteId ? String(chamado.solicitanteId) : null;
+    if (finalVisibility === 'publico' && solicitanteId && solicitanteId !== session.userId) {
+      emitPromises.push(
+        emitToRoom(`user:${solicitanteId}`, 'ticket:comment_added', payload),
+      );
+      notificationRecipients.push(new Types.ObjectId(solicitanteId));
+    }
+
+    // Notificar técnico atribuído (se existir e não for o autor)
+    const assignedId = chamado.assignedToUserId ? String(chamado.assignedToUserId) : null;
+    if (assignedId && assignedId !== session.userId) {
+      emitPromises.push(
+        emitToRoom(`user:${assignedId}`, 'ticket:comment_added', payload),
+      );
+      notificationRecipients.push(new Types.ObjectId(assignedId));
+    }
+
+    // Notificar gestores para comentários públicos (se o autor não for gestor)
+    if (finalVisibility === 'publico' && !isManager) {
+      emitPromises.push(emitToRoom('managers', 'ticket:comment_added', payload));
+      // Persistir notificações para gestores
+      const managers = await UserModel.find({
+        role: { $in: ['Preposto', 'Admin'] },
+        isActive: true,
+      })
+        .select('_id')
+        .lean();
+      for (const m of managers) {
+        if (String(m._id) !== session.userId) {
+          notificationRecipients.push(m._id as Types.ObjectId);
+        }
+      }
+    }
+
+    // Socket emit em paralelo (fire-and-forget)
+    await Promise.allSettled(emitPromises);
+
+    // Persistir notificações no MongoDB como fallback
+    if (notificationRecipients.length > 0) {
+      const uniqueIds = [...new Set(notificationRecipients.map(String))];
+      await Promise.allSettled(
+        uniqueIds.map((recipientId) =>
+          NotificationModel.create({
+            userId: new Types.ObjectId(recipientId),
+            type: 'ticket:comment_added',
+            title: notifyTitle,
+            body: preview,
+            data: payload,
+            readAt: null,
+          }),
+        ),
+      );
+    }
+
+    revalidatePath(`/meus-chamados/${chamadoId}`);
+    revalidatePath(`/chamados-atribuidos/${chamadoId}`);
+    revalidatePath('/gestao');
+
+    return { ok: true };
+  } catch (e) {
+    console.error('addCommentAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao adicionar comentário. Tente novamente.',
+    };
+  }
+}
+
+/**
+ * Registra um attachment no histórico do chamado e emite notificação.
+ * Chamado após o upload via API /api/upload ter sido bem-sucedido.
+ * Busca dados do attachment no DB (não confia em dados do cliente).
+ */
+export async function notifyAttachmentAction(
+  raw: NotifyAttachmentInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const session = await requireSession();
+    const parsed = NotifyAttachmentSchema.safeParse(raw);
+    if (!parsed.success) {
+      const flat = parsed.error.flatten().fieldErrors;
+      const msg = flat.chamadoId?.[0] ?? flat.attachmentId?.[0] ?? 'Dados inválidos.';
+      return { ok: false, error: msg };
+    }
+
+    const { chamadoId, attachmentId } = parsed.data;
+    await dbConnect();
+
+    // Busca o attachment no banco — dados confiáveis do servidor
+    const attachment = await AttachmentModel.findOne({
+      _id: attachmentId,
+      chamadoId: new Types.ObjectId(chamadoId),
+    }).lean();
+
+    if (!attachment) {
+      return { ok: false, error: 'Anexo não encontrado.' };
+    }
+
+    const chamado = await ChamadoModel.findById(chamadoId)
+      .select('solicitanteId assignedToUserId ticket_number titulo')
+      .lean();
+
+    if (!chamado) {
+      return { ok: false, error: 'Chamado não encontrado.' };
+    }
+
+    // Verificar acesso: apenas solicitante, técnico atribuído ou gestor
+    const isSolicitante = String(chamado.solicitanteId) === session.userId;
+    const isAssignedTech =
+      chamado.assignedToUserId && String(chamado.assignedToUserId) === session.userId;
+    const isManager = canManage(session.role);
+
+    if (!isSolicitante && !isAssignedTech && !isManager) {
+      return { ok: false, error: 'Sem permissão para registrar anexo neste chamado.' };
+    }
+
+    const userId = new Types.ObjectId(session.userId);
+    const originalName = attachment.originalName;
+
+    // Registra no histórico
+    await ChamadoHistoryModel.create({
+      chamadoId: new Types.ObjectId(chamadoId),
+      userId,
+      action: 'anexo',
+      observacoes: `Anexo adicionado: ${originalName}`,
+    });
+
+    // Notificação via Socket.IO (fire-and-forget)
+    const user = await UserModel.findById(session.userId).select('name').lean();
+    const payload = {
+      ticketId: chamadoId,
+      ticketNumber: chamado.ticket_number ?? undefined,
+      title: chamado.titulo ?? undefined,
+      addedBy: { id: session.userId, name: user?.name ?? undefined },
+      filename: originalName,
+      mimeType: attachment.mimeType,
+      at: new Date().toISOString(),
+    };
+
+    const emitPromises: Promise<unknown>[] = [];
+
+    // Notificar solicitante se não for o autor
+    const solicitanteId = chamado.solicitanteId ? String(chamado.solicitanteId) : null;
+    if (solicitanteId && solicitanteId !== session.userId) {
+      emitPromises.push(
+        emitToRoom(`user:${solicitanteId}`, 'ticket:attachment_added', payload),
+      );
+    }
+
+    // Notificar técnico atribuído se não for o autor
+    const assignedId = chamado.assignedToUserId ? String(chamado.assignedToUserId) : null;
+    if (assignedId && assignedId !== session.userId) {
+      emitPromises.push(
+        emitToRoom(`user:${assignedId}`, 'ticket:attachment_added', payload),
+      );
+    }
+
+    // Notificar gestores
+    if (!isManager) {
+      emitPromises.push(emitToRoom('managers', 'ticket:attachment_added', payload));
+    }
+
+    await Promise.allSettled(emitPromises);
+
+    // Persistir notificações
+    const notifyTitle = chamado.ticket_number
+      ? `Novo anexo no chamado #${chamado.ticket_number}`
+      : 'Novo anexo no chamado';
+
+    const recipients: string[] = [];
+    if (solicitanteId && solicitanteId !== session.userId) recipients.push(solicitanteId);
+    if (assignedId && assignedId !== session.userId) recipients.push(assignedId);
+
+    if (!isManager) {
+      const managers = await UserModel.find({
+        role: { $in: ['Preposto', 'Admin'] },
+        isActive: true,
+      })
+        .select('_id')
+        .lean();
+      for (const m of managers) {
+        if (String(m._id) !== session.userId) {
+          recipients.push(String(m._id));
+        }
+      }
+    }
+
+    const uniqueRecipients = [...new Set(recipients)];
+    if (uniqueRecipients.length > 0) {
+      await Promise.allSettled(
+        uniqueRecipients.map((recipientId) =>
+          NotificationModel.create({
+            userId: new Types.ObjectId(recipientId),
+            type: 'ticket:attachment_added',
+            title: notifyTitle,
+            body: `Arquivo: ${originalName}`,
+            data: payload,
+            readAt: null,
+          }),
+        ),
+      );
+    }
+
+    revalidatePath(`/meus-chamados/${chamadoId}`);
+    revalidatePath(`/chamados-atribuidos/${chamadoId}`);
+    revalidatePath('/gestao');
+
+    return { ok: true };
+  } catch (e) {
+    console.error('notifyAttachmentAction:', e);
+    return {
+      ok: false,
+      error: 'Erro ao registrar anexo. Tente novamente.',
     };
   }
 }

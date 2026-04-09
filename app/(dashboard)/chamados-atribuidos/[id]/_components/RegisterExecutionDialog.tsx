@@ -10,6 +10,7 @@ import {
   registerExecutionAction,
   type RegisterExecutionResult,
 } from '@/app/(dashboard)/chamados-atribuidos/actions';
+import { notifyAttachmentAction } from '@/app/(dashboard)/meus-chamados/actions';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FileUpload, type UploadedFile } from '@/components/ui/file-upload';
 import {
   Form,
   FormControl,
@@ -194,15 +196,23 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
             <FormField
               control={form.control}
               name="evidencePhotos"
-              render={() => (
+              render={({ field }) => (
                 <FormItem>
                   <FormLabel>Fotos de Evidência</FormLabel>
                   <FormControl>
-                    <div className="flex min-h-[100px] items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 p-4">
-                      <p className="text-center text-sm text-muted-foreground">
-                        Área para upload de fotos (em breve)
-                      </p>
-                    </div>
+                    <FileUpload
+                      chamadoId={chamado._id}
+                      context="execucao"
+                      mode="immediate"
+                      onUploadComplete={(file: UploadedFile) => {
+                        const current = field.value ?? [];
+                        field.onChange([...current, file.url]);
+                        void notifyAttachmentAction({
+                          chamadoId: chamado._id,
+                          attachmentId: file._id,
+                        });
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

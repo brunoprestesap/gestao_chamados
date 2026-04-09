@@ -39,11 +39,56 @@ export interface TicketClosedPayload {
   at: string;
 }
 
+/** Payload quando alguém adiciona um comentário ao chamado. */
+export interface TicketCommentAddedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  commentBy: { id: string; name?: string };
+  visibility: 'publico' | 'interno';
+  at: string;
+}
+
+/** Payload quando alguém adiciona um anexo ao chamado. */
+export interface TicketAttachmentAddedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  addedBy: { id: string; name?: string };
+  filename: string;
+  mimeType: string;
+  at: string;
+}
+
+/** Payload quando técnico pausa SLA aguardando solicitante. */
+export interface TicketPausedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  pausedBy: { id: string; name?: string };
+  reason: string;
+  at: string;
+}
+
+/** Payload quando atendimento é retomado após aguardar solicitante. */
+export interface TicketResumedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  resumedBy: { id: string; name?: string };
+  pausedMinutes: number;
+  at: string;
+}
+
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
   'ticket:new': (payload: TicketNewPayload) => void;
   'ticket:execution_registered': (payload: TicketExecutionRegisteredPayload) => void;
   'ticket:closed': (payload: TicketClosedPayload) => void;
+  'ticket:comment_added': (payload: TicketCommentAddedPayload) => void;
+  'ticket:attachment_added': (payload: TicketAttachmentAddedPayload) => void;
+  'ticket:paused': (payload: TicketPausedPayload) => void;
+  'ticket:resumed': (payload: TicketResumedPayload) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

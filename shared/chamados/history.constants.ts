@@ -10,6 +10,8 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'execucao_registrada',
   'encerramento',
   'avaliado',
+  'aguardando_solicitante',
+  'retomada_atendimento',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
@@ -26,4 +28,6 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   execucao_registrada: 'Execução do Serviço Registrada',
   encerramento: 'Encerramento do Chamado',
   avaliado: 'Avaliado',
+  aguardando_solicitante: 'Aguardando Solicitante',
+  retomada_atendimento: 'Atendimento Retomado',
 };

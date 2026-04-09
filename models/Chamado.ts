@@ -86,6 +86,9 @@ const ChamadoSchema = new Schema(
     reassignedAt: { type: Date, required: false },
     reassignedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     reassignmentNotes: { type: String, default: '', trim: true },
+    // Pausa SLA — aguardando solicitante
+    slaPausedAt: { type: Date, required: false },
+    totalPausedMinutes: { type: Number, default: 0 },
     // Conclusão (data/hora em que o chamado foi concluído)
     concludedAt: { type: Date, required: false },
     // Encerramento (Admin) — após status Concluído
@@ -122,6 +125,7 @@ const ChamadoSchema = new Schema(
       resolvedAt: { type: Date, required: false },
       responseBreachedAt: { type: Date, required: false },
       resolutionBreachedAt: { type: Date, required: false },
+      pausedMinutes: { type: Number, default: 0 },
       computedAt: { type: Date, required: false },
       configVersion: { type: String, required: false, trim: true },
     },
@@ -156,6 +160,8 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   assignedToUserId?: Types.ObjectId;
   assignedByUserId?: Types.ObjectId;
   concludedAt?: Date;
+  slaPausedAt?: Date;
+  totalPausedMinutes?: number;
   executions?: ExecutionDoc[];
 };
 

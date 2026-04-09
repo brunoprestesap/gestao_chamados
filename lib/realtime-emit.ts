@@ -6,9 +6,13 @@
 
 import type {
   TicketAssignedPayload,
+  TicketAttachmentAddedPayload,
   TicketClosedPayload,
+  TicketCommentAddedPayload,
   TicketExecutionRegisteredPayload,
   TicketNewPayload,
+  TicketPausedPayload,
+  TicketResumedPayload,
 } from '@/shared/socket';
 
 const EMIT_URL = process.env.SOCKET_EMIT_URL ?? 'http://127.0.0.1:3001/emit';
@@ -19,7 +23,11 @@ export type AllowedEmitEvents =
   | 'ticket:assigned'
   | 'ticket:new'
   | 'ticket:execution_registered'
-  | 'ticket:closed';
+  | 'ticket:closed'
+  | 'ticket:comment_added'
+  | 'ticket:attachment_added'
+  | 'ticket:paused'
+  | 'ticket:resumed';
 
 /**
  * Envia evento para uma room no socket-server.
@@ -31,9 +39,13 @@ export async function emitToRoom(
   event: AllowedEmitEvents,
   payload:
     | TicketAssignedPayload
+    | TicketAttachmentAddedPayload
+    | TicketCommentAddedPayload
     | TicketNewPayload
     | TicketExecutionRegisteredPayload
-    | TicketClosedPayload,
+    | TicketClosedPayload
+    | TicketPausedPayload
+    | TicketResumedPayload,
 ): Promise<boolean> {
   if (!INTERNAL_SECRET) {
     console.warn('[realtime-emit] SOCKET_INTERNAL_SECRET não definido; emit ignorado.');

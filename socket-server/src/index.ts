@@ -22,6 +22,10 @@ type ServerToClientEvents = {
   'ticket:new': (payload: unknown) => void;
   'ticket:execution_registered': (payload: unknown) => void;
   'ticket:closed': (payload: unknown) => void;
+  'ticket:comment_added': (payload: unknown) => void;
+  'ticket:attachment_added': (payload: unknown) => void;
+  'ticket:paused': (payload: unknown) => void;
+  'ticket:resumed': (payload: unknown) => void;
 };
 
 /** Dados armazenados no socket (padrão Socket.IO). */
@@ -35,6 +39,10 @@ const ALLOWED_EVENTS = new Set<string>([
   'ticket:new',
   'ticket:execution_registered',
   'ticket:closed',
+  'ticket:comment_added',
+  'ticket:attachment_added',
+  'ticket:paused',
+  'ticket:resumed',
 ]);
 const ROOM_REGEX = /^user:[a-zA-Z0-9_-]+$/;
 const MANAGERS_ROOM = 'managers';

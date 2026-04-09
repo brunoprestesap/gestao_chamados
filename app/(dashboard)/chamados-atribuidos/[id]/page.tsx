@@ -1,16 +1,19 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2, Clock, Loader2, Wrench } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Hourglass, Loader2, Play, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { PauseForRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseForRequesterDialog';
 import { RegisterExecutionDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/RegisterExecutionDialog';
+import { ResumeFromRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/ResumeFromRequesterDialog';
 import {
   CHAMADO_STATUS_LABELS,
   type ChamadoStatus,
   STATUS_BADGE,
   STATUS_ICONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
+import { AttachmentGallery } from '@/app/(dashboard)/meus-chamados/[id]/_components/AttachmentGallery';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { PageHeader } from '@/components/dashboard/header';
@@ -38,6 +41,7 @@ export type ChamadoAtribuidoDetailDTO = {
   assignedToUserId: string | null;
   assignedAt: string | null;
   concludedAt: string | null;
+  slaPausedAt: string | null;
   executions: Array<{
     _id: string | null;
     createdByUserId: string | null;
@@ -64,6 +68,8 @@ export default function ChamadoAtribuidoDetailPage({
   const [chamadoId, setChamadoId] = useState<string | null>(null);
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
+  const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
+  const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -100,9 +106,11 @@ export default function ChamadoAtribuidoDetailPage({
     }
   }
 
-  async function onExecutionSuccess() {
+  async function onActionSuccess() {
     if (chamadoId) await fetchChamado(chamadoId);
     setExecutionDialogOpen(false);
+    setPauseDialogOpen(false);
+    setResumeDialogOpen(false);
     setHistoryRefreshTrigger((prev) => prev + 1);
   }
 
@@ -136,6 +144,8 @@ export default function ChamadoAtribuidoDetailPage({
 
   const StatusIcon = STATUS_ICONS[chamado.status];
   const canRegisterExecution = chamado.status === 'em atendimento' && chamado.assignedToUserId;
+  const canPause = chamado.status === 'em atendimento' && chamado.assignedToUserId;
+  const canResume = chamado.status === 'aguardando_solicitante';
 
   return (
     <div className="space-y-6">
@@ -230,22 +240,53 @@ export default function ChamadoAtribuidoDetailPage({
               <HistoryTimeline chamadoId={chamado._id} refreshTrigger={historyRefreshTrigger} />
             </CardContent>
           </Card>
+
+          {/* Anexos */}
+          <Card className="overflow-hidden">
+            <CardContent className="pt-5">
+              <AttachmentGallery
+                chamadoId={chamado._id}
+                canUpload={chamado.status !== 'encerrado' && chamado.status !== 'cancelado'}
+              />
+            </CardContent>
+          </Card>
         </div>
 
-        {canRegisterExecution && (
+        {(canRegisterExecution || canPause || canResume) && (
           <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Ações</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button
-                  onClick={() => setExecutionDialogOpen(true)}
-                  className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
-                >
-                  <Wrench className="h-4 w-4" />
-                  Registrar Execução
-                </Button>
+                {canRegisterExecution && (
+                  <Button
+                    onClick={() => setExecutionDialogOpen(true)}
+                    className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    <Wrench className="h-4 w-4" />
+                    Registrar Execução
+                  </Button>
+                )}
+                {canPause && (
+                  <Button
+                    onClick={() => setPauseDialogOpen(true)}
+                    variant="outline"
+                    className="w-full justify-start gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                  >
+                    <Hourglass className="h-4 w-4" />
+                    Aguardando Solicitante
+                  </Button>
+                )}
+                {canResume && (
+                  <Button
+                    onClick={() => setResumeDialogOpen(true)}
+                    className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    <Play className="h-4 w-4" />
+                    Retomar Atendimento
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -256,8 +297,27 @@ export default function ChamadoAtribuidoDetailPage({
         open={executionDialogOpen}
         onOpenChange={setExecutionDialogOpen}
         chamado={chamado}
-        onSuccess={onExecutionSuccess}
+        onSuccess={onActionSuccess}
       />
+
+      {chamadoId && (
+        <PauseForRequesterDialog
+          open={pauseDialogOpen}
+          onOpenChange={setPauseDialogOpen}
+          ticketId={chamadoId}
+          onSuccess={onActionSuccess}
+        />
+      )}
+
+      {chamadoId && (
+        <ResumeFromRequesterDialog
+          open={resumeDialogOpen}
+          onOpenChange={setResumeDialogOpen}
+          ticketId={chamadoId}
+          slaPausedAt={chamado.slaPausedAt ?? null}
+          onSuccess={onActionSuccess}
+        />
+      )}
     </div>
   );
 }
