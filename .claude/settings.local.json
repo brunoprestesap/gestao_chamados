@@ -88,7 +88,11 @@
       "Bash(npx shadcn@latest add skeleton --yes)",
       "Bash(npm test:*)",
       "Bash(node -e \"console.log\\('TZ offset \\(mins\\):', new Date\\(\\).getTimezoneOffset\\(\\), 'UTC offset hours:', -new Date\\(\\).getTimezoneOffset\\(\\)/60\\)\")",
-      "Bash(git -C /c/Users/ap20256.JFAP/Desktop/projetos/severino stash)"
+      "Bash(git -C /c/Users/ap20256.JFAP/Desktop/projetos/severino stash)",
+      "Bash(node_modules/.bin/eslint \"app/\\(dashboard\\)/gestao/recurring/_components/RecurringTicketDialog.tsx\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(node_modules/.bin/next lint:*)",
+      "Bash(echo \"exit:$?\")"
     ]
   }
 }
