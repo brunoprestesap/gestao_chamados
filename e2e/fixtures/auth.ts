@@ -7,10 +7,9 @@ import { expect, type Page } from '@playwright/test';
  */
 export const USERS = {
   admin: { username: 'admin', password: '123456', role: 'Admin' },
-  preposto: { username: 'preposto01', password: '123456', role: 'Preposto' },
-  tecnico: { username: 'tecnico01', password: '123456', role: 'Técnico' },
-  solicitante: { username: 'solicitante01', password: '123456', role: 'Solicitante' },
-  solicitante2: { username: 'solicitante02', password: '123456', role: 'Solicitante' },
+  preposto: { username: 'preposto', password: '123456', role: 'Preposto' },
+  tecnico: { username: 'tecnico', password: '123456', role: 'Técnico' },
+  solicitante: { username: 'solicitante', password: '123456', role: 'Solicitante' },
 } as const;
 
 export type UserKey = keyof typeof USERS;
@@ -30,9 +29,8 @@ export async function login(page: Page, user: UserKey) {
   await page.getByRole('button', { name: 'Entrar' }).click();
 
   // Aguarda navegação ou erro. O login bem-sucedido redireciona via Server Action.
-  // Usa waitForURL para capturar o redirect (pode demorar com Server Actions).
   try {
-    await page.waitForURL(/(?!.*\/login).*/, { timeout: 15000 });
+    await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000 });
   } catch {
     // Se ficou em /login, verifica se há erro de credenciais
     const errorAlert = page.locator('[role="alert"][aria-live="polite"]');

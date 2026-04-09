@@ -191,12 +191,14 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 ## Variáveis de Ambiente
 
 ### App (`/.env.local`)
+
 - `MONGODB_URI`, `AUTH_SECRET`, `AUTH_COOKIE_NAME`
 - `SOCKET_INTERNAL_SECRET`, `SOCKET_EMIT_URL` — comunicação Next→Socket
 - `NEXT_PUBLIC_SOCKET_URL` — URL pública do socket para o browser
 - `BOOTSTRAP_TOKEN` — protege endpoint `/api/bootstrap`
 
 ### LDAP/AD (opcional — `/.env.local` ou `.env` na VPS)
+
 - `LDAP_URL` — URL do servidor LDAP (ex: `ldaps://ad.empresa.com:636`)
 - `LDAP_BASE_DN` — Base DN para busca (ex: `DC=empresa,DC=com`)
 - `LDAP_BIND_DN` — DN da conta de serviço para busca
@@ -206,33 +208,34 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `LDAP_DEBUG` — `true` para logs detalhados de autenticação
 
 ### Socket Server (`socket-server/.env`)
+
 - `SOCKET_PORT`, `SOCKET_CORS_ORIGIN`, `APP_URL`
 - `SOCKET_INTERNAL_SECRET` (deve coincidir com app principal)
 - `SOCKET_TRUSTED_PROXIES` — trustar IPs privados (Docker/proxy)
 
 ## Referência Rápida para Tarefas Comuns
 
-| Tarefa | Arquivos-chave |
-|--------|---------------|
-| Novo tipo de serviço | `shared/chamados/new-ticket.schemas.ts` (TIPO_SERVICO_OPTIONS), `app/(dashboard)/meus-chamados/_components/new-ticket.utils.ts` (buildTypeIdByTipo), `app/(dashboard)/meus-chamados/_components/NewTicketDialog.tsx` (ícone/cor), `scripts/seed.js` (seed de tipo, subtipos e catálogo) |
-| Novo evento Socket.IO | `shared/socket.ts`, `socket-server/src/index.ts`, `lib/realtime-emit.ts` |
-| Novo status de chamado | `shared/chamados/chamado.constants.ts`, `models/Chamado.ts` |
-| Novo role gate | `lib/dal.ts` (adicionar `requireXxx()`) |
-| Nova prioridade SLA | `models/Chamado.ts`, `shared/sla/sla-config.schemas.ts`, `lib/sla-utils.ts` |
-| Novo schema de validação | `shared/<domain>/*.schemas.ts` com Zod |
-| Config de expediente | `lib/expediente-config.ts` + API `/config/expediente` |
-| Relatório IMR | `lib/imr-service.ts`, `app/(dashboard)/relatorios/imr/page.tsx`, `_components/imr-sections.tsx`, `_components/imr-tipo-servico-tabs.tsx` |
-| Novo indicador IMR | `lib/imr-service.ts` (facet em `unifiedFacets()`, extração em `extractPerType()` e `buildResumoGeral()`), seção UI em `imr-sections.tsx` |
-| Alterar paleta/tema | `app/globals.css` (variáveis CSS `:root` e `.dark`) |
-| Novo card de dashboard | Seguir padrão `MetricCard`/`StatCard` nos `_components/Dashboard*Content.tsx` (rounded-2xl, accent stripe, hover lift) |
-| Alterar sidebar | `components/sidebar/sidebar.tsx` (container), `components/dashboard/sidebar-content.tsx` (conteúdo/nav), `components/dashboard/nav.ts` (itens de menu) |
-| Alterar layout dashboard | `components/dashboard/dashboard-shell.tsx` (shell + header desktop), `components/dashboard/mobile-header.tsx` (mobile), `app/(dashboard)/layout.tsx` |
-| Deploy Docker (VPS) | `DOCKER_PRODUCAO.md`, `docker-compose.yml`, `Dockerfile`, `socket-server/Dockerfile`, `nginx/default.conf`, `deploy.sh`, `scripts/seed.js` |
-| Backup MongoDB | `scripts/backup-mongodb.sh` (backup), `scripts/restore-mongodb.sh` (restore), `DOCKER_PRODUCAO.md` seção 9 |
-| CI/CD | `.github/workflows/ci.yml` (lint + build), `.github/workflows/deploy.yml` (deploy via self-hosted runner) |
-| Configurar LDAP/AD | `lib/ldap.ts` (cliente), `auth.ts` (fluxo authorize), `.env.example` (variáveis), `docker-compose.yml` (repassar env) |
-| Alterar fluxo de login | `app/(auth)/login/actions.ts` (Server Action), `app/(auth)/login/page.tsx` (formulário), `auth.ts` (authorize) |
-| Debug autenticação | `LDAP_DEBUG=true` no `.env`, logs via `docker logs severino-next-app-1 -f` |
+| Tarefa                   | Arquivos-chave                                                                                                                                                                                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Novo tipo de serviço     | `shared/chamados/new-ticket.schemas.ts` (TIPO_SERVICO_OPTIONS), `app/(dashboard)/meus-chamados/_components/new-ticket.utils.ts` (buildTypeIdByTipo), `app/(dashboard)/meus-chamados/_components/NewTicketDialog.tsx` (ícone/cor), `scripts/seed.js` (seed de tipo, subtipos e catálogo) |
+| Novo evento Socket.IO    | `shared/socket.ts`, `socket-server/src/index.ts`, `lib/realtime-emit.ts`                                                                                                                                                                                                                |
+| Novo status de chamado   | `shared/chamados/chamado.constants.ts`, `models/Chamado.ts`                                                                                                                                                                                                                             |
+| Novo role gate           | `lib/dal.ts` (adicionar `requireXxx()`)                                                                                                                                                                                                                                                 |
+| Nova prioridade SLA      | `models/Chamado.ts`, `shared/sla/sla-config.schemas.ts`, `lib/sla-utils.ts`                                                                                                                                                                                                             |
+| Novo schema de validação | `shared/<domain>/*.schemas.ts` com Zod                                                                                                                                                                                                                                                  |
+| Config de expediente     | `lib/expediente-config.ts` + API `/config/expediente`                                                                                                                                                                                                                                   |
+| Relatório IMR            | `lib/imr-service.ts`, `app/(dashboard)/relatorios/imr/page.tsx`, `_components/imr-sections.tsx`, `_components/imr-tipo-servico-tabs.tsx`                                                                                                                                                |
+| Novo indicador IMR       | `lib/imr-service.ts` (facet em `unifiedFacets()`, extração em `extractPerType()` e `buildResumoGeral()`), seção UI em `imr-sections.tsx`                                                                                                                                                |
+| Alterar paleta/tema      | `app/globals.css` (variáveis CSS `:root` e `.dark`)                                                                                                                                                                                                                                     |
+| Novo card de dashboard   | Seguir padrão `MetricCard`/`StatCard` nos `_components/Dashboard*Content.tsx` (rounded-2xl, accent stripe, hover lift)                                                                                                                                                                  |
+| Alterar sidebar          | `components/sidebar/sidebar.tsx` (container), `components/dashboard/sidebar-content.tsx` (conteúdo/nav), `components/dashboard/nav.ts` (itens de menu)                                                                                                                                  |
+| Alterar layout dashboard | `components/dashboard/dashboard-shell.tsx` (shell + header desktop), `components/dashboard/mobile-header.tsx` (mobile), `app/(dashboard)/layout.tsx`                                                                                                                                    |
+| Deploy Docker (VPS)      | `DOCKER_PRODUCAO.md`, `docker-compose.yml`, `Dockerfile`, `socket-server/Dockerfile`, `nginx/default.conf`, `deploy.sh`, `scripts/seed.js`                                                                                                                                              |
+| Backup MongoDB           | `scripts/backup-mongodb.sh` (backup), `scripts/restore-mongodb.sh` (restore), `DOCKER_PRODUCAO.md` seção 9                                                                                                                                                                              |
+| CI/CD                    | `.github/workflows/ci.yml` (lint + build), `.github/workflows/deploy.yml` (deploy via self-hosted runner)                                                                                                                                                                               |
+| Configurar LDAP/AD       | `lib/ldap.ts` (cliente), `auth.ts` (fluxo authorize), `.env.example` (variáveis), `docker-compose.yml` (repassar env)                                                                                                                                                                   |
+| Alterar fluxo de login   | `app/(auth)/login/actions.ts` (Server Action), `app/(auth)/login/page.tsx` (formulário), `auth.ts` (authorize)                                                                                                                                                                          |
+| Debug autenticação       | `LDAP_DEBUG=true` no `.env`, logs via `docker logs severino-next-app-1 -f`                                                                                                                                                                                                              |
 
 ## CI/CD
 
@@ -263,3 +266,17 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 ### Vercel
 
 - Socket-server precisa de host Node separado (Vercel não suporta WebSocket)
+
+## Testes
+
+- **Unitários**: Vitest (preferido para Next.js 16) ou Jest
+- **E2E**: Playwright
+- Padrão: Arrange-Act-Assert
+- Cobertura mínima: 80%
+
+## Convenções
+
+- Testes unitários em `__tests__/` ou `*.test.ts` ao lado dos arquivos
+- Testes E2E em `e2e/` na raiz
+- Mocks de banco em `tests/mocks/`
+- Fixtures Playwright em `e2e/fixtures/`

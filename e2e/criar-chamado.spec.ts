@@ -16,8 +16,12 @@ test.describe('Criação de chamado', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
+    // Seleciona unidade/setor
+    await dialog.getByRole('combobox', { name: /unidade/i }).click();
+    await page.getByRole('option').first().click();
+
     // Preenche local exato
-    await dialog.getByPlaceholder(/local exato/i).fill('Sala 101 - Bloco A');
+    await dialog.getByLabel(/local exato/i).fill('Sala 101 - Bloco A');
 
     // Seleciona tipo de serviço (botões de card)
     await dialog.getByText('Manutenção Predial').click();

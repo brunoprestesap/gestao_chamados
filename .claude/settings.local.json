@@ -71,7 +71,17 @@
       "Bash(npm install:*)",
       "Bash(node -e \"require\\('dotenv'\\).config\\(\\); console.log\\('SOCKET_INTERNAL_SECRET:', process.env.SOCKET_INTERNAL_SECRET ? 'LOADED' : 'MISSING'\\); console.log\\('AUTH_SECRET:', process.env.AUTH_SECRET ? 'LOADED' : 'MISSING'\\);\")",
       "Bash(git rm:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(git mv:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx playwright:*)",
+      "Bash(curl -s -L -H \"Accept: text/html\" \"https://nextjs.org/docs/app/guides/progressive-web-apps\")",
+      "Bash(curl -s -L \"https://nextjs.org/docs/app/guides/progressive-web-apps\")",
+      "Read(//tmp/**)",
+      "Bash(node -e ':*)",
+      "Bash(ls -la /c/Users/ap20256.JFAP/Desktop/projetos/severino/.env*)",
+      "Bash(npm ci:*)"
     ]
   }
 }

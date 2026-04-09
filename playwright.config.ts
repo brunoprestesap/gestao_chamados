@@ -27,5 +27,13 @@ export default defineConfig({
         url: 'http://localhost:3000',
         reuseExistingServer: true,
         timeout: 120000,
+        env: {
+          ...process.env,
+          // Desabilitar LDAP durante testes E2E para usar apenas autenticação local
+          LDAP_URL: '',
+          LDAP_BASE_DN: '',
+          LDAP_BIND_DN: '',
+          LDAP_BIND_PASSWORD: '',
+        },
       },
 });

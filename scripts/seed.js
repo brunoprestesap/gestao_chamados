@@ -136,14 +136,11 @@ db.users.insertMany([
   // Admin
   { username: "admin", name: "Administrador do Sistema", email: "admin@empresa.gov.br", passwordHash: HASH_123456, role: "Admin", unitId: unitTI, isActive: true, createdAt: now, updatedAt: now },
   // Preposto (gestor)
-  { username: "preposto01", name: "Roberto Almeida", email: "roberto.almeida@empresa.gov.br", passwordHash: HASH_123456, role: "Preposto", unitId: unitDiretoria, isActive: true, createdAt: now, updatedAt: now },
+  { username: "preposto", name: "Preposto", email: "preposto@empresa.gov.br", passwordHash: HASH_123456, role: "Preposto", unitId: unitDiretoria, isActive: true, createdAt: now, updatedAt: now },
   // Técnicos
-  { username: "tecnico01", name: "Francisco Souza", email: "francisco.souza@empresa.gov.br", passwordHash: HASH_123456, role: "Técnico", unitId: unitTI, specialties: [tPredial, tAC], maxAssignedTickets: 5, isActive: true, createdAt: now, updatedAt: now },
-  { username: "tecnico02", name: "Antônio Ferreira", email: "antonio.ferreira@empresa.gov.br", passwordHash: HASH_123456, role: "Técnico", unitId: unitTI, specialties: [tPredial], maxAssignedTickets: 5, isActive: true, createdAt: now, updatedAt: now },
-  { username: "tecnico03", name: "José Martins", email: "jose.martins@empresa.gov.br", passwordHash: HASH_123456, role: "Técnico", unitId: unitTI, specialties: [tAC], maxAssignedTickets: 5, isActive: true, createdAt: now, updatedAt: now },
+  { username: "tecnico", name: "Técnico 01", email: "tecnico@empresa.gov.br", passwordHash: HASH_123456, role: "Técnico", unitId: unitTI, specialties: [tPredial, tAC], maxAssignedTickets: 5, isActive: true, createdAt: now, updatedAt: now },
   // Solicitantes
-  { username: "solicitante01", name: "Fernanda Barros", email: "fernanda.barros@empresa.gov.br", passwordHash: HASH_123456, role: "Solicitante", unitId: unitRH, isActive: true, createdAt: now, updatedAt: now },
-  { username: "solicitante02", name: "Lucas Pereira", email: "lucas.pereira@empresa.gov.br", passwordHash: HASH_123456, role: "Solicitante", unitId: unitFinanceiro, isActive: true, createdAt: now, updatedAt: now },
+  { username: "solicitante", name: "Solicitante", email: "solicitante@empresa.gov.br", passwordHash: HASH_123456, role: "Solicitante", unitId: unitRH, isActive: true, createdAt: now, updatedAt: now },
 ]);
 
 // -------------------------------------------------------

@@ -32,16 +32,14 @@ test.describe('Login', () => {
   });
 
   test('login com cada role funciona', async ({ page }) => {
-    for (const [key, user] of Object.entries(USERS)) {
-      if (key === 'solicitante2') continue; // pular duplicata
+    for (const [, user] of Object.entries(USERS)) {
+      // Limpa sessão anterior para voltar ao login
+      await page.context().clearCookies();
       await page.goto('/login');
       await page.getByPlaceholder('Ex: ap20256').fill(user.username);
       await page.getByPlaceholder('Sua senha').fill(user.password);
       await page.getByRole('button', { name: 'Entrar' }).click();
       await expect(page).not.toHaveURL(/\/login/, { timeout: 10000 });
-
-      // Voltar para login para o próximo
-      await page.goto('/login');
     }
   });
 

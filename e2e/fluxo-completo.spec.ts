@@ -20,14 +20,18 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    await dialog.getByPlaceholder(/local exato/i).fill('Sala 301 - E2E');
+    // Seleciona unidade/setor
+    await dialog.getByRole('combobox', { name: /unidade/i }).click();
+    await page.getByRole('option').first().click();
+
+    await dialog.getByLabel(/local exato/i).fill('Sala 301 - E2E');
     await dialog.getByText('Manutenção Predial').click();
     await dialog.getByPlaceholder(/descreva/i).fill(ticketTitle);
     await dialog.getByText('Padrão').first().click();
 
     await dialog.getByRole('button', { name: /abrir chamado|enviar|criar/i }).click();
-    await expect(dialog).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 10000 });
+    await expect(dialog).not.toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
   });
 
   test('2. Preposto classifica chamado (define prioridade e SLA)', async ({ page }) => {

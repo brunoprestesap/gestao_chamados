@@ -20,7 +20,11 @@ test.describe('Classificação de chamado', () => {
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
 
-      await dialog.getByPlaceholder(/local exato/i).fill('Sala 202');
+      // Seleciona unidade/setor
+      await dialog.getByRole('combobox', { name: /unidade/i }).click();
+      await page.getByRole('option').first().click();
+
+      await dialog.getByLabel(/local exato/i).fill('Sala 202');
       await dialog.getByText('Manutenção Predial').click();
       await dialog.getByPlaceholder(/descreva/i).fill(ticketTitle);
       await dialog.getByText('Padrão').first().click();
