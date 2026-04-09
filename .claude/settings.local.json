@@ -84,7 +84,8 @@
       "Bash(npm ci:*)",
       "Bash(git stash:*)",
       "Bash(grep -v \"^next$\")",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npx shadcn@latest add skeleton --yes)"
     ]
   }
 }
