@@ -14,6 +14,7 @@ import {
   User,
   Wrench,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -357,6 +358,14 @@ function LoginPageContent() {
                 </Button>
                 <p className="text-center text-xs text-muted-foreground/70">
                   Problemas para acessar? Contate o suporte.
+                </p>
+                <p className="text-center text-xs">
+                  <Link
+                    href="/guia"
+                    className="text-indigo-600 transition-colors hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    Primeiro acesso? Veja o guia do usuário &rarr;
+                  </Link>
                 </p>
               </div>
             </form>
