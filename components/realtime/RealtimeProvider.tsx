@@ -59,7 +59,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     }
     const socket: TypedSocket = io(SOCKET_URL, {
       withCredentials: true,
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 500,

@@ -25,7 +25,6 @@ import { type ChamadoStatus, STATUS_OPTIONS } from '@/app/(dashboard)/meus-chama
 import { PageHeader } from '@/components/dashboard/header';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -663,8 +662,10 @@ export default function GestaoPage() {
                           </span>
                         </div>
 
-                        {/* Column body */}
-                        <ScrollArea className="min-h-0 min-w-0 flex-1">
+                        {/* Column body — uses native overflow instead of Radix ScrollArea
+                            because ScrollArea's internal `display: table` wrapper
+                            breaks width constraints in production builds */}
+                        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
                           <div className="flex min-w-0 flex-col gap-2 p-2.5 sm:p-3">
                             {columnItems.length === 0 ? (
                               <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -710,7 +711,7 @@ export default function GestaoPage() {
                               </AnimatePresence>
                             )}
                           </div>
-                        </ScrollArea>
+                        </div>
 
                         {/* Column footer accent line */}
                         <div
