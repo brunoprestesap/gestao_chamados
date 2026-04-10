@@ -188,13 +188,13 @@ export function RecurringTicketsClient({ items: initialItems }: Props) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead className="hidden md:table-cell">Tipo Servi\u00e7o</TableHead>
-                  <TableHead className="hidden sm:table-cell">Recorr\u00eancia</TableHead>
-                  <TableHead>Pr\u00f3xima Execu\u00e7\u00e3o</TableHead>
-                  <TableHead className="hidden lg:table-cell">\u00daltimo Gerado</TableHead>
+                  <TableHead className="hidden md:table-cell">Tipo Serviço</TableHead>
+                  <TableHead className="hidden sm:table-cell">Recorrência</TableHead>
+                  <TableHead>Próxima Execução</TableHead>
+                  <TableHead className="hidden lg:table-cell">Último Gerado</TableHead>
                   <TableHead className="hidden sm:table-cell text-center">Total</TableHead>
                   <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-right">A\u00e7\u00f5es</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

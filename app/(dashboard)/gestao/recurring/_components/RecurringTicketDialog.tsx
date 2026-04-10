@@ -206,6 +206,15 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
       }
 
       if (!next) return null;
+
+      // Pular fins de semana (Seg-Sex = dias úteis padrão)
+      const workdays = [1, 2, 3, 4, 5];
+      let attempts = 0;
+      while (!workdays.includes(next.getDay()) && attempts < 7) {
+        next.setDate(next.getDate() + 1);
+        attempts++;
+      }
+
       return next.toLocaleDateString('pt-BR', {
         weekday: 'long',
         day: '2-digit',
