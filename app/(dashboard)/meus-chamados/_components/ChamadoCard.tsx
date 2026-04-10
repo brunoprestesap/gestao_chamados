@@ -125,6 +125,8 @@ type Props = {
   onRecusar?: (chamado: ChamadoDTO) => void;
   /** Quando fornecido com showAvaliar, ao clicar em "Avaliar" chama isto em vez de navegar. */
   onAvaliar?: (chamado: ChamadoDTO) => void;
+  /** Callback ao clicar no card quando hideDetailLink é true (ex.: abrir sheet de detalhes). */
+  onCardClick?: (chamado: ChamadoDTO) => void;
   /** Se true, card e título não navegam para detalhe (ex.: módulo gestão). */
   hideDetailLink?: boolean;
   /** Se true, exibe "Avaliar" ou "Avaliado" para chamados encerrados (solicitante). */
@@ -209,6 +211,7 @@ export function ChamadoCard({
   onReatribuir,
   onRecusar,
   onAvaliar,
+  onCardClick,
   hideDetailLink,
   showAvaliar = false,
   compact = false,
@@ -316,17 +319,23 @@ export function ChamadoCard({
   }, [chamado.sla, chamado.finalPriority, chamado.attendanceNature, chamado.naturezaAtendimento, tzOpt]);
 
   const handleCardClick = useCallback(() => {
-    if (hideDetailLink) return;
+    if (hideDetailLink) {
+      onCardClick?.(chamado);
+      return;
+    }
     router.push(`/meus-chamados/${chamado._id}`);
-  }, [router, chamado._id, hideDetailLink]);
+  }, [router, chamado, hideDetailLink, onCardClick]);
 
   const handleTitleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (hideDetailLink) return;
+      if (hideDetailLink) {
+        onCardClick?.(chamado);
+        return;
+      }
       router.push(`/meus-chamados/${chamado._id}`);
     },
-    [router, chamado._id, hideDetailLink],
+    [router, chamado, hideDetailLink, onCardClick],
   );
 
   const handleClassificarClick = useCallback(

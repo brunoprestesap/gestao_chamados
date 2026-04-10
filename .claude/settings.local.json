@@ -94,7 +94,8 @@
       "Bash(node_modules/.bin/next lint:*)",
       "Bash(echo \"exit:$?\")",
       "Bash(echo \"EXIT_CODE=$?\")",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/AtribuirChamadoDialog';
+import { ChamadoDetailSheet } from '@/app/(dashboard)/gestao/_components/ChamadoDetailSheet';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
@@ -41,6 +42,7 @@ export default function GestaoPage() {
   const [encerrarChamadoId, setEncerrarChamadoId] = useState<string | null>(null);
   const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
   const [selected, setSelected] = useState<ChamadoDTO | null>(null);
+  const [detailSheetChamado, setDetailSheetChamado] = useState<ChamadoDTO | null>(null);
 
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -87,6 +89,10 @@ export default function GestaoPage() {
   useEffect(() => {
     fetchChamados();
   }, [fetchChamados]);
+
+  const handleCardClick = useCallback((chamado: ChamadoDTO) => {
+    setDetailSheetChamado(chamado);
+  }, []);
 
   const handleClassificar = useCallback((chamado: ChamadoDTO) => {
     setSelected(chamado);
@@ -249,6 +255,7 @@ export default function GestaoPage() {
                                   compact
                                   hideDetailLink
                                   chamado={c}
+                                  onCardClick={handleCardClick}
                                   onClassificar={
                                     c.status === 'aberto' ? handleClassificar : undefined
                                   }
@@ -276,6 +283,19 @@ export default function GestaoPage() {
           </div>
         )}
       </div>
+
+      <ChamadoDetailSheet
+        chamado={detailSheetChamado}
+        open={detailSheetChamado !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailSheetChamado(null);
+        }}
+        onClassificar={handleClassificar}
+        onRecusar={handleRecusar}
+        onAtribuir={handleAtribuir}
+        onEncerrar={handleEncerrar}
+        onReatribuir={handleReatribuir}
+      />
 
       <ClassificarChamadoDialog
         open={classificarDialogOpen}
