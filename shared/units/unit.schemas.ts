@@ -19,11 +19,13 @@ export const UnitCreateSchema = z.object({
     .transform((v) => v.trim()),
   floor: z
     .string()
-    .min(1, 'Informe o andar')
+    .optional()
+    .default('')
     .transform((v) => v.trim()),
   responsibleName: z
     .string()
-    .min(1, 'Informe o nome do responsável')
+    .optional()
+    .default('')
     .transform((v) => v.trim()),
   responsibleEmail: emailTrim.refine(
     (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),

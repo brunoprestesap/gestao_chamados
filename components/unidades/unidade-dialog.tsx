@@ -132,7 +132,7 @@ export function UnidadeDialog({
                   name="floor"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Andar *</FormLabel>
+                      <FormLabel>Andar</FormLabel>
                       <FormControl>
                         <Input placeholder="Ex: 4º Andar" {...field} />
                       </FormControl>
@@ -146,7 +146,7 @@ export function UnidadeDialog({
                   name="responsibleName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome do Responsável *</FormLabel>
+                      <FormLabel>Nome do Responsável</FormLabel>
                       <FormControl>
                         <Input placeholder="Ex: Luciana Santos" {...field} />
                       </FormControl>

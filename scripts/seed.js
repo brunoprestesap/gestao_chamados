@@ -15,21 +15,45 @@ const HASH_123456 = "$2b$10$.qN9tPuymsN/4izrZvM53OIfxAsBSI4MDxhX8vfEi/BlimF.8WRX
 const now = new Date();
 
 // -------------------------------------------------------
-// 1. Unidades
+// 1. Unidades — Justiça Federal do Amapá (SJAP/TRF1)
 // -------------------------------------------------------
 print("--- Criando unidades ---");
 const units = db.units.insertMany([
-  { name: "Diretoria Geral", floor: "3º Andar", responsibleName: "João Silva", responsibleEmail: "joao.silva@empresa.gov.br", responsiblePhone: "(91) 3201-0001", isActive: true, createdAt: now, updatedAt: now },
-  { name: "Setor de TI", floor: "2º Andar", responsibleName: "Maria Santos", responsibleEmail: "maria.santos@empresa.gov.br", responsiblePhone: "(91) 3201-0002", isActive: true, createdAt: now, updatedAt: now },
-  { name: "Recursos Humanos", floor: "1º Andar", responsibleName: "Carlos Oliveira", responsibleEmail: "carlos.oliveira@empresa.gov.br", responsiblePhone: "(91) 3201-0003", isActive: true, createdAt: now, updatedAt: now },
-  { name: "Financeiro", floor: "1º Andar", responsibleName: "Ana Costa", responsibleEmail: "ana.costa@empresa.gov.br", responsiblePhone: "(91) 3201-0004", isActive: true, createdAt: now, updatedAt: now },
-  { name: "Almoxarifado", floor: "Térreo", responsibleName: "Pedro Lima", responsibleEmail: "pedro.lima@empresa.gov.br", responsiblePhone: "(91) 3201-0005", isActive: true, createdAt: now, updatedAt: now },
+  // Varas (Macapá)
+  { name: "1ª Vara Federal - Cível", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "2ª Vara Federal - Cível", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "3ª Vara Federal - Juizado Especial Federal", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "4ª Vara Federal - JEF Criminal", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "5ª Vara Federal - Juizado Especial Federal", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "6ª Vara Federal - Cível", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  // Subseções e Varas do Interior
+  { name: "Subseção Judiciária de Oiapoque", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Vara Única de Oiapoque", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Subseção Judiciária de Laranjal do Jari", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Vara Única de Laranjal do Jari", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  // Diretorias e Secretarias
+  { name: "Diretoria do Foro", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Secretaria Administrativa", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Secretaria Única das Turmas Recursais", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  // Núcleos
+  { name: "Núcleo de Apoio à Coordenação do JEF-AP (Nucod)", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Núcleo de Gestão de Pessoas", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Núcleo Judiciário", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Núcleo de Tecnologia da Informação", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  // Centrais e Centros
+  { name: "Centro Judiciário de Conciliação (CEJUC)", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Central de Perícias", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Central de Videoconferência", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Central de Mandados", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Centro Especializado de Atenção às Vítimas de Crimes (CEAV)", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
+  { name: "Biblioteca Central", floor: "", responsibleName: "", responsibleEmail: "", responsiblePhone: "", isActive: true, createdAt: now, updatedAt: now },
 ]);
 printjson(units.insertedIds);
 
-const unitTI = units.insertedIds[1];
-const unitDiretoria = units.insertedIds[0];
-const unitRH = units.insertedIds[2];
+// Referências para usuários seed (índices das unidades acima)
+const unitTI = units.insertedIds[16];        // Núcleo de Tecnologia da Informação
+const unitDiretoria = units.insertedIds[10]; // Diretoria do Foro
+const unitRH = units.insertedIds[14];        // Núcleo de Gestão de Pessoas
 
 // -------------------------------------------------------
 // 2. Tipos de Serviço

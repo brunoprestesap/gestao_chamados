@@ -3,9 +3,9 @@ import mongoose, { InferSchemaType, Model, Schema } from 'mongoose';
 const UnitSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
-    floor: { type: String, required: true, trim: true },
+    floor: { type: String, default: '', trim: true },
 
-    responsibleName: { type: String, required: true, trim: true },
+    responsibleName: { type: String, default: '', trim: true },
     responsibleEmail: { type: String, default: '', trim: true, lowercase: true },
     responsiblePhone: { type: String, default: '', trim: true },
 
