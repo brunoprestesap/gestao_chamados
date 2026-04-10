@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CalendarCheck, Loader2, RefreshCw } from 'lucide-react';
+import { CalendarCheck, FileText, Loader2, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -36,7 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import {
   type CreateRecurringTicketInput,
@@ -261,19 +260,29 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90vh] [&>button]:right-3 [&>button]:top-3 sm:[&>button]:right-4 sm:[&>button]:top-4"
+        className="flex h-full max-h-dvh w-full flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl [&>button]:right-3 [&>button]:top-3 sm:[&>button]:right-4 sm:[&>button]:top-4"
         showCloseButton
       >
         {/* Fixed header */}
-        <DialogHeader className="shrink-0 border-b px-4 py-4 pr-10 sm:px-6 sm:py-5 sm:pr-6">
-          <DialogTitle className="text-base font-semibold sm:text-lg">
-            {isEditing ? 'Editar Agendamento' : 'Novo Agendamento Recorrente'}
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            {isEditing
-              ? 'Altere os dados do agendamento recorrente.'
-              : 'Configure a recorrência e os dados do chamado que será gerado automaticamente.'}
-          </DialogDescription>
+        <DialogHeader className="shrink-0 border-b bg-background/95 px-4 py-4 pr-10 backdrop-blur-sm sm:px-6 sm:py-5 sm:pr-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-950/60">
+              <RefreshCw
+                className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400"
+                aria-hidden="true"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-semibold leading-tight sm:text-lg">
+                {isEditing ? 'Editar Agendamento' : 'Novo Agendamento Recorrente'}
+              </DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs sm:text-sm">
+                {isEditing
+                  ? 'Altere os dados do agendamento recorrente.'
+                  : 'Configure a recorrência e os dados do chamado que será gerado automaticamente.'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {/* Scrollable body */}
@@ -282,9 +291,20 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
             {error && (
               <div
                 role="alert"
-                className="rounded-xl border border-destructive bg-destructive/10 p-3 text-xs text-destructive sm:text-sm"
+                className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/8 p-3 sm:p-4"
               >
-                {error}
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-destructive/15 mt-0.5">
+                  <X className="h-3 w-3 text-destructive" aria-hidden="true" />
+                </div>
+                <p className="flex-1 text-xs text-destructive sm:text-sm">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  aria-label="Fechar alerta de erro"
+                  className="shrink-0 rounded-md p-0.5 text-destructive/70 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
               </div>
             )}
           </div>
@@ -293,13 +313,33 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
             <div
               role="status"
               aria-label="Carregando dados do formulário"
-              className="flex items-center justify-center gap-2 px-4 py-12 sm:px-6"
+              className="space-y-5 px-4 py-5 sm:px-6"
             >
-              <Loader2
-                className="h-5 w-5 animate-spin text-muted-foreground"
-                aria-hidden="true"
-              />
-              <p className="text-sm text-muted-foreground">Carregando...</p>
+              {/* Skeleton — section header */}
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 animate-pulse rounded-xl bg-muted" />
+                <div className="h-4 w-28 animate-pulse rounded-lg bg-muted" />
+              </div>
+              {/* Skeleton — rows */}
+              <div className="h-11 animate-pulse rounded-xl bg-muted" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="h-11 animate-pulse rounded-xl bg-muted" />
+                <div className="h-11 animate-pulse rounded-xl bg-muted" />
+              </div>
+              <div className="h-11 animate-pulse rounded-xl bg-muted" />
+              {/* Skeleton — section divider */}
+              <div className="h-px animate-pulse rounded-full bg-muted" />
+              {/* Skeleton — second section header */}
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 animate-pulse rounded-xl bg-muted" />
+                <div className="h-4 w-36 animate-pulse rounded-lg bg-muted" />
+              </div>
+              <div className="h-11 animate-pulse rounded-xl bg-muted" />
+              <div className="h-20 animate-pulse rounded-xl bg-muted" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="h-11 animate-pulse rounded-xl bg-muted" />
+                <div className="h-11 animate-pulse rounded-xl bg-muted" />
+              </div>
             </div>
           ) : (
             <Form {...form}>
@@ -309,11 +349,11 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                 id="recurring-ticket-form"
               >
                 {/* ── Bloco 1: Agendamento ── */}
-                <section aria-labelledby="section-agendamento" className="px-4 py-4 sm:px-6 sm:py-5">
-                  <div className="mb-3 flex items-center gap-2">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-950/60">
+                <section aria-labelledby="section-agendamento" className="px-4 py-5 sm:px-6 sm:py-5">
+                  <div className="mb-4 flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100 shadow-sm dark:bg-indigo-950/60">
                       <RefreshCw
-                        className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
+                        className="h-4 w-4 text-indigo-600 dark:text-indigo-400"
                         aria-hidden="true"
                       />
                     </div>
@@ -325,7 +365,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                     </h2>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-5 sm:space-y-4">
                     {/* Nome — full width */}
                     <FormField
                       control={form.control}
@@ -340,6 +380,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                               {...field}
                               placeholder="Ex: Revisão mensal AC — Bloco A"
                               maxLength={150}
+                              className="min-h-11 sm:min-h-10"
                             />
                           </FormControl>
                           <FormMessage />
@@ -348,7 +389,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                     />
 
                     {/* Recorrência + campo condicional em grid 2 cols no sm+ */}
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
                       <FormField
                         control={form.control}
                         name="recurrenceType"
@@ -359,7 +400,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                             </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value ?? ''}>
                               <FormControl>
-                                <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                                <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                   <SelectValue placeholder="Selecione..." />
                                 </SelectTrigger>
                               </FormControl>
@@ -410,7 +451,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                                   value={field.value !== undefined ? String(field.value) : ''}
                                 >
                                   <FormControl>
-                                    <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                                    <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                       <SelectValue placeholder="Selecione..." />
                                     </SelectTrigger>
                                   </FormControl>
@@ -443,6 +484,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                                     min={1}
                                     max={28}
                                     placeholder="Ex: 15"
+                                    className="min-h-11 sm:min-h-10"
                                     {...field}
                                     value={field.value != null ? String(field.value) : ''}
                                     onChange={(e) =>
@@ -475,6 +517,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                                     type="number"
                                     min={1}
                                     placeholder="Ex: 90"
+                                    className="min-h-11 sm:min-h-10"
                                     {...field}
                                     value={field.value != null ? String(field.value) : ''}
                                     onChange={(e) =>
@@ -506,7 +549,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                           </FormLabel>
                           <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <FormControl>
-                              <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                              <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                 <SelectValue placeholder="Selecione o solicitante..." />
                               </SelectTrigger>
                             </FormControl>
@@ -541,37 +584,53 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                       role="status"
                       aria-live="polite"
                       className={`overflow-hidden transition-all duration-300 ${
-                        nextRunPreview ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
+                        nextRunPreview ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'
                       }`}
                     >
                       {nextRunPreview && (
-                        <div className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-sm text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
-                          <CalendarCheck
-                            className="mt-px h-4 w-4 shrink-0"
+                        <div className="relative overflow-hidden flex items-start gap-3 rounded-xl border border-indigo-200/80 bg-linear-to-br from-indigo-50 to-blue-50/60 px-3.5 py-3 text-sm text-indigo-700 shadow-sm shadow-indigo-100 dark:border-indigo-800/60 dark:from-indigo-950/50 dark:to-blue-950/30 dark:text-indigo-300 dark:shadow-indigo-950/30">
+                          {/* Subtle glow strip */}
+                          <div
+                            className="absolute inset-x-0 top-0 h-0.5 rounded-full bg-linear-to-r from-indigo-400/0 via-indigo-400/60 to-indigo-400/0"
                             aria-hidden="true"
                           />
-                          <span className="leading-snug">
-                            Próxima geração estimada:{' '}
-                            <strong className="font-semibold">{nextRunPreview}</strong>
-                          </span>
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 shadow-sm dark:bg-indigo-900/60">
+                            <CalendarCheck
+                              className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
+                              aria-hidden="true"
+                            />
+                          </div>
+                          <div className="leading-snug">
+                            <p className="text-xs font-medium text-indigo-500 dark:text-indigo-400">
+                              Próxima geração estimada
+                            </p>
+                            <p className="mt-0.5 text-sm font-semibold capitalize">
+                              {nextRunPreview}
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
                 </section>
 
-                <Separator />
+                {/* Section divider — gradient line */}
+                <div className="mx-4 sm:mx-6" aria-hidden="true">
+                  <div className="h-px bg-linear-to-r from-transparent via-border to-transparent" />
+                </div>
 
                 {/* ── Bloco 2: Template do Chamado ── */}
                 <section
                   aria-labelledby="section-template"
-                  className="px-4 py-4 sm:px-6 sm:py-5"
+                  className="px-4 py-5 sm:px-6 sm:py-5"
                 >
-                  <div className="mb-3 flex items-center gap-2">
-                    <div
-                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-indigo-500"
-                      aria-hidden="true"
-                    />
+                  <div className="mb-4 flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100 shadow-sm dark:bg-indigo-950/60">
+                      <FileText
+                        className="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                        aria-hidden="true"
+                      />
+                    </div>
                     <h2
                       id="section-template"
                       className="text-sm font-semibold text-foreground"
@@ -580,7 +639,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                     </h2>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-5 sm:space-y-4">
                     {/* Título — full width */}
                     <FormField
                       control={form.control}
@@ -594,6 +653,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                             <Input
                               {...field}
                               placeholder="Ex: Revisão preventiva ar-condicionado"
+                              className="min-h-11 sm:min-h-10"
                             />
                           </FormControl>
                           <FormMessage />
@@ -621,7 +681,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                     />
 
                     {/* Unidade + Tipo de serviço */}
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
                       <FormField
                         control={form.control}
                         name="unitId"
@@ -632,7 +692,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                             </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value ?? ''}>
                               <FormControl>
-                                <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                                <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                   <SelectValue placeholder="Selecione..." />
                                 </SelectTrigger>
                               </FormControl>
@@ -668,7 +728,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                             </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value ?? ''}>
                               <FormControl>
-                                <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                                <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                   <SelectValue placeholder="Selecione..." />
                                 </SelectTrigger>
                               </FormControl>
@@ -687,7 +747,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                     </div>
 
                     {/* Natureza + Grau de urgência */}
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
                       <FormField
                         control={form.control}
                         name="naturezaAtendimento"
@@ -698,7 +758,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                             </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value ?? ''}>
                               <FormControl>
-                                <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                                <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                   <SelectValue placeholder="Selecione..." />
                                 </SelectTrigger>
                               </FormControl>
@@ -726,7 +786,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                               value={field.value ?? 'Normal'}
                             >
                               <FormControl>
-                                <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                                <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                   <SelectValue placeholder="Normal" />
                                 </SelectTrigger>
                               </FormControl>
@@ -752,8 +812,8 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
           )}
         </div>
 
-        {/* Fixed footer */}
-        <div className="shrink-0 border-t bg-background px-4 py-3 sm:px-6 sm:py-4">
+        {/* Fixed footer — shadow indicates scrollable content above */}
+        <div className="shrink-0 border-t bg-background/95 px-4 py-3 shadow-[0_-4px_16px_-4px_hsl(var(--border)/0.5)] backdrop-blur-sm sm:px-6 sm:py-4">
           <DialogFooter className="flex flex-col gap-2 pb-[env(safe-area-inset-bottom,0)] sm:flex-row sm:justify-end sm:gap-2 sm:pb-0">
             <Button
               type="button"
