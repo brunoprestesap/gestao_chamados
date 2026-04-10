@@ -27,7 +27,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime } from '@/lib/utils';
 
 import type { ChamadoDTO } from '../../meus-chamados/_components/ChamadoCard';
 import {
@@ -222,17 +222,22 @@ export function ChamadoDetailSheet({
         side="right"
         className="flex flex-col gap-0 p-0 sm:max-w-lg"
       >
-        {/* Accent stripe */}
+        {/* Accent stripe — slightly thicker for more visual presence */}
         <div
-          className={`h-1 w-full shrink-0 bg-linear-to-r ${accentGradient}`}
+          className={cn('h-1.5 w-full shrink-0 bg-linear-to-r', accentGradient)}
           aria-hidden="true"
         />
 
-        {/* Header */}
-        <SheetHeader className="shrink-0 px-5 pb-4 pt-5">
-          <div className="flex items-start gap-3">
+        {/* Header — with subtle tinted background */}
+        <SheetHeader
+          className={cn(
+            'shrink-0 px-5 pb-4 pt-5',
+            'bg-linear-to-b from-muted/30 to-transparent',
+          )}
+        >
+          <div className="flex items-start gap-3.5">
             {/* Icon container */}
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-amber-50 to-orange-100 shadow-sm ring-1 ring-orange-200/60 dark:from-amber-900/30 dark:to-orange-900/30 dark:ring-orange-800/40">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-amber-50 to-orange-100 shadow-sm ring-1 ring-orange-200/60 dark:from-amber-900/30 dark:to-orange-900/30 dark:ring-orange-800/40">
               <Wrench className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
 
@@ -243,7 +248,10 @@ export function ChamadoDetailSheet({
                 </SheetTitle>
                 <Badge
                   variant="outline"
-                  className={`shrink-0 border text-xs font-semibold ${STATUS_BADGE[chamado.status]}`}
+                  className={cn(
+                    'shrink-0 border text-xs font-semibold',
+                    STATUS_BADGE[chamado.status],
+                  )}
                 >
                   <StatusIcon className="mr-1 h-3 w-3" aria-hidden="true" />
                   {CHAMADO_STATUS_LABELS[chamado.status]}
@@ -270,9 +278,12 @@ export function ChamadoDetailSheet({
 
             {/* Description — primary focus area */}
             <section aria-labelledby="desc-heading">
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-2.5 flex items-center gap-2">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/40">
-                  <FileText className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
+                  <FileText
+                    className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
+                    aria-hidden="true"
+                  />
                 </div>
                 <h2
                   id="desc-heading"
@@ -281,9 +292,25 @@ export function ChamadoDetailSheet({
                   Descrição
                 </h2>
               </div>
-              <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3.5 text-sm leading-relaxed text-foreground whitespace-pre-wrap dark:bg-muted/20">
-                {chamado.descricao || (
-                  <span className="italic text-muted-foreground">Sem descrição informada.</span>
+              {/* Description box with max-height + fade-out gradient for long text */}
+              <div className="relative">
+                <div
+                  className={cn(
+                    'max-h-48 overflow-hidden rounded-xl border border-border/60 bg-muted/30',
+                    'px-4 py-3.5 text-sm leading-relaxed text-foreground whitespace-pre-wrap',
+                    'dark:bg-muted/20',
+                  )}
+                >
+                  {chamado.descricao || (
+                    <span className="italic text-muted-foreground">Sem descrição informada.</span>
+                  )}
+                </div>
+                {/* Fade gradient at bottom when text may overflow */}
+                {chamado.descricao && chamado.descricao.length > 300 && (
+                  <div
+                    className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 rounded-b-xl bg-linear-to-t from-muted/60 to-transparent dark:from-muted/40"
+                    aria-hidden="true"
+                  />
                 )}
               </div>
             </section>
@@ -293,7 +320,10 @@ export function ChamadoDetailSheet({
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant="outline"
-                  className={`border text-xs font-medium ${GRAU_URGENCIA_COLORS[chamado.grauUrgencia] ?? 'bg-gray-100 text-gray-700'}`}
+                  className={cn(
+                    'border text-xs font-medium',
+                    GRAU_URGENCIA_COLORS[chamado.grauUrgencia] ?? 'bg-gray-100 text-gray-700',
+                  )}
                 >
                   {GRAU_URGENCIA_LABELS[chamado.grauUrgencia] ?? chamado.grauUrgencia}
                 </Badge>
@@ -313,7 +343,10 @@ export function ChamadoDetailSheet({
             <section aria-labelledby="meta-heading">
               <div className="mb-3 flex items-center gap-2">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-950/40">
-                  <ClipboardList className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" aria-hidden="true" />
+                  <ClipboardList
+                    className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400"
+                    aria-hidden="true"
+                  />
                 </div>
                 <h2
                   id="meta-heading"
@@ -322,7 +355,7 @@ export function ChamadoDetailSheet({
                   Informações do chamado
                 </h2>
               </div>
-              <div className="space-y-0 divide-y divide-border/40 rounded-xl border border-border/50 bg-card">
+              <div className="space-y-0 divide-y divide-border/40 overflow-hidden rounded-xl border border-border/50 bg-card">
                 {unitName && (
                   <MetadataRow icon={Building2} label="Unidade" value={unitName} />
                 )}
@@ -347,14 +380,15 @@ export function ChamadoDetailSheet({
 
         {/* Sticky footer with action buttons */}
         {hasActions && (
-          <div className="shrink-0 border-t border-border/60 bg-background/80 px-5 py-4 backdrop-blur-sm">
-            <div className="flex w-full flex-wrap items-center justify-end gap-2">
+          <div className="shrink-0 border-t border-border/60 bg-background/90 px-5 py-4 backdrop-blur-sm">
+            {/* Mobile: full-width stacked; Desktop: row */}
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
               {showRecusar && (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="border-rose-200 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                  className="w-full border-rose-200 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 sm:w-auto"
                   onClick={() => handleAction(onRecusar)}
                 >
                   <Ban className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -365,7 +399,7 @@ export function ChamadoDetailSheet({
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90"
+                  className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
                   onClick={() => handleAction(onClassificar)}
                 >
                   <ClipboardList className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -376,7 +410,7 @@ export function ChamadoDetailSheet({
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90"
+                  className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
                   onClick={() => handleAction(onAtribuir)}
                 >
                   <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -388,7 +422,7 @@ export function ChamadoDetailSheet({
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="transition-colors"
+                  className="w-full transition-colors sm:w-auto"
                   onClick={() => handleAction(onReatribuir)}
                 >
                   <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -399,7 +433,7 @@ export function ChamadoDetailSheet({
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                  className="w-full bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 sm:w-auto"
                   onClick={() => handleAction(onEncerrar)}
                 >
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -426,9 +460,9 @@ function MetadataRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3 px-3.5 py-2.5">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted/60">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+    <div className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-muted/40">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60">
+        <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
