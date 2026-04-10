@@ -105,6 +105,9 @@ type ChamadoDetailDTO = {
   catalogServiceId: string | null;
   finalPriority?: string | null;
   classifiedAt?: string | null;
+  rejectionReason?: string | null;
+  rejectionGuidance?: string | null;
+  rejectedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   evaluation?: {
@@ -194,6 +197,8 @@ function getAccentStripeColor(status: ChamadoStatus): string {
   switch (status) {
     case 'cancelado':
       return 'from-red-500 to-red-600';
+    case 'recusado':
+      return 'from-rose-500 to-rose-600';
     case 'concluído':
     case 'encerrado':
       return 'from-emerald-500 to-emerald-600';
@@ -332,6 +337,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
   const showOwnerCancel =
     isOwner &&
     chamado.status !== 'cancelado' &&
+    chamado.status !== 'recusado' &&
     chamado.status !== 'concluído' &&
     chamado.status !== 'encerrado';
   const showReatribuir = canManageChamado && chamado.status === 'em atendimento';
@@ -395,6 +401,43 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                   <p className="wrap-break-word text-sm leading-relaxed">{chamado.descricao}</p>
                 </div>
               </div>
+
+              {/* Rejection info */}
+              {chamado.status === 'recusado' && chamado.rejectionReason && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 dark:border-rose-800 dark:bg-rose-950/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Ban className="h-4 w-4 text-rose-600 dark:text-rose-400" aria-hidden />
+                    <h4 className="text-sm font-semibold text-rose-800 dark:text-rose-200">
+                      Demanda Recusada
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-rose-600/70 dark:text-rose-400/70">
+                        Justificativa
+                      </p>
+                      <p className="mt-0.5 text-sm text-rose-900 dark:text-rose-100">
+                        {chamado.rejectionReason}
+                      </p>
+                    </div>
+                    {chamado.rejectionGuidance && (
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-rose-600/70 dark:text-rose-400/70">
+                          Orientação
+                        </p>
+                        <p className="mt-0.5 text-sm text-rose-900 dark:text-rose-100">
+                          {chamado.rejectionGuidance}
+                        </p>
+                      </div>
+                    )}
+                    {chamado.rejectedAt && (
+                      <p className="text-xs text-rose-500 dark:text-rose-400">
+                        Recusado em {formatDateTime(chamado.rejectedAt, tzOpt)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Fields grid */}
               <div className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -539,7 +582,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
             <CardContent className="pt-5">
               <AttachmentGallery
                 chamadoId={chamado._id}
-                canUpload={chamado.status !== 'encerrado' && chamado.status !== 'cancelado'}
+                canUpload={chamado.status !== 'encerrado' && chamado.status !== 'cancelado' && chamado.status !== 'recusado'}
               />
             </CardContent>
           </Card>

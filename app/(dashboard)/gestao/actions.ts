@@ -30,10 +30,12 @@ import {
   type ClassificarChamadoInput,
   ClassificarChamadoSchema,
 } from '@/shared/chamados/chamado.schemas';
-import { type CloseTicketInput,CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
+import { type CloseTicketInput, CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
+import { type RejectTicketInput, RejectTicketSchema } from '@/shared/chamados/rejection.schemas';
 
 export type ClassificarResult = { ok: true } | { ok: false; error: string };
 export type CloseTicketResult = { ok: true } | { ok: false; error: string };
+export type RejectTicketResult = { ok: true } | { ok: false; error: string };
 export type AssignTicketResult =
   | { ok: true; technicianId: string; technicianName: string; strategy: 'MANUAL' | 'FALLBACK' }
   | { ok: false; error: string };
@@ -684,6 +686,97 @@ export async function reassignTicketAction(
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao reatribuir chamado. Tente novamente.',
+    };
+  }
+}
+
+/**
+ * Recusa um chamado na triagem (Admin ou Preposto). Pré-condição: status "aberto".
+ * Exige justificativa obrigatória (min 10 chars) e aceita orientação opcional.
+ */
+export async function rejectTicketAction(
+  raw: RejectTicketInput,
+): Promise<RejectTicketResult> {
+  try {
+    const session = await requireManager();
+    const parsed = RejectTicketSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg =
+        first.rejectionReason?.[0] ??
+        first.chamadoId?.[0] ??
+        'Dados inválidos. Verifique os campos.';
+      return { ok: false, error: msg };
+    }
+
+    const { chamadoId, rejectionReason, rejectionGuidance } = parsed.data;
+    await dbConnect();
+
+    const doc = await ChamadoModel.findById(chamadoId);
+    if (!doc) return { ok: false, error: 'Chamado não encontrado.' };
+    if (doc.status !== 'aberto') {
+      return { ok: false, error: 'Somente chamados com status "aberto" podem ser recusados.' };
+    }
+
+    const now = new Date();
+    const userId = new Types.ObjectId(session.userId);
+
+    await ChamadoModel.updateOne(
+      { _id: chamadoId },
+      {
+        $set: {
+          status: 'recusado',
+          rejectedAt: now,
+          rejectedByUserId: userId,
+          rejectionReason,
+          rejectionGuidance: rejectionGuidance ?? '',
+        },
+      },
+    );
+
+    const obsParts = [`Justificativa: ${rejectionReason}`];
+    if (rejectionGuidance) obsParts.push(`Orientação: ${rejectionGuidance}`);
+    const observacoes = obsParts.join(' | ');
+
+    await ChamadoHistoryModel.create({
+      chamadoId: doc._id,
+      userId,
+      action: 'recusa',
+      statusAnterior: 'aberto',
+      statusNovo: 'recusado',
+      observacoes,
+    });
+
+    const solicitanteId = doc.solicitanteId.toString();
+    const rejectedByUser = await UserModel.findById(session.userId).select('name').lean();
+
+    await NotificationModel.create({
+      userId: doc.solicitanteId,
+      type: 'ticket:rejected',
+      title: 'Chamado recusado',
+      body: `O chamado ${doc.ticket_number} foi recusado. Motivo: ${rejectionReason}`,
+      data: { ticketId: chamadoId, ticketNumber: doc.ticket_number },
+    }).catch(() => {});
+
+    await emitToRoom(`user:${solicitanteId}`, 'ticket:rejected', {
+      ticketId: chamadoId,
+      ticketNumber: doc.ticket_number,
+      title: doc.titulo,
+      rejectedBy: { id: session.userId, name: rejectedByUser?.name ?? undefined },
+      rejectionReason,
+      rejectionGuidance: rejectionGuidance || undefined,
+      at: now.toISOString(),
+    });
+
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${chamadoId}`);
+
+    return { ok: true };
+  } catch (e) {
+    console.error('rejectTicketAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao recusar chamado. Tente novamente.',
     };
   }
 }

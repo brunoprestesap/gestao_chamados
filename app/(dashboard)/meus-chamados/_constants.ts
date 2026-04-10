@@ -1,4 +1,5 @@
 import {
+  Ban,
   CheckCircle2,
   CircleDot,
   ClipboardCheck,
@@ -33,6 +34,7 @@ export const STATUS_ICONS: Record<ChamadoStatus, LucideIcon> = {
   concluído: CheckCircle2,
   encerrado: CheckCircle2,
   cancelado: XCircle,
+  recusado: Ban,
 };
 
 export const STATUS_ACCENT: Record<ChamadoStatus, string> = {
@@ -45,6 +47,7 @@ export const STATUS_ACCENT: Record<ChamadoStatus, string> = {
   concluído: 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20',
   encerrado: 'border-l-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20',
   cancelado: 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20',
+  recusado: 'border-l-rose-500 bg-rose-50/50 dark:bg-rose-950/20',
 };
 
 export const STATUS_BADGE: Record<ChamadoStatus, string> = {
@@ -66,4 +69,6 @@ export const STATUS_BADGE: Record<ChamadoStatus, string> = {
     'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800',
   cancelado:
     'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-800',
+  recusado:
+    'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-800',
 };

@@ -406,4 +406,42 @@ describe('calculateNextRunAt — timezone America/Belem', () => {
     expect(monthly.getTime()).toBeGreaterThan(after.getTime());
     expect(custom.getTime()).toBeGreaterThan(after.getTime());
   });
+
+  it('should not advance date when weekdays is empty array (no restriction)', () => {
+    // Sábado 12:00 Belém = 2024-03-23T15:00:00Z — normalmente avançaria para segunda
+    // Com weekdays=[], snapToNextWorkday retorna imediatamente sem avançar
+    const after = utc('2024-03-23T15:00:00Z');
+    const emptyWeekdays: number[] = [];
+    const result = calculateNextRunAt('custom', { intervalDays: 1 }, after, emptyWeekdays);
+
+    // Com intervalDays=1 e sem restrição de dias úteis: resultado = domingo 24/03
+    const parts = belemDateParts(result);
+    expect(parts.day).toBe(24);
+    expect(parts.weekday).toBe('Sun');
+    expectConsistentBelemTime(result);
+  });
+
+  it('should not advance weekly result when weekdays is empty array', () => {
+    // Domingo 06:00 Belém, alvo segunda (1) — sem restrição de weekdays
+    const after = utc('2024-03-17T09:00:00Z');
+    const emptyWeekdays: number[] = [];
+    const result = calculateNextRunAt('weekly', { dayOfWeek: 1 }, after, emptyWeekdays);
+
+    const parts = belemDateParts(result);
+    expect(parts.weekday).toBe('Mon');
+    expect(parts.day).toBe(18);
+    expectConsistentBelemTime(result);
+  });
+
+  it('should not advance monthly result when weekdays is empty array', () => {
+    // Dia 10 março, alvo dia 15 — cai em sexta, sem restrição não avança
+    const after = utc('2024-03-10T15:00:00Z'); // dia 10 março
+    const emptyWeekdays: number[] = [];
+    const result = calculateNextRunAt('monthly', { dayOfMonth: 15 }, after, emptyWeekdays);
+
+    const parts = belemDateParts(result);
+    expect(parts.day).toBe(15);
+    expect(parts.month).toBe(3);
+    expectConsistentBelemTime(result);
+  });
 });

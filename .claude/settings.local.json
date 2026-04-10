@@ -92,7 +92,9 @@
       "Bash(node_modules/.bin/eslint \"app/\\(dashboard\\)/gestao/recurring/_components/RecurringTicketDialog.tsx\")",
       "Bash(echo \"exit: $?\")",
       "Bash(node_modules/.bin/next lint:*)",
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }

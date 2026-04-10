@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   ArrowRight,
+  Ban,
   Building2,
   CheckCircle2,
   ClipboardList,
@@ -120,6 +121,8 @@ type Props = {
   onEncerrar?: (chamado: ChamadoDTO) => void;
   /** Quando fornecido e status "Em atendimento", exibe botão "Reatribuir" (Preposto/Admin). */
   onReatribuir?: (chamado: ChamadoDTO) => void;
+  /** Quando fornecido e status "aberto", exibe botão "Recusar" (Preposto/Admin). */
+  onRecusar?: (chamado: ChamadoDTO) => void;
   /** Quando fornecido com showAvaliar, ao clicar em "Avaliar" chama isto em vez de navegar. */
   onAvaliar?: (chamado: ChamadoDTO) => void;
   /** Se true, card e título não navegam para detalhe (ex.: módulo gestão). */
@@ -204,6 +207,7 @@ export function ChamadoCard({
   onAtribuir,
   onEncerrar,
   onReatribuir,
+  onRecusar,
   onAvaliar,
   hideDetailLink,
   showAvaliar = false,
@@ -357,6 +361,14 @@ export function ChamadoCard({
     [onReatribuir, chamado],
   );
 
+  const handleRecusarClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onRecusar?.(chamado);
+    },
+    [onRecusar, chamado],
+  );
+
   const evaluated = hasValidEvaluation(chamado.evaluation);
   const showAvaliarBtn = showAvaliar && chamado.status === 'encerrado' && !evaluated;
   const showAvaliadoBadge = showAvaliar && chamado.status === 'encerrado' && evaluated;
@@ -364,6 +376,7 @@ export function ChamadoCard({
     showAvaliarBtn ||
     showAvaliadoBadge ||
     onClassificar ||
+    onRecusar ||
     onAtribuir ||
     (onEncerrar && chamado.status === 'concluído') ||
     (onReatribuir && chamado.status === 'em atendimento');
@@ -636,6 +649,22 @@ export function ChamadoCard({
                     >
                       <ClipboardList className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
                       Classificar
+                    </Button>
+                  )}
+                  {onRecusar && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      title="Recusar demanda"
+                      className={cn(
+                        'border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30',
+                        compact && 'h-7 gap-1 px-2 text-xs',
+                      )}
+                      onClick={handleRecusarClick}
+                    >
+                      <Ban className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+                      Recusar
                     </Button>
                   )}
                   {onAtribuir && (

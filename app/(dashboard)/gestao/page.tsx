@@ -8,6 +8,7 @@ import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/Atri
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
+import { RecusarChamadoDialog } from '@/app/(dashboard)/gestao/_components/RecusarChamadoDialog';
 import {
   ChamadoCard,
   type ChamadoDTO,
@@ -35,6 +36,7 @@ export default function GestaoPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ChamadoDTO[]>([]);
   const [classificarDialogOpen, setClassificarDialogOpen] = useState(false);
+  const [recusarDialogOpen, setRecusarDialogOpen] = useState(false);
   const [atribuirDialogOpen, setAtribuirDialogOpen] = useState(false);
   const [encerrarChamadoId, setEncerrarChamadoId] = useState<string | null>(null);
   const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
@@ -91,6 +93,11 @@ export default function GestaoPage() {
     setClassificarDialogOpen(true);
   }, []);
 
+  const handleRecusar = useCallback((chamado: ChamadoDTO) => {
+    setSelected(chamado);
+    setRecusarDialogOpen(true);
+  }, []);
+
   const handleAtribuir = useCallback((chamado: ChamadoDTO) => {
     setSelected(chamado);
     setAtribuirDialogOpen(true);
@@ -98,6 +105,11 @@ export default function GestaoPage() {
 
   const handleClassificarDialogClose = useCallback((open: boolean) => {
     setClassificarDialogOpen(open);
+    if (!open) setSelected(null);
+  }, []);
+
+  const handleRecusarDialogClose = useCallback((open: boolean) => {
+    setRecusarDialogOpen(open);
     if (!open) setSelected(null);
   }, []);
 
@@ -240,6 +252,9 @@ export default function GestaoPage() {
                                   onClassificar={
                                     c.status === 'aberto' ? handleClassificar : undefined
                                   }
+                                  onRecusar={
+                                    c.status === 'aberto' ? handleRecusar : undefined
+                                  }
                                   onAtribuir={
                                     c.status === 'validado' || c.status === 'emvalidacao'
                                       ? handleAtribuir
@@ -265,6 +280,13 @@ export default function GestaoPage() {
       <ClassificarChamadoDialog
         open={classificarDialogOpen}
         onOpenChange={handleClassificarDialogClose}
+        chamado={selected}
+        onSuccess={fetchChamados}
+      />
+
+      <RecusarChamadoDialog
+        open={recusarDialogOpen}
+        onOpenChange={handleRecusarDialogClose}
         chamado={selected}
         onSuccess={fetchChamados}
       />

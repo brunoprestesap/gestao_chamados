@@ -486,4 +486,105 @@ describe('deleteRecurringTemplateAction — erro de banco', () => {
       expect(result.error).toBe('Erro ao deletar agendamento. Tente novamente.');
     }
   });
+
+  it('should return ok:false when requireManager throws in deleteRecurringTemplateAction', async () => {
+    vi.mocked(requireManager).mockRejectedValue(new Error('Unauthorized'));
+
+    const result = await deleteRecurringTemplateAction(VALID_OID);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('Erro ao deletar agendamento. Tente novamente.');
+    }
+  });
+});
+
+// ── toggleRecurringTemplateAction — erro de banco ─────────────────
+
+describe('toggleRecurringTemplateAction — erro de banco', () => {
+  it('should return ok:false when requireManager throws in toggleRecurringTemplateAction', async () => {
+    vi.mocked(requireManager).mockRejectedValue(new Error('Unauthorized'));
+
+    const result = await toggleRecurringTemplateAction(VALID_OID);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('Erro ao alterar status do agendamento. Tente novamente.');
+    }
+  });
+
+  it('should return ok:false when updateOne throws during toggle', async () => {
+    vi.mocked(RecurringTicketModel.findById).mockResolvedValue({
+      isActive: true,
+      recurrenceType: 'weekly',
+      dayOfWeek: 1,
+      dayOfMonth: null,
+      intervalDays: null,
+    } as never);
+    vi.mocked(RecurringTicketModel.updateOne).mockRejectedValue(new Error('DB write error'));
+
+    const result = await toggleRecurringTemplateAction(VALID_OID);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('Erro ao alterar status do agendamento. Tente novamente.');
+    }
+  });
+});
+
+// ── updateRecurringTemplateAction — erro de banco ─────────────────
+
+describe('updateRecurringTemplateAction — erro de banco', () => {
+  it('should return ok:false when updateOne throws', async () => {
+    vi.mocked(RecurringTicketModel.findById).mockResolvedValue({
+      recurrenceType: 'weekly',
+      dayOfWeek: 1,
+      dayOfMonth: undefined,
+      intervalDays: undefined,
+      nextRunAt: new Date('2024-03-18T11:00:00Z'),
+    } as never);
+    vi.mocked(RecurringTicketModel.updateOne).mockRejectedValue(new Error('Update failed'));
+
+    const result = await updateRecurringTemplateAction({
+      id: VALID_OID,
+      ...validCreateInput(),
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('Erro ao atualizar agendamento. Tente novamente.');
+    }
+  });
+});
+
+// ── createRecurringTemplateAction — com subtypeId e catalogServiceId ──
+
+describe('createRecurringTemplateAction — com campos opcionais', () => {
+  beforeEach(() => {
+    vi.mocked(RecurringTicketModel.create).mockResolvedValue({ _id: VALID_OID } as never);
+  });
+
+  it('should set subtypeId and catalogServiceId as ObjectId when provided', async () => {
+    const result = await createRecurringTemplateAction({
+      ...validCreateInput(),
+      subtypeId: VALID_OID,
+      catalogServiceId: VALID_OID_2,
+    });
+
+    expect(result.ok).toBe(true);
+    const [arg] = vi.mocked(RecurringTicketModel.create).mock.calls[0];
+    expect(arg.subtypeId).toBeDefined();
+    expect(arg.catalogServiceId).toBeDefined();
+    expect(String(arg.subtypeId)).toBe(VALID_OID);
+    expect(String(arg.catalogServiceId)).toBe(VALID_OID_2);
+  });
+
+  it('should leave subtypeId and catalogServiceId undefined when not provided', async () => {
+    const result = await createRecurringTemplateAction(validCreateInput());
+
+    expect(result.ok).toBe(true);
+    const [arg] = vi.mocked(RecurringTicketModel.create).mock.calls[0];
+    expect(arg.subtypeId).toBeUndefined();
+    expect(arg.catalogServiceId).toBeUndefined();
+  });
 });

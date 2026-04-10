@@ -80,6 +80,17 @@ export interface TicketResumedPayload {
   at: string;
 }
 
+/** Payload quando Preposto/Admin recusa um chamado na triagem (notificação para o Solicitante). */
+export interface TicketRejectedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  rejectedBy: { id: string; name?: string };
+  rejectionReason: string;
+  rejectionGuidance?: string;
+  at: string;
+}
+
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
   'ticket:new': (payload: TicketNewPayload) => void;
@@ -89,6 +100,7 @@ export interface ServerToClientEvents {
   'ticket:attachment_added': (payload: TicketAttachmentAddedPayload) => void;
   'ticket:paused': (payload: TicketPausedPayload) => void;
   'ticket:resumed': (payload: TicketResumedPayload) => void;
+  'ticket:rejected': (payload: TicketRejectedPayload) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

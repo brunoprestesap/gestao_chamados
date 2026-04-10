@@ -12,6 +12,7 @@ import type {
   TicketExecutionRegisteredPayload,
   TicketNewPayload,
   TicketPausedPayload,
+  TicketRejectedPayload,
   TicketResumedPayload,
 } from '@/shared/socket';
 
@@ -27,7 +28,8 @@ export type AllowedEmitEvents =
   | 'ticket:comment_added'
   | 'ticket:attachment_added'
   | 'ticket:paused'
-  | 'ticket:resumed';
+  | 'ticket:resumed'
+  | 'ticket:rejected';
 
 /**
  * Envia evento para uma room no socket-server.
@@ -45,6 +47,7 @@ export async function emitToRoom(
     | TicketExecutionRegisteredPayload
     | TicketClosedPayload
     | TicketPausedPayload
+    | TicketRejectedPayload
     | TicketResumedPayload,
 ): Promise<boolean> {
   if (!INTERNAL_SECRET) {

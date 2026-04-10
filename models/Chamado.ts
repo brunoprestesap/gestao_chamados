@@ -86,6 +86,11 @@ const ChamadoSchema = new Schema(
     reassignedAt: { type: Date, required: false },
     reassignedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     reassignmentNotes: { type: String, default: '', trim: true },
+    // Recusa na triagem (Admin/Preposto)
+    rejectedAt: { type: Date, required: false },
+    rejectedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    rejectionReason: { type: String, default: '', trim: true },
+    rejectionGuidance: { type: String, default: '', trim: true },
     // Pausa SLA — aguardando solicitante
     slaPausedAt: { type: Date, required: false },
     totalPausedMinutes: { type: Number, default: 0 },
@@ -161,6 +166,7 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   classifiedByUserId?: Types.ObjectId;
   assignedToUserId?: Types.ObjectId;
   assignedByUserId?: Types.ObjectId;
+  rejectedByUserId?: Types.ObjectId;
   originTemplateId?: Types.ObjectId;
   concludedAt?: Date;
   slaPausedAt?: Date;

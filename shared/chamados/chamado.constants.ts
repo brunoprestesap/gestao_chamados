@@ -8,6 +8,7 @@ export const CHAMADO_STATUSES = [
   'concluído',
   'encerrado',
   'cancelado',
+  'recusado',
 ] as const;
 export type ChamadoStatus = (typeof CHAMADO_STATUSES)[number];
 
@@ -21,6 +22,7 @@ export const CHAMADO_STATUS_LABELS: Record<ChamadoStatus, string> = {
   concluído: 'Concluído',
   encerrado: 'Encerrado',
   cancelado: 'Cancelado',
+  recusado: 'Recusado',
 };
 
 /** Prioridade final na classificação */
