@@ -628,7 +628,7 @@ export default function GestaoPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25, ease: 'easeOut' }}
                         className={cn(
-                          'flex h-full min-h-0 w-[272px] shrink-0 flex-col rounded-2xl border border-t-4 bg-card shadow-sm md:min-w-[160px] md:max-w-[240px] md:flex-1 lg:min-w-[180px] lg:max-w-[260px] xl:max-w-[300px]',
+                          'flex h-full min-h-0 w-[272px] shrink-0 flex-col overflow-hidden rounded-2xl border border-t-4 bg-card shadow-sm md:min-w-[160px] md:max-w-[240px] md:flex-1 lg:min-w-[180px] lg:max-w-[260px] xl:max-w-[300px]',
                           cfg.topBorder,
                         )}
                       >
@@ -664,8 +664,8 @@ export default function GestaoPage() {
                         </div>
 
                         {/* Column body */}
-                        <ScrollArea className="min-h-0 flex-1">
-                          <div className="flex flex-col gap-2 p-2.5 sm:p-3">
+                        <ScrollArea className="min-h-0 min-w-0 flex-1">
+                          <div className="flex min-w-0 flex-col gap-2 p-2.5 sm:p-3">
                             {columnItems.length === 0 ? (
                               <div className="flex flex-col items-center justify-center py-8 text-center">
                                 <Columns3
@@ -684,6 +684,7 @@ export default function GestaoPage() {
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.97 }}
                                     transition={{ duration: 0.18, ease: 'easeOut' }}
+                                    className="min-w-0 overflow-hidden"
                                   >
                                     <ChamadoCard
                                       compact
