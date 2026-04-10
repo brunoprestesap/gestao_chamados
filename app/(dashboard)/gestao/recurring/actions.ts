@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { calculateNextRunAt } from '@/lib/recurring-utils';
 import { RecurringTicketModel } from '@/models/RecurringTicket';
 import {
@@ -36,11 +37,17 @@ export async function createRecurringTemplateAction(
     const data = parsed.data;
     await dbConnect();
 
-    const nextRunAt = calculateNextRunAt(data.recurrenceType, {
-      dayOfWeek: data.dayOfWeek,
-      dayOfMonth: data.dayOfMonth,
-      intervalDays: data.intervalDays,
-    });
+    const { weekdays } = await getBusinessCalendarConfig();
+    const nextRunAt = calculateNextRunAt(
+      data.recurrenceType,
+      {
+        dayOfWeek: data.dayOfWeek,
+        dayOfMonth: data.dayOfMonth,
+        intervalDays: data.intervalDays,
+      },
+      undefined,
+      weekdays,
+    );
 
     const doc = await RecurringTicketModel.create({
       name: data.name,
@@ -101,12 +108,18 @@ export async function updateRecurringTemplateAction(
       existing.dayOfMonth !== data.dayOfMonth ||
       existing.intervalDays !== data.intervalDays;
 
+    const { weekdays } = await getBusinessCalendarConfig();
     const nextRunAt = recurrenceChanged
-      ? calculateNextRunAt(data.recurrenceType, {
-          dayOfWeek: data.dayOfWeek,
-          dayOfMonth: data.dayOfMonth,
-          intervalDays: data.intervalDays,
-        })
+      ? calculateNextRunAt(
+          data.recurrenceType,
+          {
+            dayOfWeek: data.dayOfWeek,
+            dayOfMonth: data.dayOfMonth,
+            intervalDays: data.intervalDays,
+          },
+          undefined,
+          weekdays,
+        )
       : existing.nextRunAt;
 
     await RecurringTicketModel.updateOne(
@@ -164,8 +177,9 @@ export async function toggleRecurringTemplateAction(
 
     const update: Record<string, unknown> = { isActive: newActive };
 
-    // Se ativando, recalcular nextRunAt para o próximo slot futuro
+    // Se ativando, recalcular nextRunAt para o próximo slot futuro (dia útil)
     if (newActive) {
+      const { weekdays } = await getBusinessCalendarConfig();
       update.nextRunAt = calculateNextRunAt(
         doc.recurrenceType as RecurrenceType,
         {
@@ -174,6 +188,7 @@ export async function toggleRecurringTemplateAction(
           intervalDays: doc.intervalDays ?? undefined,
         },
         new Date(),
+        weekdays,
       );
     }
 

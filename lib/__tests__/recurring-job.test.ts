@@ -12,6 +12,15 @@ vi.mock('@/lib/chamado-utils', () => ({
   generateTicketNumber: vi.fn().mockResolvedValue('CHM-2024-00001'),
 }));
 
+vi.mock('@/lib/expediente-config', () => ({
+  getBusinessCalendarConfig: vi.fn().mockResolvedValue({
+    timezone: 'America/Belem',
+    workdayStart: '08:00',
+    workdayEnd: '18:00',
+    weekdays: [1, 2, 3, 4, 5],
+  }),
+}));
+
 vi.mock('@/lib/realtime-emit', () => ({
   emitToRoom: vi.fn().mockResolvedValue(true),
 }));

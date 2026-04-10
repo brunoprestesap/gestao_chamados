@@ -22,6 +22,7 @@ services:
       LDAP_USER_SEARCH_FILTER: ${LDAP_USER_SEARCH_FILTER:-}
       LDAP_TLS_REJECT_UNAUTHORIZED: ${LDAP_TLS_REJECT_UNAUTHORIZED:-true}
       LDAP_DEBUG: ${LDAP_DEBUG:-false}
+      CRON_SECRET: ${CRON_SECRET}
     volumes:
       - ./uploads:/app/data/uploads
     depends_on:
@@ -70,6 +71,25 @@ services:
     depends_on:
       - next-app
       - socket-server
+    networks:
+      - sigma
+    restart: unless-stopped
+
+  # Cron job — chamados recorrentes (a cada 30 min)
+  cron:
+    image: alpine:3.20
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "*/30 * * * * curl -sf -X POST -H 'x-cron-secret: $$CRON_SECRET' http://next-app:3000/api/cron/recurring-tickets >> /proc/1/fd/1 2>&1" | crontab -
+        apk add --no-cache curl > /dev/null 2>&1
+        crond -f -l 6
+    environment:
+      CRON_SECRET: ${CRON_SECRET}
+    depends_on:
+      next-app:
+        condition: service_started
     networks:
       - sigma
     restart: unless-stopped

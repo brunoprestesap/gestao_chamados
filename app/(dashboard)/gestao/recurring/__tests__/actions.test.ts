@@ -13,6 +13,15 @@ vi.mock('@/lib/db', () => ({
   dbConnect: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('@/lib/expediente-config', () => ({
+  getBusinessCalendarConfig: vi.fn().mockResolvedValue({
+    timezone: 'America/Belem',
+    workdayStart: '08:00',
+    workdayEnd: '18:00',
+    weekdays: [1, 2, 3, 4, 5],
+  }),
+}));
+
 vi.mock('@/lib/recurring-utils', () => ({
   calculateNextRunAt: vi.fn().mockReturnValue(new Date('2024-04-25T11:00:00Z')),
 }));

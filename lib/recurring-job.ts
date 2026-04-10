@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { dbConnect } from '@/lib/db';
+import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { calculateNextRunAt } from '@/lib/recurring-utils';
 import { ChamadoModel } from '@/models/Chamado';
@@ -39,7 +40,10 @@ export async function processRecurringTickets(): Promise<RecurringJobReport> {
     return report;
   }
 
-  // Buscar managers uma vez fora do loop (evita N+1)
+  // Buscar config de expediente (dias úteis) e managers uma vez fora do loop
+  const businessConfig = await getBusinessCalendarConfig();
+  const { weekdays } = businessConfig;
+
   const managers = await UserModel.find({
     role: { $in: ['Preposto', 'Admin'] },
     isActive: true,
@@ -125,6 +129,7 @@ export async function processRecurringTickets(): Promise<RecurringJobReport> {
       await emitToRoom('managers', 'ticket:new', payload);
 
       // Calcular próximo slot baseado no slot atual (evita drift acumulado)
+      // Passa weekdays para pular fins de semana / dias não úteis
       const nextRun = calculateNextRunAt(
         template.recurrenceType as RecurrenceType,
         {
@@ -133,6 +138,7 @@ export async function processRecurringTickets(): Promise<RecurringJobReport> {
           intervalDays: template.intervalDays ?? undefined,
         },
         new Date(template.nextRunAt),
+        weekdays,
       );
 
       await RecurringTicketModel.updateOne(

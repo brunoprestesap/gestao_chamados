@@ -124,10 +124,11 @@ describe('calculateNextRunAt — weekly', () => {
     expectConsistentBelemTime(result);
   });
 
-  it('should return next Sunday when today is Saturday', () => {
+  it('should return next Sunday when today is Saturday (all weekdays allowed)', () => {
     // Sábado 12:00 Belém = 2024-03-23T15:00:00Z
     const after = utc('2024-03-23T15:00:00Z');
-    const result = calculateNextRunAt('weekly', { dayOfWeek: 0 }, after);
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    const result = calculateNextRunAt('weekly', { dayOfWeek: 0 }, after, allDays);
 
     const parts = belemDateParts(result);
     expect(parts.weekday).toBe('Sun');
@@ -135,10 +136,22 @@ describe('calculateNextRunAt — weekly', () => {
     expectConsistentBelemTime(result);
   });
 
-  it('should return next Sunday 7 days ahead when today is Sunday after 08:00', () => {
+  it('should snap Sunday to Monday when using default weekdays (Mon-Fri)', () => {
+    // Sábado 12:00 Belém, alvo = domingo, mas default weekdays pula para segunda
+    const after = utc('2024-03-23T15:00:00Z');
+    const result = calculateNextRunAt('weekly', { dayOfWeek: 0 }, after);
+
+    const parts = belemDateParts(result);
+    expect(parts.weekday).toBe('Mon');
+    expect(parts.day).toBe(25);
+    expectConsistentBelemTime(result);
+  });
+
+  it('should return next Sunday 7 days ahead when today is Sunday after 08:00 (all weekdays)', () => {
     // Domingo 09:00 Belém = 2024-03-24T12:00:00Z — já passou das 8h
     const after = utc('2024-03-24T12:00:00Z');
-    const result = calculateNextRunAt('weekly', { dayOfWeek: 0 }, after);
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    const result = calculateNextRunAt('weekly', { dayOfWeek: 0 }, after, allDays);
 
     const parts = belemDateParts(result);
     expect(parts.weekday).toBe('Sun');
@@ -286,10 +299,23 @@ describe('calculateNextRunAt — custom', () => {
     expectConsistentBelemTime(result);
   });
 
-  it('should return date 30 days from now when intervalDays = 30', () => {
-    // Dia 1 março
+  it('should return date 30 days from now, snapped to next workday', () => {
+    // Dia 1 março + 30 = 31 março (domingo) → snap para 1 abril (segunda)
     const after = utc('2024-03-01T15:00:00Z');
     const result = calculateNextRunAt('custom', { intervalDays: 30 }, after);
+
+    const parts = belemDateParts(result);
+    expect(parts.weekday).toBe('Mon');
+    expect(parts.day).toBe(1);
+    expect(parts.month).toBe(4); // abril (snapped from domingo 31/03)
+    expectConsistentBelemTime(result);
+  });
+
+  it('should return exact date when all weekdays allowed', () => {
+    // Dia 1 março + 30 = 31 março (domingo), sem restrição de weekday
+    const after = utc('2024-03-01T15:00:00Z');
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    const result = calculateNextRunAt('custom', { intervalDays: 30 }, after, allDays);
 
     const parts = belemDateParts(result);
     expect(parts.day).toBe(31);
@@ -302,8 +328,9 @@ describe('calculateNextRunAt — custom', () => {
     const result = calculateNextRunAt('custom', {}, after);
 
     const parts = belemDateParts(result);
-    expect(parts.day).toBe(31);
-    expect(parts.month).toBe(3);
+    // 31 março é domingo → snap para segunda 1 abril
+    expect(parts.day).toBe(1);
+    expect(parts.month).toBe(4);
   });
 
   it('should cross month boundary correctly', () => {
@@ -330,9 +357,13 @@ describe('calculateNextRunAt — custom', () => {
   });
 
   it('should generate times at 08:00 Belém regardless of after time', () => {
-    // Meia-noite em Belém = 03:00 UTC
+    // Meia-noite em Belém = 03:00 UTC, +5 dias = 23 março (sábado) → 25 março (segunda)
     const after = utc('2024-03-18T03:00:00Z');
     const result = calculateNextRunAt('custom', { intervalDays: 5 }, after);
+
+    const parts = belemDateParts(result);
+    expect(parts.weekday).toBe('Mon');
+    expect(parts.day).toBe(25);
     expectConsistentBelemTime(result);
   });
 });
