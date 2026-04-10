@@ -240,6 +240,7 @@ export function FileUpload({
 
       <input
         ref={inputRef}
+        data-testid="file-upload-input"
         type="file"
         accept={accept}
         multiple
@@ -267,11 +268,14 @@ export function FileUpload({
             >
               {/* Thumbnail / icon */}
               {pf.preview ? (
-                <img
-                  src={pf.preview}
-                  alt={pf.file.name}
-                  className="size-10 rounded-lg object-cover"
-                />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- preview blob:/data: local */}
+                  <img
+                    src={pf.preview}
+                    alt={pf.file.name}
+                    className="size-10 rounded-lg object-cover"
+                  />
+                </>
               ) : (
                 <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
                   <Paperclip className="size-4 text-muted-foreground" />

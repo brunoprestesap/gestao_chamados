@@ -75,11 +75,11 @@ export async function GET(
     const ext = path.extname(decodedFilename).toLowerCase();
     const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Content-Length': String(fileBuffer.byteLength),
+        'Content-Length': String(fileBuffer.length),
         'Cache-Control': 'private, max-age=86400',
         'Content-Disposition': contentType === 'application/pdf'
           ? `inline; filename="${decodedFilename}"`

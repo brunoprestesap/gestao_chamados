@@ -108,7 +108,8 @@ describe('AttachmentListItemSchema', () => {
   });
 
   it('deve rejeitar quando user está ausente', () => {
-    const { user: _, ...withoutUser } = validItem;
+    const withoutUser = { ...validItem };
+    delete withoutUser.user;
     const result = AttachmentListItemSchema.safeParse(withoutUser);
     expect(result.success).toBe(false);
   });
@@ -146,7 +147,8 @@ describe('AddAttachmentSchema', () => {
   });
 
   it('deve usar "geral" como context padrão quando omitido', () => {
-    const { context: _, ...withoutContext } = validInput;
+    const withoutContext = { ...validInput };
+    delete withoutContext.context;
     const result = AddAttachmentSchema.safeParse(withoutContext);
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.context).toBe('geral');

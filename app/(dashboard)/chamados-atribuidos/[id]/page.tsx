@@ -2,7 +2,7 @@
 
 import { ArrowLeft, CheckCircle2, Clock, Hourglass, Loader2, Play, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { PauseForRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseForRequesterDialog';
 import { RegisterExecutionDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/RegisterExecutionDialog';
@@ -73,48 +73,56 @@ export default function ChamadoAtribuidoDetailPage({
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
 
+  const fetchChamado = useCallback(
+    async (id: string) => {
+      setLoading(true);
+      try {
+        const [res, sessionRes] = await Promise.all([
+          fetch(`/api/chamados-atribuidos/${id}`, { cache: 'no-store' }),
+          fetch('/api/session', { cache: 'no-store' }),
+        ]);
+
+        if (sessionRes.ok) {
+          const sessionData = await sessionRes.json().catch(() => ({}));
+          if (sessionData.role) setUserRole(sessionData.role);
+        }
+
+        if (res.status === 401) {
+          router.replace('/login?callbackUrl=/chamados-atribuidos');
+          return;
+        }
+        if (res.status === 403) {
+          router.replace('/dashboard');
+          return;
+        }
+        if (res.status === 404) {
+          router.replace('/chamados-atribuidos');
+          return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        setChamado(data.item || null);
+      } catch (error) {
+        console.error('Erro ao buscar chamado:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router],
+  );
+
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+    void (async () => {
       const { id } = await params;
+      if (cancelled) return;
       setChamadoId(id);
       await fetchChamado(id);
     })();
-  }, [params]);
-
-  async function fetchChamado(id: string) {
-    setLoading(true);
-    try {
-      const [res, sessionRes] = await Promise.all([
-        fetch(`/api/chamados-atribuidos/${id}`, { cache: 'no-store' }),
-        fetch('/api/session', { cache: 'no-store' }),
-      ]);
-
-      if (sessionRes.ok) {
-        const sessionData = await sessionRes.json().catch(() => ({}));
-        if (sessionData.role) setUserRole(sessionData.role);
-      }
-
-      if (res.status === 401) {
-        router.replace('/login?callbackUrl=/chamados-atribuidos');
-        return;
-      }
-      if (res.status === 403) {
-        router.replace('/dashboard');
-        return;
-      }
-      if (res.status === 404) {
-        router.replace('/chamados-atribuidos');
-        return;
-      }
-
-      const data = await res.json().catch(() => ({}));
-      setChamado(data.item || null);
-    } catch (error) {
-      console.error('Erro ao buscar chamado:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [params, fetchChamado]);
 
   async function onActionSuccess() {
     if (chamadoId) await fetchChamado(chamadoId);

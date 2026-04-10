@@ -1,8 +1,8 @@
-import path from 'path';
 
 import { expect, test } from '@playwright/test';
 
 import { login } from './fixtures/auth';
+import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 /**
  * Testes E2E para a feature de Anexos / Upload de Fotos.
@@ -50,6 +50,7 @@ test.describe.serial('Upload de Anexos', () => {
 
     await dialog.getByLabel(/local exato/i).fill('Sala E2E Anexos');
     await dialog.getByText('Manutenção Predial').click();
+    await selectFirstSubtypeAndCatalogService(page, dialog);
     await dialog.getByPlaceholder(/descreva/i).fill(TICKET_TITLE);
     await dialog.getByText('Padrão').first().click();
 
@@ -86,14 +87,11 @@ test.describe.serial('Upload de Anexos', () => {
     await page.getByText(TICKET_TITLE).click();
     await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 10000 });
 
-    // Aguarda botão "Adicionar" ou a drop zone ficar visível
-    const addButton = page.getByRole('button', { name: /adicionar|add|anexar/i }).first();
-    if (await addButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await addButton.click();
-    }
+    const addButton = page.getByRole('button', { name: /^adicionar$/i });
+    await expect(addButton).toBeVisible({ timeout: 10000 });
+    await addButton.click();
 
-    // Act — faz o upload via input hidden
-    const fileInput = page.locator('input[type="file"]').first();
+    const fileInput = page.getByTestId('file-upload-input');
     await expect(fileInput).toBeAttached({ timeout: 10000 });
 
     // Cria um arquivo JPEG temporário com magic bytes válidos
@@ -119,13 +117,11 @@ test.describe.serial('Upload de Anexos', () => {
     await page.getByText(TICKET_TITLE).click();
     await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 10000 });
 
-    const addButton = page.getByRole('button', { name: /adicionar|add|anexar/i }).first();
-    if (await addButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await addButton.click();
-    }
+    const addButton = page.getByRole('button', { name: /^adicionar$/i });
+    await expect(addButton).toBeVisible({ timeout: 10000 });
+    await addButton.click();
 
-    // Act — tenta fazer upload de um arquivo de texto (não permitido)
-    const fileInput = page.locator('input[type="file"]').first();
+    const fileInput = page.getByTestId('file-upload-input');
     await expect(fileInput).toBeAttached({ timeout: 10000 });
 
     await fileInput.setInputFiles({
@@ -149,10 +145,9 @@ test.describe.serial('Upload de Anexos', () => {
     await page.getByText(TICKET_TITLE).click();
     await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 10000 });
 
-    const addButton = page.getByRole('button', { name: /adicionar|add|anexar/i }).first();
-    if (await addButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await addButton.click();
-    }
+    const addButton = page.getByRole('button', { name: /^adicionar$/i });
+    await expect(addButton).toBeVisible({ timeout: 10000 });
+    await addButton.click();
 
     // Act — cria um buffer acima de 5MB (5 * 1024 * 1024 + 1)
     const oversizeBuffer = Buffer.alloc(5 * 1024 * 1024 + 1);
@@ -161,7 +156,7 @@ test.describe.serial('Upload de Anexos', () => {
     oversizeBuffer[1] = 0xd8;
     oversizeBuffer[2] = 0xff;
 
-    const fileInput = page.locator('input[type="file"]').first();
+    const fileInput = page.getByTestId('file-upload-input');
     await expect(fileInput).toBeAttached({ timeout: 10000 });
 
     await fileInput.setInputFiles({
@@ -171,7 +166,7 @@ test.describe.serial('Upload de Anexos', () => {
     });
 
     // Assert — mensagem de erro de tamanho exibida
-    await expect(page.getByText(/5mb|tamanho|excede/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Arquivo excede 5MB.')).toBeVisible({ timeout: 5000 });
   });
 
   test('6. Galeria exibe anexo após upload bem-sucedido', async ({ page }) => {

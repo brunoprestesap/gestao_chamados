@@ -35,7 +35,7 @@ export async function generateTicketNumber(): Promise<string> {
   const formattedNumber = nextNumber.toString().padStart(5, '0');
 
   const ticketNumber = `${prefix}${formattedNumber}`;
-  console.log('Ticket number gerado:', ticketNumber);
+  console.warn('Ticket number gerado:', ticketNumber);
 
   return ticketNumber;
 }

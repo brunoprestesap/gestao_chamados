@@ -30,7 +30,6 @@ printjson(units.insertedIds);
 const unitTI = units.insertedIds[1];
 const unitDiretoria = units.insertedIds[0];
 const unitRH = units.insertedIds[2];
-const unitFinanceiro = units.insertedIds[3];
 
 // -------------------------------------------------------
 // 2. Tipos de Serviço

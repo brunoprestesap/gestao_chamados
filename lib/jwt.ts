@@ -28,7 +28,10 @@ export function signJwt(payload: Record<string, unknown>, secret: string, expire
   return `${data}.${sig}`;
 }
 
-export function verifyJwt<T extends Record<string, any>>(token: string, secret: string): T | null {
+export function verifyJwt<T extends Record<string, unknown>>(
+  token: string,
+  secret: string,
+): T | null {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 

@@ -2,6 +2,7 @@ import '@/models/ServiceType';
 import '@/models/ServiceSubType';
 
 import { MongoServerError } from 'mongodb';
+import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import { dbConnect } from '@/lib/db';
@@ -10,9 +11,32 @@ import {
   extractSequential,
   getCodePrefixFromSubtypeName,
 } from '@/lib/service-code';
-import { ServiceCatalogModel } from '@/models/ServiceCatalog';
+import { type ServiceCatalog,ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
 import { ServiceListQuerySchema } from '@/shared/catalog/service.schemas';
+
+type PopulatedNameRef = { _id: Types.ObjectId; name: string };
+
+function populatedPair(
+  ref: Types.ObjectId | PopulatedNameRef | null | undefined,
+): { id: string; name: string } | null {
+  if (ref == null) return null;
+  if (typeof ref === 'object' && 'name' in ref) {
+    const r = ref as PopulatedNameRef;
+    return { id: String(r._id), name: r.name };
+  }
+  return null;
+}
+
+function refObjectIdString(
+  ref: Types.ObjectId | PopulatedNameRef | null | undefined,
+): string {
+  if (ref == null) return '';
+  if (typeof ref === 'object' && '_id' in ref) {
+    return String((ref as PopulatedNameRef)._id);
+  }
+  return String(ref);
+}
 
 export async function GET(req: Request) {
   await dbConnect();
@@ -33,7 +57,12 @@ export async function GET(req: Request) {
 
   const { q, typeId, subtypeId } = parsed.data;
 
-  const filter: Record<string, any> = {};
+  type CatalogLean = ServiceCatalog & {
+    typeId?: ServiceCatalog['typeId'] | PopulatedNameRef;
+    subtypeId?: ServiceCatalog['subtypeId'] | PopulatedNameRef;
+  };
+
+  const filter: Record<string, unknown> = {};
   if (typeId) filter.typeId = typeId;
   if (subtypeId) filter.subtypeId = subtypeId;
   if (q) {
@@ -51,12 +80,12 @@ export async function GET(req: Request) {
     .lean();
 
   // normaliza para o front (fica bem legível)
-  const normalized = items.map((it: any) => ({
+  const normalized = items.map((it: CatalogLean) => ({
     ...it,
-    type: it.typeId ? { id: String(it.typeId._id), name: it.typeId.name } : null,
-    subtype: it.subtypeId ? { id: String(it.subtypeId._id), name: it.subtypeId.name } : null,
-    typeId: String(it.typeId?._id ?? it.typeId),
-    subtypeId: String(it.subtypeId?._id ?? it.subtypeId),
+    type: populatedPair(it.typeId),
+    subtype: populatedPair(it.subtypeId),
+    typeId: refObjectIdString(it.typeId),
+    subtypeId: refObjectIdString(it.subtypeId),
   }));
 
   return NextResponse.json({ items: normalized });

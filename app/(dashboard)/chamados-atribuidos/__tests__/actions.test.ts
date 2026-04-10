@@ -6,9 +6,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 const TECH_USER_ID = new Types.ObjectId().toHexString();
-const mockRequireTechnician = vi.fn();
+const mockRequireSession = vi.fn();
 vi.mock('@/lib/dal', () => ({
-  requireTechnician: () => mockRequireTechnician(),
+  requireSession: () => mockRequireSession(),
+  isTechnician: (role?: string) => role === 'Técnico',
+  canManage: (role?: string) => role === 'Admin' || role === 'Preposto',
 }));
 
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
@@ -47,7 +49,12 @@ import { registerExecutionAction } from '@/app/(dashboard)/chamados-atribuidos/a
 // ── Helpers ──────────────────────────────────────────────────────
 
 const VALID_ID = new Types.ObjectId().toHexString();
-const SESSION = { userId: TECH_USER_ID, role: 'Técnico', username: 'tecnico1' };
+const SESSION = {
+  userId: TECH_USER_ID,
+  role: 'Técnico' as const,
+  username: 'tecnico1',
+  isActive: true,
+};
 
 const validInput = {
   ticketId: VALID_ID,
@@ -75,7 +82,7 @@ function makeChamadoDoc(overrides = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockRequireTechnician.mockResolvedValue(SESSION);
+  mockRequireSession.mockResolvedValue(SESSION);
   mockHistoryCreate.mockResolvedValue({});
   mockNotificationCreate.mockResolvedValue({});
 });

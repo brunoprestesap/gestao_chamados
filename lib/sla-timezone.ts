@@ -144,7 +144,7 @@ export function snapToNextBusinessStart(
   config: BusinessCalendarConfig,
   holidays?: Set<string>,
 ): Date {
-  const { dayOfWeek, hourFraction } = getLocalWeekdayAndHour(date, config);
+  const { dayOfWeek } = getLocalWeekdayAndHour(date, config);
   const localStr = toLocalDateYYYYMMDD(date, config.timezone);
   const cameFromNonWorkday = !isBusinessDay(dayOfWeek, localStr, config, holidays);
 
@@ -185,9 +185,7 @@ export function addBusinessMinutesWithConfig(
 ): Date {
   if (minutes <= 0) return new Date(from.getTime());
 
-  const start = parseHHmm(config.workdayStart);
   const end = parseHHmm(config.workdayEnd);
-  const startFraction = start.hours + start.minutes / 60;
   const endFraction = end.hours + end.minutes / 60;
 
   let current = snapToNextBusinessStart(new Date(from.getTime()), config, holidays);

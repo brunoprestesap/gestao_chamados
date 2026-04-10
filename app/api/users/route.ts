@@ -4,10 +4,15 @@ import { NextResponse } from 'next/server';
 
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
-import { UserModel } from '@/models/user.model';
+import { type User,UserModel } from '@/models/user.model';
 import { UserCreateSchema, UserListQuerySchema } from '@/shared/users/user.schemas';
 
-function normalizeUser(u: any) {
+type LeanUserDoc = User & {
+  _id: Types.ObjectId;
+  specialties?: Types.ObjectId[];
+};
+
+function normalizeUser(u: LeanUserDoc) {
   return {
     _id: String(u._id),
     username: u.username,
@@ -16,7 +21,7 @@ function normalizeUser(u: any) {
     role: u.role,
     unitId: u.unitId ? String(u.unitId) : null,
     isActive: !!u.isActive,
-    specialties: u.specialties ? u.specialties.map((s: any) => String(s)) : [],
+    specialties: u.specialties ? u.specialties.map((s) => String(s)) : [],
     maxAssignedTickets: u.maxAssignedTickets ?? 5,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
@@ -44,7 +49,7 @@ export async function GET(req: Request) {
 
   const { q, role, unitId, status } = parsed.data;
 
-  const filter: any = {};
+  const filter: Record<string, unknown> = {};
   if (role) filter.role = role;
   if (unitId) filter.unitId = new Types.ObjectId(unitId);
   if (status === 'active') filter.isActive = true;
@@ -61,7 +66,7 @@ export async function GET(req: Request) {
 
   const items = await UserModel.find(filter).sort({ createdAt: -1 }).lean();
 
-  return NextResponse.json({ items: items.map(normalizeUser) });
+  return NextResponse.json({ items: items.map((u) => normalizeUser(u as LeanUserDoc)) });
 }
 
 export async function POST(req: Request) {
@@ -101,5 +106,5 @@ export async function POST(req: Request) {
     maxAssignedTickets: data.maxAssignedTickets ?? 5,
   });
 
-  return NextResponse.json({ item: normalizeUser(created) }, { status: 201 });
+  return NextResponse.json({ item: normalizeUser(created as LeanUserDoc) }, { status: 201 });
 }

@@ -159,7 +159,7 @@ export function ServicoDialog({
       });
     }
     return list;
-  }, [subtypes, mode, initialData?.subtype, initialData?.subtypeId, initialData?.typeId]);
+  }, [subtypes, mode, initialData]);
 
   const subtypeId = form.watch('subtypeId');
   const [nextCodePreview, setNextCodePreview] = useState<string>('');
@@ -226,7 +226,8 @@ export function ServicoDialog({
     const payload = isEdit
       ? values
       : (() => {
-          const { code: _code, ...rest } = values;
+          const { code, ...rest } = values;
+          void code;
           return rest;
         })();
 

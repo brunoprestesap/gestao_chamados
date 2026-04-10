@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 
+import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
 import { login } from './fixtures/auth';
+import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
+import { gestaoChamadoCard } from './fixtures/gestao';
+import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 /**
  * Testes E2E para o fluxo de reatribuição de chamados com justificativa obrigatória.
@@ -47,6 +51,7 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
 
       await dialog.getByLabel(/local exato/i).fill('Sala 404 - Reatribuição E2E');
       await dialog.getByText('Manutenção Predial').click();
+      await selectFirstSubtypeAndCatalogService(page, dialog);
       await dialog.getByPlaceholder(/descreva/i).fill(ticketTitle);
       await dialog.getByText('Padrão').first().click();
 
@@ -59,30 +64,27 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
       await login(page, 'preposto');
       await page.goto('/gestao');
 
-      await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
-      await page.getByText(ticketTitle).click();
-
-      // Classificar
-      const classificarBtn = page.getByRole('button', { name: /classificar/i });
+      const card = gestaoChamadoCard(page, ticketTitle);
+      await expect(card).toBeVisible({ timeout: 15000 });
+      const classificarBtn = card.getByRole('button', { name: /classificar/i });
       await expect(classificarBtn).toBeVisible({ timeout: 5000 });
       await classificarBtn.click();
 
       const classDialog = page.getByRole('dialog');
       await expect(classDialog).toBeVisible();
-      await classDialog.getByText('NORMAL').click();
+      await selectFinalPriorityInClassificarDialog(page, classDialog, 'Normal');
       await classDialog.getByRole('button', { name: /confirmar|classificar|salvar/i }).click();
       await expect(classDialog).not.toBeVisible({ timeout: 10000 });
 
-      // Reabrir painel do chamado para atribuir
-      await page.getByText(ticketTitle).click();
-
-      const atribuirBtn = page.getByRole('button', { name: /^atribuir$/i });
+      const card2 = gestaoChamadoCard(page, ticketTitle);
+      await expect(card2).toBeVisible({ timeout: 15000 });
+      const atribuirBtn = card2.getByRole('button', { name: /^atribuir$/i });
       await expect(atribuirBtn).toBeVisible({ timeout: 5000 });
       await atribuirBtn.click();
 
       const atribDialog = page.getByRole('dialog');
       await expect(atribDialog).toBeVisible();
-      await atribDialog.getByRole('button', { name: /confirmar|atribuir|salvar/i }).click();
+      await selectFirstEligibleTechnicianAndAtribuir(atribDialog);
       await expect(atribDialog).not.toBeVisible({ timeout: 10000 });
     });
   });
@@ -101,10 +103,9 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
       await login(page, 'preposto');
       await page.goto('/gestao');
 
-      await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
-      await page.getByText(ticketTitle).click();
-
-      const reatribuirBtn = page.getByRole('button', { name: /reatribuir/i });
+      const cardR = gestaoChamadoCard(page, ticketTitle);
+      await expect(cardR).toBeVisible({ timeout: 15000 });
+      const reatribuirBtn = cardR.getByRole('button', { name: /reatribuir/i });
       await expect(reatribuirBtn).toBeVisible({ timeout: 5000 });
       await reatribuirBtn.click();
 

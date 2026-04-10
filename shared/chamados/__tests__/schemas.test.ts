@@ -126,7 +126,8 @@ describe('NewTicketFormSchema', () => {
   });
 
   it('grauUrgencia default é Normal', () => {
-    const { grauUrgencia: _, ...withoutGrau } = validInput;
+    const withoutGrau = { ...validInput };
+    delete withoutGrau.grauUrgencia;
     const result = NewTicketFormSchema.safeParse(withoutGrau);
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.grauUrgencia).toBe('Normal');

@@ -25,7 +25,8 @@ function getAssignedTicketUrl(payload: TicketAssignedPayload): string {
 }
 
 /** Rota para Preposto/Admin: gestão (lista de chamados para classificar/atribuir). */
-function getNewTicketManagementUrl(_payload: TicketNewPayload): string {
+function getNewTicketManagementUrl(payload: TicketNewPayload): string {
+  void payload;
   return '/gestao';
 }
 

@@ -44,5 +44,12 @@ export default defineConfig([
     },
   },
 
+  {
+    files: ['scripts/**/*.{js,ts}'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   globalIgnores(['.next/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts', 'socket-server/dist/**']),
 ]);

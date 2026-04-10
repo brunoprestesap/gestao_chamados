@@ -29,12 +29,6 @@ const SESSION = {
   isActive: true,
 };
 
-function makeRequest() {
-  return new Request('http://localhost/api/notifications/read-all', {
-    method: 'POST',
-  });
-}
-
 async function parseJson(response: Response) {
   return response.json();
 }

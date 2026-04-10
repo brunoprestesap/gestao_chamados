@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Falha ao gerar número do ticket' }, { status: 500 });
   }
 
-  console.log('Gerando ticket_number:', ticket_number);
+  console.warn('Gerando ticket_number:', ticket_number);
 
   // Prepara os dados do chamado (natureza SOLICITADA apenas informativa)
   const chamadoData = {
@@ -162,7 +162,7 @@ export async function POST(req: Request) {
     solicitanteId: new Types.ObjectId(session.userId),
   };
 
-  console.log('Dados do chamado a serem criados:', {
+  console.warn('Dados do chamado a serem criados:', {
     ...chamadoData,
     solicitanteId: String(chamadoData.solicitanteId),
     unitId: String(chamadoData.unitId),
@@ -181,7 +181,7 @@ export async function POST(req: Request) {
   });
 
   const docObject = doc.toObject();
-  console.log('Chamado criado com sucesso:', {
+  console.warn('Chamado criado com sucesso:', {
     _id: docObject._id,
     ticket_number: docObject.ticket_number,
   });

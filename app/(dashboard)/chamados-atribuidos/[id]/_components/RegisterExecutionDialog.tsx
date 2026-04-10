@@ -75,7 +75,7 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
     }
     form.reset(defaultValues);
     setError(null);
-  }, [open, chamado?._id, form, defaultValues]);
+  }, [open, chamado, form, defaultValues]);
 
   const onSubmit = useCallback(
     async (values: FormValues) => {

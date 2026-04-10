@@ -8,6 +8,18 @@ import { dbConnect } from '@/lib/db';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { ServiceUpdateSchema } from '@/shared/catalog/service.schemas';
 
+type PopulatedTypeRef = { _id: Types.ObjectId; name: string };
+
+function asPopulated(
+  ref: Types.ObjectId | PopulatedTypeRef | undefined | null,
+): PopulatedTypeRef | null {
+  if (ref == null) return null;
+  if (typeof ref === 'object' && '_id' in ref && 'name' in ref) {
+    return ref as PopulatedTypeRef;
+  }
+  return null;
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await dbConnect();
 
@@ -26,17 +38,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Serviço não encontrado' }, { status: 404 });
   }
 
+  const typePop = asPopulated(item.typeId as Types.ObjectId | PopulatedTypeRef);
+  const subtypePop = asPopulated(item.subtypeId as Types.ObjectId | PopulatedTypeRef);
+
   const normalized = {
     ...item,
     _id: String(item._id),
-    typeId: String((item as any).typeId?._id ?? item.typeId),
-    subtypeId: String((item as any).subtypeId?._id ?? item.subtypeId),
-    type: (item as any).typeId
-      ? { id: String((item as any).typeId._id), name: (item as any).typeId.name }
-      : null,
-    subtype: (item as any).subtypeId
-      ? { id: String((item as any).subtypeId._id), name: (item as any).subtypeId.name }
-      : null,
+    typeId: String(typePop?._id ?? item.typeId),
+    subtypeId: String(subtypePop?._id ?? item.subtypeId),
+    type: typePop ? { id: String(typePop._id), name: typePop.name } : null,
+    subtype: subtypePop ? { id: String(subtypePop._id), name: subtypePop.name } : null,
   };
 
   return NextResponse.json({ item: normalized });
@@ -66,7 +77,8 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   }
 
   // Nunca alterar o código do serviço (gerado automaticamente no create)
-  const { code: _code, ...dataToUpdate } = parsed.data;
+  const { code, ...dataToUpdate } = parsed.data;
+  void code;
   const updated = await ServiceCatalogModel.findByIdAndUpdate(
     id,
     { $set: dataToUpdate },

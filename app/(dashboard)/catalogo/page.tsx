@@ -62,11 +62,13 @@ export default function CatalogoPage() {
 
   async function fetchTypes() {
     const res = await fetch('/api/catalog/types', { cache: 'no-store' });
-    const data = await res.json();
+    const data = (await res.json()) as {
+      items?: Array<{ _id?: unknown; id?: unknown; name?: string }>;
+    };
     setTypeOptions(
       (data.items || [])
-        .map((t: any) => ({ id: String(t._id ?? t.id ?? ''), name: t.name }))
-        .filter((t: any) => t.id.length > 0),
+        .map((t) => ({ id: String(t._id ?? t.id ?? ''), name: String(t.name ?? '') }))
+        .filter((t) => t.id.length > 0),
     );
   }
 

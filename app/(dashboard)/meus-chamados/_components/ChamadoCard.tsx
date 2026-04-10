@@ -211,7 +211,7 @@ export function ChamadoCard({
 }: Props) {
   const router = useRouter();
   const timezone = useInstitutionalTimezone();
-  const tzOpt = { timeZone: timezone };
+  const tzOpt = useMemo(() => ({ timeZone: timezone }), [timezone]);
   const StatusIcon = STATUS_ICONS[chamado.status];
   const [additionalData, setAdditionalData] = useState<AdditionalData>({
     userName: null,
@@ -277,11 +277,11 @@ export function ChamadoCard({
 
   const formattedDate = useMemo(
     () => formatDateTime(chamado.createdAt, tzOpt),
-    [chamado.createdAt, tzOpt.timeZone],
+    [chamado.createdAt, tzOpt],
   );
   const formattedDateShort = useMemo(
     () => formatDateShort(chamado.createdAt, tzOpt),
-    [chamado.createdAt, tzOpt.timeZone],
+    [chamado.createdAt, tzOpt],
   );
 
   /** Urgente com base na natureza APROVADA (nunca na solicitada) */
@@ -309,13 +309,7 @@ export function ChamadoCard({
     if (s?.resolutionDueAt)
       parts.push(`Prazo solução: ${formatDateTime(s.resolutionDueAt, tzOpt)}`);
     return parts.join(' · ');
-  }, [
-    chamado.sla,
-    chamado.finalPriority,
-    chamado.attendanceNature,
-    chamado.naturezaAtendimento,
-    tzOpt.timeZone,
-  ]);
+  }, [chamado.sla, chamado.finalPriority, chamado.attendanceNature, chamado.naturezaAtendimento, tzOpt]);
 
   const handleCardClick = useCallback(() => {
     if (hideDetailLink) return;

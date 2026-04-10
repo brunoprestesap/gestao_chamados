@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { login } from './fixtures/auth';
+import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 test.describe('Criação de chamado', () => {
   test.beforeEach(async ({ page }) => {
@@ -25,6 +26,7 @@ test.describe('Criação de chamado', () => {
 
     // Seleciona tipo de serviço (botões de card)
     await dialog.getByText('Manutenção Predial').click();
+    await selectFirstSubtypeAndCatalogService(page, dialog);
 
     // Preenche descrição
     await dialog.getByPlaceholder(/descreva/i).fill('Lâmpada queimada no corredor principal');
@@ -39,7 +41,9 @@ test.describe('Criação de chamado', () => {
     await expect(dialog).not.toBeVisible({ timeout: 10000 });
 
     // Chamado deve aparecer na lista (aguarda recarregar)
-    await expect(page.getByText('Lâmpada queimada no corredor principal')).toBeVisible({
+    await expect(
+      page.getByText('Lâmpada queimada no corredor principal').first(),
+    ).toBeVisible({
       timeout: 10000,
     });
   });

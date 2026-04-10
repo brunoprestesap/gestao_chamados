@@ -164,6 +164,7 @@ export function AttachmentGallery({ chamadoId, canUpload }: AttachmentGalleryPro
                     onClick={() => setLightboxIndex(imageIndex)}
                     className="block aspect-square w-full"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- URLs de anexo (API/uploads) */}
                     <img
                       src={attachment.url}
                       alt={attachment.originalName}
@@ -252,6 +253,7 @@ export function AttachmentGallery({ chamadoId, canUpload }: AttachmentGalleryPro
               )}
 
               {/* Image */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- lightbox com URL dinâmica */}
               <img
                 src={images[lightboxIndex].url}
                 alt={images[lightboxIndex].originalName}

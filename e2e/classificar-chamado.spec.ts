@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 import { login } from './fixtures/auth';
+import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
+import { gestaoChamadoCard } from './fixtures/gestao';
+import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 test.describe('Classificação de chamado', () => {
   // Este teste depende de um chamado com status "aberto" existir.
@@ -26,6 +29,7 @@ test.describe('Classificação de chamado', () => {
 
       await dialog.getByLabel(/local exato/i).fill('Sala 202');
       await dialog.getByText('Manutenção Predial').click();
+      await selectFirstSubtypeAndCatalogService(page, dialog);
       await dialog.getByPlaceholder(/descreva/i).fill(ticketTitle);
       await dialog.getByText('Padrão').first().click();
 
@@ -40,14 +44,10 @@ test.describe('Classificação de chamado', () => {
       await login(page, 'preposto');
       await page.goto('/gestao');
 
-      // Aguarda a página carregar e procura o chamado na coluna "aberto"
-      await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
+      const card = gestaoChamadoCard(page, ticketTitle);
+      await expect(card).toBeVisible({ timeout: 15000 });
 
-      // Clica no card do chamado para abrir detalhes/ações
-      await page.getByText(ticketTitle).click();
-
-      // Procura bot��o de classificar
-      const classificarBtn = page.getByRole('button', { name: /classificar/i });
+      const classificarBtn = card.getByRole('button', { name: /classificar/i });
       await expect(classificarBtn).toBeVisible({ timeout: 5000 });
       await classificarBtn.click();
 
@@ -55,8 +55,7 @@ test.describe('Classificação de chamado', () => {
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
 
-      // Seleciona prioridade ALTA
-      await dialog.getByText('ALTA').click();
+      await selectFinalPriorityInClassificarDialog(page, dialog, 'Alta');
 
       // Confirma classificação
       await dialog.getByRole('button', { name: /confirmar|classificar|salvar/i }).click();

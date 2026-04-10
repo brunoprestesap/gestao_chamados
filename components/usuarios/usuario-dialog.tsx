@@ -231,7 +231,7 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
         const method = isEdit ? 'PUT' : 'POST';
 
         // Prepara o payload
-        const payload: any = { ...values };
+        const payload: Record<string, unknown> = { ...values };
 
         // no edit: se password vazio, não envia
         if (isEdit && (!payload.password || String(payload.password).trim() === '')) {
@@ -247,7 +247,7 @@ export function UsuarioDialog({ open, onOpenChange, onSaved, mode, initialData }
             payload.specialties = [];
           }
           // Se maxAssignedTickets não existe ou é inválido, usa padrão 5
-          if (!payload.maxAssignedTickets || payload.maxAssignedTickets < 1) {
+          if (!payload.maxAssignedTickets || Number(payload.maxAssignedTickets) < 1) {
             payload.maxAssignedTickets = 5;
           }
         } else {

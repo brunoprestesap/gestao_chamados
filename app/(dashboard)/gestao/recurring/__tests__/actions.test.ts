@@ -27,16 +27,15 @@ vi.mock('@/models/RecurringTicket', () => ({
 }));
 
 // Importações após os mocks
-import { requireManager } from '@/lib/dal';
-import { calculateNextRunAt } from '@/lib/recurring-utils';
-import { RecurringTicketModel } from '@/models/RecurringTicket';
-
 import {
   createRecurringTemplateAction,
   deleteRecurringTemplateAction,
   toggleRecurringTemplateAction,
   updateRecurringTemplateAction,
 } from '@/app/(dashboard)/gestao/recurring/actions';
+import { requireManager } from '@/lib/dal';
+import { calculateNextRunAt } from '@/lib/recurring-utils';
+import { RecurringTicketModel } from '@/models/RecurringTicket';
 
 // ── Fixtures ─────────────────────────────────────────────────────
 
@@ -108,7 +107,8 @@ describe('createRecurringTemplateAction — validação Zod', () => {
   });
 
   it('should return error when recurrenceType is weekly but dayOfWeek is missing', async () => {
-    const { dayOfWeek: _, ...input } = validCreateInput();
+    const input = { ...validCreateInput() };
+    delete input.dayOfWeek;
     const result = await createRecurringTemplateAction(input);
 
     expect(result.ok).toBe(false);

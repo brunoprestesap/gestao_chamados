@@ -2,7 +2,7 @@
 
 import { Building2, Calendar, Loader2, MapPin, Search, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RegisterExecutionDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/RegisterExecutionDialog';
 import {
@@ -67,7 +67,7 @@ export default function ChamadosAtribuidosPage() {
     return p.toString();
   }, [q, status]);
 
-  async function fetchChamados() {
+  const fetchChamados = useCallback(async () => {
     setLoading(true);
     const url = queryString
       ? `/api/chamados-atribuidos?${queryString}`
@@ -86,11 +86,13 @@ export default function ChamadosAtribuidosPage() {
     const data = await res.json().catch(() => ({}));
     setItems(Array.isArray(data.items) ? data.items : []);
     setLoading(false);
-  }
+  }, [queryString, router]);
 
   useEffect(() => {
-    fetchChamados();
-  }, [queryString]);
+    void Promise.resolve().then(() => {
+      void fetchChamados();
+    });
+  }, [fetchChamados]);
 
   const emptyMessage =
     q.trim() || status !== 'all'

@@ -235,6 +235,7 @@ export default function GestaoPage() {
                                 <ChamadoCard
                                   key={c._id}
                                   compact
+                                  hideDetailLink
                                   chamado={c}
                                   onClassificar={
                                     c.status === 'aberto' ? handleClassificar : undefined

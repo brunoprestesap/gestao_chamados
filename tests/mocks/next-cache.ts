@@ -3,12 +3,12 @@
 // "Invariant: static generation store missing in revalidatePath"
 // que ocorre quando next/cache é usado fora do runtime do Next.js.
 
-export function revalidatePath(..._args: unknown[]): void {
-  // no-op em testes
+export function revalidatePath(...args: unknown[]): void {
+  void args;
 }
 
-export function revalidateTag(..._args: unknown[]): void {
-  // no-op em testes
+export function revalidateTag(...args: unknown[]): void {
+  void args;
 }
 
 export function unstable_cache<T>(fn: T): T {

@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 
+import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
 import { login } from './fixtures/auth';
+import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
+import { gestaoChamadoCard } from './fixtures/gestao';
+import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 /**
  * Fluxo completo do ciclo de vida de um chamado:
@@ -26,6 +30,7 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
 
     await dialog.getByLabel(/local exato/i).fill('Sala 301 - E2E');
     await dialog.getByText('Manutenção Predial').click();
+    await selectFirstSubtypeAndCatalogService(page, dialog);
     await dialog.getByPlaceholder(/descreva/i).fill(ticketTitle);
     await dialog.getByText('Padrão').first().click();
 
@@ -39,19 +44,16 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await page.goto('/gestao');
 
     // Localiza o chamado
-    await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
-    await page.getByText(ticketTitle).click();
-
-    // Abre dialog de classificação
-    const classificarBtn = page.getByRole('button', { name: /classificar/i });
+    const card2 = gestaoChamadoCard(page, ticketTitle);
+    await expect(card2).toBeVisible({ timeout: 15000 });
+    const classificarBtn = card2.getByRole('button', { name: /classificar/i });
     await expect(classificarBtn).toBeVisible({ timeout: 5000 });
     await classificarBtn.click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    // Seleciona prioridade NORMAL
-    await dialog.getByText('NORMAL').click();
+    await selectFinalPriorityInClassificarDialog(page, dialog, 'Normal');
 
     // Confirma
     await dialog.getByRole('button', { name: /confirmar|classificar|salvar/i }).click();
@@ -63,19 +65,16 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await page.goto('/gestao');
 
     // Aguarda recarregar — chamado deve estar em "validado"
-    await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
-    await page.getByText(ticketTitle).click();
-
-    // Abre dialog de atribuição
-    const atribuirBtn = page.getByRole('button', { name: /atribuir/i });
+    const card3 = gestaoChamadoCard(page, ticketTitle);
+    await expect(card3).toBeVisible({ timeout: 15000 });
+    const atribuirBtn = card3.getByRole('button', { name: /atribuir/i });
     await expect(atribuirBtn).toBeVisible({ timeout: 5000 });
     await atribuirBtn.click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    // Confirma atribuição (pode ter seleção automática de técnico)
-    await dialog.getByRole('button', { name: /confirmar|atribuir|salvar/i }).click();
+    await selectFirstEligibleTechnicianAndAtribuir(dialog);
     await expect(dialog).not.toBeVisible({ timeout: 10000 });
   });
 
@@ -83,29 +82,20 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await login(page, 'tecnico');
     await page.goto('/chamados-atribuidos');
 
-    // Localiza o chamado atribuído
-    await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
-    await page.getByText(ticketTitle).click();
-
-    // Abre formulário de execução
-    const executarBtn = page.getByRole('button', { name: /registrar|execução|concluir/i });
-    await expect(executarBtn).toBeVisible({ timeout: 5000 });
-    await executarBtn.click();
+    const cardExec = page.locator('[data-slot="card"]').filter({ hasText: ticketTitle });
+    await expect(cardExec).toBeVisible({ timeout: 15000 });
+    await cardExec.getByRole('button', { name: 'Registrar Execução' }).click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    // Preenche descrição do serviço
-    const descField = dialog.getByPlaceholder(/descreva|serviço|executado/i);
-    if (await descField.isVisible()) {
-      await descField.fill('Lâmpada substituída com sucesso - teste E2E');
-    } else {
-      // Tenta textarea
-      await dialog.locator('textarea').first().fill('Lâmpada substituída com sucesso - teste E2E');
-    }
+    await dialog
+      .getByLabel(/descrição do serviço executado/i)
+      .fill('Lâmpada substituída com sucesso - teste E2E');
 
-    // Confirma execução
-    await dialog.getByRole('button', { name: /confirmar|registrar|salvar|concluir/i }).click();
+    const submitExec = dialog.getByRole('button', { name: /^registrar e concluir$/i });
+    await submitExec.scrollIntoViewIfNeeded();
+    await submitExec.click({ force: true });
     await expect(dialog).not.toBeVisible({ timeout: 10000 });
   });
 
@@ -114,11 +104,9 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await page.goto('/gestao');
 
     // Localiza chamado concluído
-    await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
-    await page.getByText(ticketTitle).click();
-
-    // Abre dialog de encerramento
-    const encerrarBtn = page.getByRole('button', { name: /encerrar/i });
+    const card5 = gestaoChamadoCard(page, ticketTitle);
+    await expect(card5).toBeVisible({ timeout: 15000 });
+    const encerrarBtn = card5.getByRole('button', { name: /encerrar/i });
     await expect(encerrarBtn).toBeVisible({ timeout: 5000 });
     await encerrarBtn.click();
 
@@ -134,11 +122,8 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await login(page, 'solicitante');
     await page.goto('/meus-chamados');
 
-    // Localiza o chamado
-    await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
-
-    // Verifica que tem indicação de encerrado
-    const ticketCard = page.getByText(ticketTitle).locator('..');
-    await expect(ticketCard.locator('..').getByText(/encerrado/i)).toBeVisible({ timeout: 5000 });
+    const closedCard = page.locator('[data-slot="card"]').filter({ hasText: ticketTitle });
+    await expect(closedCard).toBeVisible({ timeout: 15000 });
+    await expect(closedCard.getByText('Encerrado')).toBeVisible({ timeout: 10000 });
   });
 });

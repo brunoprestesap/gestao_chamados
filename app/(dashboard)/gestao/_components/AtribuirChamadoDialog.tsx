@@ -64,7 +64,7 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
       .finally(() => {
         setLoading(false);
       });
-  }, [open, chamado?._id]);
+  }, [open, chamado]);
 
   const handleAssign = useCallback(async () => {
     if (!chamado || !selectedTechnicianId) return;

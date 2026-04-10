@@ -107,7 +107,7 @@ export function ReatribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess
       });
 
     return () => controller.abort();
-  }, [open, chamado?._id]);
+  }, [open, chamado]);
 
   const handleReassign = useCallback(async () => {
     if (!chamado || !selectedTechnicianId) return;

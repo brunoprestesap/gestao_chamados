@@ -4,10 +4,15 @@ import { NextResponse } from 'next/server';
 
 import { requireManager, verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
-import { UserModel } from '@/models/user.model';
+import { type User,UserModel } from '@/models/user.model';
 import { UserUpdateSchema } from '@/shared/users/user.schemas';
 
-function normalizeUser(u: any) {
+type LeanUserDoc = User & {
+  _id: Types.ObjectId;
+  specialties?: Types.ObjectId[];
+};
+
+function normalizeUser(u: LeanUserDoc) {
   return {
     _id: String(u._id),
     username: u.username,
@@ -16,7 +21,7 @@ function normalizeUser(u: any) {
     role: u.role,
     unitId: u.unitId ? String(u.unitId) : null,
     isActive: !!u.isActive,
-    specialties: u.specialties ? u.specialties.map((s: any) => String(s)) : [],
+    specialties: u.specialties ? u.specialties.map((s) => String(s)) : [],
     maxAssignedTickets: u.maxAssignedTickets ?? 5,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
@@ -45,7 +50,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   // Qualquer usuário autenticado pode ver dados básicos de outros usuários
   // (necessário para exibir nomes no histórico)
-  return NextResponse.json({ item: normalizeUser(user) });
+  return NextResponse.json({ item: normalizeUser(user as LeanUserDoc) });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -81,7 +86,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
   }
 
-  const update: any = {};
+  const update: Record<string, unknown> = {};
   if (data.username !== undefined) update.username = data.username;
   if (data.name !== undefined) update.name = data.name;
   if (data.email !== undefined) update.email = data.email;
@@ -107,7 +112,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const updated = await UserModel.findByIdAndUpdate(id, update, { new: true }).lean();
   if (!updated) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
 
-  return NextResponse.json({ item: normalizeUser(updated) });
+  return NextResponse.json({ item: normalizeUser(updated as LeanUserDoc) });
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {

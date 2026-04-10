@@ -54,13 +54,12 @@ vi.mock('@/models/Notification', () => ({
 
 // Importações após os mocks
 import { emitToRoom } from '@/lib/realtime-emit';
+import { processRecurringTickets } from '@/lib/recurring-job';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { NotificationModel } from '@/models/Notification';
 import { RecurringTicketModel } from '@/models/RecurringTicket';
 import { UserModel } from '@/models/user.model';
-
-import { processRecurringTickets } from '@/lib/recurring-job';
 
 // ── Fixtures ─────────────────────────────────────────────────────
 

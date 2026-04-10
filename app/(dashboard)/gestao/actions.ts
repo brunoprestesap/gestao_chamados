@@ -623,7 +623,6 @@ export async function reassignTicketAction(
     const reassignedByUserId = new Types.ObjectId(session.userId);
 
     const slaUpdate: Record<string, unknown> = {};
-    const responseStartedAt = chamado.sla?.responseStartedAt ?? now;
     if (!chamado.sla?.responseStartedAt) {
       slaUpdate['sla.responseStartedAt'] = now;
       const responseBreachedAt = evaluateResponseBreach(

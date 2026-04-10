@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   });
 
   const q = parsed.success ? parsed.data.q.trim() : '';
-  const filter: any = {};
+  const filter: Record<string, unknown> = {};
 
   if (q) filter.$text = { $search: q };
 
