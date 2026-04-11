@@ -9,6 +9,8 @@ import { playNotificationSound } from '@/lib/notification-sound';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
+  SlaBreachPayload,
+  SlaWarningPayload,
   TicketAssignedPayload,
   TicketClosedPayload,
   TicketExecutionRegisteredPayload,
@@ -187,6 +189,61 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           label: 'Ver chamado',
           onClick: () => {
             routerRef.current.push(url);
+          },
+        },
+      });
+      emitNotificationEvent();
+    });
+
+    socket.on('sla:warning', (payload: SlaWarningPayload) => {
+      playNotificationSound();
+      const numero = payload.ticketNumber ? `#${payload.ticketNumber}` : '';
+      const titulo = (payload.title ?? '').trim();
+
+      toast.warning(`SLA do chamado ${numero} próximo do vencimento`, {
+        description: (
+          <div className="mt-1 flex flex-col gap-0.5 text-left">
+            {titulo && (
+              <p className="line-clamp-2 text-sm font-medium text-foreground">{titulo}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Restam ~{Math.round(payload.remainingPercent)}% do prazo
+            </p>
+          </div>
+        ),
+        duration: 8000,
+        action: {
+          label: 'Ver gestão',
+          onClick: () => {
+            routerRef.current.push('/gestao');
+          },
+        },
+      });
+      emitNotificationEvent();
+    });
+
+    socket.on('sla:breach', (payload: SlaBreachPayload) => {
+      playNotificationSound();
+      const numero = payload.ticketNumber ? `#${payload.ticketNumber}` : '';
+      const titulo = (payload.title ?? '').trim();
+      const tipoLabel = payload.type === 'response' ? 'resposta' : 'resolução';
+
+      toast.error(`SLA de ${tipoLabel} do chamado ${numero} estourou`, {
+        description: (
+          <div className="mt-1 flex flex-col gap-0.5 text-left">
+            {titulo && (
+              <p className="line-clamp-2 text-sm font-medium text-foreground">{titulo}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Prioridade: {payload.priority}
+            </p>
+          </div>
+        ),
+        duration: 10000,
+        action: {
+          label: 'Ver gestão',
+          onClick: () => {
+            routerRef.current.push('/gestao');
           },
         },
       });

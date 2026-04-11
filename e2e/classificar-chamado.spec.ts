@@ -41,8 +41,10 @@ test.describe('Classificação de chamado', () => {
     });
 
     test('preposto classifica o chamado em /gestao', async ({ page }) => {
+      test.slow(); // classificação pode demorar em dev mode com compilação on-demand
       await login(page, 'preposto');
       await page.goto('/gestao');
+      await page.waitForLoadState('networkidle');
 
       const card = gestaoChamadoCard(page, ticketTitle);
       await expect(card).toBeVisible({ timeout: 15000 });
@@ -61,7 +63,7 @@ test.describe('Classificação de chamado', () => {
       await dialog.getByRole('button', { name: /confirmar|classificar|salvar/i }).click();
 
       // Dialog deve fechar
-      await expect(dialog).not.toBeVisible({ timeout: 10000 });
+      await expect(dialog).not.toBeVisible({ timeout: 30000 });
 
       // Chamado deve sair da coluna "aberto" e ir para "validado"
       // Aguarda o chamado aparecer com indicativo de validado

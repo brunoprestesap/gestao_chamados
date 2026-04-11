@@ -95,7 +95,26 @@
       "Bash(echo \"exit:$?\")",
       "Bash(echo \"EXIT_CODE=$?\")",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "WebFetch(domain:www.trf1.jus.br)",
+      "Bash(ls -dt test-results/sla-pause-terceiros-*)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(ls -d test-results/sla-pause-terceiros-*)",
+      "Bash(ls -t test-results/sla-pause-terceiros-*/error-context.md)",
+      "Bash(xargs cat:*)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(mv \"app/\\(dashboard\\)/sla/dashboard/_components/SlaKpiCards.tsx\" \"app/\\(dashboard\\)/sla-dashboard/_components/\")",
+      "Bash(mv \"app/\\(dashboard\\)/sla/dashboard/_components/SlaHealthChart.tsx\" \"app/\\(dashboard\\)/sla-dashboard/_components/\")",
+      "Bash(mv \"app/\\(dashboard\\)/sla/dashboard/_components/SlaCountdown.tsx\" \"app/\\(dashboard\\)/sla-dashboard/_components/\")",
+      "Bash(mv \"app/\\(dashboard\\)/sla/dashboard/_components/SlaPriorityBreakdown.tsx\" \"app/\\(dashboard\\)/sla-dashboard/_components/\")",
+      "Bash(mv \"app/\\(dashboard\\)/sla/dashboard/_components/SlaTicketTable.tsx\" \"app/\\(dashboard\\)/sla-dashboard/_components/\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/api/catalog/subtypes)",
+      "Bash(curl -s \"http://localhost:3000/api/catalog/subtypes?typeId=696a8ace4c1561fc2d0e3786\")",
+      "Bash(curl -s \"http://localhost:3000/api/catalog/subtypes\")",
+      "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\(json.dumps\\(d,indent=2\\)\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/catalog/types\")",
+      "Bash(curl -s \"http://localhost:3000/api/catalog/subtypes?typeId=696a89494c1561fc2d0e377f\")"
     ]
   }
 }

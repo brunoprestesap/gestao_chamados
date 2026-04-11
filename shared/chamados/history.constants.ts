@@ -12,6 +12,8 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'avaliado',
   'aguardando_solicitante',
   'retomada_atendimento',
+  'pausa_terceiros',
+  'retomada_terceiros',
   'recusa',
 ] as const;
 
@@ -31,5 +33,7 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   avaliado: 'Avaliado',
   aguardando_solicitante: 'Aguardando Solicitante',
   retomada_atendimento: 'Atendimento Retomado',
+  pausa_terceiros: 'Pausa — Aguardando Terceiros',
+  retomada_terceiros: 'Retomada — Terceiros Resolvido',
   recusa: 'Recusa do Chamado',
 };

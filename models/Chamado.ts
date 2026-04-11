@@ -6,6 +6,7 @@ import {
   NATUREZA_OPTIONS,
   TIPO_SERVICO_OPTIONS,
 } from '@/shared/chamados/new-ticket.schemas';
+import { PAUSE_REASONS } from '@/shared/chamados/pause-reason.constants';
 
 const ChamadoSchema = new Schema(
   {
@@ -91,9 +92,11 @@ const ChamadoSchema = new Schema(
     rejectedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     rejectionReason: { type: String, default: '', trim: true },
     rejectionGuidance: { type: String, default: '', trim: true },
-    // Pausa SLA — aguardando solicitante
+    // Pausa SLA
     slaPausedAt: { type: Date, required: false },
     totalPausedMinutes: { type: Number, default: 0 },
+    pauseReason: { type: String, enum: PAUSE_REASONS, required: false },
+    pauseDetails: { type: String, default: '', trim: true },
     // Conclusão (data/hora em que o chamado foi concluído)
     concludedAt: { type: Date, required: false },
     // Encerramento (Admin) — após status Concluído
@@ -147,6 +150,8 @@ ChamadoSchema.index({ unitId: 1, status: 1 });
 ChamadoSchema.index({ tipoServico: 1, status: 1 });
 ChamadoSchema.index({ naturezaAtendimento: 1 });
 ChamadoSchema.index({ assignedToUserId: 1, status: 1 });
+ChamadoSchema.index({ status: 1, 'sla.resolutionDueAt': 1 }, { sparse: true });
+ChamadoSchema.index({ 'sla.computedAt': 1 }, { sparse: true });
 
 export type ExecutionDoc = {
   _id?: Types.ObjectId;
@@ -171,6 +176,8 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   concludedAt?: Date;
   slaPausedAt?: Date;
   totalPausedMinutes?: number;
+  pauseReason?: string;
+  pauseDetails?: string;
   executions?: ExecutionDoc[];
 };
 

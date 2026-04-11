@@ -10,6 +10,8 @@ const NOTIFICATION_TYPES = [
   'ticket:paused',
   'ticket:resumed',
   'ticket:rejected',
+  'sla:warning',
+  'sla:breach',
 ] as const;
 
 const NotificationSchema = new Schema(

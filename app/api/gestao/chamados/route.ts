@@ -73,6 +73,11 @@ function normalizeChamado(
     assignedToUserId: c.assignedToUserId ? String(c.assignedToUserId) : null,
     assignedAt: c.assignedAt ?? null,
     assignedByUserId: c.assignedByUserId ? String(c.assignedByUserId) : null,
+    slaPausedAt: c.slaPausedAt
+      ? new Date(c.slaPausedAt as string | number | Date).toISOString()
+      : null,
+    pauseReason: (c.pauseReason as string) ?? null,
+    pauseDetails: (c.pauseDetails as string) ?? null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     sla: normalizeSla(c.sla as Record<string, unknown> | null | undefined),

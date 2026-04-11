@@ -2,6 +2,7 @@
 
 import { Loader2, UserCheck, UserX } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { assignTicketAction, type AssignTicketResult } from '@/app/(dashboard)/gestao/actions';
 import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
@@ -79,14 +80,13 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
       });
 
       if (result.ok) {
+        onOpenChange(false);
+        onSuccess();
         if (result.strategy === 'FALLBACK') {
-          // Informa que foi feito fallback
-          alert(
+          toast.info(
             `Técnico selecionado estava sobrecarregado. Chamado atribuído automaticamente a ${result.technicianName}.`,
           );
         }
-        onOpenChange(false);
-        onSuccess();
       } else {
         setError(result.error);
       }

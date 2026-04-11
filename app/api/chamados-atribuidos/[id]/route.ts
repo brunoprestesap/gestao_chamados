@@ -63,6 +63,8 @@ function normalizeChamado(
     assignedAt: c.assignedAt ?? null,
     concludedAt: c.concludedAt ?? null,
     slaPausedAt: c.slaPausedAt ? new Date(c.slaPausedAt as string | number | Date).toISOString() : null,
+    pauseReason: (c.pauseReason as string) ?? null,
+    pauseDetails: (c.pauseDetails as string) ?? null,
     executions: Array.isArray(c.executions) ? c.executions.map(normalizeExecution) : [],
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,

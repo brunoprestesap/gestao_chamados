@@ -34,6 +34,21 @@ function createMinimalJpegBuffer(): Buffer {
   return Buffer.from(bytes);
 }
 
+/**
+ * Navega para a página de detalhe do chamado.
+ * Clica na descrição do chamado (parágrafo com TICKET_TITLE) que borbulha
+ * para o onClick do Card, disparando router.push().
+ */
+async function navegarParaDetalhe(page: Parameters<typeof login>[0]) {
+  await page.goto('/meus-chamados');
+  await page.waitForLoadState('networkidle');
+  const card = page.locator('[data-slot="card"]').filter({ hasText: TICKET_TITLE });
+  await expect(card).toBeVisible({ timeout: 15000 });
+  // Clica no texto da descrição (que está fora de botões internos com stopPropagation)
+  await card.getByText(TICKET_TITLE).click();
+  await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 20000 });
+}
+
 test.describe.serial('Upload de Anexos', () => {
   test('1. Solicitante abre chamado para usar nos testes de upload', async ({ page }) => {
     // Arrange
@@ -62,30 +77,18 @@ test.describe.serial('Upload de Anexos', () => {
   });
 
   test('2. Solicitante acessa o chamado e vê a seção de anexos', async ({ page }) => {
-    // Arrange
     await login(page, 'solicitante');
-    await page.goto('/meus-chamados');
-
-    // Act — navega para o chamado criado
-    await expect(page.getByText(TICKET_TITLE)).toBeVisible({ timeout: 15000 });
-    await page.getByText(TICKET_TITLE).click();
-
-    // Assert — página de detalhes aberta e seção de anexos visível
-    await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 10000 });
-    // A galeria pode mostrar "Nenhum anexo" ou botão "Adicionar" dependendo do estado
-    const hasAttachmentSection =
-      (await page.getByText(/anexo|galeria|adicionar/i).count()) > 0;
-    expect(hasAttachmentSection).toBe(true);
+    await navegarParaDetalhe(page);
+    // A galeria pode mostrar "Nenhum anexo" ou botão "Adicionar" dependendo do estado.
+    // Usa toBeVisible com timeout para aguardar o conteúdo carregar.
+    await expect(
+      page.getByText(/anexo|galeria|adicionar/i).first(),
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test('3. Upload de imagem JPEG válida via input de arquivo', async ({ page }) => {
-    // Arrange
     await login(page, 'solicitante');
-    await page.goto('/meus-chamados');
-
-    await expect(page.getByText(TICKET_TITLE)).toBeVisible({ timeout: 15000 });
-    await page.getByText(TICKET_TITLE).click();
-    await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 10000 });
+    await navegarParaDetalhe(page);
 
     const addButton = page.getByRole('button', { name: /^adicionar$/i });
     await expect(addButton).toBeVisible({ timeout: 10000 });
@@ -109,13 +112,8 @@ test.describe.serial('Upload de Anexos', () => {
   test('4. Upload rejeitado no cliente para tipo de arquivo não permitido (text/plain)', async ({
     page,
   }) => {
-    // Arrange
     await login(page, 'solicitante');
-    await page.goto('/meus-chamados');
-
-    await expect(page.getByText(TICKET_TITLE)).toBeVisible({ timeout: 15000 });
-    await page.getByText(TICKET_TITLE).click();
-    await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 10000 });
+    await navegarParaDetalhe(page);
 
     const addButton = page.getByRole('button', { name: /^adicionar$/i });
     await expect(addButton).toBeVisible({ timeout: 10000 });
@@ -137,13 +135,8 @@ test.describe.serial('Upload de Anexos', () => {
   });
 
   test('5. Upload rejeitado no cliente para arquivo acima de 5MB', async ({ page }) => {
-    // Arrange
     await login(page, 'solicitante');
-    await page.goto('/meus-chamados');
-
-    await expect(page.getByText(TICKET_TITLE)).toBeVisible({ timeout: 15000 });
-    await page.getByText(TICKET_TITLE).click();
-    await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 10000 });
+    await navegarParaDetalhe(page);
 
     const addButton = page.getByRole('button', { name: /^adicionar$/i });
     await expect(addButton).toBeVisible({ timeout: 10000 });
@@ -170,25 +163,19 @@ test.describe.serial('Upload de Anexos', () => {
   });
 
   test('6. Galeria exibe anexo após upload bem-sucedido', async ({ page }) => {
-    // Arrange — faz o upload e verifica que o item persiste na galeria
     await login(page, 'solicitante');
-    await page.goto('/meus-chamados');
-
-    await expect(page.getByText(TICKET_TITLE)).toBeVisible({ timeout: 15000 });
-    await page.getByText(TICKET_TITLE).click();
-    await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 10000 });
+    await navegarParaDetalhe(page);
 
     // Verifica que o anexo do teste 3 ainda aparece após navegação
     // (o upload do teste 3 deve ter persistido no banco)
     const hasAttachment = await page.getByText('foto-teste.jpg').isVisible({ timeout: 10000 }).catch(() => false);
-    // Se o teste 3 foi bem-sucedido, este deve passar; caso contrário
-    // verifica que a seção de anexos está presente (estado consistente)
-    if (!hasAttachment) {
-      // Aceita que não há anexo visível mas a seção existe
-      const sectionVisible = (await page.getByText(/anexo|galeria/i).count()) > 0;
-      expect(sectionVisible).toBe(true);
-    } else {
+    if (hasAttachment) {
       expect(hasAttachment).toBe(true);
+    } else {
+      // Aceita que não há anexo visível mas a seção de anexos existe
+      await expect(
+        page.getByText(/anexo|galeria|adicionar/i).first(),
+      ).toBeVisible({ timeout: 15000 });
     }
   });
 

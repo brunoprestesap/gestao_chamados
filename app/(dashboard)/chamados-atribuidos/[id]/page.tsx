@@ -1,10 +1,10 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2, Clock, Hourglass, Loader2, Play, Wrench } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Loader2, PauseCircle, Play, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
-import { PauseForRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseForRequesterDialog';
+import { PauseTicketDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseTicketDialog';
 import { RegisterExecutionDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/RegisterExecutionDialog';
 import { ResumeFromRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/ResumeFromRequesterDialog';
 import {
@@ -43,6 +43,8 @@ export type ChamadoAtribuidoDetailDTO = {
   assignedAt: string | null;
   concludedAt: string | null;
   slaPausedAt: string | null;
+  pauseReason: string | null;
+  pauseDetails: string | null;
   executions: Array<{
     _id: string | null;
     createdByUserId: string | null;
@@ -163,7 +165,8 @@ export default function ChamadoAtribuidoDetailPage({
   const StatusIcon = STATUS_ICONS[chamado.status];
   const canRegisterExecution = chamado.status === 'em atendimento' && chamado.assignedToUserId;
   const canPause = chamado.status === 'em atendimento' && chamado.assignedToUserId;
-  const canResume = chamado.status === 'aguardando_solicitante';
+  const canResume =
+    chamado.status === 'aguardando_solicitante' || chamado.status === 'aguardando_terceiros';
 
   return (
     <div className="space-y-6">
@@ -295,10 +298,10 @@ export default function ChamadoAtribuidoDetailPage({
                   <Button
                     onClick={() => setPauseDialogOpen(true)}
                     variant="outline"
-                    className="w-full justify-start gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                    className="w-full justify-start gap-2 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30"
                   >
-                    <Hourglass className="h-4 w-4" />
-                    Aguardando Solicitante
+                    <PauseCircle className="h-4 w-4" />
+                    Pausar Atendimento
                   </Button>
                 )}
                 {canResume && (
@@ -324,7 +327,7 @@ export default function ChamadoAtribuidoDetailPage({
       />
 
       {chamadoId && (
-        <PauseForRequesterDialog
+        <PauseTicketDialog
           open={pauseDialogOpen}
           onOpenChange={setPauseDialogOpen}
           ticketId={chamadoId}
@@ -338,6 +341,7 @@ export default function ChamadoAtribuidoDetailPage({
           onOpenChange={setResumeDialogOpen}
           ticketId={chamadoId}
           slaPausedAt={chamado.slaPausedAt ?? null}
+          pauseReason={chamado.pauseReason ?? null}
           onSuccess={onActionSuccess}
         />
       )}

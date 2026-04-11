@@ -8,7 +8,9 @@ import {
   Clock,
   FileText,
   MapPin,
+  PauseCircle,
   Phone,
+  Play,
   User,
   UserCheck,
   Wrench,
@@ -98,6 +100,7 @@ const STATUS_ACCENT_GRADIENT: Record<string, string> = {
   validado: 'from-teal-400 to-emerald-500',
   'em atendimento': 'from-violet-400 to-purple-500',
   aguardando_solicitante: 'from-amber-400 to-orange-500',
+  aguardando_terceiros: 'from-orange-400 to-amber-500',
   concluído: 'from-emerald-400 to-teal-500',
   encerrado: 'from-emerald-500 to-teal-600',
   cancelado: 'from-red-400 to-rose-500',
@@ -116,6 +119,8 @@ interface Props {
   onAtribuir: (chamado: ChamadoDTO) => void;
   onEncerrar: (chamado: ChamadoDTO) => void;
   onReatribuir: (chamado: ChamadoDTO) => void;
+  onPausar?: (chamado: ChamadoDTO) => void;
+  onRetomar?: (chamado: ChamadoDTO) => void;
 }
 
 // ---------- Component ----------
@@ -129,6 +134,8 @@ export function ChamadoDetailSheet({
   onAtribuir,
   onEncerrar,
   onReatribuir,
+  onPausar,
+  onRetomar,
 }: Props) {
   const timezone = useInstitutionalTimezone();
   const tzOpt = useMemo(() => ({ timeZone: timezone }), [timezone]);
@@ -213,8 +220,12 @@ export function ChamadoDetailSheet({
   const showAtribuir = status === 'validado' || status === 'emvalidacao';
   const showReatribuir = status === 'em atendimento';
   const showEncerrar = status === 'concluído';
+  const showPausar = status === 'em atendimento' && !!onPausar;
+  const showRetomar =
+    (status === 'aguardando_solicitante' || status === 'aguardando_terceiros') && !!onRetomar;
   const hasActions =
-    showClassificar || showRecusar || showAtribuir || showReatribuir || showEncerrar;
+    showClassificar || showRecusar || showAtribuir || showReatribuir || showEncerrar ||
+    showPausar || showRetomar;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -427,6 +438,29 @@ export function ChamadoDetailSheet({
                 >
                   <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                   Reatribuir
+                </Button>
+              )}
+              {showPausar && onPausar && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-orange-200 text-orange-700 transition-colors hover:border-orange-300 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/30 sm:w-auto"
+                  onClick={() => handleAction(onPausar)}
+                >
+                  <PauseCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Pausar
+                </Button>
+              )}
+              {showRetomar && onRetomar && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 sm:w-auto"
+                  onClick={() => handleAction(onRetomar)}
+                >
+                  <Play className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Retomar
                 </Button>
               )}
               {showEncerrar && (

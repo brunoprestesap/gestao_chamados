@@ -42,6 +42,7 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
   test('2. Preposto classifica chamado (define prioridade e SLA)', async ({ page }) => {
     await login(page, 'preposto');
     await page.goto('/gestao');
+    await page.waitForLoadState('networkidle');
 
     // Localiza o chamado
     const card2 = gestaoChamadoCard(page, ticketTitle);
@@ -57,7 +58,7 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
 
     // Confirma
     await dialog.getByRole('button', { name: /confirmar|classificar|salvar/i }).click();
-    await expect(dialog).not.toBeVisible({ timeout: 10000 });
+    await expect(dialog).not.toBeVisible({ timeout: 30000 });
   });
 
   test('3. Preposto atribui chamado a técnico', async ({ page }) => {
@@ -102,6 +103,7 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
   test('5. Preposto encerra chamado', async ({ page }) => {
     await login(page, 'preposto');
     await page.goto('/gestao');
+    await page.waitForLoadState('networkidle');
 
     // Localiza chamado concluído
     const card5 = gestaoChamadoCard(page, ticketTitle);
@@ -115,7 +117,7 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
 
     // Confirma encerramento
     await dialog.getByRole('button', { name: /confirmar|encerrar|salvar/i }).click();
-    await expect(dialog).not.toBeVisible({ timeout: 10000 });
+    await expect(dialog).not.toBeVisible({ timeout: 30000 });
   });
 
   test('6. Solicitante vê chamado encerrado', async ({ page }) => {

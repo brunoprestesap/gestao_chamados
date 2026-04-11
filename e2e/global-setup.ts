@@ -79,7 +79,8 @@ export default async function globalSetup() {
         updatedAt: now,
       };
       if (u.role === 'Técnico') {
-        setOnly.maxAssignedTickets = 5;
+        // Valor alto para evitar bloqueio por acúmulo de chamados entre suites E2E
+        setOnly.maxAssignedTickets = 100;
       }
 
       // Campos exclusivos do insert (não repetir chaves de $set — MongoDB rejeita conflito).

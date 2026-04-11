@@ -62,6 +62,24 @@ const SLA_STATUS_LABELS: Record<SlaStatusDisplay, string> = {
   atrasado: 'Atrasado',
 };
 
+/** Formata tempo restante em formato legível (ex: "~2h 30min", "~45min"). */
+function formatTimeRemaining(ms: number): string {
+  if (ms <= 0) return '0min';
+  const totalMin = Math.round(ms / 60_000);
+  if (totalMin < 60) return `~${totalMin}min`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m > 0 ? `~${h}h ${m}min` : `~${h}h`;
+}
+
+/** Calcula tempo restante em ms para resolução, considerando status proximo_vencimento. */
+function getSlaRemainingMs(chamado: ChamadoDTO): number | null {
+  const sla = chamado.sla;
+  if (!sla?.resolutionDueAt) return null;
+  const remaining = new Date(sla.resolutionDueAt).getTime() - Date.now();
+  return remaining > 0 ? remaining : 0;
+}
+
 import {
   CHAMADO_STATUS_LABELS,
   type ChamadoStatus,
@@ -108,6 +126,9 @@ export type ChamadoDTO = {
     createdAt?: string | null;
     createdByUserId?: string | null;
   } | null;
+  slaPausedAt?: string | null;
+  pauseReason?: string | null;
+  pauseDetails?: string | null;
   sla?: SlaDTO;
 };
 
@@ -300,6 +321,13 @@ export function ChamadoCard({
   );
 
   const slaStatus = useMemo(() => getSlaDisplayStatus(chamado), [chamado]);
+  const slaRemainingMs = useMemo(() => getSlaRemainingMs(chamado), [chamado]);
+  const slaLabel = useMemo(() => {
+    if (slaStatus === 'proximo_vencimento' && slaRemainingMs !== null && slaRemainingMs > 0) {
+      return `Vence em ${formatTimeRemaining(slaRemainingMs)}`;
+    }
+    return slaStatus ? SLA_STATUS_LABELS[slaStatus] : '';
+  }, [slaStatus, slaRemainingMs]);
   const slaTooltip = useMemo(() => {
     const s = chamado.sla;
     const parts: string[] = [];
@@ -476,7 +504,7 @@ export function ChamadoCard({
                             'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
                         )}
                       >
-                        {SLA_STATUS_LABELS[slaStatus]}
+                        {slaLabel}
                       </Badge>
                     )}
                   </div>

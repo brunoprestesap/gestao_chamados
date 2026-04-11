@@ -6,6 +6,7 @@ import {
   Hourglass,
   Loader2,
   type LucideIcon,
+  Package,
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ export const STATUS_ICONS: Record<ChamadoStatus, LucideIcon> = {
   validado: ShieldCheck,
   'em atendimento': Loader2,
   aguardando_solicitante: Hourglass,
+  aguardando_terceiros: Package,
   fechado: XCircle,
   concluído: CheckCircle2,
   encerrado: CheckCircle2,
@@ -43,6 +45,7 @@ export const STATUS_ACCENT: Record<ChamadoStatus, string> = {
   validado: 'border-l-teal-500 bg-teal-50/50 dark:bg-teal-950/20',
   'em atendimento': 'border-l-violet-500 bg-violet-50/50 dark:bg-violet-950/20',
   aguardando_solicitante: 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20',
+  aguardando_terceiros: 'border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/20',
   fechado: 'border-l-slate-400 bg-slate-50/50 dark:bg-slate-900/30',
   concluído: 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20',
   encerrado: 'border-l-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20',
@@ -61,6 +64,8 @@ export const STATUS_BADGE: Record<ChamadoStatus, string> = {
     'bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/40 dark:text-violet-200 dark:border-violet-800',
   aguardando_solicitante:
     'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800',
+  aguardando_terceiros:
+    'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-800',
   fechado:
     'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700',
   concluído:

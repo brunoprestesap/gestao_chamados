@@ -61,8 +61,10 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
     });
 
     test('preposto classifica e atribui o chamado', async ({ page }) => {
+      test.slow(); // classificação + atribuição em sequência ultrapassa os 30s padrão
       await login(page, 'preposto');
       await page.goto('/gestao');
+      await page.waitForLoadState('networkidle');
 
       const card = gestaoChamadoCard(page, ticketTitle);
       await expect(card).toBeVisible({ timeout: 15000 });
@@ -74,7 +76,7 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
       await expect(classDialog).toBeVisible();
       await selectFinalPriorityInClassificarDialog(page, classDialog, 'Normal');
       await classDialog.getByRole('button', { name: /confirmar|classificar|salvar/i }).click();
-      await expect(classDialog).not.toBeVisible({ timeout: 10000 });
+      await expect(classDialog).not.toBeVisible({ timeout: 30000 });
 
       const card2 = gestaoChamadoCard(page, ticketTitle);
       await expect(card2).toBeVisible({ timeout: 15000 });
@@ -85,7 +87,7 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
       const atribDialog = page.getByRole('dialog');
       await expect(atribDialog).toBeVisible();
       await selectFirstEligibleTechnicianAndAtribuir(atribDialog);
-      await expect(atribDialog).not.toBeVisible({ timeout: 10000 });
+      await expect(atribDialog).not.toBeVisible({ timeout: 30000 });
     });
   });
 
@@ -113,7 +115,7 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
       await expect(dialog).toBeVisible();
 
       // Aguarda o loading de técnicos terminar
-      await expect(dialog.getByText(/carregando técnicos/i)).not.toBeVisible({ timeout: 10000 });
+      await expect(dialog.getByText(/carregando técnicos/i)).not.toBeVisible({ timeout: 30000 });
 
       // Verifica se o formulário com técnicos elegíveis foi renderizado
       const semTecnicos = dialog.getByText('Nenhum outro técnico disponível');

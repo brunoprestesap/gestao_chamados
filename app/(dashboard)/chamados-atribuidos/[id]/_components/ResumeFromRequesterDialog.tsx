@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import {
   type ActionResult,
-  resumeFromRequesterAction,
+  resumeTicketAction,
 } from '@/app/(dashboard)/chamados-atribuidos/actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,12 +16,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  PAUSE_REASON_LABELS,
+  type PauseReason,
+} from '@/shared/chamados/pause-reason.constants';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   ticketId: string;
   slaPausedAt: string | null;
+  pauseReason?: string | null;
   onSuccess: () => void;
 }
 
@@ -30,6 +35,7 @@ export function ResumeFromRequesterDialog({
   onOpenChange,
   ticketId,
   slaPausedAt,
+  pauseReason,
   onSuccess,
 }: Props) {
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +71,7 @@ export function ResumeFromRequesterDialog({
     setSubmitting(true);
     setError(null);
     try {
-      const result: ActionResult = await resumeFromRequesterAction({ ticketId });
+      const result: ActionResult = await resumeTicketAction({ ticketId });
       if (result.ok) {
         onOpenChange(false);
         onSuccess();
@@ -86,6 +92,10 @@ export function ResumeFromRequesterDialog({
     [submitting, onOpenChange],
   );
 
+  const reasonLabel = pauseReason
+    ? PAUSE_REASON_LABELS[pauseReason as PauseReason] ?? pauseReason
+    : null;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md" showCloseButton>
@@ -98,6 +108,15 @@ export function ResumeFromRequesterDialog({
             O SLA será retomado e o prazo de resolução ajustado pelo tempo pausado.
           </DialogDescription>
         </DialogHeader>
+
+        {reasonLabel && (
+          <div className="rounded-lg border border-orange-200 bg-orange-50/80 p-3 dark:border-orange-800 dark:bg-orange-950/30">
+            <p className="text-sm text-orange-900 dark:text-orange-100">
+              Motivo da pausa:{' '}
+              <span className="font-semibold">{reasonLabel}</span>
+            </p>
+          </div>
+        )}
 
         {elapsedStr && (
           <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800 dark:bg-amber-950/30">

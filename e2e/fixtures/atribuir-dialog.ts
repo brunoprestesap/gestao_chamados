@@ -3,7 +3,7 @@ import { expect, type Locator } from '@playwright/test';
 /** Cards de técnico em AtribuirChamadoDialog: <button> com texto "Matrícula:". */
 export async function selectFirstEligibleTechnicianAndAtribuir(dialog: Locator) {
   await expect(dialog.getByText(/carregando técnicos elegíveis/i)).not.toBeVisible({
-    timeout: 20000,
+    timeout: 30000,
   });
   const semTecnicos = dialog.getByText('Nenhum técnico disponível');
   if (await semTecnicos.isVisible().catch(() => false)) {

@@ -13,6 +13,9 @@ export function getNotificationUrl(
     case 'ticket:execution_registered':
     case 'ticket:closed':
       return ticketId ? `/meus-chamados/${ticketId}` : '/meus-chamados';
+    case 'sla:warning':
+    case 'sla:breach':
+      return '/gestao';
     default:
       return '/meus-chamados';
   }

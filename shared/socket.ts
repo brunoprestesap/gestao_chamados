@@ -91,6 +91,30 @@ export interface TicketRejectedPayload {
   at: string;
 }
 
+/** Payload quando SLA de um chamado atinge 80% do prazo (alerta de proximidade). */
+export interface SlaWarningPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  priority: string;
+  type: 'response' | 'resolution';
+  dueAt: string;
+  remainingPercent: number;
+  at: string;
+}
+
+/** Payload quando SLA de um chamado estoura (breach). */
+export interface SlaBreachPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  priority: string;
+  type: 'response' | 'resolution';
+  dueAt: string;
+  breachedAt: string;
+  at: string;
+}
+
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
   'ticket:new': (payload: TicketNewPayload) => void;
@@ -101,6 +125,8 @@ export interface ServerToClientEvents {
   'ticket:paused': (payload: TicketPausedPayload) => void;
   'ticket:resumed': (payload: TicketResumedPayload) => void;
   'ticket:rejected': (payload: TicketRejectedPayload) => void;
+  'sla:warning': (payload: SlaWarningPayload) => void;
+  'sla:breach': (payload: SlaBreachPayload) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

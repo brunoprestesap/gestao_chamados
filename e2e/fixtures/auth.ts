@@ -18,15 +18,29 @@ export type UserKey = keyof typeof USERS;
  * Faz login via UI preenchendo o formulário em /login.
  * Aguarda redirect para /dashboard (ou callbackUrl).
  *
- * Se falhar, verifica se há mensagem de erro visível e dá uma mensagem clara
- * (geralmente significa que o seed não foi executado).
+ * Se já estiver logado (redirect automático ao acessar /login), trata
+ * fazendo logout primeiro e reentrando com as credenciais corretas.
  */
 export async function login(page: Page, user: UserKey) {
   const { username, password } = USERS[user];
+
+  // Limpa cookies para garantir sessão limpa (evita redirect de /login)
+  await page.context().clearCookies();
+
   await page.goto('/login');
-  await page.getByPlaceholder('Ex: ap20256').fill(username);
-  await page.getByPlaceholder('Sua senha').fill(password);
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.waitForLoadState('networkidle');
+
+  // Aguarda o campo de matrícula aparecer e ficar editável.
+  // Usa .first() porque o React pode renderizar o input duplicado
+  // momentaneamente durante a hidratação.
+  const usernameField = page.getByPlaceholder('Ex: ap20256').first();
+  await usernameField.waitFor({ state: 'visible', timeout: 15000 });
+
+  await usernameField.fill(username);
+  const passwordField = page.getByPlaceholder('Sua senha').first();
+  await passwordField.waitFor({ state: 'visible', timeout: 15000 });
+  await passwordField.fill(password);
+  await page.getByRole('button', { name: 'Entrar' }).first().click();
 
   // Aguarda navegação ou erro. O login bem-sucedido redireciona via Server Action.
   try {

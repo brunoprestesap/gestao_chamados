@@ -11,6 +11,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { PauseTicketDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseTicketDialog';
+import { ResumeFromRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/ResumeFromRequesterDialog';
 import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/AtribuirChamadoDialog';
 import { ChamadoDetailSheet } from '@/app/(dashboard)/gestao/_components/ChamadoDetailSheet';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
@@ -103,6 +105,16 @@ const COLUMN_CONFIG: Record<
     topBorder: 'border-t-amber-300',
     dotColor: 'bg-amber-300',
     emptyText: 'Nenhum aguardando',
+  },
+  aguardando_terceiros: {
+    accent: 'from-orange-400 to-amber-400',
+    headerBg: 'bg-orange-50/80 dark:bg-orange-950/20',
+    headerText: 'text-orange-900 dark:text-orange-200',
+    countBg: 'bg-orange-100 dark:bg-orange-900/40',
+    countText: 'text-orange-700 dark:text-orange-300',
+    topBorder: 'border-t-orange-400',
+    dotColor: 'bg-orange-400',
+    emptyText: 'Nenhum aguardando terceiros',
   },
   encerrado: {
     accent: 'from-emerald-500 to-teal-500',
@@ -304,6 +316,8 @@ export default function GestaoPage() {
   const [atribuirDialogOpen, setAtribuirDialogOpen] = useState(false);
   const [encerrarChamadoId, setEncerrarChamadoId] = useState<string | null>(null);
   const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
+  const [pausarChamado, setPausarChamado] = useState<ChamadoDTO | null>(null);
+  const [retomarChamado, setRetomarChamado] = useState<ChamadoDTO | null>(null);
   const [selected, setSelected] = useState<ChamadoDTO | null>(null);
   const [detailSheetChamado, setDetailSheetChamado] = useState<ChamadoDTO | null>(null);
 
@@ -402,6 +416,24 @@ export default function GestaoPage() {
 
   const handleReatribuirSuccess = useCallback(() => {
     setReatribuirChamado(null);
+    fetchChamados();
+  }, [fetchChamados]);
+
+  const handlePausar = useCallback((chamado: ChamadoDTO) => {
+    setPausarChamado(chamado);
+  }, []);
+
+  const handlePausarSuccess = useCallback(() => {
+    setPausarChamado(null);
+    fetchChamados();
+  }, [fetchChamados]);
+
+  const handleRetomar = useCallback((chamado: ChamadoDTO) => {
+    setRetomarChamado(chamado);
+  }, []);
+
+  const handleRetomarSuccess = useCallback(() => {
+    setRetomarChamado(null);
     fetchChamados();
   }, [fetchChamados]);
 
@@ -742,6 +774,8 @@ export default function GestaoPage() {
         onAtribuir={handleAtribuir}
         onEncerrar={handleEncerrar}
         onReatribuir={handleReatribuir}
+        onPausar={handlePausar}
+        onRetomar={handleRetomar}
       />
 
       <ClassificarChamadoDialog
@@ -784,6 +818,30 @@ export default function GestaoPage() {
           }}
           chamado={reatribuirChamado}
           onSuccess={handleReatribuirSuccess}
+        />
+      )}
+
+      {pausarChamado && (
+        <PauseTicketDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPausarChamado(null);
+          }}
+          ticketId={pausarChamado._id}
+          onSuccess={handlePausarSuccess}
+        />
+      )}
+
+      {retomarChamado && (
+        <ResumeFromRequesterDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setRetomarChamado(null);
+          }}
+          ticketId={retomarChamado._id}
+          slaPausedAt={retomarChamado.slaPausedAt ?? null}
+          pauseReason={retomarChamado.pauseReason ?? null}
+          onSuccess={handleRetomarSuccess}
         />
       )}
     </div>

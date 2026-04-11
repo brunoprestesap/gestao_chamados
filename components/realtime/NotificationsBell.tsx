@@ -2,12 +2,14 @@
 
 import type { LucideIcon } from 'lucide-react';
 import {
+  AlertTriangle,
   Bell,
   BellOff,
   CheckCheck,
   ClipboardCheck,
   Loader2,
   MessageSquare,
+  OctagonAlert,
   Paperclip,
   TicketCheck,
   UserCheck,
@@ -82,6 +84,20 @@ function getNotificationMeta(type: string): NotificationMeta {
         iconBg: 'bg-rose-100 dark:bg-rose-500/20',
         iconColor: 'text-rose-600 dark:text-rose-400',
         label: 'Anexo adicionado',
+      };
+    case 'sla:warning':
+      return {
+        icon: AlertTriangle,
+        iconBg: 'bg-amber-100 dark:bg-amber-500/20',
+        iconColor: 'text-amber-600 dark:text-amber-400',
+        label: 'SLA próximo do vencimento',
+      };
+    case 'sla:breach':
+      return {
+        icon: OctagonAlert,
+        iconBg: 'bg-red-100 dark:bg-red-500/20',
+        iconColor: 'text-red-600 dark:text-red-400',
+        label: 'SLA estourou',
       };
     default:
       return {
