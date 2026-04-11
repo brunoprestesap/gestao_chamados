@@ -96,9 +96,8 @@ describe('PauseTicketBaseSchema', () => {
     }
   });
 
-  it('deve rejeitar reason ausente com mensagem de required_error', () => {
+  it('deve rejeitar reason ausente', () => {
     // Arrange — Zod z.enum sem .optional() deve falhar quando o campo é undefined/ausente.
-    // Na prática, o Zod emite o required_error configurado no enum.
     const input = { ticketId: VALID_ID };
 
     // Act

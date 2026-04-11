@@ -10,7 +10,7 @@ import { PAUSE_REASONS } from './pause-reason.constants';
 export const PauseTicketBaseSchema = z.object({
   ticketId: z.string().min(1, 'ID do chamado é obrigatório'),
   reason: z.enum(PAUSE_REASONS, {
-    required_error: 'Selecione um motivo de pausa',
+    error: 'Selecione um motivo de pausa',
   }),
   details: z
     .string()

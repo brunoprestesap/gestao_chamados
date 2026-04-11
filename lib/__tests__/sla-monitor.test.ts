@@ -270,7 +270,7 @@ describe('checkSlaEscalations — breach de resposta', () => {
     vi.mocked(ChamadoModel.find).mockReturnValue(withLean([chamado]) as never);
 
     // Act
-    const report = await checkSlaEscalations();
+    await checkSlaEscalations();
 
     // Assert — resposta já marcada como breach, não deve criar escalação de resposta
     const createCalls = vi.mocked(SlaEscalationModel.create).mock.calls;
@@ -291,7 +291,7 @@ describe('checkSlaEscalations — breach de resposta', () => {
     );
 
     // Act
-    const report = await checkSlaEscalations();
+    await checkSlaEscalations();
 
     // Assert
     const createCalls = vi.mocked(SlaEscalationModel.create).mock.calls;
@@ -336,7 +336,7 @@ describe('checkSlaEscalations — breach de resolução', () => {
     );
 
     // Act
-    const report = await checkSlaEscalations();
+    await checkSlaEscalations();
 
     // Assert
     const createCalls = vi.mocked(SlaEscalationModel.create).mock.calls;

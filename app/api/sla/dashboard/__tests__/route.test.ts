@@ -522,8 +522,6 @@ describe('GET /api/sla/dashboard', () => {
 
     await callGet();
 
-    const { mockPopulate } = mockFind([]); // já foi chamado, inspecionar mock original
-    // Verificar via ChamadoModel.find encadeado
     expect(ChamadoModel.find).toHaveBeenCalledWith({
       status: { $in: expect.arrayContaining(['validado', 'em atendimento']) },
       'sla.resolutionDueAt': { $ne: null },
