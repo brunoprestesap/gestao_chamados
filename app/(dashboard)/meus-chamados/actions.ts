@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { canManage, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { AttachmentModel } from '@/models/Attachment';
 import { ChamadoModel } from '@/models/Chamado';
@@ -130,6 +131,7 @@ export async function createTicketAction(
         data: ticketNewPayload,
         readAt: null,
       });
+      sendNotificationEmail(String(manager._id), 'ticket:new', ticketNewPayload).catch(() => {});
     }
     await emitToRoom('managers', 'ticket:new', ticketNewPayload);
 
@@ -368,6 +370,9 @@ export async function addCommentAction(
           }),
         ),
       );
+      for (const recipientId of uniqueIds) {
+        sendNotificationEmail(recipientId, 'ticket:comment_added', payload).catch(() => {});
+      }
     }
 
     revalidatePath(`/meus-chamados/${chamadoId}`);
@@ -517,6 +522,9 @@ export async function notifyAttachmentAction(
           }),
         ),
       );
+      for (const recipientId of uniqueRecipients) {
+        sendNotificationEmail(recipientId, 'ticket:attachment_added', payload).catch(() => {});
+      }
     }
 
     revalidatePath(`/meus-chamados/${chamadoId}`);

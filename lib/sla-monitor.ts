@@ -7,6 +7,7 @@
  */
 
 import { dbConnect } from '@/lib/db';
+import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { ChamadoModel } from '@/models/Chamado';
 import { NotificationModel } from '@/models/Notification';
@@ -140,6 +141,9 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
         }));
         if (notifications.length > 0) {
           await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
+          for (const uid of managerIds) {
+            sendNotificationEmail(String(uid), 'sla:warning', warningPayload).catch(() => {});
+          }
         }
 
         await emitToRoom('managers', 'sla:warning', warningPayload);
@@ -183,6 +187,9 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
         }));
         if (notifications.length > 0) {
           await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
+          for (const uid of adminIds) {
+            sendNotificationEmail(String(uid), 'sla:breach', breachPayload).catch(() => {});
+          }
         }
 
         // Marca breach no chamado
@@ -230,6 +237,9 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
         }));
         if (notifications.length > 0) {
           await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
+          for (const uid of adminIds) {
+            sendNotificationEmail(String(uid), 'sla:breach', breachPayload).catch(() => {});
+          }
         }
 
         // Marca breach no chamado

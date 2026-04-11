@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 
 import { canManage, isTechnician, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { addElapsedMinutes, evaluateResolutionBreach } from '@/lib/sla-utils';
 import { ChamadoModel } from '@/models/Chamado';
@@ -174,6 +175,7 @@ export async function registerExecutionAction(
         data: payload,
         readAt: null,
       });
+      sendNotificationEmail(String(manager._id), 'ticket:execution_registered', payload).catch(() => {});
     }
     await NotificationModel.create({
       userId: doc.solicitanteId,
@@ -183,6 +185,7 @@ export async function registerExecutionAction(
       data: payload,
       readAt: null,
     });
+    sendNotificationEmail(String(doc.solicitanteId), 'ticket:execution_registered', payload).catch(() => {});
     await emitToRoom('managers', 'ticket:execution_registered', payload);
     await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:execution_registered', payload);
 
@@ -310,6 +313,7 @@ export async function pauseTicketAction(raw: PauseTicketInput): Promise<ActionRe
       data: notifPayload,
       readAt: null,
     });
+    sendNotificationEmail(String(doc.solicitanteId), 'ticket:paused', notifPayload).catch(() => {});
     await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:paused', notifPayload);
 
     // Notifica managers
@@ -330,6 +334,9 @@ export async function pauseTicketAction(raw: PauseTicketInput): Promise<ActionRe
           readAt: null,
         })),
       );
+      for (const m of managers) {
+        sendNotificationEmail(String(m._id), 'ticket:paused', notifPayload).catch(() => {});
+      }
     }
     await emitToRoom('managers', 'ticket:paused', notifPayload);
 
@@ -481,6 +488,7 @@ export async function resumeTicketAction(raw: ResumeTicketInput): Promise<Action
       data: notifPayload,
       readAt: null,
     });
+    sendNotificationEmail(String(doc.solicitanteId), 'ticket:resumed', notifPayload).catch(() => {});
     await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:resumed', notifPayload);
 
     // Notifica managers
@@ -501,6 +509,9 @@ export async function resumeTicketAction(raw: ResumeTicketInput): Promise<Action
           readAt: null,
         })),
       );
+      for (const m of managers) {
+        sendNotificationEmail(String(m._id), 'ticket:resumed', notifPayload).catch(() => {});
+      }
     }
     await emitToRoom('managers', 'ticket:resumed', notifPayload);
 

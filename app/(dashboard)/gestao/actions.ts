@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 
 import { canManage, requireManager, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { getActiveHolidaysForRange } from '@/lib/holidays';
 import { emitToRoom } from '@/lib/realtime-emit';
@@ -233,6 +234,7 @@ export async function closeTicketAction(raw: CloseTicketInput): Promise<CloseTic
       data: ticketClosedPayload,
       readAt: null,
     });
+    sendNotificationEmail(String(updated.solicitanteId), 'ticket:closed', ticketClosedPayload).catch(() => {});
     await emitToRoom(`user:${String(updated.solicitanteId)}`, 'ticket:closed', ticketClosedPayload);
 
     revalidatePath('/gestao');
@@ -510,6 +512,7 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       data: ticketAssignedPayload,
       readAt: null,
     });
+    sendNotificationEmail(technicianIdStr, 'ticket:assigned', ticketAssignedPayload).catch(() => {});
     await emitToRoom(`user:${technicianIdStr}`, 'ticket:assigned', ticketAssignedPayload);
 
     revalidatePath('/gestao');
@@ -756,6 +759,11 @@ export async function rejectTicketAction(
       title: 'Chamado recusado',
       body: `O chamado ${doc.ticket_number} foi recusado. Motivo: ${rejectionReason}`,
       data: { ticketId: chamadoId, ticketNumber: doc.ticket_number },
+    }).catch(() => {});
+    sendNotificationEmail(solicitanteId, 'ticket:rejected', {
+      ticketId: chamadoId,
+      ticketNumber: doc.ticket_number,
+      title: doc.titulo,
     }).catch(() => {});
 
     await emitToRoom(`user:${solicitanteId}`, 'ticket:rejected', {
