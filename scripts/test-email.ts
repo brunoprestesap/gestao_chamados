@@ -4,6 +4,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+
 import nodemailer from 'nodemailer';
 
 // Carrega .env.local manualmente (sem depender de dotenv)
