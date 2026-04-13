@@ -117,7 +117,7 @@ async function navegarParaDetalheChamadoTecnico(
   // Localiza o card do chamado pelo título — usa .first() pois pode
   // haver elementos duplicados (mobile + desktop) no DOM
   const card = page
-    .locator('[data-slot="card"]')
+    .locator('[data-slot="card"]:visible')
     .filter({ hasText: titulo })
     .first();
   await expect(card).toBeVisible({ timeout: 30000 });
@@ -522,7 +522,9 @@ test.describe('Pausas de SLA — Chamado pausado bloqueia registro de execução
       await confirmarPausa(dialog);
 
       // Aguarda atualização de status
-      await expect(page.getByText(/aguardando/i)).toBeVisible({ timeout: 10000 });
+      await expect(
+        page.locator('[data-slot="badge"]').filter({ hasText: /aguardando/i }).first(),
+      ).toBeVisible({ timeout: 10000 });
 
       // Assert — botão de execução não deve estar visível
       await expect(page.getByRole('button', { name: /registrar execução/i })).not.toBeVisible({
@@ -578,7 +580,7 @@ test.describe('Pausas de SLA — Todos os motivos de pausa estão disponíveis n
     const dialog = await abrirPauseDialogNaDetalhe(page);
 
     // Abre o Select de motivos
-    await dialog.getByRole('combobox').click();
+    await dialog.getByRole('combobox').first().click();
 
     // Assert — cada motivo esperado deve estar disponível
     for (const motivo of MOTIVOS_ESPERADOS) {

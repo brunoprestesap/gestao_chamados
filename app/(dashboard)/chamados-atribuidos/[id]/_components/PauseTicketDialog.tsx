@@ -116,7 +116,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md" showCloseButton>
+      <DialogContent className="max-w-md sm:rounded-2xl" showCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PauseCircle className="h-5 w-5 text-orange-600" />
@@ -128,7 +128,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
         </DialogHeader>
 
         {error && (
-          <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-xl border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}
@@ -149,13 +149,13 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
                     disabled={submitting}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="rounded-xl transition-all focus:ring-orange-500/30">
                         <SelectValue placeholder="Selecione o motivo..." />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       {PAUSE_REASONS.map((r) => (
-                        <SelectItem key={r} value={r}>
+                        <SelectItem key={r} value={r} className="rounded-lg">
                           {PAUSE_REASON_LABELS[r as PauseReason]}
                         </SelectItem>
                       ))}
@@ -184,7 +184,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
                           ? 'Descreva o motivo da pausa (mín. 10 caracteres)...'
                           : 'Informações adicionais (opcional)...'
                       }
-                      className="min-h-[80px] resize-y"
+                      className="min-h-[80px] resize-y rounded-xl transition-all focus-visible:ring-orange-500/30"
                       disabled={submitting}
                       {...field}
                     />
@@ -194,7 +194,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
               )}
             />
 
-            <div className="rounded-lg border border-orange-200 bg-orange-50/80 p-3 text-sm text-orange-900 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-100">
+            <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-sm text-orange-900 dark:border-orange-800/50 dark:bg-orange-950/30 dark:text-orange-100">
               O SLA será pausado até que o atendimento seja retomado.
             </div>
 
@@ -202,6 +202,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
               <Button
                 type="button"
                 variant="outline"
+                className="rounded-xl transition-all"
                 onClick={() => handleOpenChange(false)}
                 disabled={submitting}
               >
@@ -210,7 +211,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
               <Button
                 type="submit"
                 disabled={submitting}
-                className="bg-orange-600 hover:bg-orange-700"
+                className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-sm shadow-orange-500/20 transition-all hover:from-orange-600 hover:to-orange-700 hover:shadow-orange-500/30"
               >
                 {submitting ? 'Pausando...' : 'Pausar Atendimento'}
               </Button>

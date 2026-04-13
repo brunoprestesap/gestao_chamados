@@ -90,7 +90,7 @@ export function PauseForRequesterDialog({ open, onOpenChange, ticketId, onSucces
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md" showCloseButton>
+      <DialogContent className="max-w-md sm:rounded-2xl" showCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Hourglass className="h-5 w-5 text-amber-600" />
@@ -102,7 +102,7 @@ export function PauseForRequesterDialog({ open, onOpenChange, ticketId, onSucces
         </DialogHeader>
 
         {error && (
-          <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-xl border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}
@@ -120,7 +120,7 @@ export function PauseForRequesterDialog({ open, onOpenChange, ticketId, onSucces
                   <FormControl>
                     <Textarea
                       placeholder="Descreva o motivo da espera (min. 10 caracteres)..."
-                      className="min-h-[100px] resize-y"
+                      className="min-h-[100px] resize-y rounded-xl transition-all focus-visible:ring-amber-500/30"
                       disabled={submitting}
                       {...field}
                     />
@@ -134,6 +134,7 @@ export function PauseForRequesterDialog({ open, onOpenChange, ticketId, onSucces
               <Button
                 type="button"
                 variant="outline"
+                className="rounded-xl transition-all"
                 onClick={() => handleOpenChange(false)}
                 disabled={submitting}
               >
@@ -142,7 +143,7 @@ export function PauseForRequesterDialog({ open, onOpenChange, ticketId, onSucces
               <Button
                 type="submit"
                 disabled={submitting}
-                className="bg-amber-600 hover:bg-amber-700"
+                className="rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm shadow-amber-500/20 transition-all hover:from-amber-600 hover:to-amber-700 hover:shadow-amber-500/30"
               >
                 {submitting ? 'Pausando...' : 'Confirmar Pausa'}
               </Button>

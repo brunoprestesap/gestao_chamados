@@ -33,8 +33,8 @@ export async function selecionarMotivoPausa(
   motivoLabel: string,
 ): Promise<void> {
   // Trigger do Select de motivo (único select no dialog de pausa)
-  await dialog.getByRole('combobox').click();
-  await page.getByRole('option', { name: motivoLabel, exact: true }).click();
+  await dialog.getByRole('combobox').first().click();
+  await page.getByRole('option', { name: motivoLabel, exact: true }).first().click();
 }
 
 /**

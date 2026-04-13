@@ -1,6 +1,19 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2, Clock, Loader2, PauseCircle, Play, Wrench } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Briefcase,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Loader2,
+  MapPin,
+  PauseCircle,
+  Phone,
+  Play,
+  Wrench,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -17,12 +30,11 @@ import { AttachmentGallery } from '@/app/(dashboard)/meus-chamados/[id]/_compone
 import { CommentThread } from '@/app/(dashboard)/meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
-import { PageHeader } from '@/components/dashboard/header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 
 export type ChamadoAtribuidoDetailDTO = {
   _id: string;
@@ -136,28 +148,37 @@ export default function ChamadoAtribuidoDetailPage({
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Carregando chamado...</p>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-950/30">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
         </div>
+        <p className="text-sm font-medium text-muted-foreground animate-pulse">
+          Carregando detalhes do chamado...
+        </p>
       </div>
     );
   }
 
   if (!chamado) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg font-medium">Chamado não encontrado</p>
-          <Button
-            onClick={() => router.push('/chamados-atribuidos')}
-            className="mt-4"
-            variant="outline"
-          >
-            Voltar para Chamados Atribuídos
-          </Button>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center px-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-950/30">
+          <AlertTriangle className="h-8 w-8 text-red-500" />
         </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Chamado não encontrado</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+            O chamado que você está tentando acessar não existe ou você não tem permissão para vê-lo.
+          </p>
+        </div>
+        <Button
+          onClick={() => router.push('/chamados-atribuidos')}
+          className="mt-2 rounded-xl"
+          variant="outline"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar para Chamados Atribuidos
+        </Button>
       </div>
     );
   }
@@ -168,84 +189,163 @@ export default function ChamadoAtribuidoDetailPage({
   const canResume =
     chamado.status === 'aguardando_solicitante' || chamado.status === 'aguardando_terceiros';
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
+  const hasActions = canRegisterExecution || canPause || canResume;
+
+  const renderActions = (isMobile: boolean = false) => (
+    <div className={cn("flex gap-3", isMobile ? "flex-col w-full" : "flex-col w-full")}>
+      {canRegisterExecution && (
+        <Button
+          onClick={() => setExecutionDialogOpen(true)}
+          className="w-full justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-all hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30 hover:-translate-y-0.5 font-semibold h-11"
+        >
+          <Wrench className="h-4 w-4" />
+          Registrar Execução
         </Button>
-        <PageHeader title="Detalhes do Chamado" />
+      )}
+      {canPause && (
+        <Button
+          onClick={() => setPauseDialogOpen(true)}
+          variant="outline"
+          className="w-full justify-center gap-2 rounded-xl border-orange-300 text-orange-700 font-semibold transition-all hover:bg-orange-50 hover:text-orange-800 dark:border-orange-700/50 dark:text-orange-400 dark:hover:bg-orange-950/30 hover:-translate-y-0.5 h-11"
+        >
+          <PauseCircle className="h-4 w-4" />
+          Pausar Atendimento
+        </Button>
+      )}
+      {canResume && (
+        <Button
+          onClick={() => setResumeDialogOpen(true)}
+          className="w-full justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-all hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30 hover:-translate-y-0.5 font-semibold h-11"
+        >
+          <Play className="h-4 w-4" />
+          Retomar Atendimento
+        </Button>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-1 flex-col px-4 py-4 sm:px-6 md:py-6 lg:px-8 pb-24 lg:pb-8">
+      {/* Header */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.back()}
+            className="mt-1 shrink-0 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-400"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                {chamado.ticket_number || 'Sem número'}
+              </h1>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "rounded-full px-3 py-1 border text-xs font-bold uppercase tracking-wider shadow-sm",
+                  STATUS_BADGE[chamado.status]
+                )}
+              >
+                <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
+                {CHAMADO_STATUS_LABELS[chamado.status]}
+              </Badge>
+            </div>
+            <p className="text-base font-medium text-muted-foreground">
+              {chamado.titulo}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <CardTitle className="text-xl">{chamado.ticket_number || 'Sem número'}</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">{chamado.titulo}</p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={`border text-sm font-medium ${STATUS_BADGE[chamado.status]}`}
-                >
-                  <StatusIcon className="mr-2 h-4 w-4" />
-                  {CHAMADO_STATUS_LABELS[chamado.status]}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+      {/* Main Grid */}
+      <div className="grid gap-6 lg:grid-cols-12 items-start">
+        {/* Left Column (Content) */}
+        <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+          
+          {/* Detalhes Principais */}
+          <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-blue-500 opacity-80" />
+            <CardContent className="p-5 sm:p-6 space-y-6">
+              {/* Descrição */}
               <div>
-                <h4 className="mb-2 text-sm font-medium text-muted-foreground">Descrição</h4>
-                <p className="text-sm leading-relaxed">{chamado.descricao}</p>
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                  <FileText className="h-4 w-4" />
+                  Descrição do Problema
+                </h3>
+                <div className="rounded-xl bg-muted/30 p-4 border border-border/50 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+                  {chamado.descricao}
+                </div>
               </div>
 
-              <Separator />
+              <Separator className="bg-border/50" />
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-                    Tipo de Serviço
-                  </h4>
-                  <p className="text-sm">{chamado.tipoServico}</p>
+              {/* Grid de Metadados */}
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="flex items-start gap-3 rounded-xl bg-muted/20 p-3.5 border border-border/40 transition-colors hover:bg-muted/40">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">
+                    <Briefcase className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Tipo de Serviço</p>
+                    <p className="text-sm font-semibold truncate" title={chamado.tipoServico}>{chamado.tipoServico}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-muted-foreground">Local Exato</h4>
-                  <p className="text-sm">{chamado.localExato}</p>
+
+                <div className="flex items-start gap-3 rounded-xl bg-muted/20 p-3.5 border border-border/40 transition-colors hover:bg-muted/40">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
+                    <AlertTriangle className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Urgência</p>
+                    <p className="text-sm font-semibold truncate" title={chamado.grauUrgencia}>{chamado.grauUrgencia}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-                    Natureza do Atendimento
-                  </h4>
-                  <p className="text-sm">{chamado.naturezaAtendimento}</p>
+
+                <div className="flex items-start gap-3 rounded-xl bg-muted/20 p-3.5 border border-border/40 transition-colors hover:bg-muted/40">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400">
+                    <MapPin className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Local Exato</p>
+                    <p className="text-sm font-semibold truncate" title={chamado.localExato}>{chamado.localExato}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-                    Grau de Urgência
-                  </h4>
-                  <p className="text-sm">{chamado.grauUrgencia}</p>
+
+                <div className="flex items-start gap-3 rounded-xl bg-muted/20 p-3.5 border border-border/40 transition-colors hover:bg-muted/40">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
+                    <FileText className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Natureza</p>
+                    <p className="text-sm font-semibold truncate" title={chamado.naturezaAtendimento}>{chamado.naturezaAtendimento}</p>
+                  </div>
                 </div>
+
                 {chamado.telefoneContato && (
-                  <div>
-                    <h4 className="mb-1 text-sm font-medium text-muted-foreground">
-                      Telefone para Contato
-                    </h4>
-                    <p className="text-sm">{chamado.telefoneContato}</p>
+                  <div className="flex items-start gap-3 rounded-xl bg-muted/20 p-3.5 border border-border/40 transition-colors hover:bg-muted/40">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                      <Phone className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Contato</p>
+                      <p className="text-sm font-semibold truncate" title={chamado.telefoneContato}>{chamado.telefoneContato}</p>
+                    </div>
                   </div>
                 )}
               </div>
 
-              <Separator />
-
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
+              {/* Datas */}
+              <div className="flex flex-wrap items-center gap-3 sm:gap-5 pt-2">
+                <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  <Clock className="h-4 w-4 text-indigo-500" />
                   <span>Aberto em {formatDate(chamado.createdAt, tzOpt)}</span>
                 </div>
                 {chamado.concludedAt && (
-                  <div className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" />
+                  <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" />
                     <span>Concluído em {formatDate(chamado.concludedAt, tzOpt)}</span>
                   </div>
                 )}
@@ -253,9 +353,11 @@ export default function ChamadoAtribuidoDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Alterações</CardTitle>
+          {/* Histórico */}
+          <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-sky-500 opacity-80" />
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-bold tracking-tight">Histórico do Chamado</CardTitle>
             </CardHeader>
             <CardContent>
               <HistoryTimeline chamadoId={chamado._id} refreshTrigger={historyRefreshTrigger} />
@@ -264,12 +366,18 @@ export default function ChamadoAtribuidoDetailPage({
 
           {/* Comentários */}
           {userRole && (
-            <CommentThread chamadoId={chamado._id} userRole={userRole} />
+            <div className="transition-all hover:shadow-md rounded-2xl">
+              <CommentThread chamadoId={chamado._id} userRole={userRole} />
+            </div>
           )}
 
           {/* Anexos */}
-          <Card className="overflow-hidden">
-            <CardContent className="pt-5">
+          <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-500 to-indigo-500 opacity-80" />
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-bold tracking-tight">Anexos</CardTitle>
+            </CardHeader>
+            <CardContent>
               <AttachmentGallery
                 chamadoId={chamado._id}
                 canUpload={chamado.status !== 'encerrado' && chamado.status !== 'cancelado'}
@@ -278,47 +386,32 @@ export default function ChamadoAtribuidoDetailPage({
           </Card>
         </div>
 
-        {(canRegisterExecution || canPause || canResume) && (
-          <div className="space-y-4">
-            <Card>
+        {/* Right Column (Actions - Desktop) */}
+        {hasActions && (
+          <div className="hidden lg:block lg:col-span-4 xl:col-span-3 sticky top-24">
+            <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-80" />
               <CardHeader>
-                <CardTitle className="text-base">Ações</CardTitle>
+                <CardTitle className="text-base font-bold tracking-tight">Ações Disponíveis</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {canRegisterExecution && (
-                  <Button
-                    onClick={() => setExecutionDialogOpen(true)}
-                    className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    <Wrench className="h-4 w-4" />
-                    Registrar Execução
-                  </Button>
-                )}
-                {canPause && (
-                  <Button
-                    onClick={() => setPauseDialogOpen(true)}
-                    variant="outline"
-                    className="w-full justify-start gap-2 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30"
-                  >
-                    <PauseCircle className="h-4 w-4" />
-                    Pausar Atendimento
-                  </Button>
-                )}
-                {canResume && (
-                  <Button
-                    onClick={() => setResumeDialogOpen(true)}
-                    className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    <Play className="h-4 w-4" />
-                    Retomar Atendimento
-                  </Button>
-                )}
+              <CardContent>
+                {renderActions(false)}
               </CardContent>
             </Card>
           </div>
         )}
       </div>
 
+      {/* Mobile Sticky Actions Bar */}
+      {hasActions && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/50 bg-background/80 backdrop-blur-xl p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] lg:hidden">
+          <div className="mx-auto max-w-md">
+            {renderActions(true)}
+          </div>
+        </div>
+      )}
+
+      {/* Dialogs */}
       <RegisterExecutionDialog
         open={executionDialogOpen}
         onOpenChange={setExecutionDialogOpen}

@@ -98,7 +98,7 @@ export function ResumeFromRequesterDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md" showCloseButton>
+      <DialogContent className="max-w-md sm:rounded-2xl" showCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Play className="h-5 w-5 text-emerald-600" />
@@ -110,7 +110,7 @@ export function ResumeFromRequesterDialog({
         </DialogHeader>
 
         {reasonLabel && (
-          <div className="rounded-lg border border-orange-200 bg-orange-50/80 p-3 dark:border-orange-800 dark:bg-orange-950/30">
+          <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 dark:border-orange-800/50 dark:bg-orange-950/30">
             <p className="text-sm text-orange-900 dark:text-orange-100">
               Motivo da pausa:{' '}
               <span className="font-semibold">{reasonLabel}</span>
@@ -119,7 +119,7 @@ export function ResumeFromRequesterDialog({
         )}
 
         {elapsedStr && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800/50 dark:bg-amber-950/30">
             <p className="text-sm text-amber-900 dark:text-amber-100">
               Tempo pausado:{' '}
               <span className="font-semibold">{elapsedStr}</span>
@@ -128,7 +128,7 @@ export function ResumeFromRequesterDialog({
         )}
 
         {error && (
-          <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-xl border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}
@@ -137,6 +137,7 @@ export function ResumeFromRequesterDialog({
           <Button
             type="button"
             variant="outline"
+            className="rounded-xl transition-all"
             onClick={() => handleOpenChange(false)}
             disabled={submitting}
           >
@@ -145,7 +146,7 @@ export function ResumeFromRequesterDialog({
           <Button
             onClick={handleSubmit}
             disabled={submitting}
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-all hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30"
           >
             {submitting ? 'Retomando...' : 'Retomar Atendimento'}
           </Button>

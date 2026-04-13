@@ -120,6 +120,13 @@ describe('registerExecutionAction', () => {
     if (!result.ok) expect(result.error).toContain('em atendimento');
   });
 
+  it('retorna erro se chamado está pausado aguardando terceiros', async () => {
+    mockChamadoFindById.mockResolvedValue(makeChamadoDoc({ status: 'aguardando_terceiros' }));
+    const result = await registerExecutionAction(validInput);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('Retome o atendimento');
+  });
+
   it('registra execução com sucesso (dentro do SLA)', async () => {
     mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
     mockChamadoUpdateOne.mockResolvedValue({ matchedCount: 1 });

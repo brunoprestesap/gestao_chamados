@@ -144,6 +144,8 @@ type Props = {
   onReatribuir?: (chamado: ChamadoDTO) => void;
   /** Quando fornecido e status "aberto", exibe botão "Recusar" (Preposto/Admin). */
   onRecusar?: (chamado: ChamadoDTO) => void;
+  /** Quando fornecido e status "em atendimento", exibe botão "Registrar Execução" (Técnico). */
+  onRegistrarExecucao?: (chamado: ChamadoDTO) => void;
   /** Quando fornecido com showAvaliar, ao clicar em "Avaliar" chama isto em vez de navegar. */
   onAvaliar?: (chamado: ChamadoDTO) => void;
   /** Callback ao clicar no card quando hideDetailLink é true (ex.: abrir sheet de detalhes). */
@@ -231,6 +233,7 @@ export function ChamadoCard({
   onEncerrar,
   onReatribuir,
   onRecusar,
+  onRegistrarExecucao,
   onAvaliar,
   onCardClick,
   hideDetailLink,
@@ -406,6 +409,14 @@ export function ChamadoCard({
     [onRecusar, chamado],
   );
 
+  const handleRegistrarExecucaoClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onRegistrarExecucao?.(chamado);
+    },
+    [onRegistrarExecucao, chamado],
+  );
+
   const evaluated = hasValidEvaluation(chamado.evaluation);
   const showAvaliarBtn = showAvaliar && chamado.status === 'encerrado' && !evaluated;
   const showAvaliadoBadge = showAvaliar && chamado.status === 'encerrado' && evaluated;
@@ -416,7 +427,8 @@ export function ChamadoCard({
     onRecusar ||
     onAtribuir ||
     (onEncerrar && chamado.status === 'concluído') ||
-    (onReatribuir && chamado.status === 'em atendimento');
+    (onReatribuir && chamado.status === 'em atendimento') ||
+    (onRegistrarExecucao && chamado.status === 'em atendimento' && chamado.assignedToUserId);
 
   return (
     <Card
@@ -433,7 +445,7 @@ export function ChamadoCard({
           <div className="flex shrink-0 items-start">
             <div
               className={cn(
-                'flex items-center justify-center rounded-xl bg-gradient-to-br from-yellow-100 to-orange-100 shadow-sm dark:from-yellow-900/30 dark:to-orange-900/30',
+                'flex items-center justify-center rounded-xl bg-linear-to-br from-yellow-100 to-orange-100 shadow-sm dark:from-yellow-900/30 dark:to-orange-900/30',
                 compact ? 'h-9 w-9' : 'h-14 w-14',
               )}
             >
@@ -646,7 +658,7 @@ export function ChamadoCard({
                       title="Avaliar atendimento"
                       className={cn(
                         'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700',
-                        compact ? 'h-7 gap-1 px-2 text-xs' : 'gap-1.5',
+                        compact ? 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs' : 'gap-1.5',
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -681,7 +693,7 @@ export function ChamadoCard({
                       size="sm"
                       variant="default"
                       title="Classificar chamado (prioridade e natureza)"
-                      className={cn(compact && 'h-7 gap-1 px-2 text-xs')}
+                      className={cn(compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs')}
                       onClick={handleClassificarClick}
                     >
                       <ClipboardList className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
@@ -696,7 +708,7 @@ export function ChamadoCard({
                       title="Recusar demanda"
                       className={cn(
                         'border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30',
-                        compact && 'h-7 gap-1 px-2 text-xs',
+                        compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs',
                       )}
                       onClick={handleRecusarClick}
                     >
@@ -710,7 +722,7 @@ export function ChamadoCard({
                       size="sm"
                       variant="outline"
                       title="Atribuir a um técnico"
-                      className={cn(compact && 'h-7 gap-1 px-2 text-xs')}
+                      className={cn(compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs')}
                       onClick={handleAtribuirClick}
                     >
                       <UserCheck className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
@@ -725,7 +737,7 @@ export function ChamadoCard({
                       title="Encerrar chamado"
                       className={cn(
                         'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700',
-                        compact && 'h-7 gap-1 px-2 text-xs',
+                        compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs',
                       )}
                       onClick={handleEncerrarClick}
                     >
@@ -739,11 +751,27 @@ export function ChamadoCard({
                       size="sm"
                       variant="outline"
                       title="Reatribuir a outro técnico"
-                      className={cn(compact && 'h-7 gap-1 px-2 text-xs')}
+                      className={cn(compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs')}
                       onClick={handleReatribuirClick}
                     >
                       <UserCheck className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
                       Reatribuir
+                    </Button>
+                  )}
+                  {onRegistrarExecucao && chamado.status === 'em atendimento' && chamado.assignedToUserId && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="default"
+                      title="Registrar Execução"
+                      className={cn(
+                        'bg-linear-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/20 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30',
+                        compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs',
+                      )}
+                      onClick={handleRegistrarExecucaoClick}
+                    >
+                      <Wrench className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+                      Registrar Execução
                     </Button>
                   )}
                 </div>

@@ -82,10 +82,11 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
   test('4. Técnico registra execução', async ({ page }) => {
     await login(page, 'tecnico');
     await page.goto('/chamados-atribuidos');
+    await page.waitForLoadState('networkidle');
 
-    const cardExec = page.locator('[data-slot="card"]').filter({ hasText: ticketTitle });
+    const cardExec = page.locator('[data-slot="card"]:visible').filter({ hasText: ticketTitle }).first();
     await expect(cardExec).toBeVisible({ timeout: 15000 });
-    await cardExec.getByRole('button', { name: 'Registrar Execução' }).click();
+    await cardExec.getByRole('button', { name: 'Registrar Execução' }).first().click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -124,8 +125,8 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await login(page, 'solicitante');
     await page.goto('/meus-chamados');
 
-    const closedCard = page.locator('[data-slot="card"]').filter({ hasText: ticketTitle });
+    const closedCard = page.locator('[data-slot="card"]:visible').filter({ hasText: ticketTitle }).first();
     await expect(closedCard).toBeVisible({ timeout: 15000 });
-    await expect(closedCard.getByText('Encerrado')).toBeVisible({ timeout: 10000 });
+    await expect(closedCard.getByText('Encerrado').first()).toBeVisible({ timeout: 10000 });
   });
 });

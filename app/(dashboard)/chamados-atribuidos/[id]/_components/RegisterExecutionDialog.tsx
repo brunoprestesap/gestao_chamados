@@ -122,23 +122,23 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
         </DialogHeader>
 
         {/* Banner informativo */}
-        <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-950/30">
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-4 dark:border-indigo-800/50 dark:bg-indigo-950/30">
           <div className="space-y-2 text-sm">
             <div className="flex items-start gap-2">
-              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-              <span className="text-blue-900 dark:text-blue-100">
+              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+              <span className="text-indigo-900 dark:text-indigo-100">
                 Início: {formatDateTime(chamado.createdAt, tzOpt)} (abertura do chamado)
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-              <span className="text-blue-900 dark:text-blue-100">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+              <span className="text-indigo-900 dark:text-indigo-100">
                 Conclusão: Será registrada automaticamente agora
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-              <span className="text-blue-900 dark:text-blue-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+              <span className="text-indigo-900 dark:text-indigo-100">
                 Campos de data/hora gerenciados automaticamente pelo sistema
               </span>
             </div>
@@ -164,7 +164,7 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
                   <FormControl>
                     <Textarea
                       placeholder="Descreva o que foi realizado..."
-                      className="min-h-[100px] resize-y"
+                      className="min-h-[100px] resize-y rounded-xl transition-all focus-visible:ring-indigo-500/30"
                       disabled={submitting}
                       {...field}
                     />
@@ -183,7 +183,7 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
                   <FormControl>
                     <Textarea
                       placeholder="Liste os materiais utilizados..."
-                      className="min-h-[80px] resize-y"
+                      className="min-h-[80px] resize-y rounded-xl transition-all focus-visible:ring-indigo-500/30"
                       disabled={submitting}
                       {...field}
                     />
@@ -228,7 +228,7 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
                   <FormControl>
                     <Textarea
                       placeholder="Observações adicionais..."
-                      className="min-h-[80px] resize-y"
+                      className="min-h-[80px] resize-y rounded-xl transition-all focus-visible:ring-indigo-500/30"
                       disabled={submitting}
                       {...field}
                     />
@@ -242,6 +242,7 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
               <Button
                 type="button"
                 variant="outline"
+                className="rounded-xl transition-all"
                 onClick={() => handleOpenChange(false)}
                 disabled={submitting}
               >
@@ -250,7 +251,7 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
               <Button
                 type="submit"
                 disabled={submitting}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-all hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30"
               >
                 {submitting ? 'Registrando...' : 'Registrar e Concluir'}
               </Button>
