@@ -98,7 +98,7 @@ export function ResumeFromRequesterDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md sm:rounded-2xl" showCloseButton>
+      <DialogContent className="max-w-md sm:rounded-2xl max-h-[90vh] overflow-y-auto" showCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Play className="h-5 w-5 text-emerald-600" />

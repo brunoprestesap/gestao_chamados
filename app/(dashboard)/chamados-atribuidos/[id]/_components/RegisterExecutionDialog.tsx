@@ -116,7 +116,7 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg overflow-y-auto sm:max-h-[90vh]" showCloseButton>
+      <DialogContent className="max-w-lg overflow-y-auto max-h-[90vh] sm:max-h-[90vh]" showCloseButton>
         <DialogHeader>
           <DialogTitle>Registrar Execução do Serviço</DialogTitle>
         </DialogHeader>
