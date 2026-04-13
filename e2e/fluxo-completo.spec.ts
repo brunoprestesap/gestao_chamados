@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
-import { gotoChamadosAtribuidosReady, gotoGestaoChamadosReady } from './fixtures/navigation';
 import { gestaoChamadoCard } from './fixtures/gestao';
+import { gotoChamadosAtribuidosReady, gotoGestaoChamadosReady } from './fixtures/navigation';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 /**
