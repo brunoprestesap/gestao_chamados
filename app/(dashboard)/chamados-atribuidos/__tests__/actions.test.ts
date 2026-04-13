@@ -151,6 +151,8 @@ describe('registerExecutionAction', () => {
     // Verifica push de execution
     expect(updateCall[1].$push.executions).toBeDefined();
     expect(updateCall[1].$push.executions.serviceDescription).toBe('Troca de lâmpada realizada');
+    expect(updateCall[1].$push.executions.materialsUsed).toBe('Lâmpada LED 10W');
+    expect(updateCall[1].$push.executions.notes).toBe('');
 
     // Verifica histórico
     expect(mockHistoryCreate).toHaveBeenCalledOnce();

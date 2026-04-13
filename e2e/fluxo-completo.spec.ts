@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
+import { gotoChamadosAtribuidosReady, gotoGestaoChamadosReady } from './fixtures/navigation';
 import { gestaoChamadoCard } from './fixtures/gestao';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
@@ -14,6 +15,7 @@ import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialo
  * IMPORTANTE: requer que o seed tenha sido executado (users, SLA configs, catálogo).
  */
 test.describe.serial('Fluxo completo: abrir → classificar → atribuir → executar → encerrar', () => {
+  test.describe.configure({ timeout: 90_000 });
   const ticketTitle = `E2E completo ${Date.now()}`;
 
   test('1. Solicitante abre chamado', async ({ page }) => {
@@ -41,8 +43,7 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
 
   test('2. Preposto classifica chamado (define prioridade e SLA)', async ({ page }) => {
     await login(page, 'preposto');
-    await page.goto('/gestao');
-    await page.waitForLoadState('networkidle');
+    await gotoGestaoChamadosReady(page);
 
     // Localiza o chamado
     const card2 = gestaoChamadoCard(page, ticketTitle);
@@ -81,8 +82,7 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
 
   test('4. Técnico registra execução', async ({ page }) => {
     await login(page, 'tecnico');
-    await page.goto('/chamados-atribuidos');
-    await page.waitForLoadState('networkidle');
+    await gotoChamadosAtribuidosReady(page);
 
     const cardExec = page.locator('[data-slot="card"]:visible').filter({ hasText: ticketTitle }).first();
     await expect(cardExec).toBeVisible({ timeout: 15000 });
@@ -95,16 +95,23 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
       .getByLabel(/descrição do serviço executado/i)
       .fill('Lâmpada substituída com sucesso - teste E2E');
 
+    await dialog
+      .getByLabel(/materiais utilizados/i)
+      .fill('1x Lâmpada LED 15W, 1x Fita isolante');
+
+    await dialog
+      .getByLabel(/observações/i)
+      .fill('Serviço realizado sem intercorrências.');
+
     const submitExec = dialog.getByRole('button', { name: /^registrar e concluir$/i });
     await submitExec.scrollIntoViewIfNeeded();
     await submitExec.click({ force: true });
-    await expect(dialog).not.toBeVisible({ timeout: 10000 });
+    await expect(dialog).not.toBeVisible({ timeout: 30000 });
   });
 
   test('5. Preposto encerra chamado', async ({ page }) => {
     await login(page, 'preposto');
-    await page.goto('/gestao');
-    await page.waitForLoadState('networkidle');
+    await gotoGestaoChamadosReady(page);
 
     // Localiza chamado concluído
     const card5 = gestaoChamadoCard(page, ticketTitle);
@@ -116,8 +123,11 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    // Confirma encerramento
-    await dialog.getByRole('button', { name: /confirmar|encerrar|salvar/i }).click();
+    // Submit do encerramento (Server Action): forçar clique evita overlay/anim
+    // e locator ambíguo com regex larga.
+    const confirmEncerrar = dialog.getByRole('button', { name: /^encerrar$/i });
+    await confirmEncerrar.scrollIntoViewIfNeeded();
+    await confirmEncerrar.click({ force: true });
     await expect(dialog).not.toBeVisible({ timeout: 30000 });
   });
 

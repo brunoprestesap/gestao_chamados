@@ -23,9 +23,13 @@ interface Props {
   onSuccess: () => void;
 }
 
-async function fetchEligibleTechnicians(chamadoId: string): Promise<EligibleTechnician[]> {
+async function fetchEligibleTechnicians(
+  chamadoId: string,
+  signal?: AbortSignal,
+): Promise<EligibleTechnician[]> {
   const res = await fetch(`/api/gestao/chamados/${chamadoId}/eligible-technicians`, {
     cache: 'no-store',
+    signal,
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -42,30 +46,44 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const chamadoId = chamado?._id;
+
   useEffect(() => {
-    if (!open || !chamado) {
+    if (!open || !chamadoId) {
       setError(null);
       setSelectedTechnicianId(null);
       setTechnicians([]);
+      if (!open) {
+        setLoading(false);
+      }
       return;
     }
 
-    // Carrega técnicos elegíveis
+    const controller = new AbortController();
+    setError(null);
     setLoading(true);
-    fetchEligibleTechnicians(chamado._id)
+    fetchEligibleTechnicians(chamadoId, controller.signal)
       .then((items) => {
+        if (controller.signal.aborted) return;
         setTechnicians(items);
         if (items.length === 0) {
           setError('Nenhum técnico disponível para esta especialidade no momento.');
         }
       })
       .catch((err) => {
+        if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : 'Erro ao carregar técnicos');
       })
       .finally(() => {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       });
-  }, [open, chamado]);
+
+    return () => {
+      controller.abort();
+    };
+  }, [open, chamadoId]);
 
   const handleAssign = useCallback(async () => {
     if (!chamado || !selectedTechnicianId) return;

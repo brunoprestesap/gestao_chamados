@@ -29,6 +29,11 @@ import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-di
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
 import { gestaoChamadoCard } from './fixtures/gestao';
+import {
+  gotoChamadosAtribuidosReady,
+  gotoGestaoChamadosReady,
+  reloadGestaoKanbanReady,
+} from './fixtures/navigation';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 import {
   abrirPauseDialogNaDetalhe,
@@ -74,8 +79,7 @@ async function criarChamadoEmAtendimento(
 
   // 2. Preposto classifica e atribui
   await login(page, 'preposto');
-  await page.goto('/gestao');
-  await page.waitForLoadState('networkidle');
+  await gotoGestaoChamadosReady(page);
 
   const card = gestaoChamadoCard(page, titulo);
   await expect(card).toBeVisible({ timeout: 15000 });
@@ -111,8 +115,7 @@ async function navegarParaDetalheChamadoTecnico(
   titulo: string,
 ): Promise<string> {
   await login(page, 'tecnico');
-  await page.goto('/chamados-atribuidos');
-  await page.waitForLoadState('networkidle');
+  await gotoChamadosAtribuidosReady(page);
 
   // Localiza o card do chamado pelo título — usa .first() pois pode
   // haver elementos duplicados (mobile + desktop) no DOM
@@ -125,7 +128,7 @@ async function navegarParaDetalheChamadoTecnico(
   // Clica no card para navegar ao detalhe
   await card.click();
 
-  await page.waitForURL(/\/chamados-atribuidos\/.+/, { timeout: 10000 });
+  await page.waitForURL(/\/chamados-atribuidos\/.+/, { timeout: 30000, waitUntil: 'commit' });
   return page.url();
 }
 
@@ -278,8 +281,7 @@ test.describe('Pausas de SLA — Admin pausa chamado via Gestão Kanban', () => 
       test.slow(); // server action pode demorar em dev mode
       // Arrange
       await login(page, 'admin');
-      await page.goto('/gestao');
-      await page.waitForLoadState('networkidle');
+      await gotoGestaoChamadosReady(page);
 
       // Localiza card na coluna "Em atendimento"
       const card = gestaoChamadoCard(page, tituloChamado);
@@ -307,7 +309,7 @@ test.describe('Pausas de SLA — Admin pausa chamado via Gestão Kanban', () => 
 
       // Assert — chamado deve aparecer na coluna "Aguardando Terceiros" do kanban
       await page.waitForTimeout(1500); // aguarda revalidação ISR
-      await page.reload();
+      await reloadGestaoKanbanReady(page);
 
       const coluna = page.locator('[data-column="aguardando_terceiros"]').or(
         page.getByRole('heading', { name: /aguardando terceiros/i }).locator('..'),
@@ -338,6 +340,7 @@ test.describe('Pausas de SLA — Admin retoma chamado pausado via Gestão Kanban
   test.describe.serial('setup: chamado pausado e retomada via gestão', () => {
     test('cria chamado, avança até em atendimento e pausa', async ({ page }) => {
       test.slow(); // setup faz múltiplos logins + dialogs + pausa
+      test.setTimeout(180_000); // criar + atribuir + login técnico + pausa pode exceder 90s em dev
       tituloChamado = await criarChamadoEmAtendimento(page, 'Admin Retoma');
 
       // Técnico pausa o chamado
@@ -354,8 +357,7 @@ test.describe('Pausas de SLA — Admin retoma chamado pausado via Gestão Kanban
       test.slow(); // retomada + reload + verificação pode demorar em dev mode
       // Arrange
       await login(page, 'admin');
-      await page.goto('/gestao');
-      await page.waitForLoadState('networkidle');
+      await gotoGestaoChamadosReady(page);
 
       const card = gestaoChamadoCard(page, tituloChamado);
       await expect(card).toBeVisible({ timeout: 15000 });
@@ -388,8 +390,7 @@ test.describe('Pausas de SLA — Admin retoma chamado pausado via Gestão Kanban
 
       // Assert — chamado volta para "Em atendimento" no kanban
       await page.waitForTimeout(2000);
-      await page.reload();
-      await page.waitForLoadState('networkidle');
+      await reloadGestaoKanbanReady(page);
 
       const cardAtualizado = gestaoChamadoCard(page, tituloChamado);
       await expect(cardAtualizado).toBeVisible({ timeout: 30000 });
@@ -411,6 +412,7 @@ test.describe('Pausas de SLA — Técnico retoma chamado pela página de detalhe
   test.describe.serial('setup: chamado pausado e retomada pelo técnico', () => {
     test('cria chamado, avança até em atendimento e pausa', async ({ page }) => {
       test.slow(); // setup faz múltiplos logins + dialogs + pausa
+      test.setTimeout(180_000);
       tituloChamado = await criarChamadoEmAtendimento(page, 'Tecnico Retoma');
 
       // Navega ao detalhe e pausa

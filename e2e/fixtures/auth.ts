@@ -27,8 +27,7 @@ export async function login(page: Page, user: UserKey) {
   // Limpa cookies para garantir sessão limpa (evita redirect de /login)
   await page.context().clearCookies();
 
-  await page.goto('/login');
-  await page.waitForLoadState('networkidle');
+  await page.goto('/login', { waitUntil: 'load' });
 
   // Aguarda o campo de matrícula aparecer e ficar editável.
   // Usa .first() porque o React pode renderizar o input duplicado
@@ -46,9 +45,14 @@ export async function login(page: Page, user: UserKey) {
   try {
     await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000 });
   } catch {
+    if (page.isClosed()) {
+      throw new Error(
+        `Login para "${username}": página/contexto fechado (timeout global do teste ou runner encerrou o browser).`,
+      );
+    }
     // Se ficou em /login, verifica se há erro de credenciais
     const errorAlert = page.locator('[role="alert"][aria-live="polite"]');
-    if (await errorAlert.isVisible()) {
+    if (await errorAlert.isVisible().catch(() => false)) {
       const errorText = await errorAlert.textContent();
       throw new Error(
         `Login falhou para "${username}": ${errorText}\n` +

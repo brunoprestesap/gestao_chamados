@@ -44,8 +44,10 @@ test.describe('Chamados Atribuídos — Listagem', () => {
     await expect(primeiroCard).toBeVisible({ timeout: 10000 });
     await primeiroCard.click();
     await page.waitForURL(/\/chamados-atribuidos\/.+/, { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: /detalhes do chamado/i })).toBeVisible({
-      timeout: 10000,
-    });
+    // Página de detalhe: h1 com número + seção de descrição (UI revitalizada)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole('heading', { name: /descrição do problema/i }),
+    ).toBeVisible({ timeout: 10000 });
   });
 });
