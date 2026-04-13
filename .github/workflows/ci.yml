@@ -14,13 +14,15 @@ jobs:
   lint-and-build:
     name: Lint & Build
     runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: 22
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install dependencies
@@ -41,13 +43,15 @@ jobs:
   build-socket:
     name: Build Socket Server
     runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: 22
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: socket-server/package-lock.json
 
