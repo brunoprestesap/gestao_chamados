@@ -1,6 +1,7 @@
 import { dbConnect } from '@/lib/db';
 import type { AllowedEmitEvents } from '@/lib/realtime-emit';
 import { UserModel } from '@/models/user.model';
+import type { ServerToClientEvents } from '@/shared/socket';
 
 import { renderNotificationEmail } from './templates';
 import { FROM_ADDRESS, smtpConfigured, transporter } from './transporter';
@@ -28,12 +29,13 @@ function isRateLimited(userId: string): boolean {
   return false;
 }
 
-interface NotificationPayload {
-  ticketId?: string;
-  ticketNumber?: string;
-  title?: string;
-  [key: string]: unknown;
-}
+type NotificationPayloadByEvent = {
+  [K in AllowedEmitEvents]: {
+    ticketId?: string;
+    ticketNumber?: string;
+    title?: string;
+  } & Partial<Parameters<ServerToClientEvents[K]>[0]>;
+};
 
 /**
  * Envia e-mail de notifica\u00e7\u00e3o para um usu\u00e1rio. Fire-and-forget:
@@ -42,10 +44,10 @@ interface NotificationPayload {
  * - Erros apenas logados, nunca throw.
  * @returns true se enviou, false se pulou ou falhou.
  */
-export async function sendNotificationEmail(
+export async function sendNotificationEmail<T extends AllowedEmitEvents>(
   userId: string,
-  type: AllowedEmitEvents,
-  payload: NotificationPayload,
+  type: T,
+  payload: NotificationPayloadByEvent[T],
 ): Promise<boolean> {
   if (!smtpConfigured || !transporter) return false;
 

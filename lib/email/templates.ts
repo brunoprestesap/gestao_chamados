@@ -1,4 +1,5 @@
 import type { AllowedEmitEvents } from '@/lib/realtime-emit';
+import type { ServerToClientEvents } from '@/shared/socket';
 
 const APP_URL = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3000';
 
@@ -6,8 +7,15 @@ interface TemplatePayload {
   ticketId?: string;
   ticketNumber?: string;
   title?: string;
-  [key: string]: unknown;
 }
+
+type TemplatePayloadByEvent = {
+  [K in AllowedEmitEvents]: {
+    ticketId?: string;
+    ticketNumber?: string;
+    title?: string;
+  } & Partial<Parameters<ServerToClientEvents[K]>[0]>;
+};
 
 interface EmailContent {
   subject: string;
@@ -107,9 +115,9 @@ function buildHtml(recipientName: string, bodyHtml: string, ticketUrl: string | 
 </html>`;
 }
 
-export function renderNotificationEmail(
-  type: AllowedEmitEvents,
-  payload: TemplatePayload,
+export function renderNotificationEmail<T extends AllowedEmitEvents>(
+  type: T,
+  payload: TemplatePayloadByEvent[T],
   recipientName: string,
 ): EmailContent {
   const subjectFn = SUBJECT_MAP[type] ?? (() => `Notifica\u00e7\u00e3o sobre o chamado ${payload.ticketNumber ?? ''}`);
