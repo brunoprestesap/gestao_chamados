@@ -18,10 +18,7 @@ import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-di
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
 import { gestaoChamadoCard } from './fixtures/gestao';
-import {
-  gotoChamadosAtribuidosReady,
-  gotoGestaoChamadosReady,
-} from './fixtures/navigation';
+import { gotoGestaoChamadosReady } from './fixtures/navigation';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 // ---------------------------------------------------------------------------
