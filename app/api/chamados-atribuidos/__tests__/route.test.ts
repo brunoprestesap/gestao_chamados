@@ -39,8 +39,8 @@ vi.mock('@/models/unit', () => ({
 }));
 
 // Import after mocks
-import { verifySession } from '@/lib/dal';
 import { GET } from '@/app/api/chamados-atribuidos/route';
+import { verifySession } from '@/lib/dal';
 
 // ---------------------------------------------------------------------------
 // Helpers
