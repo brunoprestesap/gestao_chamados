@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  AlertTriangle,
   Ban,
   Building2,
   CheckCircle2,
@@ -32,6 +33,10 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { cn, formatDateTime } from '@/lib/utils';
+import {
+  PAUSE_REASON_LABELS,
+  type PauseReason,
+} from '@/shared/chamados/pause-reason.constants';
 
 import type { ChamadoDTO } from '../../meus-chamados/_components/ChamadoCard';
 import {
@@ -408,6 +413,59 @@ export function ChamadoDetailSheet({
                     </h2>
                   </div>
                   <MaterialObservationsList observations={chamado.materialObservations} />
+                </section>
+              </>
+            )}
+
+            {/* Informações da Pausa (Aguardando Terceiros / Solicitante) */}
+            {chamado.pauseReason && (
+              <>
+                <Separator className="opacity-60" />
+                <section aria-labelledby="pause-heading">
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                      <AlertTriangle
+                        className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400"
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <h2
+                      id="pause-heading"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      Informações da Pausa
+                    </h2>
+                  </div>
+                  <div className="space-y-2.5 rounded-xl border border-orange-200/60 bg-orange-50/60 px-4 py-3.5 dark:border-orange-800/40 dark:bg-orange-950/20">
+                    <div>
+                      <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
+                        Motivo
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {PAUSE_REASON_LABELS[chamado.pauseReason as PauseReason] ?? chamado.pauseReason}
+                      </p>
+                    </div>
+                    {chamado.pauseDetails && chamado.pauseDetails.trim() !== '' && (
+                      <div>
+                        <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
+                          Observações do Técnico
+                        </p>
+                        <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                          {chamado.pauseDetails}
+                        </p>
+                      </div>
+                    )}
+                    {chamado.slaPausedAt && (
+                      <div>
+                        <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
+                          Pausado desde
+                        </p>
+                        <p className="text-sm text-foreground">
+                          {formatDateTime(chamado.slaPausedAt, tzOpt)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </section>
               </>
             )}
