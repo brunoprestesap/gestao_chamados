@@ -3,6 +3,10 @@
 import {
   Ban,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ClipboardList,
   Filter,
   type LucideIcon,
@@ -41,7 +45,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -60,6 +71,14 @@ import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 // ---------------------------------------------------------------------------
 
 const DEBOUNCE_MS = 300;
+const PAGE_SIZE = 10;
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
 
 const PRIORITY_BADGE: Record<string, string> = {
   BAIXA:
@@ -387,22 +406,40 @@ export default function GestaoPage() {
   const [selected, setSelected] = useState<ChamadoDTO | null>(null);
   const [detailSheetChamado, setDetailSheetChamado] = useState<ChamadoDTO | null>(null);
 
-  // Filters
+  // Filters & Pagination
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [status, setStatus] = useState<'all' | ChamadoStatus>('all');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    limit: PAGE_SIZE,
+    total: 0,
+    totalPages: 0,
+  });
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(q), DEBOUNCE_MS);
+    const t = setTimeout(() => {
+      setDebouncedQ(q);
+      setPage(1); // reset to page 1 on search change
+    }, DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [q]);
+
+  // Reset to page 1 when status filter changes
+  const setStatusFilter = useCallback((v: string) => {
+    setStatus(v as 'all' | ChamadoStatus);
+    setPage(1);
+  }, []);
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
     if (debouncedQ.trim()) p.set('q', debouncedQ.trim());
     if (status !== 'all') p.set('status', status);
+    p.set('page', String(page));
+    p.set('limit', String(PAGE_SIZE));
     return p.toString();
-  }, [debouncedQ, status]);
+  }, [debouncedQ, status, page]);
 
   // ---------------------------------------------------------------------------
   // Data fetching
@@ -411,8 +448,7 @@ export default function GestaoPage() {
   const fetchChamados = useCallback(async () => {
     setLoading(true);
     try {
-      const url = queryString ? `/api/gestao/chamados?${queryString}` : '/api/gestao/chamados';
-      const res = await fetch(url, {
+      const res = await fetch(`/api/gestao/chamados?${queryString}`, {
         cache: 'no-store',
         credentials: 'same-origin',
         redirect: 'manual',
@@ -427,6 +463,7 @@ export default function GestaoPage() {
       }
       const data = await res.json().catch(() => ({}));
       setItems(Array.isArray(data.items) ? data.items : []);
+      if (data.pagination) setPagination(data.pagination);
     } catch {
       setItems([]);
     } finally {
@@ -523,6 +560,7 @@ export default function GestaoPage() {
   // ---------------------------------------------------------------------------
 
   const hasActiveFilter = q.trim() !== '' || status !== 'all';
+  const activeFilterCount = (q.trim() !== '' ? 1 : 0) + (status !== 'all' ? 1 : 0);
 
   const emptyMessage = useMemo(() => {
     if (hasActiveFilter) return 'Tente ajustar a busca ou remover os filtros aplicados.';
@@ -553,10 +591,7 @@ export default function GestaoPage() {
   const clearFilters = useCallback(() => {
     setQ('');
     setStatus('all');
-  }, []);
-
-  const setStatusFilter = useCallback((v: string) => {
-    setStatus(v as 'all' | ChamadoStatus);
+    setPage(1);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -589,7 +624,7 @@ export default function GestaoPage() {
             variant="outline"
             className="h-8 shrink-0 rounded-full border-indigo-200 bg-indigo-50 px-3 text-sm font-semibold tabular-nums text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
           >
-            {items.length} {items.length === 1 ? 'chamado' : 'chamados'}
+            {pagination.total} {pagination.total === 1 ? 'chamado' : 'chamados'}
           </Badge>
         )}
       </header>
@@ -629,27 +664,60 @@ export default function GestaoPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-11 w-full gap-2 rounded-xl sm:hidden"
+                className="relative h-11 w-full gap-2 rounded-xl border-border/60 sm:hidden"
                 aria-label="Abrir filtros"
               >
                 <Filter className="h-4 w-4" />
                 Filtros
-                {hasActiveFilter && (
-                  <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
-                    1
+                {activeFilterCount > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white shadow-sm ring-2 ring-background">
+                    {activeFilterCount}
                   </span>
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="rounded-t-2xl">
-              <SheetHeader>
-                <SheetTitle>Filtros</SheetTitle>
+            <SheetContent
+              side="bottom"
+              className="rounded-t-3xl border-t border-border/50 px-0 pb-8"
+            >
+              {/* Handle bar */}
+              <div className="mb-2 flex justify-center">
+                <div className="h-1 w-10 rounded-full bg-muted-foreground/20" />
+              </div>
+
+              <SheetHeader className="px-6 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-950/40">
+                    <Filter className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-lg">Filtros</SheetTitle>
+                    <SheetDescription className="text-xs">
+                      Refine a listagem de chamados
+                    </SheetDescription>
+                  </div>
+                </div>
               </SheetHeader>
-              <div className="grid grid-cols-1 gap-4 pb-6">
+
+              <div className="space-y-5 px-6">
+                {/* Status filter */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">Status</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Status do chamado
+                  </label>
                   <StatusFilterSelect value={status} onValueChange={setStatusFilter} />
                 </div>
+
+                {/* Clear filters button */}
+                {hasActiveFilter && (
+                  <Button
+                    variant="ghost"
+                    className="h-11 w-full gap-2 rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-950/30"
+                    onClick={clearFilters}
+                  >
+                    Limpar filtros
+                  </Button>
+                )}
               </div>
             </SheetContent>
           </Sheet>
@@ -817,6 +885,74 @@ export default function GestaoPage() {
           </div>
         )}
       </div>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Pagination                                                        */}
+      {/* ----------------------------------------------------------------- */}
+      {!loading && pagination.totalPages > 1 && (
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          <p className="text-sm tabular-nums text-muted-foreground">
+            Mostrando{' '}
+            <span className="font-medium text-foreground">
+              {(pagination.page - 1) * pagination.limit + 1}
+            </span>
+            {' '}&ndash;{' '}
+            <span className="font-medium text-foreground">
+              {Math.min(pagination.page * pagination.limit, pagination.total)}
+            </span>
+            {' '}de{' '}
+            <span className="font-medium text-foreground">{pagination.total}</span>
+          </p>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-lg"
+              disabled={page === 1}
+              onClick={() => setPage(1)}
+              aria-label="Primeira página"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-lg"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              aria-label="Página anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <span className="flex h-9 min-w-16 items-center justify-center rounded-lg border border-border/50 bg-card px-3 text-sm font-medium tabular-nums">
+              {page} / {pagination.totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-lg"
+              disabled={page === pagination.totalPages}
+              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              aria-label="Próxima página"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-lg"
+              disabled={page === pagination.totalPages}
+              onClick={() => setPage(pagination.totalPages)}
+              aria-label="Última página"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ----------------------------------------------------------------- */}
       {/* Dialogs                                                           */}

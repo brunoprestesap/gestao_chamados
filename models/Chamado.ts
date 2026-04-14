@@ -161,6 +161,7 @@ ChamadoSchema.index({ naturezaAtendimento: 1 });
 ChamadoSchema.index({ assignedToUserId: 1, status: 1 });
 ChamadoSchema.index({ status: 1, 'sla.resolutionDueAt': 1 }, { sparse: true });
 ChamadoSchema.index({ 'sla.computedAt': 1 }, { sparse: true });
+ChamadoSchema.index({ status: 1, updatedAt: -1 });
 
 export type MaterialObservationDoc = {
   _id?: Types.ObjectId;

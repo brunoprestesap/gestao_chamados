@@ -6,20 +6,40 @@ import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 
-function normalizeSla(sla: Record<string, unknown> | null | undefined): {
-  priority: string | null;
-  responseTargetMinutes: number | null;
-  resolutionTargetMinutes: number | null;
-  businessHoursOnly: boolean | null;
-  responseDueAt: string | null;
-  resolutionDueAt: string | null;
-  responseStartedAt: string | null;
-  resolvedAt: string | null;
-  responseBreachedAt: string | null;
-  resolutionBreachedAt: string | null;
-  computedAt: string | null;
-  configVersion: string | null;
-} | null {
+// Projection — only the fields needed by the table/cards UI
+const LIST_PROJECTION = {
+  ticket_number: 1,
+  titulo: 1,
+  descricao: 1,
+  status: 1,
+  solicitanteId: 1,
+  unitId: 1,
+  localExato: 1,
+  tipoServico: 1,
+  naturezaAtendimento: 1,
+  requestedAttendanceNature: 1,
+  attendanceNature: 1,
+  grauUrgencia: 1,
+  telefoneContato: 1,
+  subtypeId: 1,
+  catalogServiceId: 1,
+  finalPriority: 1,
+  classificationNotes: 1,
+  classifiedByUserId: 1,
+  classifiedAt: 1,
+  assignedToUserId: 1,
+  assignedAt: 1,
+  assignedByUserId: 1,
+  slaPausedAt: 1,
+  pauseReason: 1,
+  pauseDetails: 1,
+  materialObservations: 1,
+  sla: 1,
+  createdAt: 1,
+  updatedAt: 1,
+} as const;
+
+function normalizeSla(sla: Record<string, unknown> | null | undefined) {
   if (!sla || typeof sla !== 'object') return null;
   return {
     priority: (sla.priority as string) ?? null,
@@ -88,7 +108,7 @@ function normalizeChamado(
 
 /**
  * GET /api/gestao/chamados
- * Lista chamados (todos os status). Filtros: q (busca livre), status.
+ * Lista chamados paginados. Filtros: q (busca livre), status, page, limit.
  * Apenas Admin ou Preposto.
  */
 export async function GET(req: Request) {
@@ -99,6 +119,8 @@ export async function GET(req: Request) {
   const parsed = ChamadoListQuerySchema.safeParse({
     q: url.searchParams.get('q') ?? '',
     status: url.searchParams.get('status') ?? 'all',
+    page: url.searchParams.get('page') ?? '1',
+    limit: url.searchParams.get('limit') ?? '20',
   });
 
   if (!parsed.success) {
@@ -108,7 +130,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const { q, status } = parsed.data;
+  const { q, status, page, limit } = parsed.data;
   const filter: Record<string, unknown> = {};
 
   if (status !== 'all') filter.status = status;
@@ -122,16 +144,21 @@ export async function GET(req: Request) {
       { descricao: regex },
       { localExato: regex },
       { tipoServico: regex },
-      { naturezaAtendimento: regex },
-      { requestedAttendanceNature: regex },
-      { attendanceNature: regex },
-      { grauUrgencia: regex },
-      { telefoneContato: regex },
-      { classificationNotes: regex },
     ];
   }
 
-  const items = await ChamadoModel.find(filter).sort({ updatedAt: -1 }).lean();
+  const skip = (page - 1) * limit;
 
-  return NextResponse.json({ items: items.map(normalizeChamado) });
+  // Run count and paginated query in parallel
+  const [total, items] = await Promise.all([
+    ChamadoModel.countDocuments(filter),
+    ChamadoModel.find(filter, LIST_PROJECTION).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return NextResponse.json({
+    items: items.map(normalizeChamado),
+    pagination: { page, limit, total, totalPages },
+  });
 }

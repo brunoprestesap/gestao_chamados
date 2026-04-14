@@ -53,6 +53,8 @@ export const ChamadoListQuerySchema = z.object({
     .enum(['all', ...CHAMADO_STATUSES])
     .optional()
     .default('all'),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
 export type ChamadoListQuery = z.infer<typeof ChamadoListQuerySchema>;
