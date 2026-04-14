@@ -15,7 +15,8 @@ vi.mock('@/lib/db', () => ({
 const mockLean = vi.fn();
 const mockPopulate = vi.fn(() => ({ lean: mockLean }));
 const mockSort = vi.fn(() => ({ populate: mockPopulate }));
-const mockFind = vi.fn(() => ({ sort: mockSort }));
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+const mockFind = vi.fn((..._args: any[]) => ({ sort: mockSort }));
 vi.mock('@/models/ChamadoHistory', () => ({
   ChamadoHistoryModel: {
     find: (...args: unknown[]) => mockFind(...args),

@@ -112,6 +112,7 @@ describe('classificarChamadoAction', () => {
       chamadoId: 'invalid',
       naturezaAtendimento: 'Padrão' as const,
       finalPriority: 'NORMAL' as const,
+      classificationNotes: '',
     });
     expect(result).toEqual({ ok: false, error: expect.any(String) });
   });

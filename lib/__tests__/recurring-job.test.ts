@@ -196,7 +196,9 @@ describe('processRecurringTickets — fluxo principal', () => {
     await processRecurringTickets();
 
     expect(NotificationModel.insertMany).toHaveBeenCalledOnce();
-    const [notifications] = vi.mocked(NotificationModel.insertMany).mock.calls[0];
+    const [notifications] = vi.mocked(NotificationModel.insertMany).mock.calls[0] as [
+      Array<{ type: string; title: string; readAt: unknown }>,
+    ];
     expect(notifications).toHaveLength(2); // dois managers
     expect(notifications[0].type).toBe('ticket:new');
     expect(notifications[0].title).toContain('CHM-2024-00001');
@@ -220,7 +222,11 @@ describe('processRecurringTickets — fluxo principal', () => {
     await processRecurringTickets();
 
     expect(RecurringTicketModel.updateOne).toHaveBeenCalledOnce();
-    const [filter, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0];
+    const [filter, update] = vi.mocked(RecurringTicketModel.updateOne).mock
+      .calls[0] as unknown as [
+      { _id: string },
+      { $set: { nextRunAt: unknown; lastRunAt: unknown }; $inc: { totalGenerated: number } },
+    ];
     expect(filter._id).toBe(TEMPLATE_ID);
     expect(update.$set.nextRunAt).toBeInstanceOf(Date);
     expect(update.$set.lastRunAt).toBeInstanceOf(Date);
@@ -411,6 +417,6 @@ describe('processRecurringTickets — payload de notificação', () => {
     await processRecurringTickets();
 
     const [, , payload] = vi.mocked(emitToRoom).mock.calls[0];
-    expect(payload.openedBy.name).toBeUndefined();
+    expect((payload as { openedBy: { name?: string } }).openedBy.name).toBeUndefined();
   });
 });

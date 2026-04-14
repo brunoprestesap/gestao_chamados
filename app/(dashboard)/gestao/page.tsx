@@ -1,12 +1,16 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ChevronDown,
-  Columns3,
+  Ban,
+  CheckCircle2,
+  ClipboardList,
   Filter,
+  type LucideIcon,
+  PauseCircle,
+  Play,
   Search,
   Ticket,
+  UserCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -19,13 +23,16 @@ import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/C
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import { RecusarChamadoDialog } from '@/app/(dashboard)/gestao/_components/RecusarChamadoDialog';
+import { type ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import {
-  ChamadoCard,
-  type ChamadoDTO,
-} from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
-import { type ChamadoStatus, STATUS_OPTIONS } from '@/app/(dashboard)/meus-chamados/_constants';
-import { PageHeader } from '@/components/dashboard/header';
+  type ChamadoStatus,
+  STATUS_ACCENT,
+  STATUS_BADGE,
+  STATUS_ICONS,
+  STATUS_OPTIONS,
+} from '@/app/(dashboard)/meus-chamados/_constants';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -34,283 +41,342 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
-import { CHAMADO_STATUS_LABELS, CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn, formatDateShort } from '@/lib/utils';
+import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 
-const KANBAN_STATUSES = CHAMADO_STATUSES.filter((s) => s !== 'fechado' && s !== 'emvalidacao');
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const DEBOUNCE_MS = 300;
 
-// Visual config per kanban column
-const COLUMN_CONFIG: Record<
-  string,
+const PRIORITY_BADGE: Record<string, string> = {
+  BAIXA:
+    'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800/60 dark:text-gray-300 dark:border-gray-700',
+  NORMAL:
+    'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800',
+  ALTA: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800',
+  EMERGENCIAL:
+    'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800',
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  BAIXA: 'Baixa',
+  NORMAL: 'Normal',
+  ALTA: 'Alta',
+  EMERGENCIAL: 'Emergencial',
+};
+
+// ---------------------------------------------------------------------------
+// Action config — data-driven definition for per-status action buttons
+// ---------------------------------------------------------------------------
+
+interface ActionDef {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  iconColor: string;
+  canShow: (status: string) => boolean;
+}
+
+const ACTION_DEFS: ActionDef[] = [
   {
-    accent: string;
-    headerBg: string;
-    headerText: string;
-    countBg: string;
-    countText: string;
-    topBorder: string;
-    dotColor: string;
-    emptyText: string;
-  }
-> = {
-  aberto: {
-    accent: 'from-amber-400 to-orange-400',
-    headerBg: 'bg-amber-50/80 dark:bg-amber-950/20',
-    headerText: 'text-amber-900 dark:text-amber-200',
-    countBg: 'bg-amber-100 dark:bg-amber-900/40',
-    countText: 'text-amber-700 dark:text-amber-300',
-    topBorder: 'border-t-amber-400',
-    dotColor: 'bg-amber-400',
-    emptyText: 'Sem chamados abertos',
+    key: 'classificar',
+    label: 'Classificar',
+    icon: ClipboardList,
+    iconColor: 'text-teal-600 dark:text-teal-400',
+    canShow: (s) => s === 'aberto',
   },
-  validado: {
-    accent: 'from-teal-400 to-emerald-400',
-    headerBg: 'bg-teal-50/80 dark:bg-teal-950/20',
-    headerText: 'text-teal-900 dark:text-teal-200',
-    countBg: 'bg-teal-100 dark:bg-teal-900/40',
-    countText: 'text-teal-700 dark:text-teal-300',
-    topBorder: 'border-t-teal-400',
-    dotColor: 'bg-teal-400',
-    emptyText: 'Sem chamados validados',
+  {
+    key: 'recusar',
+    label: 'Recusar',
+    icon: Ban,
+    iconColor: 'text-rose-500 dark:text-rose-400',
+    canShow: (s) => s === 'aberto',
   },
-  'em atendimento': {
-    accent: 'from-violet-400 to-purple-400',
-    headerBg: 'bg-violet-50/80 dark:bg-violet-950/20',
-    headerText: 'text-violet-900 dark:text-violet-200',
-    countBg: 'bg-violet-100 dark:bg-violet-900/40',
-    countText: 'text-violet-700 dark:text-violet-300',
-    topBorder: 'border-t-violet-400',
-    dotColor: 'bg-violet-400',
-    emptyText: 'Nenhum em atendimento',
+  {
+    key: 'atribuir',
+    label: 'Atribuir',
+    icon: UserCheck,
+    iconColor: 'text-indigo-600 dark:text-indigo-400',
+    canShow: (s) => s === 'validado' || s === 'emvalidacao',
   },
-  concluído: {
-    accent: 'from-emerald-400 to-green-400',
-    headerBg: 'bg-emerald-50/80 dark:bg-emerald-950/20',
-    headerText: 'text-emerald-900 dark:text-emerald-200',
-    countBg: 'bg-emerald-100 dark:bg-emerald-900/40',
-    countText: 'text-emerald-700 dark:text-emerald-300',
-    topBorder: 'border-t-emerald-400',
-    dotColor: 'bg-emerald-400',
-    emptyText: 'Nenhum concluído',
+  {
+    key: 'reatribuir',
+    label: 'Reatribuir',
+    icon: UserCheck,
+    iconColor: 'text-violet-600 dark:text-violet-400',
+    canShow: (s) => s === 'em atendimento',
   },
-  aguardando_solicitante: {
-    accent: 'from-amber-300 to-yellow-400',
-    headerBg: 'bg-amber-50/80 dark:bg-amber-950/20',
-    headerText: 'text-amber-900 dark:text-amber-200',
-    countBg: 'bg-amber-100 dark:bg-amber-900/40',
-    countText: 'text-amber-700 dark:text-amber-300',
-    topBorder: 'border-t-amber-300',
-    dotColor: 'bg-amber-300',
-    emptyText: 'Nenhum aguardando',
+  {
+    key: 'encerrar',
+    label: 'Encerrar',
+    icon: CheckCircle2,
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
+    canShow: (s) => s === 'concluído',
   },
-  aguardando_terceiros: {
-    accent: 'from-orange-400 to-amber-400',
-    headerBg: 'bg-orange-50/80 dark:bg-orange-950/20',
-    headerText: 'text-orange-900 dark:text-orange-200',
-    countBg: 'bg-orange-100 dark:bg-orange-900/40',
-    countText: 'text-orange-700 dark:text-orange-300',
-    topBorder: 'border-t-orange-400',
-    dotColor: 'bg-orange-400',
-    emptyText: 'Nenhum aguardando terceiros',
+  {
+    key: 'pausar',
+    label: 'Pausar',
+    icon: PauseCircle,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    canShow: (s) => s === 'em atendimento',
   },
-  encerrado: {
-    accent: 'from-emerald-500 to-teal-500',
-    headerBg: 'bg-emerald-50/80 dark:bg-emerald-950/20',
-    headerText: 'text-emerald-900 dark:text-emerald-200',
-    countBg: 'bg-emerald-100 dark:bg-emerald-900/40',
-    countText: 'text-emerald-700 dark:text-emerald-300',
-    topBorder: 'border-t-emerald-500',
-    dotColor: 'bg-emerald-500',
-    emptyText: 'Nenhum encerrado',
+  {
+    key: 'retomar',
+    label: 'Retomar',
+    icon: Play,
+    iconColor: 'text-sky-600 dark:text-sky-400',
+    canShow: (s) => s === 'aguardando_solicitante' || s === 'aguardando_terceiros',
   },
-  cancelado: {
-    accent: 'from-red-400 to-rose-400',
-    headerBg: 'bg-red-50/80 dark:bg-red-950/20',
-    headerText: 'text-red-900 dark:text-red-200',
-    countBg: 'bg-red-100 dark:bg-red-900/40',
-    countText: 'text-red-700 dark:text-red-300',
-    topBorder: 'border-t-red-400',
-    dotColor: 'bg-red-400',
-    emptyText: 'Nenhum cancelado',
-  },
-  recusado: {
-    accent: 'from-rose-400 to-pink-400',
-    headerBg: 'bg-rose-50/80 dark:bg-rose-950/20',
-    headerText: 'text-rose-900 dark:text-rose-200',
-    countBg: 'bg-rose-100 dark:bg-rose-900/40',
-    countText: 'text-rose-700 dark:text-rose-300',
-    topBorder: 'border-t-rose-400',
-    dotColor: 'bg-rose-400',
-    emptyText: 'Nenhum recusado',
-  },
-};
+];
 
-const FALLBACK_CONFIG = {
-  accent: 'from-indigo-400 to-blue-400',
-  headerBg: 'bg-muted/50',
-  headerText: 'text-foreground',
-  countBg: 'bg-muted',
-  countText: 'text-muted-foreground',
-  topBorder: 'border-t-indigo-400',
-  dotColor: 'bg-indigo-400',
-  emptyText: 'Nenhum chamado',
-};
+type ActionHandlers = Record<string, (c: ChamadoDTO) => void>;
 
-function getColumnConfig(statusKey: string) {
-  return COLUMN_CONFIG[statusKey] ?? FALLBACK_CONFIG;
+function getVisibleActions(status: string) {
+  return ACTION_DEFS.filter((a) => a.canShow(status));
 }
 
-// Skeleton for a single kanban card
-function KanbanCardSkeleton() {
-  return (
-    <div className="rounded-xl border border-border/50 bg-card p-3 shadow-sm">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <Skeleton className="h-3.5 w-16 rounded-md" />
-        <Skeleton className="h-5 w-14 rounded-full" />
-      </div>
-      <Skeleton className="mb-1.5 h-3.5 w-full rounded-md" />
-      <Skeleton className="h-3.5 w-3/4 rounded-md" />
-      <div className="mt-3 flex items-center gap-1.5">
-        <Skeleton className="h-3 w-3 rounded-full" />
-        <Skeleton className="h-3 w-24 rounded-md" />
-      </div>
-    </div>
-  );
-}
+// ---------------------------------------------------------------------------
+// Small presentational components
+// ---------------------------------------------------------------------------
 
-// Skeleton for a kanban column
-function KanbanColumnSkeleton({ statusKey }: { statusKey: string }) {
-  const cfg = getColumnConfig(statusKey);
+function StatusBadge({ status }: { status: string }) {
+  const Icon = STATUS_ICONS[status as ChamadoStatus];
+  const label = CHAMADO_STATUS_LABELS[status as ChamadoStatus] ?? status;
+  const badgeClass = STATUS_BADGE[status as ChamadoStatus] ?? '';
   return (
-    <div
+    <span
       className={cn(
-        'flex h-full min-h-0 w-[272px] shrink-0 flex-col rounded-2xl border-2 border-t-4 bg-card shadow-sm md:min-w-[160px] md:max-w-[240px] md:flex-1 lg:min-w-[180px] lg:max-w-[260px] xl:max-w-[300px]',
-        cfg.topBorder,
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium',
+        badgeClass,
       )}
     >
-      <div className={cn('flex shrink-0 items-center justify-between gap-2 rounded-t-2xl border-b px-3 py-3', cfg.headerBg)}>
-        <Skeleton className="h-4 w-24 rounded-md" />
-        <Skeleton className="h-5 w-8 rounded-full" />
+      {Icon && <Icon className="h-3 w-3 shrink-0" aria-hidden />}
+      {label}
+    </span>
+  );
+}
+
+function PriorityBadge({ priority }: { priority: string | null | undefined }) {
+  if (!priority) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
+        PRIORITY_BADGE[priority] ?? '',
+      )}
+    >
+      {PRIORITY_LABELS[priority] ?? priority}
+    </span>
+  );
+}
+
+function EmptyState({
+  hasFilter,
+  message,
+  onClear,
+}: {
+  hasFilter: boolean;
+  message: string;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+      <div className="relative mb-5 flex items-center justify-center">
+        <div className="absolute h-20 w-20 rounded-full bg-indigo-100/60 dark:bg-indigo-950/30" />
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-indigo-100 to-blue-100 shadow-sm ring-1 ring-indigo-200/60 dark:from-indigo-900/30 dark:to-blue-900/30 dark:ring-indigo-800/40">
+          {hasFilter ? (
+            <Filter className="h-6 w-6 text-indigo-500 dark:text-indigo-400" aria-hidden />
+          ) : (
+            <Ticket className="h-6 w-6 text-indigo-500 dark:text-indigo-400" aria-hidden />
+          )}
+        </div>
       </div>
-      <div className="flex flex-col gap-2 p-3">
-        <KanbanCardSkeleton />
-        <KanbanCardSkeleton />
-        <KanbanCardSkeleton />
-      </div>
+      <p className="text-base font-semibold text-foreground">
+        {hasFilter ? 'Nenhum resultado encontrado' : 'Nenhum chamado cadastrado'}
+      </p>
+      <p className="mt-1.5 max-w-xs text-sm text-muted-foreground">{message}</p>
+      {hasFilter && (
+        <button
+          type="button"
+          className="mt-4 text-sm font-medium text-indigo-600 transition-colors hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+          onClick={onClear}
+        >
+          Limpar filtros
+        </button>
+      )}
     </div>
   );
 }
 
-// Mobile accordion item for a single status group
-function MobileStatusGroup({
-  statusKey,
-  items,
-  onCardClick,
-  onClassificar,
-  onRecusar,
-  onAtribuir,
-  onEncerrar,
-  onReatribuir,
+function StatusFilterSelect({
+  value,
+  onValueChange,
+  className,
 }: {
-  statusKey: string;
-  items: ChamadoDTO[];
-  onCardClick: (c: ChamadoDTO) => void;
-  onClassificar: (c: ChamadoDTO) => void;
-  onRecusar: (c: ChamadoDTO) => void;
-  onAtribuir: (c: ChamadoDTO) => void;
-  onEncerrar: (c: ChamadoDTO) => void;
-  onReatribuir: (c: ChamadoDTO) => void;
+  value: string;
+  onValueChange: (v: string) => void;
+  className?: string;
 }) {
-  const [expanded, setExpanded] = useState(items.length > 0);
-  const cfg = getColumnConfig(statusKey);
-  const label = CHAMADO_STATUS_LABELS[statusKey as ChamadoStatus] ?? statusKey;
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger aria-label="Filtrar por status" className={cn('h-11 rounded-xl', className)}>
+        <SelectValue placeholder="Status" />
+      </SelectTrigger>
+      <SelectContent>
+        {STATUS_OPTIONS.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Action buttons — renders only the actions relevant for the ticket status
+// ---------------------------------------------------------------------------
+
+function ActionButtons({
+  chamado,
+  handlers,
+  size = 'sm',
+}: {
+  chamado: ChamadoDTO;
+  handlers: ActionHandlers;
+  size?: 'sm' | 'md';
+}) {
+  const visible = getVisibleActions(chamado.status);
+  if (visible.length === 0) return null;
+
+  const btnClass = size === 'sm' ? 'h-8 w-8' : 'h-11 w-11';
+  const iconClass = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
   return (
-    <div className={cn('overflow-hidden rounded-2xl border-2 border-t-4 bg-card shadow-sm', cfg.topBorder)}>
-      {/* Accordion header */}
-      <button
-        type="button"
-        className={cn(
-          'flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors',
-          cfg.headerBg,
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1',
-        )}
-        onClick={() => setExpanded((p) => !p)}
-        aria-expanded={expanded}
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', cfg.dotColor)} aria-hidden="true" />
-          <span className={cn('truncate text-sm font-semibold', cfg.headerText)}>{label}</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span
-            className={cn(
-              'rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
-              cfg.countBg,
-              cfg.countText,
-            )}
-          >
-            {items.length}
-          </span>
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
-              expanded && 'rotate-180',
-            )}
-            aria-hidden="true"
-          />
-        </div>
-      </button>
-
-      {/* Collapsible body */}
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            key="content"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeInOut' }}
-            className="overflow-hidden"
-          >
-            <div className="flex flex-col gap-2.5 p-3 pt-2.5">
-              {items.length === 0 ? (
-                <p className="py-5 text-center text-sm text-muted-foreground">{cfg.emptyText}</p>
-              ) : (
-                items.map((c) => (
-                  <ChamadoCard
-                    key={c._id}
-                    compact
-                    hideDetailLink
-                    chamado={c}
-                    onCardClick={onCardClick}
-                    onClassificar={c.status === 'aberto' ? onClassificar : undefined}
-                    onRecusar={c.status === 'aberto' ? onRecusar : undefined}
-                    onAtribuir={
-                      c.status === 'validado' || c.status === 'emvalidacao'
-                        ? onAtribuir
-                        : undefined
-                    }
-                    onEncerrar={onEncerrar}
-                    onReatribuir={onReatribuir}
-                  />
-                ))
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+      {visible.map((def) => {
+        const Icon = def.icon;
+        return (
+          <Tooltip key={def.key}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  btnClass,
+                  'touch-manipulation rounded-lg transition-all duration-200 hover:scale-110',
+                )}
+                onClick={() => handlers[def.key]?.(chamado)}
+                aria-label={`${def.label} chamado`}
+              >
+                <Icon className={cn(iconClass, def.iconColor)} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{def.label}</TooltipContent>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Skeleton loaders
+// ---------------------------------------------------------------------------
+
+function TableSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <TableRow key={i} className="animate-pulse">
+          <TableCell className="py-4">
+            <Skeleton className="h-4 w-16 rounded-md" />
+          </TableCell>
+          <TableCell>
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-48 rounded-md" />
+              <Skeleton className="h-3 w-32 rounded-md" />
+            </div>
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-5 w-24 rounded-full" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-28 rounded-md" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-16 rounded-md" />
+          </TableCell>
+          <TableCell className="text-right">
+            <div className="flex justify-end gap-1">
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
+function MobileCardsSkeleton() {
+  return (
+    <div className="space-y-3 p-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className="animate-pulse rounded-2xl border border-border/50 bg-card p-4 shadow-sm"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-16 rounded-md" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </div>
+              <Skeleton className="h-4 w-full rounded-md" />
+              <Skeleton className="h-4 w-3/4 rounded-md" />
+              <div className="flex gap-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-4 w-24 rounded-md" />
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Skeleton className="h-10 w-10 rounded-lg" />
+              <Skeleton className="h-10 w-10 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page component
+// ---------------------------------------------------------------------------
 
 export default function GestaoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ChamadoDTO[]>([]);
+
+  // Dialog state
   const [classificarDialogOpen, setClassificarDialogOpen] = useState(false);
   const [recusarDialogOpen, setRecusarDialogOpen] = useState(false);
   const [atribuirDialogOpen, setAtribuirDialogOpen] = useState(false);
@@ -321,6 +387,7 @@ export default function GestaoPage() {
   const [selected, setSelected] = useState<ChamadoDTO | null>(null);
   const [detailSheetChamado, setDetailSheetChamado] = useState<ChamadoDTO | null>(null);
 
+  // Filters
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [status, setStatus] = useState<'all' | ChamadoStatus>('all');
@@ -336,6 +403,10 @@ export default function GestaoPage() {
     if (status !== 'all') p.set('status', status);
     return p.toString();
   }, [debouncedQ, status]);
+
+  // ---------------------------------------------------------------------------
+  // Data fetching
+  // ---------------------------------------------------------------------------
 
   const fetchChamados = useCallback(async () => {
     setLoading(true);
@@ -367,39 +438,49 @@ export default function GestaoPage() {
     fetchChamados();
   }, [fetchChamados]);
 
+  // ---------------------------------------------------------------------------
+  // Dialog open handlers
+  // ---------------------------------------------------------------------------
+
   const handleCardClick = useCallback((chamado: ChamadoDTO) => {
     setDetailSheetChamado(chamado);
   }, []);
 
-  const handleClassificar = useCallback((chamado: ChamadoDTO) => {
-    setSelected(chamado);
-    setClassificarDialogOpen(true);
-  }, []);
+  const openDialogFor = useCallback(
+    (setter: (v: boolean) => void) => (chamado: ChamadoDTO) => {
+      setSelected(chamado);
+      setter(true);
+    },
+    [],
+  );
 
-  const handleRecusar = useCallback((chamado: ChamadoDTO) => {
-    setSelected(chamado);
-    setRecusarDialogOpen(true);
-  }, []);
+  const handleClassificar = useMemo(
+    () => openDialogFor(setClassificarDialogOpen),
+    [openDialogFor],
+  );
+  const handleRecusar = useMemo(() => openDialogFor(setRecusarDialogOpen), [openDialogFor]);
+  const handleAtribuir = useMemo(() => openDialogFor(setAtribuirDialogOpen), [openDialogFor]);
 
-  const handleAtribuir = useCallback((chamado: ChamadoDTO) => {
-    setSelected(chamado);
-    setAtribuirDialogOpen(true);
-  }, []);
+  const closeDialogFor = useCallback(
+    (setter: (v: boolean) => void) => (open: boolean) => {
+      setter(open);
+      if (!open) setSelected(null);
+    },
+    [],
+  );
 
-  const handleClassificarDialogClose = useCallback((open: boolean) => {
-    setClassificarDialogOpen(open);
-    if (!open) setSelected(null);
-  }, []);
-
-  const handleRecusarDialogClose = useCallback((open: boolean) => {
-    setRecusarDialogOpen(open);
-    if (!open) setSelected(null);
-  }, []);
-
-  const handleAtribuirDialogClose = useCallback((open: boolean) => {
-    setAtribuirDialogOpen(open);
-    if (!open) setSelected(null);
-  }, []);
+  const handleClassificarDialogClose = useMemo(
+    () => closeDialogFor(setClassificarDialogOpen),
+    [closeDialogFor],
+  );
+  const handleRecusarDialogClose = useMemo(
+    () => closeDialogFor(setRecusarDialogOpen),
+    [closeDialogFor],
+  );
+  const handleAtribuirDialogClose = useMemo(
+    () => closeDialogFor(setAtribuirDialogOpen),
+    [closeDialogFor],
+  );
 
   const handleEncerrar = useCallback((chamado: ChamadoDTO) => {
     setEncerrarChamadoId(chamado._id);
@@ -437,332 +518,309 @@ export default function GestaoPage() {
     fetchChamados();
   }, [fetchChamados]);
 
-  const emptyMessage = useMemo(() => {
-    if (q.trim() || status !== 'all') {
-      return 'Tente ajustar a busca ou remover os filtros aplicados.';
-    }
-    return 'Nenhum chamado cadastrado no sistema.';
-  }, [q, status]);
-
-  const itemsByStatus = useMemo(() => {
-    const map: Record<string, ChamadoDTO[]> = {};
-    KANBAN_STATUSES.forEach((s) => {
-      map[s] = items.filter((c) => c.status === s);
-    });
-    return map;
-  }, [items]);
-
-  // Summary counts for the status pills bar
-  const summaryCounts = useMemo(
-    () => KANBAN_STATUSES.map((s) => ({ key: s, count: itemsByStatus[s]?.length ?? 0 })),
-    [itemsByStatus],
-  );
+  // ---------------------------------------------------------------------------
+  // Derived state
+  // ---------------------------------------------------------------------------
 
   const hasActiveFilter = q.trim() !== '' || status !== 'all';
 
+  const emptyMessage = useMemo(() => {
+    if (hasActiveFilter) return 'Tente ajustar a busca ou remover os filtros aplicados.';
+    return 'Nenhum chamado cadastrado no sistema.';
+  }, [hasActiveFilter]);
+
+  const actionHandlers: ActionHandlers = useMemo(
+    () => ({
+      classificar: handleClassificar,
+      recusar: handleRecusar,
+      atribuir: handleAtribuir,
+      reatribuir: handleReatribuir,
+      encerrar: handleEncerrar,
+      pausar: handlePausar,
+      retomar: handleRetomar,
+    }),
+    [
+      handleClassificar,
+      handleRecusar,
+      handleAtribuir,
+      handleReatribuir,
+      handleEncerrar,
+      handlePausar,
+      handleRetomar,
+    ],
+  );
+
+  const clearFilters = useCallback(() => {
+    setQ('');
+    setStatus('all');
+  }, []);
+
+  const setStatusFilter = useCallback((v: string) => {
+    setStatus(v as 'all' | ChamadoStatus);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-1 flex-col px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
-        <PageHeader
-          title="Gestão de Chamados"
-          subtitle="Visualize, classifique e distribua chamados por status."
-        />
-
-        {/* Filter bar — glass card */}
-        <div className="shrink-0 rounded-2xl border border-border/50 bg-card/80 px-4 py-3.5 shadow-sm backdrop-blur-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-            {/* Search */}
-            <div className="relative min-w-0 flex-1">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                placeholder="Buscar por número, título..."
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="min-w-0 rounded-xl pl-9 text-base sm:text-sm"
-                aria-label="Buscar chamados"
-              />
+    <div className="mx-auto w-full max-w-[1600px] space-y-5 sm:space-y-6">
+      {/* ----------------------------------------------------------------- */}
+      {/* Header                                                            */}
+      {/* ----------------------------------------------------------------- */}
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3 gap-y-1">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-blue-600 shadow-md shadow-indigo-500/20">
+              <ClipboardList className="h-5 w-5 text-white" aria-hidden />
             </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                Gestão de Chamados
+              </h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Visualize, classifique e distribua chamados
+              </p>
+            </div>
+          </div>
+        </div>
+        {!loading && (
+          <Badge
+            variant="outline"
+            className="h-8 shrink-0 rounded-full border-indigo-200 bg-indigo-50 px-3 text-sm font-semibold tabular-nums text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
+          >
+            {items.length} {items.length === 1 ? 'chamado' : 'chamados'}
+          </Badge>
+        )}
+      </header>
 
-            {/* Status filter */}
-            <div className="flex shrink-0 items-center gap-2">
-              <Filter className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-              <div className="min-w-[170px] flex-1 sm:flex-none">
-                <Select value={status} onValueChange={(v) => setStatus(v as 'all' | ChamadoStatus)}>
-                  <SelectTrigger
-                    aria-label="Filtrar por status"
-                    className="w-full rounded-xl sm:w-[180px]"
-                  >
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+      {/* ----------------------------------------------------------------- */}
+      {/* Filter bar — glass card                                           */}
+      {/* ----------------------------------------------------------------- */}
+      <div className="rounded-2xl border border-border/50 bg-card/80 px-4 py-3.5 shadow-sm backdrop-blur-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+          {/* Search */}
+          <div className="relative min-w-0 flex-1">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              placeholder="Buscar por número, título, descrição..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="h-11 rounded-xl pl-9 text-base sm:text-sm"
+              aria-label="Buscar chamados"
+            />
+          </div>
+
+          {/* Desktop: select inline */}
+          <div className="hidden shrink-0 sm:block">
+            <StatusFilterSelect
+              value={status}
+              onValueChange={setStatusFilter}
+              className="w-[200px]"
+            />
+          </div>
+
+          {/* Mobile: botao Filtros abre Sheet */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 w-full gap-2 rounded-xl sm:hidden"
+                aria-label="Abrir filtros"
+              >
+                <Filter className="h-4 w-4" />
+                Filtros
+                {hasActiveFilter && (
+                  <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                    1
+                  </span>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="rounded-t-2xl">
+              <SheetHeader>
+                <SheetTitle>Filtros</SheetTitle>
+              </SheetHeader>
+              <div className="grid grid-cols-1 gap-4 pb-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Status</label>
+                  <StatusFilterSelect value={status} onValueChange={setStatusFilter} />
+                </div>
               </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Desktop Table                                                     */}
+      {/* ----------------------------------------------------------------- */}
+      <div className="relative hidden overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm md:block">
+        {/* Accent stripe */}
+        <div className="absolute inset-x-0 top-0 h-[3px] bg-linear-to-r from-transparent via-indigo-500/50 to-transparent" />
+
+        <div className="overflow-x-auto">
+          {/* Column headers */}
+          <div className="min-w-[920px] border-b border-border/50 bg-muted/40 px-5 py-3">
+            <div className="grid grid-cols-12 gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="col-span-1">N&ordm;</div>
+              <div className="col-span-3">Título</div>
+              <div className="col-span-2">Status</div>
+              <div className="col-span-1">Prioridade</div>
+              <div className="col-span-2">Serviço</div>
+              <div className="col-span-1">Data</div>
+              <div className="col-span-2 text-right">Ações</div>
             </div>
           </div>
 
-          {/* Summary pills — only when data loaded and not in filtered mode */}
-          {!loading && items.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-3">
-              <span className="mr-1 text-xs font-medium text-muted-foreground">Totais:</span>
-              {summaryCounts
-                .filter((s) => s.count > 0)
-                .map(({ key, count }) => {
-                  const cfg = getColumnConfig(key);
-                  const label = CHAMADO_STATUS_LABELS[key as ChamadoStatus] ?? key;
-                  return (
-                    <div
-                      key={key}
-                      className="flex items-center gap-1.5 rounded-full border border-border/50 bg-background/60 px-2.5 py-1"
-                    >
-                      <span
-                        className={cn('h-2 w-2 shrink-0 rounded-full', cfg.dotColor)}
-                        aria-hidden="true"
-                      />
-                      <span className="text-xs font-medium text-foreground">{label}</span>
-                      <span
-                        className={cn(
-                          'rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums',
-                          cfg.countBg,
-                          cfg.countText,
-                        )}
-                      >
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
-              <Badge
-                variant="outline"
-                className="ml-auto rounded-full border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
-              >
-                {items.length} total
-              </Badge>
-            </div>
-          )}
-        </div>
+          <Table className="min-w-[920px]">
+            <TableHeader className="sr-only">
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Título</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Prioridade</TableHead>
+                <TableHead>Serviço</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
 
-        {/* Content area */}
-        {loading ? (
-          <>
-            {/* Mobile skeleton */}
-            <div className="flex flex-col gap-3 md:hidden">
-              {KANBAN_STATUSES.slice(0, 3).map((s) => (
-                <div
-                  key={s}
-                  className={cn(
-                    'overflow-hidden rounded-2xl border-2 border-t-4 bg-card shadow-sm',
-                    getColumnConfig(s).topBorder,
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'flex items-center justify-between gap-3 px-4 py-3.5',
-                      getColumnConfig(s).headerBg,
-                    )}
+            <TableBody>
+              {loading ? (
+                <TableSkeleton />
+              ) : items.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={7} className="p-0">
+                    <EmptyState
+                      hasFilter={hasActiveFilter}
+                      message={emptyMessage}
+                      onClear={clearFilters}
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                items.map((row) => (
+                  <TableRow
+                    key={row._id}
+                    className="group cursor-pointer border-border/40 transition-colors duration-150 hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20"
+                    onClick={() => handleCardClick(row)}
                   >
-                    <Skeleton className="h-4 w-28 rounded-md" />
-                    <Skeleton className="h-5 w-8 rounded-full" />
-                  </div>
-                  <div className="flex flex-col gap-2.5 p-3 pt-2.5">
-                    <KanbanCardSkeleton />
-                    <KanbanCardSkeleton />
-                  </div>
-                </div>
-              ))}
-            </div>
+                    <TableCell className="py-3.5 font-mono text-xs font-medium text-muted-foreground">
+                      {row.ticket_number}
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <span className="line-clamp-1 font-medium text-foreground transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
+                        {row.titulo}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <StatusBadge status={row.status} />
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <PriorityBadge priority={row.finalPriority} />
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <span className="line-clamp-1 text-sm text-muted-foreground">
+                        {row.tipoServico || '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <span className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+                        {formatDateShort(row.createdAt)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3.5 text-right">
+                      <ActionButtons chamado={row} handlers={actionHandlers} size="sm" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
-            {/* Desktop skeleton */}
-            <div className="relative hidden min-h-0 flex-1 overflow-hidden md:block">
-              <div className="h-full overflow-x-auto rounded-2xl scroll-smooth [-webkit-overflow-scrolling:touch]">
-                <div className="inline-flex h-full min-h-[400px] gap-3 p-1 pb-2">
-                  {KANBAN_STATUSES.map((s) => (
-                    <KanbanColumnSkeleton key={s} statusKey={s} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
+      {/* ----------------------------------------------------------------- */}
+      {/* Mobile Cards                                                      */}
+      {/* ----------------------------------------------------------------- */}
+      <div className="md:hidden">
+        {loading ? (
+          <MobileCardsSkeleton />
         ) : items.length === 0 ? (
-          /* Empty state */
-          <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-16 text-center">
-            <div className="relative mb-5 flex items-center justify-center">
-              {/* Decorative ring */}
-              <div className="absolute h-20 w-20 rounded-full bg-indigo-100/60 dark:bg-indigo-950/30" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-blue-100 shadow-sm ring-1 ring-indigo-200/60 dark:from-indigo-900/30 dark:to-blue-900/30 dark:ring-indigo-800/40">
-                {hasActiveFilter ? (
-                  <Filter className="h-6 w-6 text-indigo-500 dark:text-indigo-400" aria-hidden />
-                ) : (
-                  <Ticket className="h-6 w-6 text-indigo-500 dark:text-indigo-400" aria-hidden />
-                )}
-              </div>
-            </div>
-            <p className="text-base font-semibold text-foreground">
-              {hasActiveFilter ? 'Nenhum resultado encontrado' : 'Nenhum chamado cadastrado'}
-            </p>
-            <p className="mt-1.5 max-w-xs text-sm text-muted-foreground">{emptyMessage}</p>
-            {hasActiveFilter && (
-              <button
-                type="button"
-                className="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
-                onClick={() => {
-                  setQ('');
-                  setStatus('all');
-                }}
-              >
-                Limpar filtros
-              </button>
-            )}
+          <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20">
+            <EmptyState
+              hasFilter={hasActiveFilter}
+              message={emptyMessage}
+              onClear={clearFilters}
+            />
           </div>
         ) : (
-          <>
-            {/* Mobile: stacked accordion by status */}
-            <div className="flex flex-col gap-3 md:hidden">
-              {KANBAN_STATUSES.map((statusKey) => (
-                <MobileStatusGroup
-                  key={statusKey}
-                  statusKey={statusKey}
-                  items={itemsByStatus[statusKey] ?? []}
-                  onCardClick={handleCardClick}
-                  onClassificar={handleClassificar}
-                  onRecusar={handleRecusar}
-                  onAtribuir={handleAtribuir}
-                  onEncerrar={handleEncerrar}
-                  onReatribuir={handleReatribuir}
-                />
-              ))}
-            </div>
+          <div className="space-y-3">
+            {items.map((row) => {
+              const accentClass = STATUS_ACCENT[row.status as ChamadoStatus] ?? '';
+              return (
+                <div
+                  key={row._id}
+                  className={cn(
+                    'group relative cursor-pointer overflow-hidden rounded-2xl border border-border/50 border-l-4 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/4 active:scale-[0.99]',
+                    accentClass,
+                  )}
+                  onClick={() => handleCardClick(row)}
+                >
+                  {/* Accent stripe top */}
+                  <div className="absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
-            {/* Desktop: kanban board */}
-            <div className="relative hidden min-h-0 flex-1 overflow-hidden md:flex md:flex-col">
-              <div className="min-h-0 flex-1 overflow-x-auto rounded-2xl scroll-smooth pb-2 [-webkit-overflow-scrolling:touch]">
-                <div className="inline-flex h-full min-h-[400px] items-start gap-3 p-1">
-                  {KANBAN_STATUSES.map((statusKey) => {
-                    const columnItems = itemsByStatus[statusKey] ?? [];
-                    const label =
-                      CHAMADO_STATUS_LABELS[statusKey as ChamadoStatus] ?? statusKey;
-                    const cfg = getColumnConfig(statusKey);
-
-                    return (
-                      <motion.div
-                        key={statusKey}
-                        layout
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className={cn(
-                          'flex h-full min-h-0 w-[272px] shrink-0 flex-col overflow-hidden rounded-2xl border border-t-4 bg-card shadow-sm md:min-w-[160px] md:max-w-[240px] md:flex-1 lg:min-w-[180px] lg:max-w-[260px] xl:max-w-[300px]',
-                          cfg.topBorder,
-                        )}
-                      >
-                        {/* Column header */}
-                        <div
-                          className={cn(
-                            'flex shrink-0 items-center gap-2 rounded-t-2xl border-b border-border/50 px-3 py-3',
-                            cfg.headerBg,
-                          )}
-                        >
-                          <span
-                            className={cn('h-2.5 w-2.5 shrink-0 rounded-full', cfg.dotColor)}
-                            aria-hidden="true"
-                          />
-                          <span
-                            className={cn(
-                              'min-w-0 flex-1 truncate text-sm font-semibold',
-                              cfg.headerText,
-                            )}
-                            title={label}
-                          >
-                            {label}
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1 space-y-2.5">
+                        {/* Row 1: ticket number + status */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-md bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+                            {row.ticket_number}
                           </span>
-                          <span
-                            className={cn(
-                              'shrink-0 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums',
-                              cfg.countBg,
-                              cfg.countText,
-                            )}
-                          >
-                            {columnItems.length}
-                          </span>
+                          <StatusBadge status={row.status} />
                         </div>
 
-                        {/* Column body — uses native overflow instead of Radix ScrollArea
-                            because ScrollArea's internal `display: table` wrapper
-                            breaks width constraints in production builds */}
-                        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-                          <div className="flex min-w-0 flex-col gap-2 p-2.5 sm:p-3">
-                            {columnItems.length === 0 ? (
-                              <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <Columns3
-                                  className="mb-2 h-5 w-5 text-muted-foreground/40"
-                                  aria-hidden
-                                />
-                                <p className="text-xs text-muted-foreground/60">{cfg.emptyText}</p>
-                              </div>
-                            ) : (
-                              <AnimatePresence mode="popLayout">
-                                {columnItems.map((c) => (
-                                  <motion.div
-                                    key={c._id}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.97 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.97 }}
-                                    transition={{ duration: 0.18, ease: 'easeOut' }}
-                                    className="min-w-0 overflow-hidden"
-                                  >
-                                    <ChamadoCard
-                                      compact
-                                      hideDetailLink
-                                      chamado={c}
-                                      onCardClick={handleCardClick}
-                                      onClassificar={
-                                        c.status === 'aberto' ? handleClassificar : undefined
-                                      }
-                                      onRecusar={
-                                        c.status === 'aberto' ? handleRecusar : undefined
-                                      }
-                                      onAtribuir={
-                                        c.status === 'validado' || c.status === 'emvalidacao'
-                                          ? handleAtribuir
-                                          : undefined
-                                      }
-                                      onEncerrar={handleEncerrar}
-                                      onReatribuir={handleReatribuir}
-                                    />
-                                  </motion.div>
-                                ))}
-                              </AnimatePresence>
-                            )}
-                          </div>
-                        </div>
+                        {/* Row 2: title */}
+                        <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">
+                          {row.titulo}
+                        </h3>
 
-                        {/* Column footer accent line */}
-                        <div
-                          className={cn(
-                            'h-0.5 w-full shrink-0 rounded-b-2xl bg-gradient-to-r opacity-30',
-                            cfg.accent,
+                        {/* Row 3: metadata */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                          <PriorityBadge priority={row.finalPriority} />
+                          {row.tipoServico && (
+                            <span className="truncate text-xs text-muted-foreground">
+                              {row.tipoServico}
+                            </span>
                           )}
-                          aria-hidden="true"
-                        />
-                      </motion.div>
-                    );
-                  })}
+                          <span className="text-xs tabular-nums text-muted-foreground/70">
+                            {formatDateShort(row.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="shrink-0 pt-1">
+                        <ActionButtons chamado={row} handlers={actionHandlers} size="md" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </>
+              );
+            })}
+          </div>
         )}
       </div>
 
+      {/* ----------------------------------------------------------------- */}
+      {/* Dialogs                                                           */}
+      {/* ----------------------------------------------------------------- */}
       <ChamadoDetailSheet
         chamado={detailSheetChamado}
         open={detailSheetChamado !== null}

@@ -70,7 +70,7 @@ function mockFind(chamados: unknown[]) {
   const mockLean = vi.fn().mockResolvedValue(chamados);
   const mockPopulate = vi.fn().mockReturnValue({ lean: mockLean });
   const mockSelect = vi.fn().mockReturnValue({ populate: mockPopulate });
-  vi.mocked(ChamadoModel.find).mockReturnValue({ select: mockSelect } as ReturnType<
+  vi.mocked(ChamadoModel.find).mockReturnValue({ select: mockSelect } as unknown as ReturnType<
     typeof ChamadoModel.find
   >);
   return { mockLean, mockPopulate, mockSelect };
@@ -217,7 +217,7 @@ describe('GET /api/sla/dashboard', () => {
 
     const response = await callGet();
     const body = (await getJson(response)) as {
-      items: { percentUsed: number; remainingMs: number }[];
+      items: { percentUsed: number; remainingMs: number; totalMs?: number }[];
     };
     const item = body.items[0];
 

@@ -116,9 +116,9 @@ describe('createRecurringTemplateAction — validação Zod', () => {
   });
 
   it('should return error when recurrenceType is weekly but dayOfWeek is missing', async () => {
-    const input = { ...validCreateInput() };
-    delete input.dayOfWeek;
-    const result = await createRecurringTemplateAction(input);
+    const { dayOfWeek: _, ...input } = validCreateInput();
+    void _;
+    const result = await createRecurringTemplateAction(input as Parameters<typeof createRecurringTemplateAction>[0]);
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBeTruthy();
@@ -304,7 +304,9 @@ describe('updateRecurringTemplateAction — fluxo de sucesso', () => {
     await updateRecurringTemplateAction({ id: VALID_OID, ...validCreateInput() });
 
     expect(RecurringTicketModel.updateOne).toHaveBeenCalledOnce();
-    const [filter] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0];
+    const [filter] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0] as unknown as [
+      { _id: unknown },
+    ];
     expect(filter._id).toBe(VALID_OID);
   });
 
@@ -374,7 +376,10 @@ describe('toggleRecurringTemplateAction — fluxo de sucesso', () => {
     const result = await toggleRecurringTemplateAction(VALID_OID);
 
     expect(result.ok).toBe(true);
-    const [, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0];
+    const [, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0] as unknown as [
+      unknown,
+      { $set: Record<string, unknown> },
+    ];
     expect(update.$set.isActive).toBe(false);
   });
 
@@ -390,7 +395,10 @@ describe('toggleRecurringTemplateAction — fluxo de sucesso', () => {
     const result = await toggleRecurringTemplateAction(VALID_OID);
 
     expect(result.ok).toBe(true);
-    const [, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0];
+    const [, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0] as unknown as [
+      unknown,
+      { $set: Record<string, unknown> },
+    ];
     expect(update.$set.isActive).toBe(true);
   });
 
@@ -406,7 +414,10 @@ describe('toggleRecurringTemplateAction — fluxo de sucesso', () => {
     await toggleRecurringTemplateAction(VALID_OID);
 
     expect(calculateNextRunAt).toHaveBeenCalledOnce();
-    const [, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0];
+    const [, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0] as unknown as [
+      unknown,
+      { $set: Record<string, unknown> },
+    ];
     expect(update.$set.nextRunAt).toBeInstanceOf(Date);
   });
 
@@ -422,7 +433,10 @@ describe('toggleRecurringTemplateAction — fluxo de sucesso', () => {
     await toggleRecurringTemplateAction(VALID_OID);
 
     expect(calculateNextRunAt).not.toHaveBeenCalled();
-    const [, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0];
+    const [, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0] as unknown as [
+      unknown,
+      { $set: Record<string, unknown> },
+    ];
     expect(update.$set.nextRunAt).toBeUndefined();
   });
 });
@@ -470,7 +484,9 @@ describe('deleteRecurringTemplateAction — fluxo de sucesso', () => {
     await deleteRecurringTemplateAction(VALID_OID);
 
     expect(RecurringTicketModel.deleteOne).toHaveBeenCalledOnce();
-    const [filter] = vi.mocked(RecurringTicketModel.deleteOne).mock.calls[0];
+    const [filter] = vi.mocked(RecurringTicketModel.deleteOne).mock.calls[0] as unknown as [
+      { _id: unknown },
+    ];
     expect(String(filter._id)).toBe(VALID_OID);
   });
 });

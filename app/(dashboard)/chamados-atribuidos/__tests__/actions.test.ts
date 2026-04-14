@@ -94,6 +94,9 @@ describe('registerExecutionAction', () => {
     const result = await registerExecutionAction({
       ticketId: 'invalid',
       serviceDescription: '',
+      materialsUsed: undefined,
+      notes: undefined,
+      evidencePhotos: [],
     });
     expect(result.ok).toBe(false);
   });

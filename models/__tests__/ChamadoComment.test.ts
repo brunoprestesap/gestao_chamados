@@ -125,7 +125,7 @@ describe('ChamadoCommentModel', () => {
       const indexes = ChamadoCommentModel.schema.indexes();
 
       // Act
-      const hasChamadoCreatedAtIndex = indexes.some(([fields]) => {
+      const hasChamadoCreatedAtIndex = indexes.some(([fields]: [Record<string, unknown>]) => {
         const keys = Object.keys(fields);
         return keys.includes('chamadoId') && keys.includes('createdAt');
       });
@@ -139,7 +139,7 @@ describe('ChamadoCommentModel', () => {
       const indexes = ChamadoCommentModel.schema.indexes();
 
       // Act
-      const hasChamadoVisibilityIndex = indexes.some(([fields]) => {
+      const hasChamadoVisibilityIndex = indexes.some(([fields]: [Record<string, unknown>]) => {
         const keys = Object.keys(fields);
         return keys.includes('chamadoId') && keys.includes('visibility');
       });

@@ -113,7 +113,7 @@ describe('CreateRecurringTicketSchema — campos básicos', () => {
   });
 
   it('should default grauUrgencia to Normal when not provided', () => {
-    const input = { ...validBase() };
+    const input: Partial<ReturnType<typeof validBase>> = { ...validBase() };
     delete input.grauUrgencia;
     const result = CreateRecurringTicketSchema.safeParse(input);
     expect(result.success).toBe(true);
@@ -409,28 +409,28 @@ describe('CreateRecurringTicketSchema — refinements condicionais (custom)', ()
 
 describe('CreateRecurringTicketSchema — campos obrigatórios faltando', () => {
   it('should reject when name is missing', () => {
-    const input = { ...validBase() };
+    const input: Partial<ReturnType<typeof validBase>> = { ...validBase() };
     delete input.name;
     const result = CreateRecurringTicketSchema.safeParse(input);
     expect(result.success).toBe(false);
   });
 
   it('should reject when titulo is missing', () => {
-    const input = { ...validBase() };
+    const input: Partial<ReturnType<typeof validBase>> = { ...validBase() };
     delete input.titulo;
     const result = CreateRecurringTicketSchema.safeParse(input);
     expect(result.success).toBe(false);
   });
 
   it('should reject when descricao is missing', () => {
-    const input = { ...validBase() };
+    const input: Partial<ReturnType<typeof validBase>> = { ...validBase() };
     delete input.descricao;
     const result = CreateRecurringTicketSchema.safeParse(input);
     expect(result.success).toBe(false);
   });
 
   it('should reject when recurrenceType is missing', () => {
-    const input = { ...validBase() };
+    const input: Partial<ReturnType<typeof validBase>> = { ...validBase() };
     delete input.recurrenceType;
     const result = CreateRecurringTicketSchema.safeParse(input);
     expect(result.success).toBe(false);

@@ -108,7 +108,7 @@ describe('AttachmentListItemSchema', () => {
   });
 
   it('deve rejeitar quando user está ausente', () => {
-    const withoutUser = { ...validItem };
+    const withoutUser: Partial<typeof validItem> = { ...validItem };
     delete withoutUser.user;
     const result = AttachmentListItemSchema.safeParse(withoutUser);
     expect(result.success).toBe(false);
@@ -147,7 +147,7 @@ describe('AddAttachmentSchema', () => {
   });
 
   it('deve usar "geral" como context padrão quando omitido', () => {
-    const withoutContext = { ...validInput };
+    const withoutContext: Partial<typeof validInput> = { ...validInput };
     delete withoutContext.context;
     const result = AddAttachmentSchema.safeParse(withoutContext);
     expect(result.success).toBe(true);
