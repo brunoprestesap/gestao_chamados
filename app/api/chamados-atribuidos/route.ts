@@ -7,6 +7,31 @@ import { ChamadoModel } from '@/models/Chamado';
 import { UnitModel } from '@/models/unit';
 import { ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 
+// Projection — only the fields needed by the listing UI
+const LIST_PROJECTION = {
+  ticket_number: 1,
+  titulo: 1,
+  descricao: 1,
+  status: 1,
+  solicitanteId: 1,
+  unitId: 1,
+  localExato: 1,
+  tipoServico: 1,
+  naturezaAtendimento: 1,
+  requestedAttendanceNature: 1,
+  attendanceNature: 1,
+  grauUrgencia: 1,
+  telefoneContato: 1,
+  subtypeId: 1,
+  catalogServiceId: 1,
+  assignedToUserId: 1,
+  assignedAt: 1,
+  slaPausedAt: 1,
+  pauseReason: 1,
+  createdAt: 1,
+  updatedAt: 1,
+} as const;
+
 function normalizeChamado(
   c: Record<string, unknown> & { _id: unknown; titulo: string; createdAt: Date; updatedAt: Date },
   unitNames: Map<string, string>,
@@ -32,6 +57,10 @@ function normalizeChamado(
     catalogServiceId: c.catalogServiceId ? String(c.catalogServiceId) : null,
     assignedToUserId: c.assignedToUserId ? String(c.assignedToUserId) : null,
     assignedAt: c.assignedAt ?? null,
+    slaPausedAt: c.slaPausedAt
+      ? new Date(c.slaPausedAt as string | number | Date).toISOString()
+      : null,
+    pauseReason: (c.pauseReason as string) ?? null,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
   };
@@ -39,7 +68,7 @@ function normalizeChamado(
 
 /**
  * GET /api/chamados-atribuidos
- * Lista chamados atribuídos ao técnico logado. Apenas role Técnico.
+ * Lista chamados atribuídos ao técnico logado (paginado). Apenas role Técnico.
  */
 export async function GET(req: Request) {
   const session = await verifySession();
@@ -55,6 +84,8 @@ export async function GET(req: Request) {
   const parsed = ChamadoListQuerySchema.safeParse({
     q: url.searchParams.get('q') ?? '',
     status: url.searchParams.get('status') ?? 'all',
+    page: url.searchParams.get('page') ?? '1',
+    limit: url.searchParams.get('limit') ?? '10',
   });
 
   if (!parsed.success) {
@@ -64,7 +95,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const { q, status } = parsed.data;
+  const { q, status, page, limit } = parsed.data;
   const filter: Record<string, unknown> = {
     assignedToUserId: new Types.ObjectId(session.userId),
   };
@@ -82,8 +113,18 @@ export async function GET(req: Request) {
     ];
   }
 
-  const items = await ChamadoModel.find(filter).sort({ updatedAt: -1 }).lean();
+  const skip = (page - 1) * limit;
 
+  const [total, items] = await Promise.all([
+    ChamadoModel.countDocuments(filter),
+    ChamadoModel.find(filter, LIST_PROJECTION)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
+
+  // Resolve unit names for the page
   const unitIds = [...new Set(items.map((c) => c.unitId).filter(Boolean))] as Types.ObjectId[];
   const unitNames = new Map<string, string>();
   if (unitIds.length > 0) {
@@ -93,7 +134,10 @@ export async function GET(req: Request) {
     units.forEach((u) => unitNames.set(String(u._id), u.name));
   }
 
+  const totalPages = Math.ceil(total / limit);
+
   return NextResponse.json({
     items: items.map((c) => normalizeChamado(c, unitNames)),
+    pagination: { page, limit, total, totalPages },
   });
 }
