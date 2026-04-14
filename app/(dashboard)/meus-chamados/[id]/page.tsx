@@ -7,6 +7,7 @@ import {
   Clock,
   FileText,
   Gavel,
+  Package,
   RefreshCw,
   ShieldCheck,
   Star,
@@ -32,12 +33,14 @@ import { AttachmentGallery } from '@/app/(dashboard)/meus-chamados/[id]/_compone
 import { CancelTicketDialog } from '@/app/(dashboard)/meus-chamados/[id]/_components/CancelTicketDialog';
 import { CommentThread } from '@/app/(dashboard)/meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
+import { MaterialObservationsList } from '@/components/chamado/MaterialObservationsList';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { PageHeader } from '@/components/dashboard/header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { MaterialObservationNormalized } from '@/lib/dto-normalizers';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
@@ -108,6 +111,7 @@ type ChamadoDetailDTO = {
   rejectionReason?: string | null;
   rejectionGuidance?: string | null;
   rejectedAt?: string | null;
+  materialObservations?: MaterialObservationNormalized[];
   createdAt: string;
   updatedAt: string;
   evaluation?: {
@@ -551,6 +555,24 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                     )}
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Material Necessário */}
+          {chamado.materialObservations && chamado.materialObservations.length > 0 && (
+            <Card className="group relative overflow-hidden rounded-2xl border-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/4">
+              <div className="h-[3px] bg-linear-to-r from-amber-500 to-yellow-500 opacity-60 transition-opacity group-hover:opacity-100" />
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 transition-transform group-hover:scale-105 dark:bg-amber-900/30">
+                    <Package className="h-5 w-5 text-amber-600 dark:text-amber-400" aria-hidden />
+                  </div>
+                  <CardTitle>Material Necessário</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <MaterialObservationsList observations={chamado.materialObservations} />
               </CardContent>
             </Card>
           )}

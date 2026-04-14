@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Loader2, User } from 'lucide-react';
+import { Clock, Loader2, Package, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
@@ -108,8 +108,18 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
             {!isLast && <div className="absolute left-[11px] top-6 h-full w-0.5 bg-border" />}
 
             {/* Ícone */}
-            <div className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Clock className="h-3 w-3 text-primary" />
+            <div
+              className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                item.action === 'observacao_material'
+                  ? 'bg-amber-100 dark:bg-amber-900/30'
+                  : 'bg-primary/10'
+              }`}
+            >
+              {item.action === 'observacao_material' ? (
+                <Package className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+              ) : (
+                <Clock className="h-3 w-3 text-primary" />
+              )}
             </div>
 
             {/* Conteúdo */}

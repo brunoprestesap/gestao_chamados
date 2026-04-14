@@ -21,6 +21,7 @@ import { useInstitutionalTimezone } from '@/components/config/expediente-provide
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import type { MaterialObservationNormalized } from '@/lib/dto-normalizers';
 import { cn, formatDateShort, formatDateTime } from '@/lib/utils';
 import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
@@ -129,6 +130,7 @@ export type ChamadoDTO = {
   slaPausedAt?: string | null;
   pauseReason?: string | null;
   pauseDetails?: string | null;
+  materialObservations?: MaterialObservationNormalized[];
   sla?: SlaDTO;
 };
 

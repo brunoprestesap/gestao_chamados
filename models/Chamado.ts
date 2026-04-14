@@ -112,6 +112,15 @@ const ChamadoSchema = new Schema(
     },
     // Rastreabilidade — chamado gerado por agendamento recorrente
     originTemplateId: { type: Schema.Types.ObjectId, ref: 'RecurringTicket', required: false },
+    // Observações de material (técnico registra sem fechar o chamado)
+    materialObservations: [
+      {
+        description: { type: String, required: true, trim: true },
+        createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        createdByName: { type: String, default: '', trim: true },
+        createdAt: { type: Date, required: true, default: Date.now },
+      },
+    ],
     // Execuções do serviço (registro do técnico)
     executions: [
       {
@@ -153,6 +162,14 @@ ChamadoSchema.index({ assignedToUserId: 1, status: 1 });
 ChamadoSchema.index({ status: 1, 'sla.resolutionDueAt': 1 }, { sparse: true });
 ChamadoSchema.index({ 'sla.computedAt': 1 }, { sparse: true });
 
+export type MaterialObservationDoc = {
+  _id?: Types.ObjectId;
+  description: string;
+  createdByUserId: Types.ObjectId;
+  createdByName?: string;
+  createdAt: Date;
+};
+
 export type ExecutionDoc = {
   _id?: Types.ObjectId;
   createdByUserId: Types.ObjectId;
@@ -178,6 +195,7 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   totalPausedMinutes?: number;
   pauseReason?: string;
   pauseDetails?: string;
+  materialObservations?: MaterialObservationDoc[];
   executions?: ExecutionDoc[];
 };
 

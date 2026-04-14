@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 
@@ -78,6 +79,7 @@ function normalizeChamado(
       : null,
     pauseReason: (c.pauseReason as string) ?? null,
     pauseDetails: (c.pauseDetails as string) ?? null,
+    materialObservations: normalizeMaterialObservations(c.materialObservations),
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     sla: normalizeSla(c.sla as Record<string, unknown> | null | undefined),

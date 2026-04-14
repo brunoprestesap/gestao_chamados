@@ -9,6 +9,7 @@ import {
   FileText,
   Loader2,
   MapPin,
+  Package,
   PauseCircle,
   Phone,
   Play,
@@ -17,6 +18,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { MaterialObservationDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/MaterialObservationDialog';
 import { PauseTicketDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseTicketDialog';
 import { RegisterExecutionDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/RegisterExecutionDialog';
 import { ResumeFromRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/ResumeFromRequesterDialog';
@@ -29,11 +31,13 @@ import {
 import { AttachmentGallery } from '@/app/(dashboard)/meus-chamados/[id]/_components/AttachmentGallery';
 import { CommentThread } from '@/app/(dashboard)/meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
+import { MaterialObservationsList } from '@/components/chamado/MaterialObservationsList';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import type { MaterialObservationNormalized } from '@/lib/dto-normalizers';
 import { cn, formatDate } from '@/lib/utils';
 
 export type ChamadoAtribuidoDetailDTO = {
@@ -57,6 +61,7 @@ export type ChamadoAtribuidoDetailDTO = {
   slaPausedAt: string | null;
   pauseReason: string | null;
   pauseDetails: string | null;
+  materialObservations: MaterialObservationNormalized[];
   executions: Array<{
     _id: string | null;
     createdByUserId: string | null;
@@ -83,6 +88,7 @@ export default function ChamadoAtribuidoDetailPage({
   const [chamadoId, setChamadoId] = useState<string | null>(null);
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
+  const [materialObsDialogOpen, setMaterialObsDialogOpen] = useState(false);
   const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -141,6 +147,7 @@ export default function ChamadoAtribuidoDetailPage({
   async function onActionSuccess() {
     if (chamadoId) await fetchChamado(chamadoId);
     setExecutionDialogOpen(false);
+    setMaterialObsDialogOpen(false);
     setPauseDialogOpen(false);
     setResumeDialogOpen(false);
     setHistoryRefreshTrigger((prev) => prev + 1);
@@ -200,6 +207,16 @@ export default function ChamadoAtribuidoDetailPage({
         >
           <Wrench className="h-4 w-4" />
           Registrar Execução
+        </Button>
+      )}
+      {canRegisterExecution && (
+        <Button
+          onClick={() => setMaterialObsDialogOpen(true)}
+          variant="outline"
+          className="w-full justify-center gap-2 rounded-xl border-blue-300 text-blue-700 font-semibold transition-all hover:bg-blue-50 hover:text-blue-800 dark:border-blue-700/50 dark:text-blue-400 dark:hover:bg-blue-950/30 hover:-translate-y-0.5 h-11"
+        >
+          <Package className="h-4 w-4" />
+          Observação de Material
         </Button>
       )}
       {canPause && (
@@ -353,6 +370,22 @@ export default function ChamadoAtribuidoDetailPage({
             </CardContent>
           </Card>
 
+          {/* Material Necessário */}
+          {chamado.materialObservations && chamado.materialObservations.length > 0 && (
+            <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-yellow-500 opacity-80" />
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-bold tracking-tight">
+                  <Package className="h-5 w-5 text-amber-600" />
+                  Material Necessário
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MaterialObservationsList observations={chamado.materialObservations} />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Histórico */}
           <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-sky-500 opacity-80" />
@@ -418,6 +451,15 @@ export default function ChamadoAtribuidoDetailPage({
         chamado={chamado}
         onSuccess={onActionSuccess}
       />
+
+      {chamadoId && (
+        <MaterialObservationDialog
+          open={materialObsDialogOpen}
+          onOpenChange={setMaterialObsDialogOpen}
+          ticketId={chamadoId}
+          onSuccess={onActionSuccess}
+        />
+      )}
 
       {chamadoId && (
         <PauseTicketDialog

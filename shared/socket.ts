@@ -115,6 +115,16 @@ export interface SlaBreachPayload {
   at: string;
 }
 
+/** Payload quando técnico registra observação de material necessário. */
+export interface TicketMaterialObservationPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  observedBy: { id: string; name?: string };
+  observation: string;
+  at: string;
+}
+
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
   'ticket:new': (payload: TicketNewPayload) => void;
@@ -125,6 +135,7 @@ export interface ServerToClientEvents {
   'ticket:paused': (payload: TicketPausedPayload) => void;
   'ticket:resumed': (payload: TicketResumedPayload) => void;
   'ticket:rejected': (payload: TicketRejectedPayload) => void;
+  'ticket:material_observation': (payload: TicketMaterialObservationPayload) => void;
   'sla:warning': (payload: SlaWarningPayload) => void;
   'sla:breach': (payload: SlaBreachPayload) => void;
 }

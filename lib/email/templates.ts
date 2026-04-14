@@ -37,6 +37,8 @@ const SUBJECT_MAP: Record<string, (p: TemplatePayload) => string> = {
     `Novo coment\u00e1rio no chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''}`,
   'ticket:attachment_added': (p) =>
     `Novo anexo no chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''}`,
+  'ticket:material_observation': (p) =>
+    `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} — material necessário`,
   'ticket:paused': (p) => `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} pausado`,
   'ticket:resumed': (p) =>
     `Atendimento retomado no chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''}`,
@@ -61,6 +63,8 @@ const BODY_MAP: Record<string, (p: TemplatePayload) => string> = {
     `Um novo coment\u00e1rio foi adicionado ao chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''}.`,
   'ticket:attachment_added': (p) =>
     `Um novo anexo foi adicionado ao chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''}.`,
+  'ticket:material_observation': (p) =>
+    `O técnico registrou uma observação de material necessário no chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''}. O chamado continua em atendimento.`,
   'ticket:paused': (p) =>
     `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi pausado.`,
   'ticket:resumed': (p) =>

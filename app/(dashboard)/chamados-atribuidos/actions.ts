@@ -18,6 +18,10 @@ import {
   RegisterExecutionSchema,
 } from '@/shared/chamados/execution.schemas';
 import {
+  type MaterialObservationInput,
+  MaterialObservationSchema,
+} from '@/shared/chamados/material-observation.schemas';
+import {
   type PauseForRequesterInput,
   PauseForRequesterSchema,
   type PauseTicketInput,
@@ -522,6 +526,155 @@ export async function resumeTicketAction(raw: ResumeTicketInput): Promise<Action
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao retomar chamado. Tente novamente.',
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// addMaterialObservationAction
+// ---------------------------------------------------------------------------
+
+export async function addMaterialObservationAction(
+  raw: MaterialObservationInput,
+): Promise<ActionResult> {
+  try {
+    const session = await requireSession();
+    if (!isTechnician(session.role) && !canManage(session.role)) {
+      return { ok: false, error: 'Acesso negado.' };
+    }
+    const parsed = MaterialObservationSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg =
+        first.description?.[0] ?? first.ticketId?.[0] ?? 'Dados inválidos.';
+      return { ok: false, error: msg };
+    }
+
+    const { ticketId, description } = parsed.data;
+    await dbConnect();
+
+    const doc = await ChamadoModel.findById(ticketId);
+    if (!doc) return { ok: false, error: 'Chamado não encontrado.' };
+
+    if (isTechnician(session.role)) {
+      const assignedTo = doc.assignedToUserId;
+      if (!assignedTo || String(assignedTo) !== session.userId) {
+        return { ok: false, error: 'Você não está atribuído a este chamado.' };
+      }
+    }
+
+    if (doc.status !== 'em atendimento') {
+      return {
+        ok: false,
+        error: 'Somente chamados em atendimento podem receber observação de material.',
+      };
+    }
+
+    const now = new Date();
+    const userId = new Types.ObjectId(session.userId);
+    const actionUser = await UserModel.findById(session.userId).select('name').lean();
+    const userName = actionUser?.name ?? '';
+
+    const atomicFilter = canManage(session.role)
+      ? { _id: ticketId, status: 'em atendimento' }
+      : { _id: ticketId, status: 'em atendimento', assignedToUserId: userId };
+
+    const updateResult = await ChamadoModel.updateOne(atomicFilter, {
+      $push: {
+        materialObservations: {
+          description,
+          createdByUserId: userId,
+          createdByName: userName,
+          createdAt: now,
+        },
+      },
+    });
+
+    if (updateResult.matchedCount === 0) {
+      return {
+        ok: false,
+        error: 'Chamado não encontrado ou status alterado. Atualize a página.',
+      };
+    }
+
+    await ChamadoHistoryModel.create({
+      chamadoId: doc._id,
+      userId,
+      action: 'observacao_material',
+      statusAnterior: 'em atendimento',
+      statusNovo: 'em atendimento',
+      observacoes: `Material necessário: ${description.slice(0, 200)}${description.length > 200 ? '…' : ''}`,
+    });
+    const notifPayload = {
+      ticketId: String(ticketId),
+      ticketNumber: doc.ticket_number,
+      title: doc.titulo,
+      observedBy: { id: session.userId, name: userName || undefined },
+      observation: description.slice(0, 200),
+      at: now.toISOString(),
+    };
+    const notifTitle = doc.ticket_number
+      ? `Material necessário no chamado #${doc.ticket_number}`
+      : 'Material necessário no chamado';
+
+    // Notifica solicitante
+    await NotificationModel.create({
+      userId: doc.solicitanteId,
+      type: 'ticket:material_observation',
+      title: notifTitle,
+      body: description.slice(0, 200),
+      data: notifPayload,
+      readAt: null,
+    });
+    sendNotificationEmail(
+      String(doc.solicitanteId),
+      'ticket:material_observation',
+      notifPayload,
+    ).catch(() => {});
+    await emitToRoom(
+      `user:${String(doc.solicitanteId)}`,
+      'ticket:material_observation',
+      notifPayload,
+    );
+
+    // Notifica managers
+    const managers = await UserModel.find({
+      role: { $in: ['Preposto', 'Admin'] },
+      isActive: true,
+    })
+      .select('_id')
+      .lean();
+    if (managers.length > 0) {
+      await NotificationModel.insertMany(
+        managers.map((m) => ({
+          userId: m._id,
+          type: 'ticket:material_observation',
+          title: notifTitle,
+          body: description.slice(0, 200),
+          data: notifPayload,
+          readAt: null,
+        })),
+      );
+      for (const m of managers) {
+        sendNotificationEmail(
+          String(m._id),
+          'ticket:material_observation',
+          notifPayload,
+        ).catch(() => {});
+      }
+    }
+    await emitToRoom('managers', 'ticket:material_observation', notifPayload);
+
+    revalidateTicketPaths(String(ticketId));
+    return { ok: true };
+  } catch (e) {
+    console.error('addMaterialObservationAction:', e);
+    return {
+      ok: false,
+      error:
+        e instanceof Error
+          ? e.message
+          : 'Erro ao registrar observação de material. Tente novamente.',
     };
   }
 }

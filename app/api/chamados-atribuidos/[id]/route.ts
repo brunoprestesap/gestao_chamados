@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
 import { ChamadoModel } from '@/models/Chamado';
 
 function normalizeExecution(e: {
@@ -65,6 +66,7 @@ function normalizeChamado(
     slaPausedAt: c.slaPausedAt ? new Date(c.slaPausedAt as string | number | Date).toISOString() : null,
     pauseReason: (c.pauseReason as string) ?? null,
     pauseDetails: (c.pauseDetails as string) ?? null,
+    materialObservations: normalizeMaterialObservations(c.materialObservations),
     executions: Array.isArray(c.executions) ? c.executions.map(normalizeExecution) : [],
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,

@@ -114,7 +114,10 @@
       "Bash(curl -s \"http://localhost:3000/api/catalog/subtypes\")",
       "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\(json.dumps\\(d,indent=2\\)\\)\")",
       "Bash(curl -s \"http://localhost:3000/api/catalog/types\")",
-      "Bash(curl -s \"http://localhost:3000/api/catalog/subtypes?typeId=696a89494c1561fc2d0e377f\")"
+      "Bash(curl -s \"http://localhost:3000/api/catalog/subtypes?typeId=696a89494c1561fc2d0e377f\")",
+      "Bash(ls -la /c/Users/ap20256.JFAP/Desktop/projetos/severino/app/'\\(dashboard\\)'/meus-chamados/[id]/_components/)",
+      "Bash(cd \"c:\\\\\\\\Users\\\\\\\\ap20256.JFAP\\\\\\\\Desktop\\\\\\\\projetos\\\\\\\\severino\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/login)"
     ]
   }
 }

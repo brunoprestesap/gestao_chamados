@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
 import { ChamadoModel } from '@/models/Chamado';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
@@ -93,6 +94,7 @@ function normalizeChamado(
     closedAt: (c.closedAt as Date | null | undefined) ?? null,
     closedByUserId: c.closedByUserId ? String(c.closedByUserId) : null,
     closureNotes: (c.closureNotes as string | null | undefined) ?? null,
+    materialObservations: normalizeMaterialObservations(c.materialObservations),
     evaluation,
     sla: slaNormalized,
   };

@@ -8,6 +8,7 @@ import {
   Clock,
   FileText,
   MapPin,
+  Package,
   PauseCircle,
   Phone,
   Play,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { MaterialObservationsList } from '@/components/chamado/MaterialObservationsList';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -385,6 +387,30 @@ export function ChamadoDetailSheet({
                 )}
               </div>
             </section>
+
+            {/* Material Necessário */}
+            {chamado.materialObservations && chamado.materialObservations.length > 0 && (
+              <>
+                <Separator className="opacity-60" />
+                <section aria-labelledby="material-heading">
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/40">
+                      <Package
+                        className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <h2
+                      id="material-heading"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      Material Necessário
+                    </h2>
+                  </div>
+                  <MaterialObservationsList observations={chamado.materialObservations} />
+                </section>
+              </>
+            )}
 
           </div>
         </ScrollArea>
