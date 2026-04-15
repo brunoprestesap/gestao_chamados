@@ -285,7 +285,7 @@ function ActionButtons({
   const iconClass = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
   return (
-    <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+    <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
       {visible.map((def) => {
         const Icon = def.icon;
         return (
@@ -321,28 +321,28 @@ function TableSkeleton() {
     <>
       {Array.from({ length: 6 }).map((_, i) => (
         <TableRow key={i} className="animate-pulse">
-          <TableCell className="py-4">
+          <TableCell className="px-4 py-4">
             <Skeleton className="h-4 w-16 rounded-md" />
           </TableCell>
-          <TableCell>
+          <TableCell className="px-4">
             <div className="space-y-1.5">
               <Skeleton className="h-4 w-48 rounded-md" />
               <Skeleton className="h-3 w-32 rounded-md" />
             </div>
           </TableCell>
-          <TableCell>
+          <TableCell className="px-4">
             <Skeleton className="h-5 w-24 rounded-full" />
           </TableCell>
-          <TableCell>
+          <TableCell className="px-4">
             <Skeleton className="h-5 w-16 rounded-full" />
           </TableCell>
-          <TableCell>
+          <TableCell className="px-4">
             <Skeleton className="h-4 w-28 rounded-md" />
           </TableCell>
-          <TableCell>
+          <TableCell className="px-4">
             <Skeleton className="h-4 w-16 rounded-md" />
           </TableCell>
-          <TableCell className="text-right">
+          <TableCell className="px-4 text-right">
             <div className="flex justify-end gap-1">
               <Skeleton className="h-8 w-8 rounded-lg" />
               <Skeleton className="h-8 w-8 rounded-lg" />
@@ -731,30 +731,40 @@ export default function GestaoPage() {
         {/* Accent stripe */}
         <div className="absolute inset-x-0 top-0 h-[3px] bg-linear-to-r from-transparent via-indigo-500/50 to-transparent" />
 
-        <div className="overflow-x-auto">
-          {/* Column headers */}
-          <div className="min-w-[920px] border-b border-border/50 bg-muted/40 px-5 py-3">
-            <div className="grid grid-cols-12 gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <div className="col-span-1">N&ordm;</div>
-              <div className="col-span-3">Título</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-1">Prioridade</div>
-              <div className="col-span-2">Serviço</div>
-              <div className="col-span-1">Data</div>
-              <div className="col-span-2 text-right">Ações</div>
-            </div>
-          </div>
-
-          <Table className="min-w-[920px]">
-            <TableHeader className="sr-only">
-              <TableRow>
-                <TableHead>Número</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Prioridade</TableHead>
-                <TableHead>Serviço</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+        <div>
+          <Table className="min-w-[920px] table-fixed">
+            <colgroup>
+              <col className="w-[8%]" />
+              <col className="w-[25%]" />
+              <col className="w-[16%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
+              <col className="w-[9%]" />
+              <col className="w-[14%]" />
+            </colgroup>
+            <TableHeader>
+              <TableRow className="border-border/50 bg-muted/40 hover:bg-muted/40">
+                <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  N&ordm;
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Título
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Status
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Prioridade
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Serviço
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Data
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Ações
+                </TableHead>
               </TableRow>
             </TableHeader>
 
@@ -778,31 +788,31 @@ export default function GestaoPage() {
                     className="group cursor-pointer border-border/40 transition-colors duration-150 hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20"
                     onClick={() => handleCardClick(row)}
                   >
-                    <TableCell className="py-3.5 font-mono text-xs font-medium text-muted-foreground">
+                    <TableCell className="px-4 py-3.5 font-mono text-xs font-medium text-muted-foreground">
                       {row.ticket_number}
                     </TableCell>
-                    <TableCell className="py-3.5">
+                    <TableCell className="px-4 py-3.5">
                       <span className="line-clamp-1 font-medium text-foreground transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
                         {row.titulo}
                       </span>
                     </TableCell>
-                    <TableCell className="py-3.5">
+                    <TableCell className="px-4 py-3.5">
                       <StatusBadge status={row.status} />
                     </TableCell>
-                    <TableCell className="py-3.5">
+                    <TableCell className="px-4 py-3.5">
                       <PriorityBadge priority={row.finalPriority} />
                     </TableCell>
-                    <TableCell className="py-3.5">
+                    <TableCell className="px-4 py-3.5">
                       <span className="line-clamp-1 text-sm text-muted-foreground">
                         {row.tipoServico || '—'}
                       </span>
                     </TableCell>
-                    <TableCell className="py-3.5">
+                    <TableCell className="px-4 py-3.5">
                       <span className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">
                         {formatDateShort(row.createdAt)}
                       </span>
                     </TableCell>
-                    <TableCell className="py-3.5 text-right">
+                    <TableCell className="px-4 py-3.5 text-right">
                       <ActionButtons chamado={row} handlers={actionHandlers} size="sm" />
                     </TableCell>
                   </TableRow>
