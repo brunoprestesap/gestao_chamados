@@ -46,51 +46,53 @@ describe('constants', () => {
 // ── ClassificarChamadoSchema ─────────────────────────────────────
 
 describe('ClassificarChamadoSchema', () => {
+  const baseInput = {
+    chamadoId: VALID_ID,
+    naturezaAtendimento: 'Padrão' as const,
+    finalPriority: 'NORMAL' as const,
+    subtypeId: VALID_ID,
+    catalogServiceId: VALID_ID,
+  };
+
   it('aceita input válido', () => {
-    const result = ClassificarChamadoSchema.safeParse({
-      chamadoId: VALID_ID,
-      naturezaAtendimento: 'Padrão',
-      finalPriority: 'NORMAL',
-    });
+    const result = ClassificarChamadoSchema.safeParse(baseInput);
     expect(result.success).toBe(true);
   });
 
   it('rejeita chamadoId inválido', () => {
-    const result = ClassificarChamadoSchema.safeParse({
-      chamadoId: 'xyz',
-      naturezaAtendimento: 'Padrão',
-      finalPriority: 'NORMAL',
-    });
+    const result = ClassificarChamadoSchema.safeParse({ ...baseInput, chamadoId: 'xyz' });
     expect(result.success).toBe(false);
   });
 
   it('rejeita prioridade inválida', () => {
-    const result = ClassificarChamadoSchema.safeParse({
-      chamadoId: VALID_ID,
-      naturezaAtendimento: 'Padrão',
-      finalPriority: 'INEXISTENTE',
-    });
+    const result = ClassificarChamadoSchema.safeParse({ ...baseInput, finalPriority: 'INEXISTENTE' });
     expect(result.success).toBe(false);
   });
 
   it('rejeita natureza inválida', () => {
-    const result = ClassificarChamadoSchema.safeParse({
-      chamadoId: VALID_ID,
-      naturezaAtendimento: 'Inventada',
-      finalPriority: 'NORMAL',
-    });
+    const result = ClassificarChamadoSchema.safeParse({ ...baseInput, naturezaAtendimento: 'Inventada' });
     expect(result.success).toBe(false);
   });
 
   it('faz trim no classificationNotes', () => {
     const result = ClassificarChamadoSchema.safeParse({
-      chamadoId: VALID_ID,
+      ...baseInput,
       naturezaAtendimento: 'Urgente',
       finalPriority: 'ALTA',
       classificationNotes: '  notas  ',
     });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.classificationNotes).toBe('notas');
+  });
+
+  it('rejeita subtypeId ausente', () => {
+    const { subtypeId: _, ...input } = baseInput;
+    expect(ClassificarChamadoSchema.safeParse(input).success).toBe(false);
+  });
+
+  it('rejeita catalogServiceId ausente', () => {
+    const { catalogServiceId: _, ...input } = baseInput;
+    expect(ClassificarChamadoSchema.safeParse(input).success).toBe(false);
   });
 });
 
@@ -104,6 +106,8 @@ describe('NewTicketFormSchema', () => {
     descricao: 'Lâmpada queimada',
     naturezaAtendimento: 'Padrão' as const,
     grauUrgencia: 'Normal' as const,
+    subtypeId: VALID_ID,
+    catalogServiceId: VALID_ID,
   };
 
   it('aceita input válido', () => {
@@ -259,12 +263,15 @@ describe('CloseTicketSchema', () => {
 // ── ChamadoCreateSchema ──────────────────────────────────────────
 
 describe('ChamadoCreateSchema', () => {
+  const VALID_ID_2 = 'b'.repeat(24);
   const validInput = {
     descricao: 'Problema com ar-condicionado',
     unitId: VALID_ID,
     localExato: 'Sala 205',
     tipoServico: 'Ar-Condicionado' as const,
     naturezaAtendimento: 'Padrão' as const,
+    subtypeId: VALID_ID,
+    catalogServiceId: VALID_ID_2,
   };
 
   it('aceita input válido', () => {
@@ -286,9 +293,13 @@ describe('ChamadoCreateSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('subtypeId vazio vira undefined', () => {
+  it('subtypeId vazio é rejeitado', () => {
     const result = ChamadoCreateSchema.safeParse({ ...validInput, subtypeId: '' });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.subtypeId).toBeUndefined();
+    expect(result.success).toBe(false);
+  });
+
+  it('catalogServiceId vazio é rejeitado', () => {
+    const result = ChamadoCreateSchema.safeParse({ ...validInput, catalogServiceId: '' });
+    expect(result.success).toBe(false);
   });
 });

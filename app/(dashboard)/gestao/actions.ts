@@ -25,6 +25,8 @@ import {
   AssignTicketSchema,
   type ReassignTicketInput,
   ReassignTicketSchema,
+  type UpdateTicketCatalogInput,
+  UpdateTicketCatalogSchema,
 } from '@/shared/chamados/assignment.schemas';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import {
@@ -35,6 +37,7 @@ import { type CloseTicketInput, CloseTicketSchema } from '@/shared/chamados/clos
 import { type RejectTicketInput, RejectTicketSchema } from '@/shared/chamados/rejection.schemas';
 
 export type ClassificarResult = { ok: true } | { ok: false; error: string };
+export type UpdateTicketCatalogResult = { ok: true } | { ok: false; error: string };
 export type CloseTicketResult = { ok: true } | { ok: false; error: string };
 export type RejectTicketResult = { ok: true } | { ok: false; error: string };
 export type AssignTicketResult =
@@ -164,6 +167,63 @@ export async function classificarChamadoAction(
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao classificar chamado. Tente novamente.',
+    };
+  }
+}
+
+/**
+ * Atualiza subtypeId e catalogServiceId de um chamado validado que não os possui.
+ * Permite desbloquear a atribuição de chamados legados.
+ */
+export async function updateTicketCatalogAction(
+  raw: UpdateTicketCatalogInput,
+): Promise<UpdateTicketCatalogResult> {
+  try {
+    const session = await requireManager();
+    const parsed = UpdateTicketCatalogSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
+      return { ok: false, error: first ?? 'Dados inválidos. Verifique os campos.' };
+    }
+
+    const { ticketId, subtypeId, catalogServiceId } = parsed.data;
+    await dbConnect();
+
+    const doc = await ChamadoModel.findById(ticketId);
+    if (!doc) return { ok: false, error: 'Chamado não encontrado.' };
+
+    if (doc.status !== 'validado') {
+      return { ok: false, error: 'Somente chamados com status "validado" podem ser atualizados.' };
+    }
+
+    if (doc.catalogServiceId) {
+      return { ok: false, error: 'Chamado já possui serviço catalogado.' };
+    }
+
+    await ChamadoModel.updateOne(
+      { _id: ticketId },
+      {
+        $set: {
+          subtypeId: new Types.ObjectId(subtypeId),
+          catalogServiceId: new Types.ObjectId(catalogServiceId),
+        },
+      },
+    );
+
+    await ChamadoHistoryModel.create({
+      chamadoId: ticketId,
+      userId: new Types.ObjectId(session.userId),
+      action: 'catalogo_atualizado',
+      observacoes: 'Serviço catalogado definido para permitir atribuição.',
+    });
+
+    revalidatePath('/gestao');
+    return { ok: true };
+  } catch (e) {
+    console.error('updateTicketCatalogAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao atualizar catálogo. Tente novamente.',
     };
   }
 }

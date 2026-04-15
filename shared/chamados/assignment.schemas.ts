@@ -27,3 +27,11 @@ export const EligibleTechnicianSchema = z.object({
 });
 
 export type EligibleTechnician = z.infer<typeof EligibleTechnicianSchema>;
+
+export const UpdateTicketCatalogSchema = z.object({
+  ticketId: objectId,
+  subtypeId: objectId,
+  catalogServiceId: objectId,
+});
+
+export type UpdateTicketCatalogInput = z.infer<typeof UpdateTicketCatalogSchema>;

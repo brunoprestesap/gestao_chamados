@@ -21,6 +21,8 @@ function validBase() {
     tipoServico: 'Ar-Condicionado' as const,
     naturezaAtendimento: 'Padrão' as const,
     grauUrgencia: 'Normal' as const,
+    subtypeId: VALID_OBJECT_ID,
+    catalogServiceId: VALID_OBJECT_ID_2,
     solicitanteId: VALID_OBJECT_ID_2,
     recurrenceType: 'weekly' as const,
     dayOfWeek: 1,
@@ -120,31 +122,30 @@ describe('CreateRecurringTicketSchema — campos básicos', () => {
     if (result.success) expect(result.data.grauUrgencia).toBe('Normal');
   });
 
-  it('should accept optional subtypeId as valid ObjectId', () => {
-    const result = CreateRecurringTicketSchema.safeParse({
-      ...validBase(),
-      subtypeId: VALID_OBJECT_ID,
-    });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.subtypeId).toBe(VALID_OBJECT_ID);
-  });
-
-  it('should reject subtypeId with invalid ObjectId and set it to undefined', () => {
+  it('should reject invalid subtypeId', () => {
     const result = CreateRecurringTicketSchema.safeParse({
       ...validBase(),
       subtypeId: 'invalid-id',
     });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.subtypeId).toBeUndefined();
+    expect(result.success).toBe(false);
   });
 
-  it('should accept optional catalogServiceId as valid ObjectId', () => {
+  it('should reject missing subtypeId', () => {
+    const { subtypeId: _, ...input } = validBase();
+    expect(CreateRecurringTicketSchema.safeParse(input).success).toBe(false);
+  });
+
+  it('should reject invalid catalogServiceId', () => {
     const result = CreateRecurringTicketSchema.safeParse({
       ...validBase(),
-      catalogServiceId: VALID_OBJECT_ID,
+      catalogServiceId: 'invalid-id',
     });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.catalogServiceId).toBe(VALID_OBJECT_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it('should reject missing catalogServiceId', () => {
+    const { catalogServiceId: _, ...input } = validBase();
+    expect(CreateRecurringTicketSchema.safeParse(input).success).toBe(false);
   });
 });
 
