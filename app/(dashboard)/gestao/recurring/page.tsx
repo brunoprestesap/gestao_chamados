@@ -24,8 +24,8 @@ type RecurringItem = {
   isActive: boolean;
   unitId: string;
   solicitanteId: string;
-  subtypeId?: string;
-  catalogServiceId?: string;
+  subtypeId: string;
+  catalogServiceId: string;
 };
 
 export default async function RecurringTicketsPage() {
@@ -54,8 +54,8 @@ export default async function RecurringTicketsPage() {
     isActive: d.isActive ?? true,
     unitId: d.unitId ? String(d.unitId) : '',
     solicitanteId: d.solicitanteId ? String(d.solicitanteId) : '',
-    subtypeId: d.subtypeId ? String(d.subtypeId) : undefined,
-    catalogServiceId: d.catalogServiceId ? String(d.catalogServiceId) : undefined,
+    subtypeId: String(d.subtypeId),
+    catalogServiceId: String(d.catalogServiceId),
   }));
 
   return <RecurringTicketsClient items={items} />;

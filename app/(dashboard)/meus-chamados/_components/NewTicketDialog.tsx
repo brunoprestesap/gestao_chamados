@@ -15,8 +15,6 @@ import {
   FORM_ITEM_MIN_CLASS,
   GRAU_SELECT_TRIGGER_CLASS,
   NATUREZA_DESCRIPTIONS,
-  optionalSelectOnChange,
-  optionalSelectValue,
   SELECT_TRIGGER_FULL_CLASS,
 } from '@/app/(dashboard)/meus-chamados/_components/new-ticket.utils';
 import { SaveAsTemplateDialog } from '@/app/(dashboard)/meus-chamados/_components/SaveAsTemplateDialog';
@@ -330,8 +328,8 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
       naturezaAtendimento: values.naturezaAtendimento,
       grauUrgencia: values.grauUrgencia ?? 'Normal',
       telefoneContato: values.telefoneContato?.trim() || undefined,
-      subtypeId: values.subtypeId?.trim() || undefined,
-      catalogServiceId: values.catalogServiceId?.trim() || undefined,
+      subtypeId: values.subtypeId,
+      catalogServiceId: values.catalogServiceId,
     };
     const result = await createTicketAction(payload);
     if (!result.ok) {
@@ -491,10 +489,10 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                   name="subtypeId"
                   render={({ field }) => (
                     <FormItem className={FORM_ITEM_MIN_CLASS}>
-                      <FormLabel>Subtipo</FormLabel>
+                      <FormLabel>Subtipo *</FormLabel>
                       <Select
-                        value={optionalSelectValue(field.value ?? '')}
-                        onValueChange={optionalSelectOnChange(field.onChange)}
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
                       >
                         <FormControl>
                           <SelectTrigger className={SELECT_TRIGGER_FULL_CLASS}>
@@ -502,7 +500,6 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">Selecione o subtipo</SelectItem>
                           {subtypes.map((s) => (
                             <SelectItem key={s.id} value={s.id}>
                               {s.name}
@@ -520,20 +517,17 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                   name="catalogServiceId"
                   render={({ field }) => (
                     <FormItem className={FORM_ITEM_MIN_CLASS}>
-                      <FormLabel>Serviço (Opcional — do Catálogo)</FormLabel>
+                      <FormLabel>Serviço *</FormLabel>
                       <Select
-                        value={optionalSelectValue(field.value ?? '')}
-                        onValueChange={optionalSelectOnChange(field.onChange)}
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
                       >
                         <FormControl>
                           <SelectTrigger className={SELECT_TRIGGER_FULL_CLASS}>
-                            <SelectValue placeholder="Catálogo ou descreva abaixo" />
+                            <SelectValue placeholder="Selecione o serviço" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">
-                            Selecione um serviço do catálogo ou descreva abaixo
-                          </SelectItem>
                           {catalogServices.map((s) => (
                             <SelectItem key={s.id} value={s.id}>
                               {s.code ? `${s.code} — ${s.name}` : s.name}

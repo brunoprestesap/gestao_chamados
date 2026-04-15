@@ -95,8 +95,8 @@ function makeTemplate(overrides: Partial<Record<string, unknown>> = {}) {
     dayOfWeek: 1,
     dayOfMonth: null,
     intervalDays: null,
-    subtypeId: null,
-    catalogServiceId: null,
+    subtypeId: UNIT_ID,
+    catalogServiceId: UNIT_ID,
     createdByUserId: CREATED_BY_ID,
     nextRunAt: new Date('2024-03-18T11:00:00Z'),
     isActive: true,
@@ -333,7 +333,7 @@ describe('processRecurringTickets — sem managers', () => {
 });
 
 describe('processRecurringTickets — template com subtypeId e catalogServiceId', () => {
-  it('should set subtypeId and catalogServiceId as ObjectId when present', async () => {
+  it('should set subtypeId and catalogServiceId as ObjectId', async () => {
     const subtypeId = '9'.repeat(24);
     const catalogServiceId = '8'.repeat(24);
     vi.mocked(RecurringTicketModel.find).mockReturnValue(
@@ -347,18 +347,6 @@ describe('processRecurringTickets — template com subtypeId e catalogServiceId'
     expect(arg.catalogServiceId).toBeDefined();
     expect(String(arg.subtypeId)).toBe(subtypeId);
     expect(String(arg.catalogServiceId)).toBe(catalogServiceId);
-  });
-
-  it('should leave subtypeId and catalogServiceId undefined when null in template', async () => {
-    vi.mocked(RecurringTicketModel.find).mockReturnValue(
-      withLean([makeTemplate({ subtypeId: null, catalogServiceId: null })]) as never,
-    );
-
-    await processRecurringTickets();
-
-    const [arg] = vi.mocked(ChamadoModel.create).mock.calls[0];
-    expect(arg.subtypeId).toBeUndefined();
-    expect(arg.catalogServiceId).toBeUndefined();
   });
 });
 

@@ -24,7 +24,7 @@ import {
   type SubmitEvaluationInput,
   SubmitEvaluationSchema,
 } from '@/shared/chamados/evaluation.schemas';
-import type { NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
+import { NewTicketFormSchema, type NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
 
 /**
  * Gera um título automático para o chamado baseado nos dados do formulário.
@@ -44,9 +44,16 @@ function generateTitulo(data: NewTicketFormValues): string {
  * Persiste um novo chamado no banco de dados.
  */
 export async function createTicketAction(
-  data: NewTicketFormValues,
+  raw: NewTicketFormValues,
 ): Promise<{ ok: true; ticketId: string } | { ok: false; error: string }> {
   try {
+    const parsed = NewTicketFormSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
+      return { ok: false, error: first ?? 'Dados inválidos. Verifique os campos.' };
+    }
+    const data = parsed.data;
+
     const session = await requireSession();
     await dbConnect();
 
@@ -72,14 +79,8 @@ export async function createTicketAction(
       requestedAttendanceNature: toAttendanceNature(data.naturezaAtendimento),
       grauUrgencia: data.grauUrgencia,
       telefoneContato: data.telefoneContato ?? '',
-      subtypeId:
-        data.subtypeId && data.subtypeId.trim() !== ''
-          ? new Types.ObjectId(data.subtypeId)
-          : undefined,
-      catalogServiceId:
-        data.catalogServiceId && data.catalogServiceId.trim() !== ''
-          ? new Types.ObjectId(data.catalogServiceId)
-          : undefined,
+      subtypeId: new Types.ObjectId(data.subtypeId),
+      catalogServiceId: new Types.ObjectId(data.catalogServiceId),
       status: 'aberto' as const,
       solicitanteId: new Types.ObjectId(session.userId),
     };

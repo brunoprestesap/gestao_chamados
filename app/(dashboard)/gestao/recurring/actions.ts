@@ -57,10 +57,8 @@ export async function createRecurringTemplateAction(
       tipoServico: data.tipoServico,
       naturezaAtendimento: data.naturezaAtendimento,
       grauUrgencia: data.grauUrgencia,
-      subtypeId: data.subtypeId ? new Types.ObjectId(data.subtypeId) : undefined,
-      catalogServiceId: data.catalogServiceId
-        ? new Types.ObjectId(data.catalogServiceId)
-        : undefined,
+      subtypeId: new Types.ObjectId(data.subtypeId),
+      catalogServiceId: new Types.ObjectId(data.catalogServiceId),
       solicitanteId: new Types.ObjectId(data.solicitanteId),
       recurrenceType: data.recurrenceType,
       dayOfWeek: data.dayOfWeek,

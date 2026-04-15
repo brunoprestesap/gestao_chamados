@@ -54,8 +54,8 @@ export type RecurringItem = {
   isActive: boolean;
   unitId: string;
   solicitanteId: string;
-  subtypeId?: string;
-  catalogServiceId?: string;
+  subtypeId: string;
+  catalogServiceId: string;
 };
 
 function formatRecurrence(item: RecurringItem): string {

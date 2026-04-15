@@ -35,16 +35,8 @@ export const ChamadoCreateSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ?? '').trim() || undefined),
-  subtypeId: z
-    .string()
-    .optional()
-    .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined))
-    .refine((v) => v === undefined || /^[a-f\d]{24}$/i.test(v), 'ID inválido'),
-  catalogServiceId: z
-    .string()
-    .optional()
-    .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined))
-    .refine((v) => v === undefined || /^[a-f\d]{24}$/i.test(v), 'ID inválido'),
+  subtypeId: objectId.min(1, 'Selecione o subtipo de serviço'),
+  catalogServiceId: objectId.min(1, 'Selecione o serviço do catálogo'),
 });
 
 export const ChamadoListQuerySchema = z.object({
@@ -72,6 +64,8 @@ export const ClassificarChamadoSchema = z.object({
     .optional()
     .default('')
     .transform((v) => (v ?? '').trim()),
+  subtypeId: objectId.min(1, 'Selecione o subtipo de serviço'),
+  catalogServiceId: objectId.min(1, 'Selecione o serviço do catálogo'),
 });
 
 export type ClassificarChamadoInput = z.infer<typeof ClassificarChamadoSchema>;

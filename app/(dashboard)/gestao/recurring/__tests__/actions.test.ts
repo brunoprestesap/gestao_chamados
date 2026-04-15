@@ -66,6 +66,8 @@ function validCreateInput() {
     tipoServico: 'Ar-Condicionado' as const,
     naturezaAtendimento: 'Padrão' as const,
     grauUrgencia: 'Normal' as const,
+    subtypeId: VALID_OID,
+    catalogServiceId: VALID_OID_2,
     solicitanteId: VALID_OID_2,
     recurrenceType: 'weekly' as const,
     dayOfWeek: 1,
@@ -575,17 +577,13 @@ describe('updateRecurringTemplateAction — erro de banco', () => {
 
 // ── createRecurringTemplateAction — com subtypeId e catalogServiceId ──
 
-describe('createRecurringTemplateAction — com campos opcionais', () => {
+describe('createRecurringTemplateAction — subtypeId e catalogServiceId obrigatórios', () => {
   beforeEach(() => {
     vi.mocked(RecurringTicketModel.create).mockResolvedValue({ _id: VALID_OID } as never);
   });
 
-  it('should set subtypeId and catalogServiceId as ObjectId when provided', async () => {
-    const result = await createRecurringTemplateAction({
-      ...validCreateInput(),
-      subtypeId: VALID_OID,
-      catalogServiceId: VALID_OID_2,
-    });
+  it('should set subtypeId and catalogServiceId as ObjectId', async () => {
+    const result = await createRecurringTemplateAction(validCreateInput());
 
     expect(result.ok).toBe(true);
     const [arg] = vi.mocked(RecurringTicketModel.create).mock.calls[0];
@@ -595,12 +593,15 @@ describe('createRecurringTemplateAction — com campos opcionais', () => {
     expect(String(arg.catalogServiceId)).toBe(VALID_OID_2);
   });
 
-  it('should leave subtypeId and catalogServiceId undefined when not provided', async () => {
-    const result = await createRecurringTemplateAction(validCreateInput());
+  it('should reject when subtypeId is missing', async () => {
+    const { subtypeId: _, ...input } = validCreateInput();
+    const result = await createRecurringTemplateAction(input as never);
+    expect(result.ok).toBe(false);
+  });
 
-    expect(result.ok).toBe(true);
-    const [arg] = vi.mocked(RecurringTicketModel.create).mock.calls[0];
-    expect(arg.subtypeId).toBeUndefined();
-    expect(arg.catalogServiceId).toBeUndefined();
+  it('should reject when catalogServiceId is missing', async () => {
+    const { catalogServiceId: _, ...input } = validCreateInput();
+    const result = await createRecurringTemplateAction(input as never);
+    expect(result.ok).toBe(false);
   });
 });

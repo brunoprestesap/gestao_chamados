@@ -78,12 +78,8 @@ export async function processRecurringTickets(): Promise<RecurringJobReport> {
         tipoServico: template.tipoServico,
         naturezaAtendimento: template.naturezaAtendimento,
         grauUrgencia: template.grauUrgencia ?? 'Normal',
-        subtypeId: template.subtypeId
-          ? new Types.ObjectId(String(template.subtypeId))
-          : undefined,
-        catalogServiceId: template.catalogServiceId
-          ? new Types.ObjectId(String(template.catalogServiceId))
-          : undefined,
+        subtypeId: new Types.ObjectId(String(template.subtypeId)),
+        catalogServiceId: new Types.ObjectId(String(template.catalogServiceId)),
         originTemplateId: new Types.ObjectId(String(template._id)),
       };
 

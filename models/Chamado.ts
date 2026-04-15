@@ -63,12 +63,12 @@ const ChamadoSchema = new Schema(
     subtypeId: {
       type: Schema.Types.ObjectId,
       ref: 'ServiceSubType',
-      required: false,
+      required: [true, 'Selecione o subtipo de serviço'],
     },
     catalogServiceId: {
       type: Schema.Types.ObjectId,
       ref: 'ServiceCatalog',
-      required: false,
+      required: [true, 'Selecione o serviço do catálogo'],
     },
     // Classificação (Preposto/Admin)
     finalPriority: {

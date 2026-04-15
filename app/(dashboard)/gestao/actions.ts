@@ -65,7 +65,14 @@ export async function classificarChamadoAction(
       return { ok: false, error: msg };
     }
 
-    const { chamadoId, naturezaAtendimento, finalPriority, classificationNotes } = parsed.data;
+    const {
+      chamadoId,
+      naturezaAtendimento,
+      finalPriority,
+      classificationNotes,
+      subtypeId,
+      catalogServiceId,
+    } = parsed.data;
     await dbConnect();
 
     const doc = await ChamadoModel.findById(chamadoId);
@@ -102,6 +109,12 @@ export async function classificarChamadoAction(
 
     const attendanceNature = toAttendanceNature(naturezaAtendimento);
 
+    // Atualiza serviço catalogado
+    const catalogUpdates: Record<string, unknown> = {
+      subtypeId: new Types.ObjectId(subtypeId),
+      catalogServiceId: new Types.ObjectId(catalogServiceId),
+    };
+
     await ChamadoModel.updateOne(
       { _id: chamadoId },
       {
@@ -121,6 +134,7 @@ export async function classificarChamadoAction(
           'sla.resolutionDueAt': resolutionDueAt,
           'sla.computedAt': now,
           'sla.configVersion': slaConfig.version ?? SLA_CONFIG_VERSION,
+          ...catalogUpdates,
         },
       },
     );
@@ -129,6 +143,7 @@ export async function classificarChamadoAction(
       `Natureza aprovada: ${naturezaAtendimento}, Prioridade: ${finalPriority}`,
       'Status alterado para Validado.',
     ];
+    if (catalogUpdates.catalogServiceId) obsParts.push('Serviço catalogado definido na classificação.');
     if (classificationNotes) obsParts.push(`Observações: ${classificationNotes}`);
     const observacoes = obsParts.join(' ');
     await ChamadoHistoryModel.create({

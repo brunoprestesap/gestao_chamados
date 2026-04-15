@@ -105,6 +105,8 @@ describe('classificarChamadoAction', () => {
     naturezaAtendimento: 'Padrão' as const,
     finalPriority: 'NORMAL' as const,
     classificationNotes: '',
+    subtypeId: new Types.ObjectId().toHexString(),
+    catalogServiceId: new Types.ObjectId().toHexString(),
   };
 
   it('retorna erro com dados inválidos (Zod)', async () => {
@@ -165,6 +167,30 @@ describe('classificarChamadoAction', () => {
     expect(setFields['sla.responseDueAt']).toBeInstanceOf(Date);
     expect(setFields['sla.resolutionDueAt']).toBeInstanceOf(Date);
     expect(setFields['sla.configVersion']).toBe('v1');
+  });
+
+  it('define subtypeId e catalogServiceId na classificação', async () => {
+    mockChamadoFindById.mockResolvedValue({
+      _id: VALID_ID,
+      status: 'aberto',
+    });
+    mockSlaFindOne.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          responseTargetMinutes: 120,
+          resolutionTargetMinutes: 480,
+          businessHoursOnly: true,
+          version: 'v1',
+        }),
+    });
+    mockChamadoUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+    const result = await classificarChamadoAction(validInput);
+    expect(result).toEqual({ ok: true });
+
+    const setFields = mockChamadoUpdateOne.mock.calls[0][1].$set;
+    expect(setFields.catalogServiceId.toHexString()).toBe(validInput.catalogServiceId);
+    expect(setFields.subtypeId.toHexString()).toBe(validInput.subtypeId);
   });
 });
 

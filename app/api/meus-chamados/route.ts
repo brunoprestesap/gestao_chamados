@@ -150,14 +150,8 @@ export async function POST(req: Request) {
     requestedAttendanceNature: toAttendanceNature(data.naturezaAtendimento),
     grauUrgencia: data.grauUrgencia,
     telefoneContato: data.telefoneContato ?? '',
-    subtypeId:
-      data.subtypeId && data.subtypeId.trim() !== ''
-        ? new Types.ObjectId(data.subtypeId)
-        : undefined,
-    catalogServiceId:
-      data.catalogServiceId && data.catalogServiceId.trim() !== ''
-        ? new Types.ObjectId(data.catalogServiceId)
-        : undefined,
+    subtypeId: new Types.ObjectId(data.subtypeId),
+    catalogServiceId: new Types.ObjectId(data.catalogServiceId),
     status: 'aberto' as const,
     solicitanteId: new Types.ObjectId(session.userId),
   };

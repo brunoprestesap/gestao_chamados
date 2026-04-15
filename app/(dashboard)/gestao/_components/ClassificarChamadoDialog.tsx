@@ -3,12 +3,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Clock, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { classificarChamadoAction, type ClassificarResult } from '@/app/(dashboard)/gestao/actions';
 import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
+import { buildTypeIdByTipo } from '@/app/(dashboard)/meus-chamados/_components/new-ticket.utils';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -95,6 +96,8 @@ const formSchema = ClassificarChamadoSchema.omit({ chamadoId: true });
 type FormValues = z.infer<typeof formSchema>;
 
 type UnitOption = { id: string; name: string };
+type SubtypeOption = { id: string; name: string };
+type CatalogServiceOption = { id: string; code: string; name: string };
 
 interface Props {
   open: boolean;
@@ -122,6 +125,42 @@ async function fetchSlaConfigs(): Promise<SlaConfigItem[]> {
   return Array.isArray(data.items) ? data.items : [];
 }
 
+async function fetchServiceTypes(): Promise<{ id: string; name: string }[]> {
+  const res = await fetch('/api/catalog/types', { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = (await res.json().catch(() => ({}))) as {
+    items?: { _id?: string; id?: string; name: string }[];
+  };
+  return (data.items ?? []).map((t) => ({ id: String(t._id ?? t.id ?? ''), name: t.name }));
+}
+
+async function fetchSubtypes(typeId: string): Promise<SubtypeOption[]> {
+  const res = await fetch(`/api/catalog/subtypes?typeId=${typeId}`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = (await res.json().catch(() => ({}))) as {
+    items?: { _id?: string; id?: string; name: string }[];
+  };
+  return (data.items ?? []).map((s) => ({ id: String(s._id ?? s.id ?? ''), name: s.name }));
+}
+
+async function fetchCatalogServices(
+  typeId: string,
+  subtypeId?: string,
+): Promise<CatalogServiceOption[]> {
+  const params = new URLSearchParams({ typeId });
+  if (subtypeId) params.set('subtypeId', subtypeId);
+  const res = await fetch(`/api/catalog/services?${params}`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = (await res.json().catch(() => ({}))) as {
+    items?: { _id?: string; id?: string; code: string; name: string }[];
+  };
+  return (data.items ?? []).map((s) => ({
+    id: String(s._id ?? s.id ?? ''),
+    code: s.code,
+    name: s.name,
+  }));
+}
+
 export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,11 +168,17 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
   const [slaConfigs, setSlaConfigs] = useState<SlaConfigItem[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const [subtypes, setSubtypes] = useState<SubtypeOption[]>([]);
+  const [catalogServices, setCatalogServices] = useState<CatalogServiceOption[]>([]);
+  const typeIdRef = useRef('');
+
   const defaultValues = useMemo<FormValues>(
     () => ({
       naturezaAtendimento: 'Padrão',
       finalPriority: 'EMERGENCIAL' as FinalPriority,
       classificationNotes: '',
+      subtypeId: '',
+      catalogServiceId: '',
     }),
     [],
   );
@@ -149,9 +194,16 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
       setError(null);
       setUnitName(null);
       setSlaConfigs([]);
+      setSubtypes([]);
+      setCatalogServices([]);
+      typeIdRef.current = '';
       return;
     }
-    form.reset(defaultValues);
+    form.reset({
+      ...defaultValues,
+      subtypeId: chamado.subtypeId ?? '',
+      catalogServiceId: chamado.catalogServiceId ?? '',
+    });
     setError(null);
     const load = async () => {
       const [units, configs, sessionRes] = await Promise.all([
@@ -164,10 +216,39 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
       setSlaConfigs(configs);
       const sessionData = await sessionRes.json().catch(() => ({}));
       setIsAdmin(sessionData?.role === 'Admin');
+
+      // Carregar dados de catálogo
+      if (chamado.tipoServico) {
+        const types = await fetchServiceTypes();
+        const typeMap = buildTypeIdByTipo(types);
+        const resolvedTypeId = typeMap.get(chamado.tipoServico) ?? '';
+        typeIdRef.current = resolvedTypeId;
+        if (resolvedTypeId) {
+          const subs = await fetchSubtypes(resolvedTypeId);
+          setSubtypes(subs);
+          // Se o chamado já tem subtypeId, pré-carregar serviços
+          if (chamado.subtypeId) {
+            const services = await fetchCatalogServices(resolvedTypeId, chamado.subtypeId);
+            setCatalogServices(services);
+          } else {
+            const services = await fetchCatalogServices(resolvedTypeId);
+            setCatalogServices(services);
+          }
+        }
+      }
     };
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, chamado?._id, chamado?.unitId]);
+
+  // Cascata: quando subtypeId muda, recarrega serviços catalogados
+  const watchedSubtypeId = form.watch('subtypeId');
+  useEffect(() => {
+    if (!typeIdRef.current) return;
+    form.setValue('catalogServiceId', '');
+    fetchCatalogServices(typeIdRef.current, watchedSubtypeId || undefined).then(setCatalogServices);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedSubtypeId]);
 
   const onSubmit = useCallback(
     async (values: FormValues) => {
@@ -261,6 +342,66 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3 sm:p-4">
+                <p className="text-sm font-medium">Serviço Catalogado</p>
+
+                <FormField
+                  control={form.control}
+                  name="subtypeId"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs">Subtipo *</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                            <SelectValue placeholder="Selecione o subtipo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
+                          {subtypes.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="catalogServiceId"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs">Serviço do Catálogo *</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                            <SelectValue placeholder="Selecione o serviço" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
+                          {catalogServices.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.code} — {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
             <FormField
               control={form.control}
               name="naturezaAtendimento"

@@ -42,14 +42,8 @@ export const CreateRecurringTicketSchema = z
     tipoServico: z.enum(TIPO_SERVICO_OPTIONS, { error: 'Selecione o tipo de serviço' }),
     naturezaAtendimento: z.enum(NATUREZA_OPTIONS, { error: 'Selecione a natureza' }),
     grauUrgencia: z.enum(GRAU_URGENCIA_OPTIONS).default('Normal'),
-    subtypeId: z
-      .string()
-      .optional()
-      .transform((v) => (v && objectIdRegex.test(v.trim()) ? v.trim() : undefined)),
-    catalogServiceId: z
-      .string()
-      .optional()
-      .transform((v) => (v && objectIdRegex.test(v.trim()) ? v.trim() : undefined)),
+    subtypeId: z.string().regex(objectIdRegex, 'Selecione o subtipo de serviço'),
+    catalogServiceId: z.string().regex(objectIdRegex, 'Selecione o serviço do catálogo'),
     solicitanteId: z.string().regex(objectIdRegex, 'Selecione o solicitante'),
     recurrenceType: z.enum(RECURRENCE_TYPES, { error: 'Selecione o tipo de recorrência' }),
     dayOfWeek: z.coerce.number().int().min(0).max(6).optional(),
