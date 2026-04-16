@@ -15,7 +15,7 @@ jobs:
     name: Lint & Build
     runs-on: ubuntu-latest
     env:
-      NODE_VERSION: 22
+      NODE_VERSION: 24
 
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
     name: Build Socket Server
     runs-on: ubuntu-latest
     env:
-      NODE_VERSION: 22
+      NODE_VERSION: 24
 
     steps:
       - uses: actions/checkout@v4
