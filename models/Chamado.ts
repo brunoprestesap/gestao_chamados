@@ -110,6 +110,14 @@ const ChamadoSchema = new Schema(
       createdAt: { type: Date, required: false },
       createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     },
+    // Recusas de serviço pelo solicitante (retrabalho)
+    serviceRefusals: [
+      {
+        reason: { type: String, required: true, trim: true },
+        createdAt: { type: Date, required: true, default: Date.now },
+        createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+      },
+    ],
     // Rastreabilidade — chamado gerado por agendamento recorrente
     originTemplateId: { type: Schema.Types.ObjectId, ref: 'RecurringTicket', required: false },
     // Observações de material (técnico registra sem fechar o chamado)
@@ -181,6 +189,13 @@ export type ExecutionDoc = {
   concludedAt: Date;
 };
 
+export type ServiceRefusalDoc = {
+  _id?: Types.ObjectId;
+  reason: string;
+  createdAt: Date;
+  createdByUserId: Types.ObjectId;
+};
+
 export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   solicitanteId: Types.ObjectId;
   unitId: Types.ObjectId;
@@ -198,6 +213,7 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   pauseDetails?: string;
   materialObservations?: MaterialObservationDoc[];
   executions?: ExecutionDoc[];
+  serviceRefusals?: ServiceRefusalDoc[];
 };
 
 export type ChamadoDoc = Chamado & {

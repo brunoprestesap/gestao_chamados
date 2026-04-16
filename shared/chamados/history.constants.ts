@@ -16,6 +16,7 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'pausa_terceiros',
   'retomada_terceiros',
   'recusa',
+  'recusa_servico',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
@@ -38,4 +39,5 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   pausa_terceiros: 'Pausa — Aguardando Terceiros',
   retomada_terceiros: 'Retomada — Terceiros Resolvido',
   recusa: 'Recusa do Chamado',
+  recusa_servico: 'Recusa de Serviço pelo Solicitante',
 };

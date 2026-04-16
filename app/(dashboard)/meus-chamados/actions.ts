@@ -25,6 +25,10 @@ import {
   SubmitEvaluationSchema,
 } from '@/shared/chamados/evaluation.schemas';
 import { NewTicketFormSchema, type NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
+import {
+  type RefuseServiceInput,
+  RefuseServiceSchema,
+} from '@/shared/chamados/service-refusal.schemas';
 
 /**
  * Gera um título automático para o chamado baseado nos dados do formulário.
@@ -538,6 +542,163 @@ export async function notifyAttachmentAction(
     return {
       ok: false,
       error: 'Erro ao registrar anexo. Tente novamente.',
+    };
+  }
+}
+
+export type RefuseServiceResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Recusa o serviço de um chamado encerrado pelo solicitante (criador).
+ * O chamado volta para "em atendimento" com o mesmo técnico para retrabalho.
+ * Apenas chamados encerrados e ainda não avaliados podem ser recusados.
+ */
+export async function refuseServiceAction(
+  raw: RefuseServiceInput,
+): Promise<RefuseServiceResult> {
+  try {
+    const session = await requireSession();
+    const parsed = RefuseServiceSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg = first.ticketId?.[0] ?? first.reason?.[0] ?? 'Dados inválidos.';
+      return { ok: false, error: msg };
+    }
+
+    const { ticketId, reason } = parsed.data;
+    await dbConnect();
+
+    const userId = new Types.ObjectId(session.userId);
+    const now = new Date();
+
+    const updated = await ChamadoModel.findOneAndUpdate(
+      {
+        _id: ticketId,
+        status: 'encerrado',
+        solicitanteId: userId,
+        'evaluation.rating': { $exists: false },
+      },
+      {
+        $set: {
+          status: 'em atendimento',
+          closedAt: null,
+          closedByUserId: null,
+          closureNotes: '',
+          concludedAt: null,
+          'sla.resolvedAt': null,
+        },
+        $push: {
+          serviceRefusals: {
+            reason,
+            createdAt: now,
+            createdByUserId: userId,
+          },
+        },
+      },
+      { new: true },
+    );
+
+    if (!updated) {
+      const existing = await ChamadoModel.findById(ticketId).lean();
+      if (!existing) return { ok: false, error: 'Chamado não encontrado.' };
+      if (String(existing.solicitanteId) !== session.userId) {
+        return { ok: false, error: 'Apenas o criador do chamado pode recusar o serviço.' };
+      }
+      if (existing.status !== 'encerrado') {
+        return {
+          ok: false,
+          error: 'Somente chamados com status "Encerrado" podem ter o serviço recusado.',
+        };
+      }
+      if (existing.evaluation?.rating != null) {
+        return { ok: false, error: 'Este chamado já foi avaliado. Não é possível recusar.' };
+      }
+      return { ok: false, error: 'Não foi possível recusar o serviço. Tente novamente.' };
+    }
+
+    // Registro de auditoria
+    await ChamadoHistoryModel.create({
+      chamadoId: updated._id,
+      userId,
+      action: 'recusa_servico',
+      statusAnterior: 'encerrado',
+      statusNovo: 'em atendimento',
+      observacoes: `Serviço recusado pelo solicitante. Motivo: ${reason.length > 200 ? reason.slice(0, 200) + '…' : reason}`,
+    });
+
+    // Notificações (fire-and-forget)
+    const solicitanteUser = await UserModel.findById(session.userId).select('name').lean();
+    const payload = {
+      ticketId: String(updated._id),
+      ticketNumber: updated.ticket_number ?? undefined,
+      title: updated.titulo ?? undefined,
+      refusedBy: { id: session.userId, name: solicitanteUser?.name ?? undefined },
+      reason,
+      at: now.toISOString(),
+    };
+
+    const notifyTitle = updated.ticket_number
+      ? `Serviço recusado no chamado #${updated.ticket_number}`
+      : 'Serviço recusado no chamado';
+    const notifyBody = reason.length > 200 ? reason.slice(0, 200) + '…' : reason;
+
+    const emitPromises: Promise<unknown>[] = [];
+    const notificationRecipients: string[] = [];
+
+    // Notificar técnico atribuído
+    const assignedId = updated.assignedToUserId ? String(updated.assignedToUserId) : null;
+    if (assignedId) {
+      emitPromises.push(
+        emitToRoom(`user:${assignedId}`, 'ticket:service_refused', payload),
+      );
+      notificationRecipients.push(assignedId);
+    }
+
+    // Notificar gestores
+    emitPromises.push(emitToRoom('managers', 'ticket:service_refused', payload));
+    const managers = await UserModel.find({
+      role: { $in: ['Preposto', 'Admin'] },
+      isActive: true,
+    })
+      .select('_id')
+      .lean();
+    for (const m of managers) {
+      notificationRecipients.push(String(m._id));
+    }
+
+    await Promise.allSettled(emitPromises);
+
+    // Persistir notificações no MongoDB
+    const uniqueRecipients = [...new Set(notificationRecipients)];
+    if (uniqueRecipients.length > 0) {
+      await Promise.allSettled(
+        uniqueRecipients.map((recipientId) =>
+          NotificationModel.create({
+            userId: new Types.ObjectId(recipientId),
+            type: 'ticket:service_refused',
+            title: notifyTitle,
+            body: notifyBody,
+            data: payload,
+            readAt: null,
+          }),
+        ),
+      );
+      for (const recipientId of uniqueRecipients) {
+        sendNotificationEmail(recipientId, 'ticket:service_refused', payload).catch(() => {});
+      }
+    }
+
+    revalidatePath('/meus-chamados');
+    revalidatePath(`/meus-chamados/${ticketId}`);
+    revalidatePath('/gestao');
+    revalidatePath('/chamados-atribuidos');
+
+    return { ok: true };
+  } catch (e) {
+    console.error('refuseServiceAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao recusar serviço. Tente novamente.',
     };
   }
 }

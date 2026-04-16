@@ -10,6 +10,7 @@ const NOTIFICATION_TYPES = [
   'ticket:paused',
   'ticket:resumed',
   'ticket:rejected',
+  'ticket:service_refused',
   'ticket:material_observation',
   'sla:warning',
   'sla:breach',

@@ -17,6 +17,7 @@ import type {
   TicketPausedPayload,
   TicketRejectedPayload,
   TicketResumedPayload,
+  TicketServiceRefusedPayload,
 } from '@/shared/socket';
 
 const EMIT_URL = process.env.SOCKET_EMIT_URL ?? 'http://127.0.0.1:3001/emit';
@@ -33,6 +34,7 @@ export type AllowedEmitEvents =
   | 'ticket:paused'
   | 'ticket:resumed'
   | 'ticket:rejected'
+  | 'ticket:service_refused'
   | 'ticket:material_observation'
   | 'sla:warning'
   | 'sla:breach';
@@ -56,6 +58,7 @@ export async function emitToRoom(
     | TicketMaterialObservationPayload
     | TicketRejectedPayload
     | TicketResumedPayload
+    | TicketServiceRefusedPayload
     | SlaWarningPayload
     | SlaBreachPayload,
 ): Promise<boolean> {

@@ -125,6 +125,16 @@ export interface TicketMaterialObservationPayload {
   at: string;
 }
 
+/** Payload quando solicitante recusa o serviço após encerramento (chamado reaberto para retrabalho). */
+export interface TicketServiceRefusedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  refusedBy: { id: string; name?: string };
+  reason: string;
+  at: string;
+}
+
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
   'ticket:new': (payload: TicketNewPayload) => void;
@@ -135,6 +145,7 @@ export interface ServerToClientEvents {
   'ticket:paused': (payload: TicketPausedPayload) => void;
   'ticket:resumed': (payload: TicketResumedPayload) => void;
   'ticket:rejected': (payload: TicketRejectedPayload) => void;
+  'ticket:service_refused': (payload: TicketServiceRefusedPayload) => void;
   'ticket:material_observation': (payload: TicketMaterialObservationPayload) => void;
   'sla:warning': (payload: SlaWarningPayload) => void;
   'sla:breach': (payload: SlaBreachPayload) => void;

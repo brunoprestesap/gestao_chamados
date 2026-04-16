@@ -24,6 +24,9 @@ import {
 } from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
 import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import {
+  RecusarServicoDialog,
+} from '@/app/(dashboard)/meus-chamados/_components/RecusarServicoDialog';
+import {
   CHAMADO_STATUS_LABELS,
   type ChamadoStatus,
   STATUS_BADGE,
@@ -225,6 +228,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
   const [encerrarDialogOpen, setEncerrarDialogOpen] = useState(false);
   const [reatribuirDialogOpen, setReatribuirDialogOpen] = useState(false);
   const [avaliarDialogOpen, setAvaliarDialogOpen] = useState(false);
+  const [recusarServicoDialogOpen, setRecusarServicoDialogOpen] = useState(false);
   const [chamadoId, setChamadoId] = useState<string | null>(null);
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
   const [isOwner, setIsOwner] = useState(false);
@@ -709,7 +713,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Sua avaliação ajuda a melhorar nossos serviços.
+                        Avalie o atendimento ou recuse caso o problema persista.
                       </p>
                       <Button
                         className="w-full justify-start gap-2 bg-linear-to-r from-amber-500 to-amber-600 shadow-sm shadow-amber-500/20 hover:from-amber-600 hover:to-amber-700"
@@ -717,6 +721,14 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                       >
                         <Gavel className="h-4 w-4" aria-hidden />
                         Avaliar Atendimento
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="w-full justify-start gap-2"
+                        onClick={() => setRecusarServicoDialogOpen(true)}
+                      >
+                        <Ban className="h-4 w-4" aria-hidden />
+                        Recusar Serviço
                       </Button>
                     </>
                   )}
@@ -767,6 +779,22 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
             ticket_number: chamado.ticket_number,
             titulo: chamado.titulo,
             assignedToUserId: chamado.assignedToUserId ?? null,
+          }}
+          onSuccess={async () => {
+            await fetchChamado(chamado._id);
+            setHistoryRefreshTrigger((prev) => prev + 1);
+          }}
+        />
+      )}
+
+      {chamado && (
+        <RecusarServicoDialog
+          open={recusarServicoDialogOpen}
+          onOpenChange={setRecusarServicoDialogOpen}
+          chamado={{
+            _id: chamado._id,
+            ticket_number: chamado.ticket_number,
+            titulo: chamado.titulo,
           }}
           onSuccess={async () => {
             await fetchChamado(chamado._id);

@@ -118,7 +118,9 @@
       "Bash(ls -la /c/Users/ap20256.JFAP/Desktop/projetos/severino/app/'\\(dashboard\\)'/meus-chamados/[id]/_components/)",
       "Bash(cd \"c:\\\\\\\\Users\\\\\\\\ap20256.JFAP\\\\\\\\Desktop\\\\\\\\projetos\\\\\\\\severino\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/login)",
-      "Bash(find \"/c/Users/ap20256.JFAP/Desktop/projetos/severino/app/\\(dashboard\\)\" -name \"*.tsx\" -type f -exec grep -l \"section\\\\|grid gap\" {} \\\\;)"
+      "Bash(find \"/c/Users/ap20256.JFAP/Desktop/projetos/severino/app/\\(dashboard\\)\" -name \"*.tsx\" -type f -exec grep -l \"section\\\\|grid gap\" {} \\\\;)",
+      "Bash(wc -l \"/c/Users/ap20256.JFAP/Desktop/projetos/severino/app/\\(dashboard\\)/gestao/_components\"/*.tsx)",
+      "Bash(grep -E \"^[a-z].*\\\\.ts$\")"
     ]
   }
 }
