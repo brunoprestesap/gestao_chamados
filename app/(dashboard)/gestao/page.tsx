@@ -732,16 +732,16 @@ export default function GestaoPage() {
         <div className="absolute inset-x-0 top-0 h-[3px] bg-linear-to-r from-transparent via-indigo-500/50 to-transparent" />
 
         <div>
-          <Table className="min-w-[1020px] table-fixed">
+          <Table className="min-w-[1020px]">
             <colgroup>
-              <col className="w-[7%]" />
-              <col className="w-[22%]" />
-              <col className="w-[13%]" />
-              <col className="w-[10%]" />
-              <col className="w-[13%]" />
-              <col className="w-[13%]" />
-              <col className="w-[9%]" />
-              <col className="w-[13%]" />
+              <col className="w-[72px]" />
+              <col />
+              <col className="w-[130px]" />
+              <col className="w-[110px]" />
+              <col className="w-[140px]" />
+              <col className="w-[150px]" />
+              <col className="w-[90px]" />
+              <col className="w-[120px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="border-border/50 bg-muted/40 hover:bg-muted/40">
@@ -795,8 +795,8 @@ export default function GestaoPage() {
                     <TableCell className="px-4 py-3.5 font-mono text-xs font-medium text-muted-foreground">
                       {row.ticket_number}
                     </TableCell>
-                    <TableCell className="px-4 py-3.5">
-                      <span className="line-clamp-1 font-medium text-foreground transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
+                    <TableCell className="max-w-0 px-4 py-3.5">
+                      <span className="block truncate font-medium text-foreground transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
                         {row.titulo}
                       </span>
                     </TableCell>
@@ -807,12 +807,12 @@ export default function GestaoPage() {
                       <PriorityBadge priority={row.finalPriority} />
                     </TableCell>
                     <TableCell className="px-4 py-3.5">
-                      <span className="line-clamp-1 text-sm text-muted-foreground">
+                      <span className="block truncate text-sm text-muted-foreground">
                         {row.tipoServico || '—'}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-3.5">
-                      <span className="line-clamp-1 text-sm text-muted-foreground">
+                      <span className="block truncate text-sm text-muted-foreground">
                         {row.assignedToUserName || '—'}
                       </span>
                     </TableCell>
