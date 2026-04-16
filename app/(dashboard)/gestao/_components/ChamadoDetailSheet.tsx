@@ -386,6 +386,9 @@ export function ChamadoDetailSheet({
                 {chamado.telefoneContato && (
                   <MetadataRow icon={Phone} label="Telefone" value={chamado.telefoneContato} />
                 )}
+                {chamado.assignedToUserName && (
+                  <MetadataRow icon={UserCheck} label="Técnico" value={chamado.assignedToUserName} />
+                )}
                 <MetadataRow icon={Clock} label="Aberto em" value={formattedDate} />
                 {categoriaText && (
                   <MetadataRow icon={Wrench} label="Serviço" value={categoriaText} />

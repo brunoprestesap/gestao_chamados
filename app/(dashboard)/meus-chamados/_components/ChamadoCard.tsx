@@ -109,6 +109,7 @@ export type ChamadoDTO = {
   solicitanteId: string | null;
   unitId: string | null;
   assignedToUserId?: string | null;
+  assignedToUserName?: string | null;
   localExato: string;
   tipoServico: string;
   naturezaAtendimento: string;

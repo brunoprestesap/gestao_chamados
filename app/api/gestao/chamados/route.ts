@@ -91,7 +91,20 @@ function normalizeChamado(
     classificationNotes: c.classificationNotes ?? '',
     classifiedByUserId: c.classifiedByUserId ? String(c.classifiedByUserId) : null,
     classifiedAt: c.classifiedAt ?? null,
-    assignedToUserId: c.assignedToUserId ? String(c.assignedToUserId) : null,
+    assignedToUserId: c.assignedToUserId
+      ? String(
+          typeof c.assignedToUserId === 'object' &&
+            (c.assignedToUserId as Record<string, unknown>)._id
+            ? (c.assignedToUserId as Record<string, unknown>)._id
+            : c.assignedToUserId,
+        )
+      : null,
+    assignedToUserName:
+      c.assignedToUserId &&
+      typeof c.assignedToUserId === 'object' &&
+      (c.assignedToUserId as Record<string, unknown>).name
+        ? String((c.assignedToUserId as Record<string, unknown>).name)
+        : null,
     assignedAt: c.assignedAt ?? null,
     assignedByUserId: c.assignedByUserId ? String(c.assignedByUserId) : null,
     slaPausedAt: c.slaPausedAt
@@ -152,7 +165,12 @@ export async function GET(req: Request) {
   // Run count and paginated query in parallel
   const [total, items] = await Promise.all([
     ChamadoModel.countDocuments(filter),
-    ChamadoModel.find(filter, LIST_PROJECTION).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
+    ChamadoModel.find(filter, LIST_PROJECTION)
+      .populate('assignedToUserId', 'name')
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
   ]);
 
   const totalPages = Math.ceil(total / limit);

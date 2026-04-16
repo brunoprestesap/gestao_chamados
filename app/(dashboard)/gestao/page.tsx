@@ -732,15 +732,16 @@ export default function GestaoPage() {
         <div className="absolute inset-x-0 top-0 h-[3px] bg-linear-to-r from-transparent via-indigo-500/50 to-transparent" />
 
         <div>
-          <Table className="min-w-[920px] table-fixed">
+          <Table className="min-w-[1020px] table-fixed">
             <colgroup>
-              <col className="w-[8%]" />
-              <col className="w-[25%]" />
-              <col className="w-[16%]" />
-              <col className="w-[12%]" />
-              <col className="w-[16%]" />
+              <col className="w-[7%]" />
+              <col className="w-[22%]" />
+              <col className="w-[13%]" />
+              <col className="w-[10%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
               <col className="w-[9%]" />
-              <col className="w-[14%]" />
+              <col className="w-[13%]" />
             </colgroup>
             <TableHeader>
               <TableRow className="border-border/50 bg-muted/40 hover:bg-muted/40">
@@ -760,6 +761,9 @@ export default function GestaoPage() {
                   Serviço
                 </TableHead>
                 <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Técnico
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Data
                 </TableHead>
                 <TableHead className="h-auto px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -773,7 +777,7 @@ export default function GestaoPage() {
                 <TableSkeleton />
               ) : items.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={7} className="p-0">
+                  <TableCell colSpan={8} className="p-0">
                     <EmptyState
                       hasFilter={hasActiveFilter}
                       message={emptyMessage}
@@ -805,6 +809,11 @@ export default function GestaoPage() {
                     <TableCell className="px-4 py-3.5">
                       <span className="line-clamp-1 text-sm text-muted-foreground">
                         {row.tipoServico || '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5">
+                      <span className="line-clamp-1 text-sm text-muted-foreground">
+                        {row.assignedToUserName || '—'}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-3.5">
@@ -875,6 +884,12 @@ export default function GestaoPage() {
                           {row.tipoServico && (
                             <span className="truncate text-xs text-muted-foreground">
                               {row.tipoServico}
+                            </span>
+                          )}
+                          {row.assignedToUserName && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <UserCheck className="size-3" />
+                              {row.assignedToUserName}
                             </span>
                           )}
                           <span className="text-xs tabular-nums text-muted-foreground/70">
