@@ -33,18 +33,11 @@ import {
   STATUS_ACCENT,
   STATUS_BADGE,
   STATUS_ICONS,
-  STATUS_OPTIONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
+import { StatusMultiSelect } from '@/components/StatusMultiSelect';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -240,31 +233,6 @@ function EmptyState({
   );
 }
 
-function StatusFilterSelect({
-  value,
-  onValueChange,
-  className,
-}: {
-  value: string;
-  onValueChange: (v: string) => void;
-  className?: string;
-}) {
-  return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger aria-label="Filtrar por status" className={cn('h-11 rounded-xl', className)}>
-        <SelectValue placeholder="Status" />
-      </SelectTrigger>
-      <SelectContent>
-        {STATUS_OPTIONS.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Action buttons — renders only the actions relevant for the ticket status
 // ---------------------------------------------------------------------------
@@ -409,7 +377,7 @@ export default function GestaoPage() {
   // Filters & Pagination
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
-  const [status, setStatus] = useState<'all' | ChamadoStatus>('all');
+  const [status, setStatus] = useState<ChamadoStatus[]>([]);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -427,15 +395,15 @@ export default function GestaoPage() {
   }, [q]);
 
   // Reset to page 1 when status filter changes
-  const setStatusFilter = useCallback((v: string) => {
-    setStatus(v as 'all' | ChamadoStatus);
+  const setStatusFilter = useCallback((v: ChamadoStatus[]) => {
+    setStatus(v);
     setPage(1);
   }, []);
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
     if (debouncedQ.trim()) p.set('q', debouncedQ.trim());
-    if (status !== 'all') p.set('status', status);
+    if (status.length > 0) p.set('status', status.join(','));
     p.set('page', String(page));
     p.set('limit', String(PAGE_SIZE));
     return p.toString();
@@ -559,8 +527,8 @@ export default function GestaoPage() {
   // Derived state
   // ---------------------------------------------------------------------------
 
-  const hasActiveFilter = q.trim() !== '' || status !== 'all';
-  const activeFilterCount = (q.trim() !== '' ? 1 : 0) + (status !== 'all' ? 1 : 0);
+  const hasActiveFilter = q.trim() !== '' || status.length > 0;
+  const activeFilterCount = (q.trim() !== '' ? 1 : 0) + (status.length > 0 ? 1 : 0);
 
   const emptyMessage = useMemo(() => {
     if (hasActiveFilter) return 'Tente ajustar a busca ou remover os filtros aplicados.';
@@ -590,7 +558,7 @@ export default function GestaoPage() {
 
   const clearFilters = useCallback(() => {
     setQ('');
-    setStatus('all');
+    setStatus([]);
     setPage(1);
   }, []);
 
@@ -651,7 +619,7 @@ export default function GestaoPage() {
 
           {/* Desktop: select inline */}
           <div className="hidden shrink-0 sm:block">
-            <StatusFilterSelect
+            <StatusMultiSelect
               value={status}
               onValueChange={setStatusFilter}
               className="w-[200px]"
@@ -705,7 +673,7 @@ export default function GestaoPage() {
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Status do chamado
                   </label>
-                  <StatusFilterSelect value={status} onValueChange={setStatusFilter} />
+                  <StatusMultiSelect value={status} onValueChange={setStatusFilter} />
                 </div>
 
                 {/* Clear filters button */}

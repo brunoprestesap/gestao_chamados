@@ -88,7 +88,9 @@ export async function GET(req: Request) {
     solicitanteId: new Types.ObjectId(session.userId),
   };
 
-  if (status !== 'all') filter.status = status;
+  if (status !== 'all') {
+    filter.status = status.length === 1 ? status[0] : { $in: status };
+  }
 
   if (q.trim()) {
     const term = q.trim();

@@ -146,7 +146,9 @@ export async function GET(req: Request) {
   const { q, status, page, limit } = parsed.data;
   const filter: Record<string, unknown> = {};
 
-  if (status !== 'all') filter.status = status;
+  if (status !== 'all') {
+    filter.status = status.length === 1 ? status[0] : { $in: status };
+  }
 
   if (q.trim()) {
     const term = q.trim();

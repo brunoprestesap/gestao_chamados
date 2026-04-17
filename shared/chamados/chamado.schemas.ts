@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CHAMADO_STATUSES,FINAL_PRIORITY_VALUES } from './chamado.constants';
+import { CHAMADO_STATUSES,type ChamadoStatus, FINAL_PRIORITY_VALUES } from './chamado.constants';
 import {
   GRAU_URGENCIA_OPTIONS,
   NATUREZA_OPTIONS,
@@ -42,9 +42,16 @@ export const ChamadoCreateSchema = z.object({
 export const ChamadoListQuerySchema = z.object({
   q: z.string().optional().default(''),
   status: z
-    .enum(['all', ...CHAMADO_STATUSES])
+    .string()
     .optional()
-    .default('all'),
+    .default('all')
+    .transform((v) => {
+      if (!v || v === 'all') return 'all' as const;
+      const statuses = v.split(',').filter((s): s is ChamadoStatus =>
+        (CHAMADO_STATUSES as readonly string[]).includes(s),
+      );
+      return statuses.length === 0 ? ('all' as const) : statuses;
+    }),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });

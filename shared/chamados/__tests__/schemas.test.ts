@@ -11,6 +11,7 @@ import {
 } from '@/shared/chamados/chamado.constants';
 import {
   ChamadoCreateSchema,
+  ChamadoListQuerySchema,
   ClassificarChamadoSchema,
 } from '@/shared/chamados/chamado.schemas';
 import { CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
@@ -40,6 +41,61 @@ describe('constants', () => {
 
   it('ATTENDANCE_NATURE_VALUES tem PADRAO e URGENTE', () => {
     expect(ATTENDANCE_NATURE_VALUES).toEqual(['PADRAO', 'URGENTE']);
+  });
+});
+
+// ── ChamadoListQuerySchema ──────────────────────────────────────
+
+describe('ChamadoListQuerySchema', () => {
+  it('default é status "all"', () => {
+    const result = ChamadoListQuerySchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toBe('all');
+  });
+
+  it('"all" explícito retorna "all"', () => {
+    const result = ChamadoListQuerySchema.safeParse({ status: 'all' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toBe('all');
+  });
+
+  it('string vazia retorna "all"', () => {
+    const result = ChamadoListQuerySchema.safeParse({ status: '' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toBe('all');
+  });
+
+  it('status único retorna array com 1 elemento', () => {
+    const result = ChamadoListQuerySchema.safeParse({ status: 'aberto' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toEqual(['aberto']);
+  });
+
+  it('múltiplos status comma-separated retorna array', () => {
+    const result = ChamadoListQuerySchema.safeParse({ status: 'aberto,validado,fechado' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toEqual(['aberto', 'validado', 'fechado']);
+  });
+
+  it('valores inválidos são filtrados', () => {
+    const result = ChamadoListQuerySchema.safeParse({ status: 'aberto,INVALIDO,validado' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toEqual(['aberto', 'validado']);
+  });
+
+  it('todos valores inválidos retorna "all"', () => {
+    const result = ChamadoListQuerySchema.safeParse({ status: 'INVALIDO,OUTRO' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toBe('all');
+  });
+
+  it('page e limit têm defaults corretos', () => {
+    const result = ChamadoListQuerySchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.page).toBe(1);
+      expect(result.data.limit).toBe(20);
+    }
   });
 });
 

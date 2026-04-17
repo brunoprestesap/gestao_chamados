@@ -13,19 +13,13 @@ import {
   type ChamadoDTO,
 } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import { NewTicketDialog } from '@/app/(dashboard)/meus-chamados/_components/NewTicketDialog';
-import { type ChamadoStatus, STATUS_OPTIONS } from '@/app/(dashboard)/meus-chamados/_constants';
+import { type ChamadoStatus } from '@/app/(dashboard)/meus-chamados/_constants';
 import { PageHeader } from '@/components/dashboard/header';
+import { StatusMultiSelect } from '@/components/StatusMultiSelect';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { CHAMADO_STATUS_LABELS, CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
 
 const KANBAN_STATUSES = CHAMADO_STATUSES.filter((s) => s !== 'fechado' && s !== 'emvalidacao');
@@ -34,7 +28,7 @@ export default function MeusChamadosPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState<'all' | ChamadoStatus>('all');
+  const [status, setStatus] = useState<ChamadoStatus[]>([]);
   const [items, setItems] = useState<ChamadoDTO[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [avaliarChamado, setAvaliarChamado] = useState<AvaliarChamadoDialogChamado | null>(null);
@@ -43,7 +37,7 @@ export default function MeusChamadosPage() {
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
     if (q.trim()) p.set('q', q.trim());
-    if (status !== 'all') p.set('status', status);
+    if (status.length > 0) p.set('status', status.join(','));
     return p.toString();
   }, [q, status]);
 
@@ -67,7 +61,7 @@ export default function MeusChamadosPage() {
   }, [queryString]);
 
   const emptyMessage =
-    q.trim() || status !== 'all'
+    q.trim() || status.length > 0
       ? 'Tente ajustar os filtros de busca ou status.'
       : 'Você ainda não possui chamados registrados.';
 
@@ -111,19 +105,12 @@ export default function MeusChamadosPage() {
               aria-label="Buscar chamados"
             />
           </div>
-          <div className="w-full shrink-0 sm:w-auto sm:min-w-[180px]">
-            <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
-              <SelectTrigger className="w-full sm:w-full" aria-label="Filtrar por status">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="w-full shrink-0 sm:w-auto sm:min-w-[200px]">
+            <StatusMultiSelect
+              value={status}
+              onValueChange={setStatus}
+              className="w-full"
+            />
           </div>
         </div>
 
