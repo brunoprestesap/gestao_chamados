@@ -1,7 +1,7 @@
 'use client';
 
 import { Clock, Loader2, Package, User } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDate } from '@/lib/utils';
@@ -32,12 +32,7 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
   const [history, setHistory] = useState<HistoryItemDTO[]>([]);
   const [users, setUsers] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetchHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chamadoId, refreshTrigger]);
-
-  async function fetchHistory() {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/chamados/${chamadoId}/history`, {
@@ -56,7 +51,6 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
       const userIds = [...new Set(items.map((h) => h.userId))];
       const usersMap: Record<string, string> = {};
 
-      // Busca todos os usuários de uma vez se possível, ou em paralelo
       await Promise.all(
         userIds.map(async (userId) => {
           try {
@@ -78,7 +72,11 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [chamadoId]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory, refreshTrigger]);
 
   if (loading) {
     return (

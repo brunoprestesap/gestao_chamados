@@ -220,7 +220,7 @@ export default function UsuariosPage() {
     filters.unitId !== FILTER_ALL_VALUE ||
     filters.status !== FILTER_ALL_VALUE;
 
-  const FiltersContent = () => (
+  const filtersContent = (
     <>
       <div className="space-y-2">
         <label className="text-xs font-medium text-muted-foreground">Perfil</label>
@@ -404,7 +404,7 @@ export default function UsuariosPage() {
                 <SheetTitle>Filtros</SheetTitle>
               </SheetHeader>
               <div className="grid grid-cols-1 gap-4 pb-6">
-                <FiltersContent />
+                {filtersContent}
               </div>
             </SheetContent>
           </Sheet>

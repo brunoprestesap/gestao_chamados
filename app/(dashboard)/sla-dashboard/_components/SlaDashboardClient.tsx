@@ -64,7 +64,7 @@ export function SlaDashboardClient() {
   const [data, setData] = useState<SlaDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastFetchAt, setLastFetchAt] = useState<number>(Date.now());
+  const [lastFetchAt, setLastFetchAt] = useState<number>(() => Date.now());
   const [elapsed, setElapsed] = useState('0s');
   const abortRef = useRef<AbortController | null>(null);
 
