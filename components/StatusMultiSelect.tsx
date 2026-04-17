@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import {
   CHAMADO_STATUS_LABELS,
@@ -92,22 +91,20 @@ export function StatusMultiSelect({ value, onValueChange, className }: StatusMul
         )}
 
         {/* Checkbox list */}
-        <ScrollArea className="max-h-[280px]">
-          <div className="p-1.5">
-            {CHAMADO_STATUSES.map((s) => (
-              <label
-                key={s}
-                className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors hover:bg-accent"
-              >
-                <Checkbox
-                  checked={value.includes(s)}
-                  onCheckedChange={() => toggle(s)}
-                />
-                {CHAMADO_STATUS_LABELS[s]}
-              </label>
-            ))}
-          </div>
-        </ScrollArea>
+        <div className="max-h-[min(360px,var(--radix-popover-content-available-height,360px))] overflow-y-auto p-1.5">
+          {CHAMADO_STATUSES.map((s) => (
+            <label
+              key={s}
+              className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors hover:bg-accent"
+            >
+              <Checkbox
+                checked={value.includes(s)}
+                onCheckedChange={() => toggle(s)}
+              />
+              {CHAMADO_STATUS_LABELS[s]}
+            </label>
+          ))}
+        </div>
       </PopoverContent>
     </Popover>
   );
