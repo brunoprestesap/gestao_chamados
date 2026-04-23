@@ -7,9 +7,14 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  ExternalLink,
   FileText,
+  History,
+  Loader2,
   MapPin,
+  MessageSquare,
   Package,
+  Paperclip,
   PauseCircle,
   Phone,
   Play,
@@ -17,6 +22,7 @@ import {
   UserCheck,
   Wrench,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { MaterialObservationsList } from '@/components/chamado/MaterialObservationsList';
@@ -32,6 +38,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateTime } from '@/lib/utils';
 import {
   PAUSE_REASON_LABELS,
@@ -45,6 +53,11 @@ import {
   STATUS_BADGE,
   STATUS_ICONS,
 } from '../../meus-chamados/_constants';
+import { AttachmentGallery } from '../../meus-chamados/[id]/_components/AttachmentGallery';
+import { CommentThread } from '../../meus-chamados/[id]/_components/CommentThread';
+import { HistoryTimeline } from '../../meus-chamados/[id]/_components/HistoryTimeline';
+
+type TabId = 'detalhes' | 'historico' | 'comentarios' | 'anexos';
 
 // ---------- API helpers (same pattern as ChamadoCard) ----------
 
@@ -84,6 +97,17 @@ async function fetchSubtype(subtypeId: string): Promise<string | null> {
   }
 }
 
+async function fetchUserRole(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/session', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => ({}));
+    return data.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------- Constants ----------
 
 const GRAU_URGENCIA_LABELS: Record<string, string> = {
@@ -103,7 +127,6 @@ const GRAU_URGENCIA_COLORS: Record<string, string> = {
 // Accent gradient per status — mirrors kanban column color semantics
 const STATUS_ACCENT_GRADIENT: Record<string, string> = {
   aberto: 'from-amber-400 to-orange-500',
-  emvalidacao: 'from-sky-400 to-blue-500',
   validado: 'from-teal-400 to-emerald-500',
   'em atendimento': 'from-violet-400 to-purple-500',
   aguardando_solicitante: 'from-amber-400 to-orange-500',
@@ -112,7 +135,6 @@ const STATUS_ACCENT_GRADIENT: Record<string, string> = {
   encerrado: 'from-emerald-500 to-teal-600',
   cancelado: 'from-red-400 to-rose-500',
   recusado: 'from-rose-400 to-red-500',
-  fechado: 'from-slate-400 to-gray-500',
 };
 
 // ---------- Props ----------
@@ -144,18 +166,26 @@ export function ChamadoDetailSheet({
   onPausar,
   onRetomar,
 }: Props) {
+  const router = useRouter();
   const timezone = useInstitutionalTimezone();
   const tzOpt = useMemo(() => ({ timeZone: timezone }), [timezone]);
 
   const [userName, setUserName] = useState<string | null>(null);
   const [unitName, setUnitName] = useState<string | null>(null);
   const [subtypeName, setSubtypeName] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('detalhes');
+  const [mountedTabs, setMountedTabs] = useState<Set<TabId>>(
+    () => new Set<TabId>(['detalhes']),
+  );
 
   useEffect(() => {
     if (!open || !chamado) {
       setUserName(null);
       setUnitName(null);
       setSubtypeName(null);
+      setActiveTab('detalhes');
+      setMountedTabs(new Set<TabId>(['detalhes']));
       return;
     }
 
@@ -184,6 +214,13 @@ export function ChamadoDetailSheet({
         }),
       );
     }
+    if (userRole === null) {
+      promises.push(
+        fetchUserRole().then((role) => {
+          if (mounted) setUserRole(role);
+        }),
+      );
+    }
 
     Promise.all(promises);
 
@@ -192,6 +229,26 @@ export function ChamadoDetailSheet({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, chamado?._id]);
+
+  const handleTabChange = useCallback((value: string) => {
+    const tab = value as TabId;
+    setActiveTab(tab);
+    setMountedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  }, []);
+
+  const canUpload = useMemo(
+    () =>
+      !!chamado &&
+      chamado.status !== 'encerrado' &&
+      chamado.status !== 'cancelado' &&
+      chamado.status !== 'recusado',
+    [chamado],
+  );
 
   const formattedDate = useMemo(
     () => (chamado ? formatDateTime(chamado.createdAt, tzOpt) : ''),
@@ -224,7 +281,7 @@ export function ChamadoDetailSheet({
 
   const showClassificar = status === 'aberto';
   const showRecusar = status === 'aberto';
-  const showAtribuir = status === 'validado' || status === 'emvalidacao';
+  const showAtribuir = status === 'validado';
   const showReatribuir = status === 'em atendimento';
   const showEncerrar = status === 'concluído';
   const showPausar = status === 'em atendimento' && !!onPausar;
@@ -238,7 +295,7 @@ export function ChamadoDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex flex-col gap-0 p-0 sm:max-w-lg"
+        className="flex flex-col gap-0 p-0 sm:max-w-2xl"
       >
         {/* Accent stripe — slightly thicker for more visual presence */}
         <div
@@ -281,6 +338,26 @@ export function ChamadoDetailSheet({
                 {chamado.titulo || 'Sem título'}
               </p>
             </div>
+
+            {/* Expand to full page */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Abrir em tela cheia"
+                  className="mr-8 h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    onOpenChange(false);
+                    setTimeout(() => router.push(`/meus-chamados/${chamado._id}`), 150);
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Abrir em tela cheia</TooltipContent>
+            </Tooltip>
           </div>
 
           <SheetDescription className="sr-only">
@@ -290,9 +367,38 @@ export function ChamadoDetailSheet({
 
         <Separator />
 
-        {/* Scrollable body */}
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-5 px-5 py-5">
+        {/* Tabs — wraps both the trigger list and the scrollable content */}
+        <Tabs
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className="flex min-h-0 flex-1 flex-col gap-0"
+        >
+          {/* Sticky tab triggers */}
+          <div className="shrink-0 border-b border-border/60 bg-background/80 px-5 py-2 backdrop-blur-sm">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="detalhes" className="gap-1.5">
+                <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Detalhes</span>
+              </TabsTrigger>
+              <TabsTrigger value="historico" className="gap-1.5">
+                <History className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Histórico</span>
+              </TabsTrigger>
+              <TabsTrigger value="comentarios" className="gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Comentários</span>
+              </TabsTrigger>
+              <TabsTrigger value="anexos" className="gap-1.5">
+                <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Anexos</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Scrollable body */}
+          <ScrollArea className="min-h-0 flex-1">
+            <TabsContent value="detalhes" className="mt-0">
+              <div className="space-y-5 px-5 py-5">
 
             {/* Description — primary focus area */}
             <section aria-labelledby="desc-heading">
@@ -473,14 +579,63 @@ export function ChamadoDetailSheet({
               </>
             )}
 
-          </div>
-        </ScrollArea>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="historico" className="mt-0">
+              <div className="px-5 py-5">
+                {mountedTabs.has('historico') ? (
+                  <HistoryTimeline chamadoId={chamado._id} />
+                ) : null}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="comentarios" className="mt-0">
+              <div className="px-5 py-5">
+                {mountedTabs.has('comentarios') ? (
+                  userRole ? (
+                    <CommentThread chamadoId={chamado._id} userRole={userRole} />
+                  ) : (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2
+                        className="h-6 w-6 animate-spin text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  )
+                ) : null}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="anexos" className="mt-0">
+              <div className="px-5 py-5">
+                {mountedTabs.has('anexos') ? (
+                  <AttachmentGallery chamadoId={chamado._id} canUpload={canUpload} />
+                ) : null}
+              </div>
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
 
         {/* Sticky footer with action buttons */}
         {hasActions && (
           <div className="shrink-0 border-t border-border/60 bg-background/90 px-5 py-4 backdrop-blur-sm">
             {/* Mobile: full-width stacked; Desktop: row */}
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto justify-start gap-1 px-0 text-xs text-muted-foreground hover:text-primary sm:justify-center"
+                onClick={() => {
+                  onOpenChange(false);
+                  setTimeout(() => router.push(`/meus-chamados/${chamado._id}`), 150);
+                }}
+              >
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                Abrir em tela cheia
+              </Button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
               {showRecusar && (
                 <Button
                   type="button"
@@ -561,6 +716,7 @@ export function ChamadoDetailSheet({
                   Encerrar Chamado
                 </Button>
               )}
+              </div>
             </div>
           </div>
         )}
