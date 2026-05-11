@@ -43,6 +43,10 @@ export function isTechnician(role?: Role) {
   return role === 'Técnico';
 }
 
+export function isPreposto(role?: Role) {
+  return role === 'Preposto';
+}
+
 export async function requireManager() {
   const session = await requireSession();
   if (!canManage(session.role)) redirect('/dashboard');

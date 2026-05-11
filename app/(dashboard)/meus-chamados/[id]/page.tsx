@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { CotacaoApprovalCard } from '@/app/(dashboard)/gestao/_components/CotacaoApprovalCard';
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import {
@@ -580,6 +581,8 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
               </CardContent>
             </Card>
           )}
+
+          <CotacaoApprovalCard ticketId={chamado._id} canReview={false} />
 
           {/* History card */}
           <Card className="group relative overflow-hidden rounded-2xl border-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/4">

@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PauseCircle } from 'lucide-react';
+import { AlertTriangle, PauseCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -38,7 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PauseTicketBaseSchema } from '@/shared/chamados/pause.schemas';
 import {
   PAUSE_REASON_LABELS,
-  PAUSE_REASONS,
+  PAUSE_REASONS_SELECTABLE,
   type PauseReason,
 } from '@/shared/chamados/pause-reason.constants';
 
@@ -61,9 +61,21 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   ticketId: string;
   onSuccess: () => void;
+  /** Chamado quando o usuário escolhe "Falta de peça — aguardando aprovação do cliente". */
+  onRequiresQuote?: () => void;
+  /** Papel do usuário logado (Admin, Preposto, Técnico, Solicitante). Usado para filtrar
+   *  motivos de pausa — o fluxo de cotação é restrito ao Preposto. */
+  userRole?: string;
 }
 
-export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: Props) {
+export function PauseTicketDialog({
+  open,
+  onOpenChange,
+  ticketId,
+  onSuccess,
+  onRequiresQuote,
+  userRole,
+}: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +86,16 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
   });
 
   const watchedReason = form.watch('reason');
+  const isBlockedReason = watchedReason === 'falta_peca_contratada';
+  const isQuoteReason = watchedReason === 'falta_peca_aprovacao_cliente';
+
+  // O fluxo de cotação é exclusivo do Preposto (submete em nome da contratada).
+  // Outros perfis não veem essa opção no dropdown — defesa em UI complementa
+  // a validação server-side em submitCotacaoAction.
+  const visibleReasons = PAUSE_REASONS_SELECTABLE.filter((r) => {
+    if (r === 'falta_peca_aprovacao_cliente') return userRole === 'Preposto';
+    return true;
+  });
 
   useEffect(() => {
     if (open) {
@@ -84,6 +106,17 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
 
   const onSubmit = useCallback(
     async (values: FormValues) => {
+      if (values.reason === 'falta_peca_contratada') {
+        setError(
+          'Pausa não permitida: a peça/material é responsabilidade da contratada. Providencie o item e mantenha o chamado em atendimento.',
+        );
+        return;
+      }
+      if (values.reason === 'falta_peca_aprovacao_cliente') {
+        onOpenChange(false);
+        onRequiresQuote?.();
+        return;
+      }
       setSubmitting(true);
       setError(null);
       try {
@@ -95,6 +128,9 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
         if (result.ok) {
           onOpenChange(false);
           onSuccess();
+        } else if (result.code === 'REQUIRES_QUOTE') {
+          onOpenChange(false);
+          onRequiresQuote?.();
         } else {
           setError(result.error);
         }
@@ -104,7 +140,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
         setSubmitting(false);
       }
     },
-    [ticketId, onOpenChange, onSuccess],
+    [ticketId, onOpenChange, onSuccess, onRequiresQuote],
   );
 
   const handleOpenChange = useCallback(
@@ -114,9 +150,18 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
     [submitting, onOpenChange],
   );
 
+  const submitLabel = submitting
+    ? 'Pausando...'
+    : isQuoteReason
+      ? 'Continuar para Cotação'
+      : 'Pausar Atendimento';
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md sm:rounded-2xl max-h-[90vh] overflow-y-auto" showCloseButton>
+      <DialogContent
+        className="max-w-md sm:rounded-2xl max-h-[90vh] overflow-y-auto"
+        showCloseButton
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PauseCircle className="h-5 w-5 text-orange-600" />
@@ -154,7 +199,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="rounded-xl">
-                      {PAUSE_REASONS.map((r) => (
+                      {visibleReasons.map((r) => (
                         <SelectItem key={r} value={r} className="rounded-lg">
                           {PAUSE_REASON_LABELS[r as PauseReason]}
                         </SelectItem>
@@ -165,6 +210,30 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
                 </FormItem>
               )}
             />
+
+            {isBlockedReason && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-xl border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="font-medium">Pausa não permitida.</p>
+                  <p className="mt-1">
+                    A peça/material é de responsabilidade da contratada. Providencie o item e
+                    use &ldquo;Observação de material&rdquo; para registrar o andamento, sem
+                    pausar o SLA.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isQuoteReason && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-3 text-sm text-indigo-900 dark:border-indigo-800/50 dark:bg-indigo-950/30 dark:text-indigo-100">
+                Para este motivo, o SLA só pausa após o envio da cotação ao gestor. No próximo
+                passo você informa o valor e a descrição do material para aprovação.
+              </div>
+            )}
 
             <FormField
               control={form.control}
@@ -185,7 +254,7 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
                           : 'Informações adicionais (opcional)...'
                       }
                       className="min-h-[80px] resize-y rounded-xl transition-all focus-visible:ring-orange-500/30"
-                      disabled={submitting}
+                      disabled={submitting || isBlockedReason}
                       {...field}
                     />
                   </FormControl>
@@ -194,9 +263,11 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
               )}
             />
 
-            <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-sm text-orange-900 dark:border-orange-800/50 dark:bg-orange-950/30 dark:text-orange-100">
-              O SLA será pausado até que o atendimento seja retomado.
-            </div>
+            {!isBlockedReason && !isQuoteReason && (
+              <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-sm text-orange-900 dark:border-orange-800/50 dark:bg-orange-950/30 dark:text-orange-100">
+                O SLA será pausado até que o atendimento seja retomado.
+              </div>
+            )}
 
             <DialogFooter className="gap-2 sm:gap-0">
               <Button
@@ -210,10 +281,10 @@ export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: P
               </Button>
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || isBlockedReason}
                 className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-sm shadow-orange-500/20 transition-all hover:from-orange-600 hover:to-orange-700 hover:shadow-orange-500/30"
               >
-                {submitting ? 'Pausando...' : 'Pausar Atendimento'}
+                {submitLabel}
               </Button>
             </DialogFooter>
           </form>

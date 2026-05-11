@@ -24,7 +24,7 @@ describe('ChamadoListQuerySchema — defaults', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.q).toBe('elevador');
-      expect(result.data.status).toBe('aberto');
+      expect(result.data.status).toEqual(['aberto']);
       expect(result.data.page).toBe(3);
       expect(result.data.limit).toBe(10);
     }
@@ -94,12 +94,10 @@ describe('ChamadoListQuerySchema — status validation', () => {
     const validStatuses = [
       'all',
       'aberto',
-      'emvalidacao',
       'validado',
       'em atendimento',
       'aguardando_solicitante',
       'aguardando_terceiros',
-      'fechado',
       'concluído',
       'encerrado',
       'cancelado',
@@ -111,8 +109,9 @@ describe('ChamadoListQuerySchema — status validation', () => {
     }
   });
 
-  it('should reject invalid status', () => {
+  it('should coerce unknown status to all', () => {
     const result = ChamadoListQuerySchema.safeParse({ status: 'invalido' });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toBe('all');
   });
 });

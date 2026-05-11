@@ -18,9 +18,11 @@ import {
   PauseCircle,
   Phone,
   Play,
+  Star,
   User,
   UserCheck,
   Wrench,
+  XCircle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -56,6 +58,7 @@ import {
 import { AttachmentGallery } from '../../meus-chamados/[id]/_components/AttachmentGallery';
 import { CommentThread } from '../../meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '../../meus-chamados/[id]/_components/HistoryTimeline';
+import { CotacaoApprovalCard } from './CotacaoApprovalCard';
 
 type TabId = 'detalhes' | 'historico' | 'comentarios' | 'anexos';
 
@@ -97,17 +100,6 @@ async function fetchSubtype(subtypeId: string): Promise<string | null> {
   }
 }
 
-async function fetchUserRole(): Promise<string | null> {
-  try {
-    const res = await fetch('/api/session', { cache: 'no-store' });
-    if (!res.ok) return null;
-    const data = await res.json().catch(() => ({}));
-    return data.role ?? null;
-  } catch {
-    return null;
-  }
-}
-
 // ---------- Constants ----------
 
 const GRAU_URGENCIA_LABELS: Record<string, string> = {
@@ -143,13 +135,21 @@ interface Props {
   chamado: ChamadoDTO | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onClassificar: (chamado: ChamadoDTO) => void;
-  onRecusar: (chamado: ChamadoDTO) => void;
-  onAtribuir: (chamado: ChamadoDTO) => void;
-  onEncerrar: (chamado: ChamadoDTO) => void;
-  onReatribuir: (chamado: ChamadoDTO) => void;
+  // Ações de gestão (Preposto/Admin) — opcionais para reuso pela página /meus-chamados (Solicitante)
+  onClassificar?: (chamado: ChamadoDTO) => void;
+  onRecusar?: (chamado: ChamadoDTO) => void;
+  onAtribuir?: (chamado: ChamadoDTO) => void;
+  onEncerrar?: (chamado: ChamadoDTO) => void;
+  onReatribuir?: (chamado: ChamadoDTO) => void;
   onPausar?: (chamado: ChamadoDTO) => void;
   onRetomar?: (chamado: ChamadoDTO) => void;
+  // Ações de Solicitante
+  onCancelar?: (chamado: ChamadoDTO) => void;
+  onAvaliar?: (chamado: ChamadoDTO) => void;
+  onRecusarServico?: (chamado: ChamadoDTO) => void;
+  /** Papel do usuário logado. Recebido via prop para evitar fetch redundante a /api/session
+   *  (a página pai já faz esse fetch uma vez). */
+  userRole?: string | null;
 }
 
 // ---------- Component ----------
@@ -165,6 +165,10 @@ export function ChamadoDetailSheet({
   onReatribuir,
   onPausar,
   onRetomar,
+  onCancelar,
+  onAvaliar,
+  onRecusarServico,
+  userRole = null,
 }: Props) {
   const router = useRouter();
   const timezone = useInstitutionalTimezone();
@@ -173,7 +177,6 @@ export function ChamadoDetailSheet({
   const [userName, setUserName] = useState<string | null>(null);
   const [unitName, setUnitName] = useState<string | null>(null);
   const [subtypeName, setSubtypeName] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('detalhes');
   const [mountedTabs, setMountedTabs] = useState<Set<TabId>>(
     () => new Set<TabId>(['detalhes']),
@@ -211,13 +214,6 @@ export function ChamadoDetailSheet({
       promises.push(
         fetchSubtype(chamado.subtypeId).then((name) => {
           if (mounted) setSubtypeName(name);
-        }),
-      );
-    }
-    if (userRole === null) {
-      promises.push(
-        fetchUserRole().then((role) => {
-          if (mounted) setUserRole(role);
         }),
       );
     }
@@ -279,17 +275,41 @@ export function ChamadoDetailSheet({
   const accentGradient =
     STATUS_ACCENT_GRADIENT[chamado.status] ?? 'from-indigo-400 to-blue-500';
 
-  const showClassificar = status === 'aberto';
-  const showRecusar = status === 'aberto';
-  const showAtribuir = status === 'validado';
-  const showReatribuir = status === 'em atendimento';
-  const showEncerrar = status === 'concluído';
-  const showPausar = status === 'em atendimento' && !!onPausar;
+  const isSolicitante = userRole === 'Solicitante';
+  const isManager = userRole === 'Preposto' || userRole === 'Admin' || userRole === null;
+
+  // Ações de gestão — apenas para Preposto/Admin (e quando o callback foi fornecido)
+  const showClassificar = isManager && status === 'aberto' && !!onClassificar;
+  const showRecusar = isManager && status === 'aberto' && !!onRecusar;
+  const showAtribuir = isManager && status === 'validado' && !!onAtribuir;
+  const showReatribuir = isManager && status === 'em atendimento' && !!onReatribuir;
+  const showEncerrar = isManager && status === 'concluído' && !!onEncerrar;
+  const showPausar = isManager && status === 'em atendimento' && !!onPausar;
   const showRetomar =
-    (status === 'aguardando_solicitante' || status === 'aguardando_terceiros') && !!onRetomar;
+    isManager &&
+    (status === 'aguardando_solicitante' || status === 'aguardando_terceiros') &&
+    !!onRetomar;
+
+  // Ações do Solicitante
+  const showCancelar = isSolicitante && status === 'aberto' && !!onCancelar;
+  const showAvaliar =
+    isSolicitante && status === 'encerrado' && !chamado.evaluation && !!onAvaliar;
+  const showRecusarServico =
+    isSolicitante &&
+    (status === 'concluído' || status === 'encerrado') &&
+    !!onRecusarServico;
+
   const hasActions =
-    showClassificar || showRecusar || showAtribuir || showReatribuir || showEncerrar ||
-    showPausar || showRetomar;
+    showClassificar ||
+    showRecusar ||
+    showAtribuir ||
+    showReatribuir ||
+    showEncerrar ||
+    showPausar ||
+    showRetomar ||
+    showCancelar ||
+    showAvaliar ||
+    showRecusarServico;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -399,6 +419,10 @@ export function ChamadoDetailSheet({
           <ScrollArea className="min-h-0 flex-1">
             <TabsContent value="detalhes" className="mt-0">
               <div className="space-y-5 px-5 py-5">
+                <CotacaoApprovalCard
+                  ticketId={chamado._id}
+                  canReview={userRole === 'Admin'}
+                />
 
             {/* Description — primary focus area */}
             <section aria-labelledby="desc-heading">
@@ -636,7 +660,7 @@ export function ChamadoDetailSheet({
                 Abrir em tela cheia
               </Button>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-              {showRecusar && (
+              {showRecusar && onRecusar && (
                 <Button
                   type="button"
                   size="sm"
@@ -648,7 +672,7 @@ export function ChamadoDetailSheet({
                   Recusar
                 </Button>
               )}
-              {showClassificar && (
+              {showClassificar && onClassificar && (
                 <Button
                   type="button"
                   size="sm"
@@ -659,7 +683,7 @@ export function ChamadoDetailSheet({
                   Classificar
                 </Button>
               )}
-              {showAtribuir && (
+              {showAtribuir && onAtribuir && (
                 <Button
                   type="button"
                   size="sm"
@@ -670,7 +694,7 @@ export function ChamadoDetailSheet({
                   Atribuir
                 </Button>
               )}
-              {showReatribuir && (
+              {showReatribuir && onReatribuir && (
                 <Button
                   type="button"
                   size="sm"
@@ -705,7 +729,7 @@ export function ChamadoDetailSheet({
                   Retomar
                 </Button>
               )}
-              {showEncerrar && (
+              {showEncerrar && onEncerrar && (
                 <Button
                   type="button"
                   size="sm"
@@ -714,6 +738,41 @@ export function ChamadoDetailSheet({
                 >
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                   Encerrar Chamado
+                </Button>
+              )}
+              {showCancelar && onCancelar && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-rose-200 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 sm:w-auto"
+                  onClick={() => handleAction(onCancelar)}
+                >
+                  <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Cancelar
+                </Button>
+              )}
+              {showRecusarServico && onRecusarServico && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-orange-200 text-orange-700 transition-colors hover:border-orange-300 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/30 sm:w-auto"
+                  onClick={() => handleAction(onRecusarServico)}
+                >
+                  <Ban className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Recusar Serviço
+                </Button>
+              )}
+              {showAvaliar && onAvaliar && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
+                  onClick={() => handleAction(onAvaliar)}
+                >
+                  <Star className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Avaliar
                 </Button>
               )}
               </div>

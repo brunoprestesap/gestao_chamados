@@ -29,24 +29,22 @@ describe('CHAMADO_STATUSES', () => {
     expect(idxAguardando).toBeGreaterThan(idxEmAtendimento);
   });
 
-  it('deve posicionar aguardando_solicitante antes de fechado', () => {
+  it('deve posicionar aguardando_solicitante antes de concluído', () => {
     // Arrange
     const statuses = [...CHAMADO_STATUSES];
     const idxAguardando = statuses.indexOf('aguardando_solicitante');
-    const idxFechado = statuses.indexOf('fechado');
+    const idxConcluido = statuses.indexOf('concluído');
 
     // Assert
-    expect(idxFechado).toBeGreaterThanOrEqual(0);
-    expect(idxAguardando).toBeLessThan(idxFechado);
+    expect(idxConcluido).toBeGreaterThanOrEqual(0);
+    expect(idxAguardando).toBeLessThan(idxConcluido);
   });
 
   it('deve conter todos os status do ciclo de vida padrão', () => {
     // Assert
     expect(CHAMADO_STATUSES).toContain('aberto');
-    expect(CHAMADO_STATUSES).toContain('emvalidacao');
     expect(CHAMADO_STATUSES).toContain('validado');
     expect(CHAMADO_STATUSES).toContain('em atendimento');
-    expect(CHAMADO_STATUSES).toContain('fechado');
     expect(CHAMADO_STATUSES).toContain('concluído');
     expect(CHAMADO_STATUSES).toContain('encerrado');
     expect(CHAMADO_STATUSES).toContain('cancelado');

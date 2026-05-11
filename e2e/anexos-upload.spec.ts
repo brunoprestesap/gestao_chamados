@@ -36,16 +36,26 @@ function createMinimalJpegBuffer(): Buffer {
 
 /**
  * Navega para a página de detalhe do chamado.
- * Clica na descrição do chamado (parágrafo com TICKET_TITLE) que borbulha
- * para o onClick do Card, disparando router.push().
+ * A listagem de /meus-chamados foi revitalizada (tabela em desktop) e o clique na linha
+ * abre um Sheet lateral em vez de navegar. Capturamos o _id via API e fazemos goto direto.
  */
 async function navegarParaDetalhe(page: Parameters<typeof login>[0]) {
-  await page.goto('/meus-chamados');
-  await page.waitForLoadState('networkidle');
-  const card = page.locator('[data-slot="card"]').filter({ hasText: TICKET_TITLE });
-  await expect(card).toBeVisible({ timeout: 15000 });
-  // Clica no texto da descrição (que está fora de botões internos com stopPropagation)
-  await card.getByText(TICKET_TITLE).click();
+  const apiResp = page.waitForResponse(
+    (r) =>
+      r.url().includes('/api/meus-chamados') &&
+      !r.url().includes('/comments') &&
+      r.ok() &&
+      r.request().method() === 'GET',
+    { timeout: 30000 },
+  );
+  await page.goto('/meus-chamados', { waitUntil: 'load' });
+  const resp = await apiResp;
+  const data = await resp.json();
+  const chamado = (data.items ?? []).find((c: { titulo: string }) =>
+    c.titulo?.includes(TICKET_TITLE),
+  );
+  expect(chamado, `chamado "${TICKET_TITLE}" não encontrado em /api/meus-chamados`).toBeTruthy();
+  await page.goto(`/meus-chamados/${chamado._id}`);
   await expect(page).toHaveURL(/\/meus-chamados\/[a-f\d]{24}/, { timeout: 20000 });
 }
 
@@ -63,7 +73,9 @@ test.describe.serial('Upload de Anexos', () => {
     await dialog.getByRole('combobox', { name: /unidade/i }).click();
     await page.getByRole('option').first().click();
 
-    await dialog.getByLabel(/local exato/i).fill('Sala E2E Anexos');
+    // Usa TICKET_TITLE como localExato → título auto-gerado contém TICKET_TITLE,
+    // permitindo localizar a linha na tabela e o chamado via API por título único.
+    await dialog.getByLabel(/local exato/i).fill(TICKET_TITLE);
     await dialog.getByText('Manutenção Predial').click();
     await selectFirstSubtypeAndCatalogService(page, dialog);
     await dialog.getByPlaceholder(/descreva/i).fill(TICKET_TITLE);
@@ -71,9 +83,11 @@ test.describe.serial('Upload de Anexos', () => {
 
     await dialog.getByRole('button', { name: /abrir chamado|enviar|criar/i }).click();
 
-    // Assert — chamado criado com sucesso
+    // Assert — chamado criado com sucesso e visível na tabela
     await expect(dialog).not.toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(TICKET_TITLE)).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole('row').filter({ hasText: TICKET_TITLE }).first(),
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test('2. Solicitante acessa o chamado e vê a seção de anexos', async ({ page }) => {

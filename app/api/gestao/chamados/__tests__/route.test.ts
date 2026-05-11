@@ -24,7 +24,8 @@ const mockLean = vi.fn();
 const mockLimit = vi.fn().mockReturnValue({ lean: mockLean });
 const mockSkip = vi.fn().mockReturnValue({ limit: mockLimit });
 const mockSort = vi.fn().mockReturnValue({ skip: mockSkip });
-const mockFind = vi.fn().mockReturnValue({ sort: mockSort });
+const mockPopulate = vi.fn().mockReturnValue({ sort: mockSort });
+const mockFind = vi.fn().mockReturnValue({ populate: mockPopulate });
 const mockCountDocuments = vi.fn();
 
 vi.mock('@/models/Chamado', () => ({
@@ -236,9 +237,15 @@ describe('GET /api/gestao/chamados — validation errors', () => {
     expect(res.status).toBe(400);
   });
 
-  it('should return 400 for invalid status value', async () => {
+  it('should treat unknown status as all (200, no status filter)', async () => {
+    mockCountDocuments.mockResolvedValue(0);
+    mockLean.mockResolvedValue([]);
+
     const res = await GET(makeRequest({ status: 'inexistente' }));
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+
+    const findFilter = mockFind.mock.calls[0][0];
+    expect(findFilter).not.toHaveProperty('status');
   });
 });
 

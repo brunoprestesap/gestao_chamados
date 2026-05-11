@@ -50,7 +50,7 @@ export type ReassignTicketResult =
 /**
  * Status considerados "ativos" para cálculo de carga do técnico
  */
-const ACTIVE_STATUSES = ['emvalidacao', 'validado', 'em atendimento'] as const;
+const ACTIVE_STATUSES = ['validado', 'em atendimento'] as const;
 
 export async function classificarChamadoAction(
   raw: ClassificarChamadoInput,
@@ -417,10 +417,10 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
     }
 
     // Valida status (Validado ou Em validação para compatibilidade)
-    if (chamado.status !== 'validado' && chamado.status !== 'emvalidacao') {
+    if (chamado.status !== 'validado') {
       return {
         ok: false,
-        error: 'Somente chamados com status "Validado" ou "Em validação" podem ser atribuídos.',
+        error: 'Somente chamados com status "Validado" podem ser atribuídos.',
       };
     }
 
@@ -541,7 +541,7 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
     const updateResult = await ChamadoModel.findOneAndUpdate(
       {
         _id: ticketId,
-        status: { $in: ['validado', 'emvalidacao'] },
+        status: 'validado',
         $or: [{ assignedToUserId: { $exists: false } }, { assignedToUserId: null }],
       },
       { $set: updatePayload },

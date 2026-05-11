@@ -10,7 +10,7 @@ import { UserModel } from '@/models/user.model';
 /**
  * Status considerados "ativos" para cálculo de carga do técnico
  */
-const ACTIVE_STATUSES = ['emvalidacao', 'validado', 'em atendimento'] as const;
+const ACTIVE_STATUSES = ['validado', 'em atendimento'] as const;
 
 /**
  * GET /api/gestao/chamados/[id]/eligible-technicians
@@ -34,9 +34,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Chamado não encontrado' }, { status: 404 });
     }
 
-    if (chamado.status !== 'validado' && chamado.status !== 'emvalidacao') {
+    if (chamado.status !== 'validado') {
       return NextResponse.json(
-        { error: 'Somente chamados com status "Validado" ou "Em validação" podem ser atribuídos' },
+        { error: 'Somente chamados com status "Validado" podem ser atribuídos' },
         { status: 400 },
       );
     }

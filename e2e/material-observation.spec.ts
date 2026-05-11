@@ -17,8 +17,16 @@ import { expect, test } from '@playwright/test';
 import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
-import { gestaoChamadoCard } from './fixtures/gestao';
-import { gotoGestaoChamadosReady } from './fixtures/navigation';
+import {
+  gestaoChamadoCard,
+  gestaoOpenDetailSheetFromRow,
+  gestaoRowAtribuirButton,
+} from './fixtures/gestao';
+import {
+  clickChamadosAtribuidosRowOpenDetail,
+  gotoChamadosAtribuidosReady,
+  gotoGestaoChamadosReady,
+} from './fixtures/navigation';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 // ---------------------------------------------------------------------------
@@ -45,7 +53,8 @@ async function criarChamadoEmAtendimento(
   await expect(novoDialog).toBeVisible();
   await novoDialog.getByRole('combobox', { name: /unidade/i }).click();
   await page.getByRole('option').first().click();
-  await novoDialog.getByLabel(/local exato/i).fill('Sala E2E Material');
+  // titulo no localExato torna o título auto-gerado localizável via gestaoChamadoCard.
+  await novoDialog.getByLabel(/local exato/i).fill(titulo);
   await novoDialog.getByText('Manutenção Predial').click();
   await selectFirstSubtypeAndCatalogService(page, novoDialog);
   await novoDialog.getByPlaceholder(/descreva/i).fill(titulo);
@@ -74,7 +83,7 @@ async function criarChamadoEmAtendimento(
   // Atribuir — clicar no botão diretamente no card Kanban
   const card2 = gestaoChamadoCard(page, titulo);
   await expect(card2).toBeVisible({ timeout: 15000 });
-  await card2.getByRole('button', { name: /^atribuir$/i }).click();
+  await gestaoRowAtribuirButton(card2).click();
 
   const atribDialog = page.getByRole('dialog');
   await expect(atribDialog).toBeVisible();
@@ -97,22 +106,13 @@ test.describe.serial('Observação de Material', () => {
   });
 
   test('técnico registra observação de material', async ({ page }) => {
-    // Login como técnico e navegar para a listagem
     await login(page, 'tecnico');
-
-    // Capturar o ID do chamado via API
-    const apiResp = page.waitForResponse(
-      (r) => r.url().includes('/api/chamados-atribuidos') && r.ok() && r.request().method() === 'GET',
-      { timeout: 30000 },
-    );
-    await page.goto('/chamados-atribuidos', { waitUntil: 'load' });
-    const resp = await apiResp;
-    const data = await resp.json();
-    const chamado = (data.items ?? []).find((c: { titulo: string }) => c.titulo?.includes('E2E Material'));
-    expect(chamado).toBeTruthy();
-
-    // Navegar diretamente para a página de detalhe
-    await page.goto(`/chamados-atribuidos/${chamado._id}`);
+    await gotoChamadosAtribuidosReady(page);
+    await clickChamadosAtribuidosRowOpenDetail(page, titulo);
+    await page.waitForURL(/\/chamados-atribuidos\/[^/?#]+$/, {
+      timeout: 30000,
+      waitUntil: 'commit',
+    });
     await expect(page.getByText(titulo).last()).toBeVisible({ timeout: 15000 });
 
     // Clicar no botão "Observação de Material"
@@ -148,19 +148,24 @@ test.describe.serial('Observação de Material', () => {
   test('solicitante visualiza a observação de material', async ({ page }) => {
     await login(page, 'solicitante');
 
-    // Capturar ID via API
-    const apiResp = page.waitForResponse(
-      (r) => r.url().includes('/api/meus-chamados') && !r.url().includes('/comments') && r.ok() && r.request().method() === 'GET',
+    await page.goto('/meus-chamados', { waitUntil: 'load' });
+    const filtered = page.waitForResponse(
+      (r) =>
+        r.request().method() === 'GET' &&
+        r.url().includes('/api/meus-chamados') &&
+        !r.url().includes('/comments') &&
+        r.url().includes('q=') &&
+        r.ok(),
       { timeout: 30000 },
     );
-    await page.goto('/meus-chamados', { waitUntil: 'load' });
-    const resp = await apiResp;
+    await page.getByRole('textbox', { name: /buscar chamados/i }).fill(titulo);
+    const resp = await filtered;
     const data = await resp.json();
-    const chamado = (data.items ?? []).find((c: { titulo: string }) => c.titulo?.includes('E2E Material'));
+    const chamado = (data.items ?? []).find((c: { titulo: string }) => c.titulo?.includes(titulo));
     expect(chamado).toBeTruthy();
 
     // Navegar direto para a página de detalhe
-    await page.goto(`/meus-chamados/${chamado._id}`);
+    await page.goto(`/meus-chamados/${chamado!._id}`);
 
     // Verificar seção "Material Necessário" visível para solicitante
     await expect(page.getByText('Material Necessário').first()).toBeVisible({ timeout: 15000 });
@@ -174,7 +179,7 @@ test.describe.serial('Observação de Material', () => {
     // Clicar no card do chamado para abrir o Sheet
     const card = gestaoChamadoCard(page, titulo);
     await expect(card).toBeVisible({ timeout: 15000 });
-    await card.click();
+    await gestaoOpenDetailSheetFromRow(card);
 
     // Verificar seção "Material Necessário" visível no Sheet
     const sheet = page.locator('[data-slot="sheet-content"]');
@@ -185,18 +190,12 @@ test.describe.serial('Observação de Material', () => {
 
   test('observação aparece no histórico do chamado', async ({ page }) => {
     await login(page, 'tecnico');
-
-    // Capturar ID via API
-    const apiResp = page.waitForResponse(
-      (r) => r.url().includes('/api/chamados-atribuidos') && r.ok() && r.request().method() === 'GET',
-      { timeout: 30000 },
-    );
-    await page.goto('/chamados-atribuidos', { waitUntil: 'load' });
-    const resp = await apiResp;
-    const data = await resp.json();
-    const chamado = (data.items ?? []).find((c: { titulo: string }) => c.titulo?.includes('E2E Material'));
-
-    await page.goto(`/chamados-atribuidos/${chamado._id}`);
+    await gotoChamadosAtribuidosReady(page);
+    await clickChamadosAtribuidosRowOpenDetail(page, titulo);
+    await page.waitForURL(/\/chamados-atribuidos\/[^/?#]+$/, {
+      timeout: 30000,
+      waitUntil: 'commit',
+    });
 
     // Verificar que o histórico contém a ação "Observação de Material"
     await expect(page.getByText('Observação de Material').first()).toBeVisible({ timeout: 15000 });
@@ -217,18 +216,12 @@ test.describe.serial('Observação de Material — validação', () => {
 
   test('não permite submeter descrição curta demais', async ({ page }) => {
     await login(page, 'tecnico');
-
-    // Capturar ID via API
-    const apiResp = page.waitForResponse(
-      (r) => r.url().includes('/api/chamados-atribuidos') && r.ok() && r.request().method() === 'GET',
-      { timeout: 30000 },
-    );
-    await page.goto('/chamados-atribuidos', { waitUntil: 'load' });
-    const resp = await apiResp;
-    const data = await resp.json();
-    const chamado = (data.items ?? []).find((c: { titulo: string }) => c.titulo?.includes('E2E Material'));
-
-    await page.goto(`/chamados-atribuidos/${chamado._id}`);
+    await gotoChamadosAtribuidosReady(page);
+    await clickChamadosAtribuidosRowOpenDetail(page, titulo);
+    await page.waitForURL(/\/chamados-atribuidos\/[^/?#]+$/, {
+      timeout: 30000,
+      waitUntil: 'commit',
+    });
     await expect(page.getByText(titulo).last()).toBeVisible({ timeout: 15000 });
 
     const materialBtn = page.getByRole('button', { name: /observação de material/i });

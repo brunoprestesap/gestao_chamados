@@ -17,8 +17,27 @@ vi.mock('@/lib/dal', () => ({
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 vi.mock('@/lib/realtime-emit', () => ({ emitToRoom: vi.fn().mockResolvedValue(true) }));
 vi.mock('@/lib/sla-utils', () => ({
-  addElapsedMinutes: vi.fn((from: Date, minutes: number) => new Date(from.getTime() + minutes * 60_000)),
+  computeNewResolutionDueAtOnResume: vi.fn(
+    (
+      currentDueAt: Date,
+      _slaPausedAt: Date,
+      _now: Date,
+      _businessHoursOnly: boolean,
+      pausedMinutes: number,
+    ) => new Date(currentDueAt.getTime() + pausedMinutes * 60_000),
+  ),
   evaluateResolutionBreach: vi.fn().mockReturnValue(null),
+}));
+vi.mock('@/lib/expediente-config', () => ({
+  getBusinessCalendarConfig: vi.fn().mockResolvedValue({
+    timezone: 'America/Belem',
+    workdayStart: '08:00',
+    workdayEnd: '18:00',
+    weekdays: [1, 2, 3, 4, 5],
+  }),
+}));
+vi.mock('@/lib/holidays', () => ({
+  getActiveHolidaysForRange: vi.fn().mockResolvedValue(new Set<string>()),
 }));
 
 const mockChamadoFindById = vi.fn();

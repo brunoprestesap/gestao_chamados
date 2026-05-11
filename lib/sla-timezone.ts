@@ -217,3 +217,52 @@ export function getBusinessMinutesPerDay(config: BusinessCalendarConfig): number
   const end = parseHHmm(config.workdayEnd);
   return (end.hours - start.hours) * 60 + (end.minutes - start.minutes);
 }
+
+/**
+ * Conta quantos minutos úteis (horário comercial em dias úteis, descontando
+ * feriados) decorreram entre `from` e `to`. Usado para retomar SLAs com
+ * `businessHoursOnly=true`: a janela de pausa só "consome" SLA durante o
+ * expediente, então a extensão do prazo deve usar este valor.
+ *
+ * Retorna 0 quando `to <= from` ou quando a janela está integralmente fora
+ * do expediente/dias úteis.
+ */
+export function getBusinessMinutesBetween(
+  from: Date,
+  to: Date,
+  config: BusinessCalendarConfig,
+  holidays?: Set<string>,
+): number {
+  if (to.getTime() <= from.getTime()) return 0;
+
+  const end = parseHHmm(config.workdayEnd);
+  const endFraction = end.hours + end.minutes / 60;
+
+  let current = snapToNextBusinessStart(new Date(from.getTime()), config, holidays);
+  let accumulated = 0;
+  const guardLimit = 366; // proteção contra loop infinito (suficiente p/ qualquer pausa razoável)
+  let iterations = 0;
+
+  while (current.getTime() < to.getTime() && iterations < guardLimit) {
+    const { dayOfWeek, hourFraction } = getLocalWeekdayAndHour(current, config);
+    const localStr = toLocalDateYYYYMMDD(current, config.timezone);
+
+    if (isBusinessDay(dayOfWeek, localStr, config, holidays)) {
+      const minutesUntilEOD = (endFraction - hourFraction) * 60;
+      const minutesUntilTo = (to.getTime() - current.getTime()) / 60000;
+      const minutesThisBlock = Math.min(minutesUntilEOD, minutesUntilTo);
+      if (minutesThisBlock > 0) {
+        accumulated += minutesThisBlock;
+        current = new Date(current.getTime() + minutesThisBlock * 60 * 1000);
+      }
+      if (current.getTime() < to.getTime()) {
+        current = snapToNextBusinessStart(current, config, holidays);
+      }
+    } else {
+      current = snapToNextBusinessStart(current, config, holidays);
+    }
+    iterations += 1;
+  }
+
+  return Math.max(0, Math.round(accumulated));
+}

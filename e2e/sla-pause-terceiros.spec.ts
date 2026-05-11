@@ -28,8 +28,13 @@ import { expect, test } from '@playwright/test';
 import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
-import { gestaoChamadoCard } from './fixtures/gestao';
 import {
+  gestaoChamadoCard,
+  gestaoOpenDetailSheetFromRow,
+  gestaoRowAtribuirButton,
+} from './fixtures/gestao';
+import {
+  clickChamadosAtribuidosRowOpenDetail,
   gotoChamadosAtribuidosReady,
   gotoGestaoChamadosReady,
   reloadGestaoKanbanReady,
@@ -69,7 +74,8 @@ async function criarChamadoEmAtendimento(
   await expect(novoDialog).toBeVisible();
   await novoDialog.getByRole('combobox', { name: /unidade/i }).click();
   await page.getByRole('option').first().click();
-  await novoDialog.getByLabel(/local exato/i).fill('Sala E2E Pausa');
+  // titulo no localExato torna o título auto-gerado localizável via gestaoChamadoCard.
+  await novoDialog.getByLabel(/local exato/i).fill(titulo);
   await novoDialog.getByText('Manutenção Predial').click();
   await selectFirstSubtypeAndCatalogService(page, novoDialog);
   await novoDialog.getByPlaceholder(/descreva/i).fill(titulo);
@@ -93,7 +99,7 @@ async function criarChamadoEmAtendimento(
 
   const card2 = gestaoChamadoCard(page, titulo);
   await expect(card2).toBeVisible({ timeout: 15000 });
-  await card2.getByRole('button', { name: /^atribuir$/i }).click();
+  await gestaoRowAtribuirButton(card2).click();
 
   const atribDialog = page.getByRole('dialog');
   await expect(atribDialog).toBeVisible();
@@ -117,17 +123,7 @@ async function navegarParaDetalheChamadoTecnico(
   await login(page, 'tecnico');
   await gotoChamadosAtribuidosReady(page);
 
-  // Localiza o card do chamado pelo título — usa .first() pois pode
-  // haver elementos duplicados (mobile + desktop) no DOM
-  const card = page
-    .locator('[data-slot="card"]:visible')
-    .filter({ hasText: titulo })
-    .first();
-  await expect(card).toBeVisible({ timeout: 30000 });
-
-  // Clica no card para navegar ao detalhe
-  await card.click();
-
+  await clickChamadosAtribuidosRowOpenDetail(page, titulo);
   await page.waitForURL(/\/chamados-atribuidos\/.+/, { timeout: 30000, waitUntil: 'commit' });
   return page.url();
 }
@@ -136,50 +132,41 @@ async function navegarParaDetalheChamadoTecnico(
 // Suite 1 — Técnico pausa com motivo "Aguardando Fornecedor"
 // ---------------------------------------------------------------------------
 
-test.describe('Pausas de SLA — Técnico pausa com motivo Aguardando Fornecedor', () => {
-  let tituloChamado: string;
+test.describe.serial('Pausas de SLA — Técnico pausa com motivo Aguardando Fornecedor', () => {
+  let tituloChamado = '';
 
-  test.describe.serial('setup: chamado em atendimento', () => {
-    test('cria chamado e avança até em atendimento', async ({ page }) => {
-      test.slow(); // setup faz múltiplos logins + dialogs
-      tituloChamado = await criarChamadoEmAtendimento(page, 'Fornecedor');
+  test('setup: cria chamado e avança até em atendimento', async ({ page }) => {
+    test.slow(); // setup faz múltiplos logins + dialogs
+    tituloChamado = await criarChamadoEmAtendimento(page, 'Fornecedor');
+  });
+
+  test('deve pausar o chamado e exibir status Aguardando Terceiros', async ({ page }) => {
+    await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+
+    const dialog = await abrirPauseDialogNaDetalhe(page);
+    await selecionarMotivoPausa(page, dialog, 'Aguardando Fornecedor');
+    await confirmarPausa(dialog);
+
+    await expect(
+      page.locator('[data-slot="badge"]').filter({ hasText: /aguardando terceiros/i }),
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test('deve exibir o botão Retomar Atendimento após a pausa', async ({ page }) => {
+    await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+
+    await expect(page.getByRole('button', { name: /retomar atendimento/i })).toBeVisible({
+      timeout: 10000,
     });
   });
 
-  test.describe('pausa com motivo aguardando fornecedor', () => {
-    test('deve pausar o chamado e exibir status Aguardando Terceiros', async ({ page }) => {
-      // Arrange
-      await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+  test('não deve exibir o botão Pausar Atendimento quando já pausado', async ({ page }) => {
+    // Arrange
+    await navegarParaDetalheChamadoTecnico(page, tituloChamado);
 
-      // Act — abre dialog e preenche
-      const dialog = await abrirPauseDialogNaDetalhe(page);
-      await selecionarMotivoPausa(page, dialog, 'Aguardando Fornecedor');
-      await confirmarPausa(dialog);
-
-      // Assert — status deve mudar
-      await expect(
-        page.locator('[data-slot="badge"]').filter({ hasText: /aguardando terceiros/i }),
-      ).toBeVisible({ timeout: 10000 });
-    });
-
-    test('deve exibir o botão Retomar Atendimento após a pausa', async ({ page }) => {
-      // Arrange — chamado já está pausado do teste anterior
-      await navegarParaDetalheChamadoTecnico(page, tituloChamado);
-
-      // Assert — botão de retomada visível
-      await expect(page.getByRole('button', { name: /retomar atendimento/i })).toBeVisible({
-        timeout: 10000,
-      });
-    });
-
-    test('não deve exibir o botão Pausar Atendimento quando já pausado', async ({ page }) => {
-      // Arrange
-      await navegarParaDetalheChamadoTecnico(page, tituloChamado);
-
-      // Assert — botão de pausa não deve estar visível
-      await expect(page.getByRole('button', { name: /pausar atendimento/i })).not.toBeVisible({
-        timeout: 5000,
-      });
+    // Assert — botão de pausa não deve estar visível
+    await expect(page.getByRole('button', { name: /pausar atendimento/i })).not.toBeVisible({
+      timeout: 5000,
     });
   });
 });
@@ -188,79 +175,66 @@ test.describe('Pausas de SLA — Técnico pausa com motivo Aguardando Fornecedor
 // Suite 2 — Validação de detalhes obrigatórios para motivo "Outro"
 // ---------------------------------------------------------------------------
 
-test.describe('Pausas de SLA — Validação de detalhes obrigatórios para motivo Outro', () => {
-  let tituloChamado: string;
+test.describe.serial('Pausas de SLA — Validação de detalhes obrigatórios para motivo Outro', () => {
+  let tituloChamado = '';
 
-  test.describe.serial('setup: chamado em atendimento', () => {
-    test('cria chamado e avança até em atendimento', async ({ page }) => {
-      test.slow(); // setup faz múltiplos logins + dialogs
-      tituloChamado = await criarChamadoEmAtendimento(page, 'Outro');
-    });
+  test('setup: cria chamado e avança até em atendimento', async ({ page }) => {
+    test.slow(); // setup faz múltiplos logins + dialogs
+    tituloChamado = await criarChamadoEmAtendimento(page, 'Outro');
   });
 
-  test.describe('validação do campo detalhes quando motivo é Outro', () => {
-    test('deve mostrar erro ao tentar submeter sem detalhes', async ({ page }) => {
-      // Arrange
-      await navegarParaDetalheChamadoTecnico(page, tituloChamado);
-      const dialog = await abrirPauseDialogNaDetalhe(page);
+  test('deve mostrar erro ao tentar submeter sem detalhes', async ({ page }) => {
+    await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+    const dialog = await abrirPauseDialogNaDetalhe(page);
 
-      // Act — seleciona "Outro" e tenta submeter sem detalhes
-      await selecionarMotivoPausa(page, dialog, 'Outro Motivo');
-      const btnSubmit = dialog.getByRole('button', { name: /^pausar atendimento$/i });
-      await btnSubmit.click();
+    await selecionarMotivoPausa(page, dialog, 'Outro Motivo');
+    const btnSubmit = dialog.getByRole('button', { name: /^pausar atendimento$/i });
+    await btnSubmit.click();
 
-      // Assert — mensagem de validação visível
-      await expect(
-        dialog.getByText(/detalhes obrigatórios|mín\. 10 caracteres/i),
-      ).toBeVisible({ timeout: 5000 });
+    await expect(
+      dialog.getByText(/detalhes obrigatórios|mín\. 10 caracteres/i),
+    ).toBeVisible({ timeout: 5000 });
 
-      // Dialog permanece aberto
-      await expect(dialog).toBeVisible();
-    });
+    await expect(dialog).toBeVisible();
+  });
 
-    test('deve mostrar erro ao preencher detalhes com menos de 10 caracteres', async ({ page }) => {
-      // Arrange
-      await navegarParaDetalheChamadoTecnico(page, tituloChamado);
-      const dialog = await abrirPauseDialogNaDetalhe(page);
+  test('deve mostrar erro ao preencher detalhes com menos de 10 caracteres', async ({ page }) => {
+    await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+    const dialog = await abrirPauseDialogNaDetalhe(page);
 
-      // Act — seleciona "Outro" e digita texto curto
-      await selecionarMotivoPausa(page, dialog, 'Outro Motivo');
-      await dialog.getByRole('textbox').fill('curto');
-      await dialog.getByRole('button', { name: /^pausar atendimento$/i }).click();
+    await selecionarMotivoPausa(page, dialog, 'Outro Motivo');
+    await dialog.getByRole('textbox').fill('curto');
+    await dialog.getByRole('button', { name: /^pausar atendimento$/i }).click();
 
-      // Assert — erro de mínimo de caracteres
-      await expect(
-        dialog.getByText(/mín\. 10 caracteres|detalhes obrigatórios/i),
-      ).toBeVisible({ timeout: 5000 });
-    });
+    await expect(
+      dialog.getByText(/mín\. 10 caracteres|detalhes obrigatórios/i),
+    ).toBeVisible({ timeout: 5000 });
+  });
 
-    test('deve exibir asterisco no campo detalhes quando motivo é Outro', async ({ page }) => {
-      // Antes de pausar o chamado no teste seguinte — precisa status em atendimento
-      await navegarParaDetalheChamadoTecnico(page, tituloChamado);
-      const dialog = await abrirPauseDialogNaDetalhe(page);
-      await selecionarMotivoPausa(page, dialog, 'Outro Motivo');
+  test('deve exibir asterisco no campo detalhes quando motivo é Outro', async ({ page }) => {
+    await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+    const dialog = await abrirPauseDialogNaDetalhe(page);
+    await selecionarMotivoPausa(page, dialog, 'Outro Motivo');
 
-      const labelDetalhes = dialog.locator('label').filter({ hasText: /detalhes/i });
-      await expect(labelDetalhes).toContainText('*');
-    });
+    const labelDetalhes = dialog.locator('label').filter({ hasText: /detalhes/i });
+    await expect(labelDetalhes).toContainText('*');
+  });
 
-    test('deve pausar com sucesso ao preencher detalhes com 10 ou mais caracteres', async ({
-      page,
-    }) => {
-      // Arrange
-      await navegarParaDetalheChamadoTecnico(page, tituloChamado);
-      const dialog = await abrirPauseDialogNaDetalhe(page);
+  test('deve pausar com sucesso ao preencher detalhes com 10 ou mais caracteres', async ({
+    page,
+  }) => {
+    await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+    const dialog = await abrirPauseDialogNaDetalhe(page);
 
-      // Act — seleciona "Outro" e digita texto válido
-      await selecionarMotivoPausa(page, dialog, 'Outro Motivo');
-      await dialog.getByRole('textbox').fill('Motivo detalhado para teste E2E com mais de dez caracteres.');
-      await confirmarPausa(dialog);
+    await selecionarMotivoPausa(page, dialog, 'Outro Motivo');
+    await dialog
+      .getByRole('textbox')
+      .fill('Motivo detalhado para teste E2E com mais de dez caracteres.');
+    await confirmarPausa(dialog);
 
-      // Assert — chamado pausado com sucesso
-      await expect(
-        page.locator('[data-slot="badge"]').filter({ hasText: /aguardando terceiros/i }),
-      ).toBeVisible({ timeout: 10000 });
-    });
+    await expect(
+      page.locator('[data-slot="badge"]').filter({ hasText: /aguardando terceiros/i }),
+    ).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -287,9 +261,7 @@ test.describe('Pausas de SLA — Admin pausa chamado via Gestão Kanban', () => 
       const card = gestaoChamadoCard(page, tituloChamado);
       await expect(card).toBeVisible({ timeout: 15000 });
 
-      // Abre o Sheet de detalhes clicando no card (não em um botão de ação)
-      // O ChamadoCard tem área clicável que abre o ChamadoDetailSheet
-      await card.click();
+      await gestaoOpenDetailSheetFromRow(card);
 
       const sheet = page.locator('[data-slot="sheet-content"]');
       await expect(sheet).toBeVisible({ timeout: 5000 });
@@ -311,21 +283,12 @@ test.describe('Pausas de SLA — Admin pausa chamado via Gestão Kanban', () => 
       await page.waitForTimeout(1500); // aguarda revalidação ISR
       await reloadGestaoKanbanReady(page);
 
-      const coluna = page.locator('[data-column="aguardando_terceiros"]').or(
-        page.getByRole('heading', { name: /aguardando terceiros/i }).locator('..'),
-      );
-
-      // Verifica que o chamado está na coluna correta ou que o status foi atualizado
-      // (abordagem resiliente: verifica o card com o novo texto de status)
       const cardAtualizado = gestaoChamadoCard(page, tituloChamado);
       await expect(cardAtualizado).toBeVisible({ timeout: 15000 });
-
-      // O card deve conter o badge de status atualizado
+      // /gestão usa StatusBadge como <span> (sem data-slot="badge"); a célula da tabela espelha o rótulo.
       await expect(
-        cardAtualizado.locator('[data-slot="badge"]').filter({ hasText: /aguardando terceiros/i }).or(
-          coluna.getByText(tituloChamado),
-        ),
-      ).toBeVisible({ timeout: 10000 });
+        cardAtualizado.getByRole('cell', { name: /aguardando terceiros/i }),
+      ).toBeVisible({ timeout: 15000 });
     });
   });
 });
@@ -346,7 +309,7 @@ test.describe('Pausas de SLA — Admin retoma chamado pausado via Gestão Kanban
       // Técnico pausa o chamado
       await navegarParaDetalheChamadoTecnico(page, tituloChamado);
       const dialog = await abrirPauseDialogNaDetalhe(page);
-      await selecionarMotivoPausa(page, dialog, 'Aguardando Peça/Material');
+      await selecionarMotivoPausa(page, dialog, 'Aguardando Fornecedor');
       await confirmarPausa(dialog);
       await expect(
         page.locator('[data-slot="badge"]').filter({ hasText: /aguardando terceiros/i }),
@@ -361,7 +324,7 @@ test.describe('Pausas de SLA — Admin retoma chamado pausado via Gestão Kanban
 
       const card = gestaoChamadoCard(page, tituloChamado);
       await expect(card).toBeVisible({ timeout: 15000 });
-      await card.click();
+      await gestaoOpenDetailSheetFromRow(card);
 
       const sheet = page.locator('[data-slot="sheet-content"]');
       await expect(sheet).toBeVisible({ timeout: 5000 });
@@ -378,7 +341,7 @@ test.describe('Pausas de SLA — Admin retoma chamado pausado via Gestão Kanban
       await expect(resumeDialog).toBeVisible({ timeout: 5000 });
 
       // Assert — dialog exibe o motivo da pausa registrado anteriormente
-      await expect(resumeDialog.getByText(/aguardando peça|aguardando peça\/material/i)).toBeVisible({
+      await expect(resumeDialog.getByText(/aguardando fornecedor/i)).toBeVisible({
         timeout: 5000,
       });
 
@@ -394,9 +357,9 @@ test.describe('Pausas de SLA — Admin retoma chamado pausado via Gestão Kanban
 
       const cardAtualizado = gestaoChamadoCard(page, tituloChamado);
       await expect(cardAtualizado).toBeVisible({ timeout: 30000 });
-      await expect(
-        cardAtualizado.locator('[data-slot="badge"]').filter({ hasText: /em atendimento/i }),
-      ).toBeVisible({ timeout: 10000 });
+      await expect(cardAtualizado.getByRole('cell', { name: /em atendimento/i })).toBeVisible({
+        timeout: 15000,
+      });
     });
   });
 });
@@ -450,8 +413,8 @@ test.describe('Pausas de SLA — Técnico retoma chamado pela página de detalhe
       // Act — abre dialog de retomada
       const dialog = await abrirResumeDialogNaDetalhe(page);
 
-      // Assert — motivo da pausa exibido
-      await expect(dialog.getByText(/aguardando acesso ao local/i)).toBeVisible({
+      // Assert — motivo da pausa exibido (acesso ao local)
+      await expect(dialog.getByText(/acesso ao local/i)).toBeVisible({
         timeout: 5000,
       });
 
@@ -493,62 +456,50 @@ test.describe('Pausas de SLA — Técnico retoma chamado pela página de detalhe
 // Suite 6 — Chamado pausado bloqueia registro de execução
 // ---------------------------------------------------------------------------
 
-test.describe('Pausas de SLA — Chamado pausado bloqueia registro de execução', () => {
-  let tituloChamado: string;
-  let urlDetalhe: string;
+test.describe.serial('Pausas de SLA — Chamado pausado bloqueia registro de execução', () => {
+  let tituloChamado = '';
+  let urlDetalhe = '';
 
-  test.describe.serial('setup: chamado em atendimento', () => {
-    test('cria chamado e avança até em atendimento', async ({ page }) => {
-      test.slow(); // setup faz múltiplos logins + dialogs
-      tituloChamado = await criarChamadoEmAtendimento(page, 'Bloqueia Exec');
+  test('setup: cria chamado e avança até em atendimento', async ({ page }) => {
+    test.slow(); // setup faz múltiplos logins + dialogs
+    tituloChamado = await criarChamadoEmAtendimento(page, 'Bloqueia Exec');
+  });
+
+  test('botão Registrar Execução está visível antes da pausa', async ({ page }) => {
+    urlDetalhe = await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+
+    await expect(page.getByRole('button', { name: /registrar execução/i })).toBeVisible({
+      timeout: 10000,
     });
   });
 
-  test.describe('bloqueio de execução durante pausa', () => {
-    test('botão Registrar Execução está visível antes da pausa', async ({ page }) => {
-      // Arrange
-      urlDetalhe = await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+  test('botão Registrar Execução não deve estar visível após a pausa', async ({ page }) => {
+    const url = await navegarParaDetalheChamadoTecnico(page, tituloChamado);
 
-      // Assert — botão visível quando status é "em atendimento"
-      await expect(page.getByRole('button', { name: /registrar execução/i })).toBeVisible({
-        timeout: 10000,
-      });
+    const dialog = await abrirPauseDialogNaDetalhe(page);
+    await selecionarMotivoPausa(page, dialog, 'Aguardando Solicitante');
+    await confirmarPausa(dialog);
+
+    await expect(
+      page.locator('[data-slot="badge"]').filter({ hasText: /aguardando/i }).first(),
+    ).toBeVisible({ timeout: 10000 });
+
+    await expect(page.getByRole('button', { name: /registrar execução/i })).not.toBeVisible({
+      timeout: 5000,
     });
 
-    test('botão Registrar Execução não deve estar visível após a pausa', async ({ page }) => {
-      // Arrange — pausa o chamado
-      const url = await navegarParaDetalheChamadoTecnico(page, tituloChamado);
+    urlDetalhe = url;
+  });
 
-      const dialog = await abrirPauseDialogNaDetalhe(page);
-      await selecionarMotivoPausa(page, dialog, 'Aguardando Solicitante');
-      await confirmarPausa(dialog);
+  test('botão Retomar Atendimento está visível enquanto pausado', async ({ page }) => {
+    await login(page, 'tecnico');
+    await page.goto(urlDetalhe || (await navegarParaDetalheChamadoTecnico(page, tituloChamado)));
 
-      // Aguarda atualização de status
-      await expect(
-        page.locator('[data-slot="badge"]').filter({ hasText: /aguardando/i }).first(),
-      ).toBeVisible({ timeout: 10000 });
-
-      // Assert — botão de execução não deve estar visível
-      await expect(page.getByRole('button', { name: /registrar execução/i })).not.toBeVisible({
-        timeout: 5000,
-      });
-
-      // Salva URL para próximo teste
-      urlDetalhe = url;
+    await expect(page.getByRole('button', { name: /retomar atendimento/i })).toBeVisible({
+      timeout: 10000,
     });
-
-    test('botão Retomar Atendimento está visível enquanto pausado', async ({ page }) => {
-      // Arrange — chamado já está pausado do teste anterior
-      await login(page, 'tecnico');
-      await page.goto(urlDetalhe ?? (await navegarParaDetalheChamadoTecnico(page, tituloChamado)));
-
-      // Assert — somente o botão de retomada está disponível
-      await expect(page.getByRole('button', { name: /retomar atendimento/i })).toBeVisible({
-        timeout: 10000,
-      });
-      await expect(page.getByRole('button', { name: /registrar execução/i })).not.toBeVisible({
-        timeout: 5000,
-      });
+    await expect(page.getByRole('button', { name: /registrar execução/i })).not.toBeVisible({
+      timeout: 5000,
     });
   });
 });
@@ -557,23 +508,22 @@ test.describe('Pausas de SLA — Chamado pausado bloqueia registro de execução
 // Suite 7 — Todos os motivos de pausa podem ser selecionados
 // ---------------------------------------------------------------------------
 
-test.describe('Pausas de SLA — Todos os motivos de pausa estão disponíveis no select', () => {
-  const MOTIVOS_ESPERADOS = [
+test.describe.serial('Pausas de SLA — Todos os motivos de pausa estão disponíveis no select', () => {
+  /** Motivos no Select quando o papel é técnico (sem fluxo de cotação exclusivo do Preposto). */
+  const MOTIVOS_ESPERADOS_TECNICO = [
     'Aguardando Solicitante',
     'Aguardando Fornecedor',
-    'Aguardando Peça/Material',
+    'Falta de Peça (Responsabilidade da Contratada)',
     'Aguardando Aprovação',
     'Aguardando Acesso ao Local',
     'Outro Motivo',
   ];
 
-  let tituloChamado: string;
+  let tituloChamado = '';
 
-  test.describe.serial('setup', () => {
-    test('cria chamado até em atendimento', async ({ page }) => {
-      test.slow(); // setup faz múltiplos logins + dialogs
-      tituloChamado = await criarChamadoEmAtendimento(page, 'Motivos Select');
-    });
+  test('setup: cria chamado até em atendimento', async ({ page }) => {
+    test.slow(); // setup faz múltiplos logins + dialogs
+    tituloChamado = await criarChamadoEmAtendimento(page, 'Motivos Select');
   });
 
   test('deve listar todos os motivos de pausa no Select', async ({ page }) => {
@@ -585,7 +535,7 @@ test.describe('Pausas de SLA — Todos os motivos de pausa estão disponíveis n
     await dialog.getByRole('combobox').first().click();
 
     // Assert — cada motivo esperado deve estar disponível
-    for (const motivo of MOTIVOS_ESPERADOS) {
+    for (const motivo of MOTIVOS_ESPERADOS_TECNICO) {
       await expect(page.getByRole('option', { name: motivo, exact: true })).toBeVisible({
         timeout: 5000,
       });

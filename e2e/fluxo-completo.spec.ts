@@ -4,7 +4,11 @@ import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-di
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
 import { gestaoChamadoCard } from './fixtures/gestao';
-import { gotoChamadosAtribuidosReady, gotoGestaoChamadosReady } from './fixtures/navigation';
+import {
+  gotoChamadosAtribuidosReady,
+  gotoGestaoChamadosReady,
+  waitChamadosAtribuidosSearchApplied,
+} from './fixtures/navigation';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 /**
@@ -30,7 +34,10 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await dialog.getByRole('combobox', { name: /unidade/i }).click();
     await page.getByRole('option').first().click();
 
-    await dialog.getByLabel(/local exato/i).fill('Sala 301 - E2E');
+    // Usa ticketTitle como localExato — garante que o título auto-gerado
+    // (`${tipoServico} — ${localExato}`) seja localizável nos steps subsequentes
+    // (gestaoChamadoCard filtra por hasText no título da linha).
+    await dialog.getByLabel(/local exato/i).fill(ticketTitle);
     await dialog.getByText('Manutenção Predial').click();
     await selectFirstSubtypeAndCatalogService(page, dialog);
     await dialog.getByPlaceholder(/descreva/i).fill(ticketTitle);
@@ -38,7 +45,10 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
 
     await dialog.getByRole('button', { name: /abrir chamado|enviar|criar/i }).click();
     await expect(dialog).not.toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
+    // Localiza pela linha da tabela contendo o ticketTitle no título auto-gerado.
+    await expect(
+      page.getByRole('row').filter({ hasText: ticketTitle }).first(),
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test('2. Preposto classifica chamado (define prioridade e SLA)', async ({ page }) => {
@@ -84,9 +94,15 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await login(page, 'tecnico');
     await gotoChamadosAtribuidosReady(page);
 
-    const cardExec = page.locator('[data-slot="card"]:visible').filter({ hasText: ticketTitle }).first();
-    await expect(cardExec).toBeVisible({ timeout: 15000 });
-    await cardExec.getByRole('button', { name: 'Registrar Execução' }).first().click();
+    const busca = page.getByRole('textbox', { name: /buscar chamados/i });
+    const listaPronta = waitChamadosAtribuidosSearchApplied(page, ticketTitle);
+    await busca.fill(ticketTitle);
+    await listaPronta;
+
+    // Após filtrar só deve existir um botão por chamado — ok em desktop ou mobile cards.
+    const registrarBtn = page.getByRole('button', { name: /^registrar execução$/i }).first();
+    await expect(registrarBtn).toBeVisible({ timeout: 20000 });
+    await registrarBtn.click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -135,8 +151,9 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await login(page, 'solicitante');
     await page.goto('/meus-chamados');
 
-    const closedCard = page.locator('[data-slot="card"]:visible').filter({ hasText: ticketTitle }).first();
-    await expect(closedCard).toBeVisible({ timeout: 15000 });
-    await expect(closedCard.getByText('Encerrado').first()).toBeVisible({ timeout: 10000 });
+    // Layout revitalizado: linha de tabela em desktop. Filtrar pela linha com o título do chamado.
+    const closedRow = page.getByRole('row').filter({ hasText: ticketTitle }).first();
+    await expect(closedRow).toBeVisible({ timeout: 15000 });
+    await expect(closedRow.getByText('Encerrado').first()).toBeVisible({ timeout: 10000 });
   });
 });

@@ -135,6 +135,40 @@ export interface TicketServiceRefusedPayload {
   at: string;
 }
 
+/** Payload quando técnico envia cotação para aprovação do gestor. */
+export interface TicketQuoteSubmittedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  cotacaoId: string;
+  valorEstimado: number;
+  submittedBy: { id: string; name?: string };
+  at: string;
+}
+
+/** Payload quando gestor aprova uma cotação (SLA retoma). */
+export interface TicketQuoteApprovedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  cotacaoId: string;
+  pausedMinutes: number;
+  reviewedBy: { id: string; name?: string };
+  at: string;
+}
+
+/** Payload quando gestor recusa uma cotação (SLA retoma; contratada pode enviar nova). */
+export interface TicketQuoteRejectedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  cotacaoId: string;
+  pausedMinutes: number;
+  observacao: string;
+  reviewedBy: { id: string; name?: string };
+  at: string;
+}
+
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
   'ticket:new': (payload: TicketNewPayload) => void;
@@ -147,6 +181,9 @@ export interface ServerToClientEvents {
   'ticket:rejected': (payload: TicketRejectedPayload) => void;
   'ticket:service_refused': (payload: TicketServiceRefusedPayload) => void;
   'ticket:material_observation': (payload: TicketMaterialObservationPayload) => void;
+  'ticket:quote_submitted': (payload: TicketQuoteSubmittedPayload) => void;
+  'ticket:quote_approved': (payload: TicketQuoteApprovedPayload) => void;
+  'ticket:quote_rejected': (payload: TicketQuoteRejectedPayload) => void;
   'sla:warning': (payload: SlaWarningPayload) => void;
   'sla:breach': (payload: SlaBreachPayload) => void;
 }

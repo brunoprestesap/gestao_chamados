@@ -17,6 +17,9 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'retomada_terceiros',
   'recusa',
   'recusa_servico',
+  'cotacao_enviada',
+  'cotacao_aprovada',
+  'cotacao_recusada',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
@@ -40,4 +43,7 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   retomada_terceiros: 'Retomada — Terceiros Resolvido',
   recusa: 'Recusa do Chamado',
   recusa_servico: 'Recusa de Serviço pelo Solicitante',
+  cotacao_enviada: 'Cotação Enviada para Aprovação',
+  cotacao_aprovada: 'Cotação Aprovada',
+  cotacao_recusada: 'Cotação Recusada',
 };

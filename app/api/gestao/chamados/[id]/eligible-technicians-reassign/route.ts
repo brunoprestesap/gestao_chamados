@@ -10,7 +10,7 @@ import { UserModel } from '@/models/user.model';
 /**
  * Status considerados "ativos" para cálculo de carga do técnico
  */
-const ACTIVE_STATUSES = ['emvalidacao', 'validado', 'em atendimento'] as const;
+const ACTIVE_STATUSES = ['validado', 'em atendimento'] as const;
 
 /**
  * GET /api/gestao/chamados/[id]/eligible-technicians-reassign

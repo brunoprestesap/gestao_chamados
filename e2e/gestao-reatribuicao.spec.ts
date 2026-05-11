@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
-import { gestaoChamadoCard } from './fixtures/gestao';
+import { gestaoChamadoCard, gestaoRowAtribuirButton } from './fixtures/gestao';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 
 /**
@@ -28,6 +28,7 @@ import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialo
  */
 
 test.describe('Reatribuição de chamado com justificativa obrigatória', () => {
+  test.describe.configure({ timeout: 120000 });
   /**
    * Título único por execução para isolar dados entre runs paralelos/sequenciais.
    */
@@ -49,7 +50,9 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
       await dialog.getByRole('combobox', { name: /unidade/i }).click();
       await page.getByRole('option').first().click();
 
-      await dialog.getByLabel(/local exato/i).fill('Sala 404 - Reatribuição E2E');
+      // Usa ticketTitle como localExato — título auto-gerado contém ticketTitle,
+      // permitindo localizar a linha na tabela e em /gestao via gestaoChamadoCard.
+      await dialog.getByLabel(/local exato/i).fill(ticketTitle);
       await dialog.getByText('Manutenção Predial').click();
       await selectFirstSubtypeAndCatalogService(page, dialog);
       await dialog.getByPlaceholder(/descreva/i).fill(ticketTitle);
@@ -57,7 +60,9 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
 
       await dialog.getByRole('button', { name: /abrir chamado|enviar|criar/i }).click();
       await expect(dialog).not.toBeVisible({ timeout: 15000 });
-      await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 15000 });
+      await expect(
+        page.getByRole('row').filter({ hasText: ticketTitle }).first(),
+      ).toBeVisible({ timeout: 15000 });
     });
 
     test('preposto classifica e atribui o chamado', async ({ page }) => {
@@ -80,7 +85,7 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
 
       const card2 = gestaoChamadoCard(page, ticketTitle);
       await expect(card2).toBeVisible({ timeout: 15000 });
-      const atribuirBtn = card2.getByRole('button', { name: /^atribuir$/i });
+      const atribuirBtn = gestaoRowAtribuirButton(card2);
       await expect(atribuirBtn).toBeVisible({ timeout: 5000 });
       await atribuirBtn.click();
 
@@ -212,12 +217,13 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
       const dialog = page.getByRole('dialog');
       const btnReatribuir = dialog.getByRole('button', { name: /^reatribuir$/i });
 
-      // Seleciona o primeiro técnico elegível disponível (não sobrecarregado).
-      // Os cards de técnico são <button type="button"> dentro da div de listagem,
-      // identificados pela matrícula visível ("Matrícula: ...").
-      const cardTecnico = dialog.locator('button[type="button"]:not([disabled])').filter({
-        hasText: /matrícula:/i,
-      });
+      // Cards de novo técnico usam role="radio" — evita pegar outros botões do dialog.
+      await expect(dialog.getByText(/carregando técnicos/i)).not.toBeVisible({ timeout: 120000 });
+
+      // aria-disabled=false costuma omitir o atributo; só descartamos radios explicitamente desabilitados (sobrecarga).
+      const cardTecnico = dialog.locator('[role="radio"]:not([aria-disabled="true"])');
+
+      await expect(cardTecnico.first()).toBeVisible({ timeout: 60000 });
       await cardTecnico.first().click();
 
       // Preenche justificativa com mais de 10 caracteres

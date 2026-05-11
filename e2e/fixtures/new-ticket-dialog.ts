@@ -9,7 +9,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * abre antes dos dados chegarem, fecha e reabre após um intervalo.
  */
 export async function selectFirstSubtypeAndCatalogService(page: Page, dialog: Locator) {
-  await selectOptionWithRetry(page, dialog, /^subtipo$/i);
+  // Os FormLabels do dialog incluem asterisco em campos obrigatórios (ex.: "Subtipo *"),
+  // então o regex precisa casar o nome com sufixo opcional " *".
+  await selectOptionWithRetry(page, dialog, /^subtipo\s*\*?$/i);
   await selectOptionWithRetry(page, dialog, /serviço/i);
 }
 
