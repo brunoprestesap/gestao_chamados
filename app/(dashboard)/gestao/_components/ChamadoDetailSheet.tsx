@@ -18,6 +18,7 @@ import {
   PauseCircle,
   Phone,
   Play,
+  RotateCcw,
   Star,
   User,
   UserCheck,
@@ -140,6 +141,7 @@ interface Props {
   onRecusar?: (chamado: ChamadoDTO) => void;
   onAtribuir?: (chamado: ChamadoDTO) => void;
   onEncerrar?: (chamado: ChamadoDTO) => void;
+  onReabrir?: (chamado: ChamadoDTO) => void;
   onReatribuir?: (chamado: ChamadoDTO) => void;
   onPausar?: (chamado: ChamadoDTO) => void;
   onRetomar?: (chamado: ChamadoDTO) => void;
@@ -162,6 +164,7 @@ export function ChamadoDetailSheet({
   onRecusar,
   onAtribuir,
   onEncerrar,
+  onReabrir,
   onReatribuir,
   onPausar,
   onRetomar,
@@ -284,6 +287,8 @@ export function ChamadoDetailSheet({
   const showAtribuir = isManager && status === 'validado' && !!onAtribuir;
   const showReatribuir = isManager && status === 'em atendimento' && !!onReatribuir;
   const showEncerrar = isManager && status === 'concluído' && !!onEncerrar;
+  const showReabrir =
+    isManager && (status === 'concluído' || status === 'encerrado') && !!onReabrir;
   const showPausar = isManager && status === 'em atendimento' && !!onPausar;
   const showRetomar =
     isManager &&
@@ -305,6 +310,7 @@ export function ChamadoDetailSheet({
     showAtribuir ||
     showReatribuir ||
     showEncerrar ||
+    showReabrir ||
     showPausar ||
     showRetomar ||
     showCancelar ||
@@ -738,6 +744,18 @@ export function ChamadoDetailSheet({
                 >
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                   Encerrar Chamado
+                </Button>
+              )}
+              {showReabrir && onReabrir && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-amber-200 text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30 sm:w-auto"
+                  onClick={() => handleAction(onReabrir)}
+                >
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  Reabrir Chamado
                 </Button>
               )}
               {showCancelar && onCancelar && (

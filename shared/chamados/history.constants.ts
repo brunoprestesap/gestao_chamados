@@ -20,6 +20,7 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'cotacao_enviada',
   'cotacao_aprovada',
   'cotacao_recusada',
+  'reabertura',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
@@ -46,4 +47,5 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   cotacao_enviada: 'Cotação Enviada para Aprovação',
   cotacao_aprovada: 'Cotação Aprovada',
   cotacao_recusada: 'Cotação Recusada',
+  reabertura: 'Reabertura do Chamado',
 };

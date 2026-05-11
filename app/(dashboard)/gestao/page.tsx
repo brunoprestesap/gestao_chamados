@@ -12,6 +12,7 @@ import {
   type LucideIcon,
   PauseCircle,
   Play,
+  RotateCcw,
   Search,
   Ticket,
   UserCheck,
@@ -26,6 +27,7 @@ import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/Atri
 import { ChamadoDetailSheet } from '@/app/(dashboard)/gestao/_components/ChamadoDetailSheet';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
+import { ReabrirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReabrirChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import { RecusarChamadoDialog } from '@/app/(dashboard)/gestao/_components/RecusarChamadoDialog';
 import { type ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
@@ -138,6 +140,13 @@ const ACTION_DEFS: ActionDef[] = [
     icon: CheckCircle2,
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     canShow: (s) => s === 'concluído',
+  },
+  {
+    key: 'reabrir',
+    label: 'Reabrir',
+    icon: RotateCcw,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    canShow: (s) => s === 'concluído' || s === 'encerrado',
   },
   {
     key: 'pausar',
@@ -369,6 +378,7 @@ export default function GestaoPage() {
   const [recusarDialogOpen, setRecusarDialogOpen] = useState(false);
   const [atribuirDialogOpen, setAtribuirDialogOpen] = useState(false);
   const [encerrarChamadoId, setEncerrarChamadoId] = useState<string | null>(null);
+  const [reabrirChamado, setReabrirChamado] = useState<ChamadoDTO | null>(null);
   const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
   const [pausarChamado, setPausarChamado] = useState<ChamadoDTO | null>(null);
   const [cotacaoChamado, setCotacaoChamado] = useState<ChamadoDTO | null>(null);
@@ -506,6 +516,15 @@ export default function GestaoPage() {
     fetchChamados();
   }, [fetchChamados]);
 
+  const handleReabrir = useCallback((chamado: ChamadoDTO) => {
+    setReabrirChamado(chamado);
+  }, []);
+
+  const handleReabrirSuccess = useCallback(() => {
+    setReabrirChamado(null);
+    fetchChamados();
+  }, [fetchChamados]);
+
   const handleReatribuir = useCallback((chamado: ChamadoDTO) => {
     setReatribuirChamado(chamado);
   }, []);
@@ -552,6 +571,7 @@ export default function GestaoPage() {
       atribuir: handleAtribuir,
       reatribuir: handleReatribuir,
       encerrar: handleEncerrar,
+      reabrir: handleReabrir,
       pausar: handlePausar,
       retomar: handleRetomar,
     }),
@@ -561,6 +581,7 @@ export default function GestaoPage() {
       handleAtribuir,
       handleReatribuir,
       handleEncerrar,
+      handleReabrir,
       handlePausar,
       handleRetomar,
     ],
@@ -970,6 +991,7 @@ export default function GestaoPage() {
         onRecusar={handleRecusar}
         onAtribuir={handleAtribuir}
         onEncerrar={handleEncerrar}
+        onReabrir={handleReabrir}
         onReatribuir={handleReatribuir}
         onPausar={handlePausar}
         onRetomar={handleRetomar}
@@ -1005,6 +1027,18 @@ export default function GestaoPage() {
           }}
           chamadoId={encerrarChamadoId}
           onSuccess={handleEncerrarSuccess}
+        />
+      )}
+
+      {reabrirChamado && (
+        <ReabrirChamadoDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setReabrirChamado(null);
+          }}
+          chamadoId={reabrirChamado._id}
+          chamadoStatus={reabrirChamado.status as ChamadoStatus}
+          onSuccess={handleReabrirSuccess}
         />
       )}
 

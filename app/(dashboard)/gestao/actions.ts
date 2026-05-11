@@ -35,11 +35,16 @@ import {
 } from '@/shared/chamados/chamado.schemas';
 import { type CloseTicketInput, CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
 import { type RejectTicketInput, RejectTicketSchema } from '@/shared/chamados/rejection.schemas';
+import {
+  type ReopenTicketInput,
+  ReopenTicketSchema,
+} from '@/shared/chamados/reopen-ticket.schemas';
 
 export type ClassificarResult = { ok: true } | { ok: false; error: string };
 export type UpdateTicketCatalogResult = { ok: true } | { ok: false; error: string };
 export type CloseTicketResult = { ok: true } | { ok: false; error: string };
 export type RejectTicketResult = { ok: true } | { ok: false; error: string };
+export type ReopenTicketResult = { ok: true } | { ok: false; error: string };
 export type AssignTicketResult =
   | { ok: true; technicianId: string; technicianName: string; strategy: 'MANUAL' | 'FALLBACK' }
   | { ok: false; error: string };
@@ -321,6 +326,127 @@ export async function closeTicketAction(raw: CloseTicketInput): Promise<CloseTic
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao encerrar chamado. Tente novamente.',
+    };
+  }
+}
+
+/**
+ * Reabre um chamado (Admin ou Preposto) que está em status "concluído" ou "encerrado".
+ * O chamado volta para "em atendimento" mantendo o técnico atribuído.
+ * Avaliação existente é preservada como histórico imutável.
+ */
+export async function reopenTicketAction(
+  raw: ReopenTicketInput,
+): Promise<ReopenTicketResult> {
+  try {
+    const session = await requireManager();
+
+    const parsed = ReopenTicketSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg =
+        first.reason?.[0] ?? first.ticketId?.[0] ?? 'Dados inválidos. Verifique os campos.';
+      return { ok: false, error: msg };
+    }
+
+    const { ticketId, reason } = parsed.data;
+    await dbConnect();
+
+    const now = new Date();
+    const userId = new Types.ObjectId(session.userId);
+
+    // Update atômico — só transita se status atual ∈ {concluído, encerrado}.
+    // `new: false` retorna o documento ANTES do update, dando acesso ao status original.
+    const previous = await ChamadoModel.findOneAndUpdate(
+      { _id: ticketId, status: { $in: ['concluído', 'encerrado'] } },
+      {
+        $set: {
+          status: 'em atendimento',
+          concludedAt: null,
+          closedAt: null,
+          closedByUserId: null,
+          closureNotes: '',
+          'sla.resolvedAt': null,
+        },
+      },
+      { new: false },
+    );
+
+    if (!previous) {
+      const existing = await ChamadoModel.findById(ticketId).lean();
+      if (!existing) return { ok: false, error: 'Chamado não encontrado.' };
+      return {
+        ok: false,
+        error: `Reabertura permitida apenas para chamados Concluídos ou Encerrados. Status atual: ${existing.status}.`,
+      };
+    }
+
+    const fromStatus = previous.status as 'concluído' | 'encerrado';
+
+    // Histórico (auditoria)
+    await ChamadoHistoryModel.create({
+      chamadoId: previous._id,
+      userId,
+      action: 'reabertura',
+      statusAnterior: fromStatus,
+      statusNovo: 'em atendimento',
+      observacoes: `Reaberto por ${session.role}. Motivo: ${reason.length > 200 ? reason.slice(0, 200) + '…' : reason}`,
+    });
+
+    // Notificações (fire-and-forget)
+    const actor = await UserModel.findById(session.userId).select('name').lean();
+    const payload = {
+      ticketId: String(previous._id),
+      ticketNumber: previous.ticket_number ?? undefined,
+      title: previous.titulo ?? undefined,
+      reopenedBy: { id: session.userId, name: actor?.name ?? undefined },
+      fromStatus,
+      reason,
+      at: now.toISOString(),
+    };
+    const notifyTitle = previous.ticket_number
+      ? `Chamado #${previous.ticket_number} reaberto`
+      : 'Chamado reaberto';
+    const notifyBody = reason.length > 200 ? reason.slice(0, 200) + '…' : reason;
+
+    const recipients: string[] = [];
+    if (previous.assignedToUserId) recipients.push(String(previous.assignedToUserId));
+    if (previous.solicitanteId) recipients.push(String(previous.solicitanteId));
+    const unique = [...new Set(recipients)];
+
+    await Promise.allSettled([
+      ...unique.map((rid) => emitToRoom(`user:${rid}`, 'ticket:reopened', payload)),
+      emitToRoom('managers', 'ticket:reopened', payload),
+    ]);
+
+    if (unique.length > 0) {
+      await Promise.allSettled(
+        unique.map((rid) =>
+          NotificationModel.create({
+            userId: new Types.ObjectId(rid),
+            type: 'ticket:reopened',
+            title: notifyTitle,
+            body: notifyBody,
+            data: payload,
+            readAt: null,
+          }),
+        ),
+      );
+      for (const rid of unique) {
+        sendNotificationEmail(rid, 'ticket:reopened', payload).catch(() => {});
+      }
+    }
+
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${ticketId}`);
+    revalidatePath('/chamados-atribuidos');
+
+    return { ok: true };
+  } catch (e) {
+    console.error('reopenTicketAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao reabrir chamado. Tente novamente.',
     };
   }
 }

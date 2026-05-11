@@ -19,6 +19,7 @@ import type {
   TicketQuoteRejectedPayload,
   TicketQuoteSubmittedPayload,
   TicketRejectedPayload,
+  TicketReopenedPayload,
   TicketResumedPayload,
   TicketServiceRefusedPayload,
 } from '@/shared/socket';
@@ -42,6 +43,7 @@ export type AllowedEmitEvents =
   | 'ticket:quote_submitted'
   | 'ticket:quote_approved'
   | 'ticket:quote_rejected'
+  | 'ticket:reopened'
   | 'sla:warning'
   | 'sla:breach';
 
@@ -68,6 +70,7 @@ export async function emitToRoom(
     | TicketQuoteSubmittedPayload
     | TicketQuoteApprovedPayload
     | TicketQuoteRejectedPayload
+    | TicketReopenedPayload
     | SlaWarningPayload
     | SlaBreachPayload,
 ): Promise<boolean> {

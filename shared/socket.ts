@@ -135,6 +135,17 @@ export interface TicketServiceRefusedPayload {
   at: string;
 }
 
+/** Payload quando Preposto/Admin reabre um chamado concluído/encerrado. */
+export interface TicketReopenedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  reopenedBy: { id: string; name?: string };
+  fromStatus: 'concluído' | 'encerrado';
+  reason: string;
+  at: string;
+}
+
 /** Payload quando técnico envia cotação para aprovação do gestor. */
 export interface TicketQuoteSubmittedPayload {
   ticketId: string;
@@ -184,6 +195,7 @@ export interface ServerToClientEvents {
   'ticket:quote_submitted': (payload: TicketQuoteSubmittedPayload) => void;
   'ticket:quote_approved': (payload: TicketQuoteApprovedPayload) => void;
   'ticket:quote_rejected': (payload: TicketQuoteRejectedPayload) => void;
+  'ticket:reopened': (payload: TicketReopenedPayload) => void;
   'sla:warning': (payload: SlaWarningPayload) => void;
   'sla:breach': (payload: SlaBreachPayload) => void;
 }
