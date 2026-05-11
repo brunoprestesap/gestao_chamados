@@ -20,6 +20,7 @@ playwright-output*.log
 
 # Claude Code — preferências locais; agents/ e commands/ continuam versionados
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # next.js
 /.next/
