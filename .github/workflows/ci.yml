@@ -82,9 +82,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: next-build
-          path: |
-            .next
-            !.next/cache
+          path: .next/
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 1
 
   # ---------------------------------------------------------------------------
