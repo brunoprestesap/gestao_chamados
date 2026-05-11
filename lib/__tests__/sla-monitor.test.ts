@@ -366,24 +366,13 @@ describe('checkSlaEscalations — breach de resolução', () => {
 });
 
 describe('checkSlaEscalations — desconto de pausas', () => {
-  it('should use totalPausedMinutes to reduce elapsed time and avoid spurious breach', async () => {
+  it('should discount totalPausedMinutes in remainingPercent and fire warning when ~20% left', async () => {
     // Arrange
-    // now = 19:00, resolutionDueAt = 18:00 → sem pausa seria breach
-    // totalPausedMinutes = 90 → desconta 90 min → elapsed efetivo = 10h - 1.5h = 8.5h < 10h → no breach
+    // computedAt=08:00, resolutionDueAt=18:00 (total=10h)
+    // now = 17:30, totalPausedMinutes = 90 min
+    // elapsed efetivo = (17:30 - 08:00) - 90min = 9.5h - 1.5h = 8h
+    // remaining = 2h / 10h = 20% → warning dispara (condição <= 20 e > 0)
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-04-10T19:00:00Z'));
-
-    // Com 90 min de pausa:
-    // elapsed = (19:00 - 08:00) - 90min = 11h - 1.5h = 9.5h
-    // total = 10h → remaining = 0.5h / 10h = 5% → warning_80 (não breach por tempo)
-    // Mas resolutionDueAt é um timestamp absoluto (18:00), e now (19:00) > 18:00
-    // Logo o breach de resolução dispara igualmente (o desconto de pausas afeta apenas o cálculo
-    // de remainingPercent para o warning, não a comparação now > resolutionDueAt).
-    // Este teste verifica que totalPausedMinutes afeta o remainingPercent corretamente.
-
-    // Para testar a pausa sem breach: now = 17:30, pausa = 90min
-    // elapsed = (17:30 - 08:00) - 90min = 9.5h - 1.5h = 8h → remaining = 2h / 10h = 20%
-    // remainingPercent = 20 → condição > 0 E <= 20 → warning deve disparar
     vi.setSystemTime(new Date('2026-04-10T17:30:00Z'));
 
     const chamadoComPausa = makeBaseChamado({ totalPausedMinutes: 90 });
@@ -418,6 +407,116 @@ describe('checkSlaEscalations — desconto de pausas', () => {
 
     // Assert — com pausa ativa descontada, remaining = 20% → warning
     expect(report.warnings).toBe(1);
+  });
+
+  it('should NOT fire resolution breach when totalPausedMinutes prevents effective breach', async () => {
+    // Arrange
+    // now = 19:00 (1h após resolutionDueAt=18:00) — sem pausa, dispararia breach
+    // totalPausedMinutes = 120 → effectiveNow = 19:00 - 2h = 17:00 < 18:00 → sem breach
+    // responseBreachedAt já marcado para isolar o teste do breach de resposta
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-10T19:00:00Z'));
+
+    const chamado = makeBaseChamado({
+      totalPausedMinutes: 120,
+      sla: {
+        priority: 'NORMAL',
+        computedAt: new Date('2026-04-10T08:00:00Z'),
+        responseDueAt: new Date('2026-04-10T10:00:00Z'),
+        resolutionDueAt: new Date('2026-04-10T18:00:00Z'),
+        responseStartedAt: null,
+        resolvedAt: null,
+        responseBreachedAt: new Date('2026-04-10T10:30:00Z'),
+        resolutionBreachedAt: null,
+        pausedMinutes: 0,
+      },
+    });
+    vi.mocked(ChamadoModel.find).mockReturnValue(withLean([chamado]) as never);
+
+    // Act
+    const report = await checkSlaEscalations();
+
+    // Assert — breach de resolução NÃO deve disparar
+    expect(report.breaches).toBe(0);
+    const resolutionBreachCall = vi
+      .mocked(SlaEscalationModel.create)
+      .mock.calls.find(([arg]) => (arg as { type?: string }).type === 'breach_resolution');
+    expect(resolutionBreachCall).toBeUndefined();
+    // E nenhum updateOne marcando resolutionBreachedAt
+    const breachUpdate = vi
+      .mocked(ChamadoModel.updateOne)
+      .mock.calls.find(([filter]) =>
+        Object.prototype.hasOwnProperty.call(filter, 'sla.resolutionBreachedAt'),
+      );
+    expect(breachUpdate).toBeUndefined();
+  });
+
+  it('should NOT fire resolution breach when active pause prevents effective breach', async () => {
+    // Arrange
+    // now = 19:00, slaPausedAt = 17:00 → activePauseMs = 2h
+    // effectiveNow = 19:00 - 2h = 17:00 < resolutionDueAt (18:00) → sem breach
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-10T19:00:00Z'));
+
+    const chamado = makeBaseChamado({
+      status: 'aguardando_terceiros',
+      totalPausedMinutes: 0,
+      slaPausedAt: new Date('2026-04-10T17:00:00Z'),
+      sla: {
+        priority: 'NORMAL',
+        computedAt: new Date('2026-04-10T08:00:00Z'),
+        responseDueAt: new Date('2026-04-10T10:00:00Z'),
+        resolutionDueAt: new Date('2026-04-10T18:00:00Z'),
+        responseStartedAt: null,
+        resolvedAt: null,
+        responseBreachedAt: new Date('2026-04-10T10:30:00Z'),
+        resolutionBreachedAt: null,
+        pausedMinutes: 0,
+      },
+    });
+    vi.mocked(ChamadoModel.find).mockReturnValue(withLean([chamado]) as never);
+
+    // Act
+    const report = await checkSlaEscalations();
+
+    // Assert
+    expect(report.breaches).toBe(0);
+    const resolutionBreachCall = vi
+      .mocked(SlaEscalationModel.create)
+      .mock.calls.find(([arg]) => (arg as { type?: string }).type === 'breach_resolution');
+    expect(resolutionBreachCall).toBeUndefined();
+  });
+
+  it('should fire resolution breach when effective time exceeds dueAt despite a short pause', async () => {
+    // Arrange
+    // now = 20:00, totalPausedMinutes = 30 → effectiveNow = 19:30 > 18:00 → breach
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-10T20:00:00Z'));
+
+    const chamado = makeBaseChamado({
+      totalPausedMinutes: 30,
+      sla: {
+        priority: 'NORMAL',
+        computedAt: new Date('2026-04-10T08:00:00Z'),
+        responseDueAt: new Date('2026-04-10T10:00:00Z'),
+        resolutionDueAt: new Date('2026-04-10T18:00:00Z'),
+        responseStartedAt: null,
+        resolvedAt: null,
+        responseBreachedAt: new Date('2026-04-10T10:30:00Z'),
+        resolutionBreachedAt: null,
+        pausedMinutes: 0,
+      },
+    });
+    vi.mocked(ChamadoModel.find).mockReturnValue(withLean([chamado]) as never);
+
+    // Act
+    const report = await checkSlaEscalations();
+
+    // Assert
+    expect(report.breaches).toBe(1);
+    expect(SlaEscalationModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'breach_resolution', chamadoId: CHAMADO_ID }),
+    );
   });
 });
 

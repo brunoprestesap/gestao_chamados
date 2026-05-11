@@ -97,6 +97,9 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
       ? now.getTime() - new Date(chamado.slaPausedAt).getTime()
       : 0;
     const totalPauseMs = pausedMs + activePauseMs;
+    // "Agora efetivo" = wall clock menos todo o tempo pausado. Usado para comparar com
+    // os prazos do SLA (responseDueAt, resolutionDueAt) de forma coerente com o warning.
+    const effectiveNowMs = now.getTime() - totalPauseMs;
 
     const totalMs = resolutionDueAt.getTime() - computedAt.getTime();
     const elapsedMs = now.getTime() - computedAt.getTime() - totalPauseMs;
@@ -152,12 +155,11 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
     }
 
     // --- Breach de resposta ---
-    // FIX: removida condição responseStartedAt == null — se resposta iniciou após o prazo,
-    // o breach já deveria ter sido registrado no registerExecutionAction; aqui capturamos
-    // apenas os casos onde responseBreachedAt ainda não foi marcado.
+    // Usa effectiveNowMs (tempo decorrido descontando pausa) para não disparar breach
+    // enquanto o chamado estiver pausado por dependência de terceiros/solicitante.
     if (
       responseDueAt !== null &&
-      now > responseDueAt &&
+      effectiveNowMs > responseDueAt.getTime() &&
       sla.responseBreachedAt == null &&
       !escalationSet.has(`${chamadoIdStr}:breach_response`)
     ) {
@@ -204,10 +206,12 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
     }
 
     // --- Breach de resolução ---
-    // FIX: removido `if (elapsedMs < totalMs) continue` — o resolutionDueAt já incorpora
-    // business hours no cálculo; `now > resolutionDueAt` é condição suficiente.
+    // Compara o tempo decorrido descontando pausa (effectiveNowMs) com resolutionDueAt.
+    // resolutionDueAt só é estendido na retomada (resumeTicketAction); enquanto o chamado
+    // está pausado, usar `now` direto marcaria breach indevido — coerente com o cálculo
+    // do warning_80 logo acima.
     if (
-      now > resolutionDueAt &&
+      effectiveNowMs > resolutionDueAt.getTime() &&
       sla.resolutionBreachedAt == null &&
       !escalationSet.has(`${chamadoIdStr}:breach_resolution`)
     ) {
