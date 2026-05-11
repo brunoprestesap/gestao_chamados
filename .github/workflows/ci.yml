@@ -10,12 +10,16 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: 24.13.0
+
 jobs:
-  lint-and-build:
-    name: Lint & Build
+  # ---------------------------------------------------------------------------
+  # Verificações estáticas: lint, format check, typecheck — falham rápido
+  # ---------------------------------------------------------------------------
+  static-checks:
+    name: Lint / Format / Typecheck
     runs-on: ubuntu-latest
-    env:
-      NODE_VERSION: 24.13.0
 
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +32,42 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npx eslint .
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier (format check)
+        run: npm run format:check
+
+      - name: TypeScript (typecheck)
+        run: npm run typecheck
+
+  # ---------------------------------------------------------------------------
+  # Build do Next.js — só roda se static-checks passar
+  # ---------------------------------------------------------------------------
+  build-next:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    needs: static-checks
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
       - name: Build Next.js
         env:
@@ -40,11 +78,22 @@ jobs:
           NEXT_PUBLIC_SOCKET_URL: http://placeholder:3001
         run: npm run build
 
+      - name: Upload Next.js build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: |
+            .next
+            !.next/cache
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Build do socket-server
+  # ---------------------------------------------------------------------------
   build-socket:
     name: Build Socket Server
     runs-on: ubuntu-latest
-    env:
-      NODE_VERSION: 24.13.0
+    needs: static-checks
 
     steps:
       - uses: actions/checkout@v4
@@ -62,3 +111,179 @@ jobs:
       - name: Build
         working-directory: socket-server
         run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Testes unitários (Vitest) com cobertura
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    name: Unit Tests (Vitest)
+    runs-on: ubuntu-latest
+    needs: static-checks
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Testes E2E (Playwright) — usa MongoDB como service container
+  # ---------------------------------------------------------------------------
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [build-next, unit-tests]
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGODB_URI: mongodb://localhost:27017/manutencao
+      AUTH_SECRET: e2e-secret-please-change
+      AUTH_COOKIE_NAME: authjs.session-token
+      AUTH_URL: http://localhost:3000
+      SOCKET_INTERNAL_SECRET: e2e-internal-secret
+      SOCKET_EMIT_URL: http://localhost:3001/emit
+      NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
+      BOOTSTRAP_TOKEN: e2e-bootstrap
+      CRON_SECRET: e2e-cron
+      LDAP_URL: ''
+      LDAP_BASE_DN: ''
+      LDAP_BIND_DN: ''
+      LDAP_BIND_PASSWORD: ''
+      E2E_BASE_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install mongosh
+        run: |
+          wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+          echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+          sudo apt-get update
+          sudo apt-get install -y mongodb-mongosh
+
+      - name: Wait for MongoDB
+        run: |
+          for i in {1..30}; do
+            if mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' "$MONGODB_URI" >/dev/null 2>&1; then
+              echo "MongoDB up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MongoDB did not become ready in time" && exit 1
+
+      - name: Seed database
+        run: mongosh "$MONGODB_URI" < scripts/seed.js
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Download Next.js build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next
+
+      - name: Build socket-server
+        working-directory: socket-server
+        run: |
+          npm ci
+          npm run build
+
+      - name: Start socket-server
+        working-directory: socket-server
+        env:
+          SOCKET_PORT: 3001
+          SOCKET_CORS_ORIGIN: http://localhost:3000
+          APP_URL: http://localhost:3000
+        run: |
+          nohup node dist/index.js > ../socket.log 2>&1 &
+          echo $! > ../socket.pid
+
+      - name: Start Next.js
+        run: |
+          nohup npm run start > next.log 2>&1 &
+          echo $! > next.pid
+          for i in {1..60}; do
+            if curl -fsS http://localhost:3000/api/health >/dev/null 2>&1 || curl -fsS http://localhost:3000 >/dev/null 2>&1; then
+              echo "Next.js up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Next.js did not become ready" && tail -n 200 next.log && exit 1
+
+      - name: Run Playwright tests
+        run: npx playwright test
+
+      - name: Stop background services
+        if: always()
+        run: |
+          [ -f next.pid ] && kill "$(cat next.pid)" 2>/dev/null || true
+          [ -f socket.pid ] && kill "$(cat socket.pid)" 2>/dev/null || true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Upload server logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: |
+            next.log
+            socket.log
+          retention-days: 7
