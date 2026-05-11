@@ -10,6 +10,10 @@ test.describe('Criação de chamado', () => {
   });
 
   test('abre dialog de novo chamado, preenche e submete com sucesso', async ({ page }) => {
+    // Local exato único permite localizar o chamado na lista após criar.
+    // O título é auto-gerado pela API (`${tipoServico} — ${localExato}`).
+    const localExato = `Sala E2E Criar ${Date.now()}`;
+
     // Abre o dialog
     await page.getByRole('button', { name: /novo chamado/i }).click();
 
@@ -22,7 +26,7 @@ test.describe('Criação de chamado', () => {
     await page.getByRole('option').first().click();
 
     // Preenche local exato
-    await dialog.getByLabel(/local exato/i).fill('Sala 101 - Bloco A');
+    await dialog.getByLabel(/local exato/i).fill(localExato);
 
     // Seleciona tipo de serviço (botões de card)
     await dialog.getByText('Manutenção Predial').click();
@@ -40,9 +44,10 @@ test.describe('Criação de chamado', () => {
     // Dialog deve fechar após sucesso
     await expect(dialog).not.toBeVisible({ timeout: 10000 });
 
-    // Chamado deve aparecer na lista (aguarda recarregar)
+    // Chamado deve aparecer na lista — verificamos pela coluna "Título" da tabela,
+    // que contém o título auto-gerado ("Manutenção Predial — Sala E2E Criar <ts>").
     await expect(
-      page.getByText('Lâmpada queimada no corredor principal').first(),
+      page.getByRole('row').filter({ hasText: localExato }).first(),
     ).toBeVisible({
       timeout: 10000,
     });

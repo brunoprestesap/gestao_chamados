@@ -4,11 +4,73 @@ import { NextResponse } from 'next/server';
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import { ChamadoCreateSchema, ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
+
+const LIST_PROJECTION = {
+  ticket_number: 1,
+  titulo: 1,
+  descricao: 1,
+  status: 1,
+  solicitanteId: 1,
+  unitId: 1,
+  localExato: 1,
+  tipoServico: 1,
+  naturezaAtendimento: 1,
+  requestedAttendanceNature: 1,
+  attendanceNature: 1,
+  grauUrgencia: 1,
+  telefoneContato: 1,
+  subtypeId: 1,
+  catalogServiceId: 1,
+  finalPriority: 1,
+  classificationNotes: 1,
+  classifiedByUserId: 1,
+  classifiedAt: 1,
+  assignedToUserId: 1,
+  assignedAt: 1,
+  assignedByUserId: 1,
+  slaPausedAt: 1,
+  pauseReason: 1,
+  pauseDetails: 1,
+  materialObservations: 1,
+  evaluation: 1,
+  sla: 1,
+  createdAt: 1,
+  updatedAt: 1,
+} as const;
+
+function normalizeSla(sla: Record<string, unknown> | null | undefined) {
+  if (!sla || typeof sla !== 'object') return null;
+  return {
+    priority: (sla.priority as string) ?? null,
+    responseTargetMinutes:
+      typeof sla.responseTargetMinutes === 'number' ? sla.responseTargetMinutes : null,
+    resolutionTargetMinutes:
+      typeof sla.resolutionTargetMinutes === 'number' ? sla.resolutionTargetMinutes : null,
+    businessHoursOnly: typeof sla.businessHoursOnly === 'boolean' ? sla.businessHoursOnly : null,
+    responseDueAt: sla.responseDueAt ? new Date(sla.responseDueAt as Date).toISOString() : null,
+    resolutionDueAt: sla.resolutionDueAt
+      ? new Date(sla.resolutionDueAt as Date).toISOString()
+      : null,
+    responseStartedAt: sla.responseStartedAt
+      ? new Date(sla.responseStartedAt as Date).toISOString()
+      : null,
+    resolvedAt: sla.resolvedAt ? new Date(sla.resolvedAt as Date).toISOString() : null,
+    responseBreachedAt: sla.responseBreachedAt
+      ? new Date(sla.responseBreachedAt as Date).toISOString()
+      : null,
+    resolutionBreachedAt: sla.resolutionBreachedAt
+      ? new Date(sla.resolutionBreachedAt as Date).toISOString()
+      : null,
+    computedAt: sla.computedAt ? new Date(sla.computedAt as Date).toISOString() : null,
+    configVersion: (sla.configVersion as string) ?? null,
+  };
+}
 
 function normalizeChamado(
   c: Record<string, unknown> & {
@@ -39,6 +101,23 @@ function normalizeChamado(
           createdByUserId: ev.createdByUserId ? String(ev.createdByUserId) : null,
         }
       : null;
+
+  const assignedRaw = c.assignedToUserId;
+  const assignedToUserId = assignedRaw
+    ? String(
+        typeof assignedRaw === 'object' &&
+          (assignedRaw as Record<string, unknown>)._id
+          ? (assignedRaw as Record<string, unknown>)._id
+          : assignedRaw,
+      )
+    : null;
+  const assignedToUserName =
+    assignedRaw &&
+    typeof assignedRaw === 'object' &&
+    (assignedRaw as Record<string, unknown>).name
+      ? String((assignedRaw as Record<string, unknown>).name)
+      : null;
+
   return {
     _id: String(c._id),
     ticket_number: (c.ticket_number as string) ?? '',
@@ -47,7 +126,10 @@ function normalizeChamado(
     status: c.status,
     solicitanteId: c.solicitanteId ? String(c.solicitanteId) : null,
     unitId: c.unitId ? String(c.unitId) : null,
-    assignedToUserId: c.assignedToUserId ? String(c.assignedToUserId) : null,
+    assignedToUserId,
+    assignedToUserName,
+    assignedAt: c.assignedAt ?? null,
+    assignedByUserId: c.assignedByUserId ? String(c.assignedByUserId) : null,
     localExato: (c.localExato as string) ?? '',
     tipoServico: (c.tipoServico as string) ?? '',
     naturezaAtendimento: (c.naturezaAtendimento as string) ?? '',
@@ -57,6 +139,17 @@ function normalizeChamado(
     telefoneContato: (c.telefoneContato as string) ?? '',
     subtypeId: c.subtypeId ? String(c.subtypeId) : null,
     catalogServiceId: c.catalogServiceId ? String(c.catalogServiceId) : null,
+    finalPriority: (c.finalPriority as string) ?? null,
+    classificationNotes: (c.classificationNotes as string) ?? '',
+    classifiedByUserId: c.classifiedByUserId ? String(c.classifiedByUserId) : null,
+    classifiedAt: c.classifiedAt ?? null,
+    slaPausedAt: c.slaPausedAt
+      ? new Date(c.slaPausedAt as string | number | Date).toISOString()
+      : null,
+    pauseReason: (c.pauseReason as string) ?? null,
+    pauseDetails: (c.pauseDetails as string) ?? null,
+    materialObservations: normalizeMaterialObservations(c.materialObservations),
+    sla: normalizeSla(c.sla as Record<string, unknown> | null | undefined),
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     evaluation,
@@ -74,6 +167,8 @@ export async function GET(req: Request) {
   const parsed = ChamadoListQuerySchema.safeParse({
     q: url.searchParams.get('q') ?? '',
     status: url.searchParams.get('status') ?? 'all',
+    page: url.searchParams.get('page') ?? '1',
+    limit: url.searchParams.get('limit') ?? '20',
   });
 
   if (!parsed.success) {
@@ -83,7 +178,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const { q, status } = parsed.data;
+  const { q, status, page, limit } = parsed.data;
   const filter: Record<string, unknown> = {
     solicitanteId: new Types.ObjectId(session.userId),
   };
@@ -94,17 +189,34 @@ export async function GET(req: Request) {
 
   if (q.trim()) {
     const term = q.trim();
+    const regex = { $regex: term, $options: 'i' as const };
     filter.$or = [
-      { ticket_number: { $regex: term, $options: 'i' } },
-      { titulo: { $regex: term, $options: 'i' } },
-      { descricao: { $regex: term, $options: 'i' } },
-      { localExato: { $regex: term, $options: 'i' } },
+      { ticket_number: regex },
+      { titulo: regex },
+      { descricao: regex },
+      { localExato: regex },
+      { tipoServico: regex },
     ];
   }
 
-  const items = await ChamadoModel.find(filter).sort({ updatedAt: -1 }).lean();
+  const skip = (page - 1) * limit;
 
-  return NextResponse.json({ items: items.map(normalizeChamado) });
+  const [total, items] = await Promise.all([
+    ChamadoModel.countDocuments(filter),
+    ChamadoModel.find(filter, LIST_PROJECTION)
+      .populate('assignedToUserId', 'name')
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return NextResponse.json({
+    items: items.map(normalizeChamado),
+    pagination: { page, limit, total, totalPages },
+  });
 }
 
 export async function POST(req: Request) {

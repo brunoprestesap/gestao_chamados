@@ -182,7 +182,7 @@ describe('POST /api/chamados/[id]/cancel', () => {
   });
 
   it('permite cancelar chamado em qualquer status (exceto cancelado/concluído)', async () => {
-    for (const status of ['aberto', 'validado', 'em atendimento', 'emvalidacao']) {
+    for (const status of ['aberto', 'validado', 'em atendimento']) {
       vi.clearAllMocks();
       mockVerifySession.mockResolvedValue(SESSION);
       mockFindById.mockReturnValue({

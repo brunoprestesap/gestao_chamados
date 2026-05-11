@@ -27,7 +27,10 @@ test.describe('Classificação de chamado', () => {
       await dialog.getByRole('combobox', { name: /unidade/i }).click();
       await page.getByRole('option').first().click();
 
-      await dialog.getByLabel(/local exato/i).fill('Sala 202');
+      // Usa ticketTitle como localExato — o título auto-gerado pela API
+      // (`${tipoServico} — ${localExato}`) será localizável em /gestao
+      // (gestaoChamadoCard filtra a row da tabela por hasText).
+      await dialog.getByLabel(/local exato/i).fill(ticketTitle);
       await dialog.getByText('Manutenção Predial').click();
       await selectFirstSubtypeAndCatalogService(page, dialog);
       await dialog.getByPlaceholder(/descreva/i).fill(ticketTitle);
@@ -36,8 +39,10 @@ test.describe('Classificação de chamado', () => {
       await dialog.getByRole('button', { name: /abrir chamado|enviar|criar/i }).click();
       await expect(dialog).not.toBeVisible({ timeout: 10000 });
 
-      // Confirma que apareceu na lista
-      await expect(page.getByText(ticketTitle)).toBeVisible({ timeout: 10000 });
+      // Confirma que apareceu na lista — verifica via row da tabela.
+      await expect(
+        page.getByRole('row').filter({ hasText: ticketTitle }).first(),
+      ).toBeVisible({ timeout: 10000 });
     });
 
     test('preposto classifica o chamado em /gestao', async ({ page }) => {

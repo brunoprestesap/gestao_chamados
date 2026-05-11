@@ -33,15 +33,15 @@ describe('CHAMADO_STATUSES — aguardando_terceiros', () => {
     expect(idxAguardandoTerceiros).toBeGreaterThan(idxEmAtendimento);
   });
 
-  it('deve posicionar aguardando_terceiros antes de fechado', () => {
+  it('deve posicionar aguardando_terceiros antes de concluído', () => {
     // Arrange
     const statuses = [...CHAMADO_STATUSES];
     const idxAguardandoTerceiros = statuses.indexOf('aguardando_terceiros');
-    const idxFechado = statuses.indexOf('fechado');
+    const idxConcluido = statuses.indexOf('concluído');
 
     // Assert
-    expect(idxFechado).toBeGreaterThanOrEqual(0);
-    expect(idxAguardandoTerceiros).toBeLessThan(idxFechado);
+    expect(idxConcluido).toBeGreaterThanOrEqual(0);
+    expect(idxAguardandoTerceiros).toBeLessThan(idxConcluido);
   });
 });
 

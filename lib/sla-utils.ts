@@ -4,7 +4,11 @@
  */
 
 import type { BusinessCalendarConfig } from '@/lib/expediente-config';
-import { addBusinessMinutesWithConfig, getBusinessMinutesPerDay } from '@/lib/sla-timezone';
+import {
+  addBusinessMinutesWithConfig,
+  getBusinessMinutesBetween,
+  getBusinessMinutesPerDay,
+} from '@/lib/sla-timezone';
 
 export type FinalPriority = 'BAIXA' | 'NORMAL' | 'ALTA' | 'EMERGENCIAL';
 
@@ -52,6 +56,45 @@ export function addRealMinutes(from: Date, minutes: number): Date {
 
 export function addElapsedHours(from: Date, hours: number): Date {
   return addElapsedMinutes(from, hours * 60);
+}
+
+/**
+ * Calcula o novo `resolutionDueAt` ao retomar um chamado pausado.
+ *
+ * Regra:
+ * - `businessHoursOnly=false`: o SLA roda 24x7, então o prazo é estendido
+ *   pela duração corrida da pausa (`pausedMinutesWallClock`).
+ * - `businessHoursOnly=true`: o SLA só consome tempo durante o expediente,
+ *   então o prazo é estendido apenas pelos minutos úteis que decorreram
+ *   durante a janela de pausa. Pausas inteiramente fora do expediente
+ *   (overnight, fim de semana, feriado) NÃO movem o prazo.
+ */
+export function computeNewResolutionDueAtOnResume(
+  currentDueAt: Date,
+  slaPausedAt: Date,
+  now: Date,
+  businessHoursOnly: boolean,
+  pausedMinutesWallClock: number,
+  calendarConfig?: BusinessCalendarConfig,
+  holidays?: Set<string>,
+): Date {
+  if (!businessHoursOnly) {
+    return addElapsedMinutes(currentDueAt, pausedMinutesWallClock);
+  }
+  const config = calendarConfig ?? {
+    timezone: 'America/Belem',
+    workdayStart: '08:00',
+    workdayEnd: '18:00',
+    weekdays: [1, 2, 3, 4, 5],
+  };
+  const businessMinutesDuringPause = getBusinessMinutesBetween(
+    slaPausedAt,
+    now,
+    config,
+    holidays,
+  );
+  if (businessMinutesDuringPause <= 0) return new Date(currentDueAt.getTime());
+  return addBusinessMinutesWithConfig(currentDueAt, businessMinutesDuringPause, config, holidays);
 }
 
 export const SLA_CONFIG_VERSION = 'v1';

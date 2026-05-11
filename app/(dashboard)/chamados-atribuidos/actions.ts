@@ -6,8 +6,10 @@ import { revalidatePath } from 'next/cache';
 import { canManage, isTechnician, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
+import { getBusinessCalendarConfig } from '@/lib/expediente-config';
+import { getActiveHolidaysForRange } from '@/lib/holidays';
 import { emitToRoom } from '@/lib/realtime-emit';
-import { addElapsedMinutes, evaluateResolutionBreach } from '@/lib/sla-utils';
+import { computeNewResolutionDueAtOnResume, evaluateResolutionBreach } from '@/lib/sla-utils';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { NotificationModel } from '@/models/Notification';
@@ -33,7 +35,7 @@ import {
 } from '@/shared/chamados/pause.schemas';
 import { PAUSE_REASON_LABELS, type PauseReason } from '@/shared/chamados/pause-reason.constants';
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult = { ok: true } | { ok: false; error: string; code?: string };
 export type RegisterExecutionResult = ActionResult;
 
 // ---------------------------------------------------------------------------
@@ -227,6 +229,22 @@ export async function pauseTicketAction(raw: PauseTicketInput): Promise<ActionRe
     }
 
     const { ticketId, reason, details } = parsed.data;
+
+    if (reason === 'falta_peca_contratada') {
+      return {
+        ok: false,
+        error:
+          'Pausa não permitida: a peça/material é responsabilidade da contratada. Providencie o item; use "Observação de material" para registrar o andamento.',
+      };
+    }
+    if (reason === 'falta_peca_aprovacao_cliente') {
+      return {
+        ok: false,
+        error: 'Use o fluxo "Solicitar Aprovação de Cotação" para este motivo.',
+        code: 'REQUIRES_QUOTE',
+      };
+    }
+
     await dbConnect();
 
     const doc = await ChamadoModel.findById(ticketId);
@@ -400,9 +418,25 @@ export async function resumeTicketAction(raw: ResumeTicketInput): Promise<Action
     const userId = new Types.ObjectId(session.userId);
 
     const currentDueAt = doc.sla?.resolutionDueAt;
-    const newResolutionDueAt = currentDueAt
-      ? addElapsedMinutes(currentDueAt, pausedMinutes)
-      : undefined;
+    let newResolutionDueAt: Date | undefined;
+    if (currentDueAt) {
+      const businessHoursOnly = doc.sla?.businessHoursOnly ?? false;
+      let calendarConfig;
+      let holidays;
+      if (businessHoursOnly) {
+        calendarConfig = await getBusinessCalendarConfig();
+        holidays = await getActiveHolidaysForRange(slaPausedAt, now, calendarConfig.timezone);
+      }
+      newResolutionDueAt = computeNewResolutionDueAtOnResume(
+        currentDueAt,
+        slaPausedAt,
+        now,
+        businessHoursOnly,
+        pausedMinutes,
+        calendarConfig,
+        holidays,
+      );
+    }
 
     const setPayload: Record<string, unknown> = {
       status: 'em atendimento',

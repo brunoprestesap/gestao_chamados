@@ -3,15 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   PAUSE_REASON_LABELS,
   PAUSE_REASONS,
+  PAUSE_REASONS_SELECTABLE,
   type PauseReason,
 } from '@/shared/chamados/pause-reason.constants';
 
 // ── PAUSE_REASONS ────────────────────────────────────────────────
 
 describe('PAUSE_REASONS', () => {
-  it('deve conter exatamente 6 motivos de pausa', () => {
+  it('deve conter exatamente 8 motivos de pausa (incluindo legacy)', () => {
     // Assert
-    expect(PAUSE_REASONS).toHaveLength(6);
+    expect(PAUSE_REASONS).toHaveLength(8);
   });
 
   it('deve conter aguardando_solicitante', () => {
@@ -22,8 +23,16 @@ describe('PAUSE_REASONS', () => {
     expect(PAUSE_REASONS).toContain('aguardando_fornecedor');
   });
 
-  it('deve conter aguardando_peca', () => {
+  it('deve conter aguardando_peca (legacy)', () => {
     expect(PAUSE_REASONS).toContain('aguardando_peca');
+  });
+
+  it('deve conter falta_peca_contratada', () => {
+    expect(PAUSE_REASONS).toContain('falta_peca_contratada');
+  });
+
+  it('deve conter falta_peca_aprovacao_cliente', () => {
+    expect(PAUSE_REASONS).toContain('falta_peca_aprovacao_cliente');
   });
 
   it('deve conter aguardando_aprovacao', () => {
@@ -44,6 +53,23 @@ describe('PAUSE_REASONS', () => {
 
     // Assert
     expect(Array.isArray(reasons)).toBe(true);
+  });
+});
+
+// ── PAUSE_REASONS_SELECTABLE ─────────────────────────────────────
+
+describe('PAUSE_REASONS_SELECTABLE', () => {
+  it('não deve conter o motivo legacy aguardando_peca', () => {
+    expect(PAUSE_REASONS_SELECTABLE).not.toContain('aguardando_peca');
+  });
+
+  it('deve conter os dois novos motivos (falta_peca_contratada e falta_peca_aprovacao_cliente)', () => {
+    expect(PAUSE_REASONS_SELECTABLE).toContain('falta_peca_contratada');
+    expect(PAUSE_REASONS_SELECTABLE).toContain('falta_peca_aprovacao_cliente');
+  });
+
+  it('deve ter exatamente 7 opções selecionáveis', () => {
+    expect(PAUSE_REASONS_SELECTABLE).toHaveLength(7);
   });
 });
 
@@ -70,8 +96,20 @@ describe('PAUSE_REASON_LABELS', () => {
     expect(PAUSE_REASON_LABELS['aguardando_fornecedor']).toBe('Aguardando Fornecedor');
   });
 
-  it('deve ter label correto para aguardando_peca', () => {
-    expect(PAUSE_REASON_LABELS['aguardando_peca']).toBe('Aguardando Peça/Material');
+  it('deve ter label correto para aguardando_peca (legacy)', () => {
+    expect(PAUSE_REASON_LABELS['aguardando_peca']).toBe('Aguardando Peça/Material (legado)');
+  });
+
+  it('deve ter label correto para falta_peca_contratada', () => {
+    expect(PAUSE_REASON_LABELS['falta_peca_contratada']).toBe(
+      'Falta de Peça (Responsabilidade da Contratada)',
+    );
+  });
+
+  it('deve ter label correto para falta_peca_aprovacao_cliente', () => {
+    expect(PAUSE_REASON_LABELS['falta_peca_aprovacao_cliente']).toBe(
+      'Falta de Peça (Aguardando Aprovação do Cliente)',
+    );
   });
 
   it('deve ter label correto para aguardando_aprovacao', () => {

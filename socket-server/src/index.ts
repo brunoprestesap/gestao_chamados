@@ -27,7 +27,11 @@ type ServerToClientEvents = {
   'ticket:paused': (payload: unknown) => void;
   'ticket:resumed': (payload: unknown) => void;
   'ticket:rejected': (payload: unknown) => void;
+  'ticket:service_refused': (payload: unknown) => void;
   'ticket:material_observation': (payload: unknown) => void;
+  'ticket:quote_submitted': (payload: unknown) => void;
+  'ticket:quote_approved': (payload: unknown) => void;
+  'ticket:quote_rejected': (payload: unknown) => void;
   'sla:warning': (payload: unknown) => void;
   'sla:breach': (payload: unknown) => void;
 };
@@ -48,7 +52,11 @@ const ALLOWED_EVENTS = new Set<string>([
   'ticket:paused',
   'ticket:resumed',
   'ticket:rejected',
+  'ticket:service_refused',
   'ticket:material_observation',
+  'ticket:quote_submitted',
+  'ticket:quote_approved',
+  'ticket:quote_rejected',
   'sla:warning',
   'sla:breach',
 ]);

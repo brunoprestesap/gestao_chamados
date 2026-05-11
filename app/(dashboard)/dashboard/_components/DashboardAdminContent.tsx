@@ -21,7 +21,6 @@ import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 
 const ADMIN_CARD_STATUSES = [
   'aberto',
-  'emvalidacao',
   'em atendimento',
   'concluído',
   'encerrado',

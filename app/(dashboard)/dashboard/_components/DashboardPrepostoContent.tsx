@@ -277,7 +277,6 @@ export function DashboardPrepostoContent({ data }: Props) {
           <div className="flex-1 p-5">
             <div className="flex flex-wrap gap-2.5">
               {[
-                { label: 'Em Validacao', key: 'emvalidacao' as const },
                 { label: 'Em Atendimento', key: 'em atendimento' as const },
                 { label: 'Concluido', key: 'concluído' as const },
                 { label: 'Encerrado', key: 'encerrado' as const },

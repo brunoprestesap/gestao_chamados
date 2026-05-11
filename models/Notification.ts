@@ -12,6 +12,9 @@ const NOTIFICATION_TYPES = [
   'ticket:rejected',
   'ticket:service_refused',
   'ticket:material_observation',
+  'ticket:quote_submitted',
+  'ticket:quote_approved',
+  'ticket:quote_rejected',
   'sla:warning',
   'sla:breach',
 ] as const;

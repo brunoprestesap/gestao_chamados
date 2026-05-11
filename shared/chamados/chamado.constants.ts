@@ -1,11 +1,9 @@
 export const CHAMADO_STATUSES = [
   'aberto',
-  'emvalidacao',
   'validado',
   'em atendimento',
   'aguardando_solicitante',
   'aguardando_terceiros',
-  'fechado',
   'concluído',
   'encerrado',
   'cancelado',
@@ -15,12 +13,10 @@ export type ChamadoStatus = (typeof CHAMADO_STATUSES)[number];
 
 export const CHAMADO_STATUS_LABELS: Record<ChamadoStatus, string> = {
   aberto: 'Aberto',
-  emvalidacao: 'Em validação',
   validado: 'Validado',
   'em atendimento': 'Em atendimento',
   aguardando_solicitante: 'Aguardando Solicitante',
   aguardando_terceiros: 'Aguardando Terceiros',
-  fechado: 'Fechado',
   concluído: 'Concluído',
   encerrado: 'Encerrado',
   cancelado: 'Cancelado',

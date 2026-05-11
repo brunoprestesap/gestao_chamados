@@ -115,6 +115,8 @@ describe('classificarChamadoAction', () => {
       naturezaAtendimento: 'Padrão' as const,
       finalPriority: 'NORMAL' as const,
       classificationNotes: '',
+      subtypeId: validInput.subtypeId,
+      catalogServiceId: validInput.catalogServiceId,
     });
     expect(result).toEqual({ ok: false, error: expect.any(String) });
   });
@@ -284,7 +286,7 @@ describe('assignTicketAction', () => {
     if (!result.ok) expect(result.error).toContain('serviço catalogado');
   });
 
-  it('retorna erro se status não é validado nem emvalidacao', async () => {
+  it('retorna erro se status não é validado', async () => {
     mockChamadoFindById.mockResolvedValue({ ...chamadoDoc, status: 'aberto' });
     const result = await assignTicketAction(validInput);
     expect(result.ok).toBe(false);

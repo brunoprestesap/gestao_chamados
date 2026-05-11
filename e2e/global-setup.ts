@@ -117,6 +117,29 @@ export default async function globalSetup() {
       );
     }
 
+    // Evita sobrecarga 100/X no dialog Atribuir (usuário tecnico ficava disabled e só sobrava tecnico2 —
+    // /chamados-atribuidos com login "tecnico" ficava vazio).
+    const chamados = db.collection('chamados');
+    const e2eTechDocs = await users
+      .find({ username: { $in: ['tecnico', 'tecnico2'] } })
+      .project({ _id: 1 })
+      .toArray();
+    const techObjectIds = e2eTechDocs.map((u) => u._id).filter(Boolean);
+    if (techObjectIds.length > 0) {
+      const cleared = await chamados.updateMany(
+        { assignedToUserId: { $in: techObjectIds as unknown[] } },
+        {
+          $unset: { assignedToUserId: '', assignedAt: '' },
+          $set: { updatedAt: now },
+        },
+      );
+      if (cleared.modifiedCount > 0) {
+        console.warn(
+          `[e2e global-setup] Zeradas ${cleared.modifiedCount} atribuição(ões) dos técnicos E2E (acúmulo de chamados nos testes).`,
+        );
+      }
+    }
+
     console.warn(
       `[e2e global-setup] Usuários E2E garantidos no MongoDB (${E2E_USERS.length} contas, senha 123456).`,
     );

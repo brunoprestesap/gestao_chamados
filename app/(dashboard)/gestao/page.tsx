@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { PauseTicketDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseTicketDialog';
 import { ResumeFromRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/ResumeFromRequesterDialog';
+import { SubmitCotacaoDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/SubmitCotacaoDialog';
 import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/AtribuirChamadoDialog';
 import { ChamadoDetailSheet } from '@/app/(dashboard)/gestao/_components/ChamadoDetailSheet';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
@@ -122,7 +123,7 @@ const ACTION_DEFS: ActionDef[] = [
     label: 'Atribuir',
     icon: UserCheck,
     iconColor: 'text-indigo-600 dark:text-indigo-400',
-    canShow: (s) => s === 'validado' || s === 'emvalidacao',
+    canShow: (s) => s === 'validado',
   },
   {
     key: 'reatribuir',
@@ -370,9 +371,18 @@ export default function GestaoPage() {
   const [encerrarChamadoId, setEncerrarChamadoId] = useState<string | null>(null);
   const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
   const [pausarChamado, setPausarChamado] = useState<ChamadoDTO | null>(null);
+  const [cotacaoChamado, setCotacaoChamado] = useState<ChamadoDTO | null>(null);
   const [retomarChamado, setRetomarChamado] = useState<ChamadoDTO | null>(null);
   const [selected, setSelected] = useState<ChamadoDTO | null>(null);
   const [detailSheetChamado, setDetailSheetChamado] = useState<ChamadoDTO | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/session', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => setUserRole(s?.role ?? null))
+      .catch(() => {});
+  }, []);
 
   // Filters & Pagination
   const [q, setQ] = useState('');
@@ -963,6 +973,7 @@ export default function GestaoPage() {
         onReatribuir={handleReatribuir}
         onPausar={handlePausar}
         onRetomar={handleRetomar}
+        userRole={userRole}
       />
 
       <ClassificarChamadoDialog
@@ -1016,6 +1027,25 @@ export default function GestaoPage() {
           }}
           ticketId={pausarChamado._id}
           onSuccess={handlePausarSuccess}
+          onRequiresQuote={() => {
+            setCotacaoChamado(pausarChamado);
+            setPausarChamado(null);
+          }}
+          userRole={userRole ?? undefined}
+        />
+      )}
+
+      {cotacaoChamado && (
+        <SubmitCotacaoDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setCotacaoChamado(null);
+          }}
+          ticketId={cotacaoChamado._id}
+          onSuccess={() => {
+            setCotacaoChamado(null);
+            fetchChamados();
+          }}
         />
       )}
 

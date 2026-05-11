@@ -8,7 +8,7 @@ import { ChamadoModel } from '@/models/Chamado';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
 import { UserModel } from '@/models/user.model';
 
-const STATUS_EM_ANDAMENTO = ['aberto', 'emvalidacao', 'em atendimento'] as const;
+const STATUS_EM_ANDAMENTO = ['aberto', 'em atendimento'] as const;
 
 export type DashboardSolicitanteData = {
   emAndamento: number;
@@ -25,7 +25,7 @@ export type DashboardSolicitanteData = {
 };
 
 /** Status ativos para carga do técnico (gestao) */
-const ACTIVE_STATUSES = ['emvalidacao', 'validado', 'em atendimento'] as const;
+const ACTIVE_STATUSES = ['validado', 'em atendimento'] as const;
 
 export type DashboardPrepostoData = {
   aguardandoClassificacao: number;
@@ -38,7 +38,6 @@ export type DashboardPrepostoData = {
   reatribuicoesHoje: number;
   reatribuicoesSemana: number;
   resumoGeral: {
-    emvalidacao: number;
     'em atendimento': number;
     concluído: number;
     encerrado: number;
@@ -50,7 +49,6 @@ export type DashboardPrepostoData = {
 /** Status exibidos no card "Chamados no Sistema" (Admin) */
 const ADMIN_CARD_STATUSES = [
   'aberto',
-  'emvalidacao',
   'em atendimento',
   'concluído',
   'encerrado',
@@ -140,7 +138,7 @@ export async function getDashboardAdminData(): Promise<DashboardAdminData | null
           },
           { $count: 'total' },
         ],
-        backlog: [{ $match: { status: { $in: ['aberto', 'emvalidacao'] } } }, { $count: 'total' }],
+        backlog: [{ $match: { status: 'aberto' } }, { $count: 'total' }],
         abertosHoje: [{ $match: { createdAt: { $gte: todayStart } } }, { $count: 'total' }],
         encerradosHoje: [
           {
@@ -180,7 +178,6 @@ export async function getDashboardAdminData(): Promise<DashboardAdminData | null
   (facetResult?.porStatus ?? []).forEach((r) => statusMap.set(r._id, r.count));
   const porStatus: Record<(typeof ADMIN_CARD_STATUSES)[number], number> = {
     aberto: statusMap.get('aberto') ?? 0,
-    emvalidacao: statusMap.get('emvalidacao') ?? 0,
     'em atendimento': statusMap.get('em atendimento') ?? 0,
     concluído: statusMap.get('concluído') ?? 0,
     encerrado: statusMap.get('encerrado') ?? 0,
@@ -266,7 +263,7 @@ export async function getDashboardPrepostoData(): Promise<DashboardPrepostoData 
         aguardandoAtribuicao: [
           {
             $match: {
-              status: { $in: ['validado', 'emvalidacao'] },
+              status: 'validado',
               $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }],
             },
           },
@@ -311,7 +308,7 @@ export async function getDashboardPrepostoData(): Promise<DashboardPrepostoData 
         resumoGeral: [
           {
             $match: {
-              status: { $in: ['emvalidacao', 'em atendimento', 'concluído', 'encerrado'] },
+              status: { $in: ['em atendimento', 'concluído', 'encerrado'] },
             },
           },
           { $group: { _id: '$status', count: { $sum: 1 } } },
@@ -384,7 +381,6 @@ export async function getDashboardPrepostoData(): Promise<DashboardPrepostoData 
     reatribuicoesHoje: facetResult?.reatribuicoesHoje?.[0]?.total ?? 0,
     reatribuicoesSemana: facetResult?.reatribuicoesSemana?.[0]?.total ?? 0,
     resumoGeral: {
-      emvalidacao: resumoMap.get('emvalidacao') ?? 0,
       'em atendimento': resumoMap.get('em atendimento') ?? 0,
       concluído: resumoMap.get('concluído') ?? 0,
       encerrado: resumoMap.get('encerrado') ?? 0,
@@ -477,7 +473,7 @@ export async function getDashboardSolicitanteData(): Promise<DashboardSolicitant
 }
 
 /** Status ativos para carga do técnico (igual ao da gestão) */
-const ACTIVE_STATUSES_TECNICO = ['emvalidacao', 'validado', 'em atendimento'] as const;
+const ACTIVE_STATUSES_TECNICO = ['validado', 'em atendimento'] as const;
 
 export type DashboardTecnicoData = {
   /** Chamados ativos atribuídos (para carga vs capacidade) */

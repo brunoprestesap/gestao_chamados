@@ -72,9 +72,9 @@ describe('ChamadoListQuerySchema', () => {
   });
 
   it('múltiplos status comma-separated retorna array', () => {
-    const result = ChamadoListQuerySchema.safeParse({ status: 'aberto,validado,fechado' });
+    const result = ChamadoListQuerySchema.safeParse({ status: 'aberto,validado,encerrado' });
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.status).toEqual(['aberto', 'validado', 'fechado']);
+    if (result.success) expect(result.data.status).toEqual(['aberto', 'validado', 'encerrado']);
   });
 
   it('valores inválidos são filtrados', () => {
