@@ -103,8 +103,12 @@ export async function GET() {
     const rawRemainingMs = totalMs - elapsedMs;
     const percentUsed = totalMs > 0 ? Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100)) : 0;
 
+    // "Agora efetivo" descontando pausa — coerente com o cálculo de remainingMs/percentUsed
+    // acima. Sem esse desconto, um chamado pausado próximo do dueAt seria classificado como
+    // 'atrasado' enquanto o countdown ainda mostra tempo positivo.
+    const effectiveNow = new Date(now.getTime() - totalPauseMs);
     const slaStatus = getSlaResolutionStatus(
-      now,
+      effectiveNow,
       resolutionDueAt,
       null,
       sla?.resolutionBreachedAt ? new Date(sla.resolutionBreachedAt) : null,

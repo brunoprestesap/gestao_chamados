@@ -157,10 +157,20 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
     // --- Breach de resposta ---
     // Usa effectiveNowMs (tempo decorrido descontando pausa) para não disparar breach
     // enquanto o chamado estiver pausado por dependência de terceiros/solicitante.
+    // E ignora chamados que já tiveram a resposta iniciada no prazo (responseStartedAt
+    // ≤ responseDueAt): nesses casos `responseBreachedAt` permanece null por design.
+    const responseStartedAt = sla.responseStartedAt
+      ? new Date(sla.responseStartedAt)
+      : null;
+    const responseAlreadyAnsweredOnTime =
+      responseStartedAt !== null &&
+      responseDueAt !== null &&
+      responseStartedAt <= responseDueAt;
     if (
       responseDueAt !== null &&
       effectiveNowMs > responseDueAt.getTime() &&
       sla.responseBreachedAt == null &&
+      !responseAlreadyAnsweredOnTime &&
       !escalationSet.has(`${chamadoIdStr}:breach_response`)
     ) {
       const created = await tryCreateEscalation({

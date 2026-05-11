@@ -300,6 +300,39 @@ describe('checkSlaEscalations — breach de resposta', () => {
     );
     expect(responseBreachCall).toBeUndefined();
   });
+
+  it('should NOT fire response breach when responseStartedAt is set and was on time', async () => {
+    // Arrange
+    // responseDueAt = 10:00, responseStartedAt = 09:30 (no prazo, antes do due)
+    // now = 11:00 → sem o guard, dispararia breach indevido (responseBreachedAt fica null por design)
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-10T11:00:00Z'));
+
+    const chamado = makeBaseChamado({
+      sla: {
+        priority: 'NORMAL',
+        computedAt: new Date('2026-04-10T08:00:00Z'),
+        responseDueAt: new Date('2026-04-10T10:00:00Z'),
+        resolutionDueAt: new Date('2026-04-10T18:00:00Z'),
+        responseStartedAt: new Date('2026-04-10T09:30:00Z'), // respondeu no prazo
+        resolvedAt: null,
+        responseBreachedAt: null,
+        resolutionBreachedAt: null,
+        pausedMinutes: 0,
+      },
+    });
+    vi.mocked(ChamadoModel.find).mockReturnValue(withLean([chamado]) as never);
+
+    // Act
+    await checkSlaEscalations();
+
+    // Assert
+    const createCalls = vi.mocked(SlaEscalationModel.create).mock.calls;
+    const responseBreachCall = createCalls.find(
+      ([arg]) => (arg as { type?: string }).type === 'breach_response',
+    );
+    expect(responseBreachCall).toBeUndefined();
+  });
 });
 
 describe('checkSlaEscalations — breach de resolução', () => {

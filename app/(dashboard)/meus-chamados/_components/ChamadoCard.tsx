@@ -27,7 +27,17 @@ import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
 /** Status de exibição do SLA (resolução) a partir de dados do DTO */
-type SlaStatusDisplay = 'no_prazo' | 'proximo_vencimento' | 'atrasado';
+type SlaStatusDisplay = 'no_prazo' | 'proximo_vencimento' | 'atrasado' | 'pausado';
+
+/** Calcula o total de pausa em ms (concluída + ativa) a partir do DTO. */
+function getTotalPauseMs(chamado: ChamadoDTO, nowMs: number): number {
+  const concluded = (chamado.totalPausedMinutes ?? 0) * 60_000;
+  const active = chamado.slaPausedAt
+    ? Math.max(0, nowMs - new Date(chamado.slaPausedAt).getTime())
+    : 0;
+  return concluded + active;
+}
+
 function getSlaDisplayStatus(chamado: ChamadoDTO): SlaStatusDisplay | null {
   const sla = chamado.sla;
   const finalPriority = (chamado.finalPriority ?? 'NORMAL') as
@@ -42,11 +52,24 @@ function getSlaDisplayStatus(chamado: ChamadoDTO): SlaStatusDisplay | null {
   const resolutionBreachedAt = sla.resolutionBreachedAt ? new Date(sla.resolutionBreachedAt) : null;
   const resolutionStartAt = sla.computedAt ? new Date(sla.computedAt) : null;
 
-  if (resolutionBreachedAt != null || (now > resolutionDueAt && resolvedAt == null))
-    return 'atrasado';
-  if (resolvedAt != null) return resolutionBreachedAt != null ? 'atrasado' : 'no_prazo';
+  // Indicador visual de pausa para chamados ativos (sem breach prévio nem resolução).
+  // resolutionDueAt é imutável durante a pausa — quem desconta o tempo é a UI.
+  if (
+    chamado.slaPausedAt &&
+    resolvedAt == null &&
+    resolutionBreachedAt == null
+  ) {
+    return 'pausado';
+  }
 
-  const remainingMs = resolutionDueAt.getTime() - now.getTime();
+  if (resolutionBreachedAt != null) return 'atrasado';
+  if (resolvedAt != null) return 'no_prazo';
+
+  // Tempo efetivo descontando pausas (concluídas + ativa).
+  const effectiveNowMs = now.getTime() - getTotalPauseMs(chamado, now.getTime());
+  if (effectiveNowMs > resolutionDueAt.getTime()) return 'atrasado';
+
+  const remainingMs = resolutionDueAt.getTime() - effectiveNowMs;
   if (remainingMs <= 0) return 'no_prazo';
   const fourHoursMs = 4 * 60 * 60 * 1000;
   if (finalPriority === 'ALTA' && remainingMs <= fourHoursMs) return 'proximo_vencimento';
@@ -61,6 +84,7 @@ const SLA_STATUS_LABELS: Record<SlaStatusDisplay, string> = {
   no_prazo: 'No prazo',
   proximo_vencimento: 'Próximo do vencimento',
   atrasado: 'Atrasado',
+  pausado: 'SLA pausado',
 };
 
 /** Formata tempo restante em formato legível (ex: "~2h 30min", "~45min"). */
@@ -73,11 +97,13 @@ function formatTimeRemaining(ms: number): string {
   return m > 0 ? `~${h}h ${m}min` : `~${h}h`;
 }
 
-/** Calcula tempo restante em ms para resolução, considerando status proximo_vencimento. */
+/** Calcula tempo restante em ms para resolução, descontando pausas (concluídas + ativa). */
 function getSlaRemainingMs(chamado: ChamadoDTO): number | null {
   const sla = chamado.sla;
   if (!sla?.resolutionDueAt) return null;
-  const remaining = new Date(sla.resolutionDueAt).getTime() - Date.now();
+  const nowMs = Date.now();
+  const effectiveNowMs = nowMs - getTotalPauseMs(chamado, nowMs);
+  const remaining = new Date(sla.resolutionDueAt).getTime() - effectiveNowMs;
   return remaining > 0 ? remaining : 0;
 }
 
@@ -129,6 +155,7 @@ export type ChamadoDTO = {
     createdByUserId?: string | null;
   } | null;
   slaPausedAt?: string | null;
+  totalPausedMinutes?: number | null;
   pauseReason?: string | null;
   pauseDetails?: string | null;
   materialObservations?: MaterialObservationNormalized[];
@@ -517,6 +544,8 @@ export function ChamadoCard({
                             'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
                           slaStatus === 'no_prazo' &&
                             'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
+                          slaStatus === 'pausado' &&
+                            'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200',
                         )}
                       >
                         {slaLabel}

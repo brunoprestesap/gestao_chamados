@@ -312,6 +312,30 @@ describe('GET /api/sla/dashboard', () => {
   });
 
   // -------------------------------------------------------------------------
+  // 8.1 slaStatus usa "now efetivo" (descontando pausa), não o wall clock bruto
+  // -------------------------------------------------------------------------
+  it('should call getSlaResolutionStatus with effective now (discounting pause)', async () => {
+    // NOW = 12:00, slaPausedAt = 11:00 (1h de pausa ativa), totalPausedMinutes = 30 (30 min de pausa concluída)
+    // totalPauseMs = (30 * 60_000) + (NOW - slaPausedAt) = 1_800_000 + 3_600_000 = 5_400_000
+    // effectiveNow = NOW - 5_400_000 = 10:30
+    const slaPausedAt = new Date('2024-06-01T11:00:00.000Z');
+    const chamado = buildChamado({
+      slaPausedAt,
+      totalPausedMinutes: 30,
+    });
+    mockFind([chamado]);
+    vi.mocked(getSlaResolutionStatus).mockReturnValue('no_prazo');
+
+    await callGet();
+
+    expect(getSlaResolutionStatus).toHaveBeenCalledTimes(1);
+    const callArgs = vi.mocked(getSlaResolutionStatus).mock.calls[0];
+    const effectiveNowArg = callArgs[0] as Date;
+    // 10:30 UTC = NOW (12:00) - 5_400_000 ms
+    expect(effectiveNowArg.toISOString()).toBe('2024-06-01T10:30:00.000Z');
+  });
+
+  // -------------------------------------------------------------------------
   // 9. Ordena items por urgência: atrasados → proximo_vencimento → no_prazo
   // -------------------------------------------------------------------------
   it('should sort items with atrasado first, then proximo_vencimento, then no_prazo', async () => {

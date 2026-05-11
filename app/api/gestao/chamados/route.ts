@@ -31,6 +31,7 @@ const LIST_PROJECTION = {
   assignedAt: 1,
   assignedByUserId: 1,
   slaPausedAt: 1,
+  totalPausedMinutes: 1,
   pauseReason: 1,
   pauseDetails: 1,
   materialObservations: 1,
@@ -110,6 +111,8 @@ function normalizeChamado(
     slaPausedAt: c.slaPausedAt
       ? new Date(c.slaPausedAt as string | number | Date).toISOString()
       : null,
+    totalPausedMinutes:
+      typeof c.totalPausedMinutes === 'number' ? c.totalPausedMinutes : 0,
     pauseReason: (c.pauseReason as string) ?? null,
     pauseDetails: (c.pauseDetails as string) ?? null,
     materialObservations: normalizeMaterialObservations(c.materialObservations),
