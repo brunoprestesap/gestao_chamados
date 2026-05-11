@@ -19,10 +19,7 @@ export function BreachByPriorityChart({
     );
   }
 
-  const maxStacked = Math.max(
-    ...data.map((d) => d.responseBreaches + d.resolutionBreaches),
-    1,
-  );
+  const maxStacked = Math.max(...data.map((d) => d.responseBreaches + d.resolutionBreaches), 1);
   const svgHeight = data.length * (BAR_HEIGHT + GAP) + GAP;
   const chartWidth = 320;
   const totalWidth = LABEL_WIDTH + chartWidth + 60;

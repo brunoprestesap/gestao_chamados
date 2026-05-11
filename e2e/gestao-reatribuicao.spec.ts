@@ -60,9 +60,9 @@ test.describe('Reatribuição de chamado com justificativa obrigatória', () => 
 
       await dialog.getByRole('button', { name: /abrir chamado|enviar|criar/i }).click();
       await expect(dialog).not.toBeVisible({ timeout: 15000 });
-      await expect(
-        page.getByRole('row').filter({ hasText: ticketTitle }).first(),
-      ).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('row').filter({ hasText: ticketTitle }).first()).toBeVisible({
+        timeout: 15000,
+      });
     });
 
     test('preposto classifica e atribui o chamado', async ({ page }) => {

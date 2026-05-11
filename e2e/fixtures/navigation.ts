@@ -65,10 +65,7 @@ export async function waitChamadosAtribuidosSearchApplied(
  */
 export async function gotoChamadosAtribuidosReady(page: Page, timeout = 45000): Promise<void> {
   const resp = page.waitForResponse(
-    (r) =>
-      r.request().method() === 'GET' &&
-      r.url().includes('/api/chamados-atribuidos') &&
-      r.ok(),
+    (r) => r.request().method() === 'GET' && r.url().includes('/api/chamados-atribuidos') && r.ok(),
     { timeout },
   );
   await page.goto('/chamados-atribuidos', { waitUntil: 'load' });

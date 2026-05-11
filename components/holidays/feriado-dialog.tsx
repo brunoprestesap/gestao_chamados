@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { HOLIDAY_SCOPES,HolidayCreateSchema } from '@/shared/holidays/holiday.schemas';
+import { HOLIDAY_SCOPES, HolidayCreateSchema } from '@/shared/holidays/holiday.schemas';
 
 type HolidayForm = z.infer<typeof HolidayCreateSchema>;
 

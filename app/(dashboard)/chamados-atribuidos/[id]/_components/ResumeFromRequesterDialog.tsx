@@ -16,10 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  PAUSE_REASON_LABELS,
-  type PauseReason,
-} from '@/shared/chamados/pause-reason.constants';
+import { PAUSE_REASON_LABELS, type PauseReason } from '@/shared/chamados/pause-reason.constants';
 
 interface Props {
   open: boolean;
@@ -93,12 +90,15 @@ export function ResumeFromRequesterDialog({
   );
 
   const reasonLabel = pauseReason
-    ? PAUSE_REASON_LABELS[pauseReason as PauseReason] ?? pauseReason
+    ? (PAUSE_REASON_LABELS[pauseReason as PauseReason] ?? pauseReason)
     : null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md sm:rounded-2xl max-h-[90vh] overflow-y-auto" showCloseButton>
+      <DialogContent
+        className="max-w-md sm:rounded-2xl max-h-[90vh] overflow-y-auto"
+        showCloseButton
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Play className="h-5 w-5 text-emerald-600" />
@@ -112,8 +112,7 @@ export function ResumeFromRequesterDialog({
         {reasonLabel && (
           <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 dark:border-orange-800/50 dark:bg-orange-950/30">
             <p className="text-sm text-orange-900 dark:text-orange-100">
-              Motivo da pausa:{' '}
-              <span className="font-semibold">{reasonLabel}</span>
+              Motivo da pausa: <span className="font-semibold">{reasonLabel}</span>
             </p>
           </div>
         )}
@@ -121,8 +120,7 @@ export function ResumeFromRequesterDialog({
         {elapsedStr && (
           <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800/50 dark:bg-amber-950/30">
             <p className="text-sm text-amber-900 dark:text-amber-100">
-              Tempo pausado:{' '}
-              <span className="font-semibold">{elapsedStr}</span>
+              Tempo pausado: <span className="font-semibold">{elapsedStr}</span>
             </p>
           </div>
         )}

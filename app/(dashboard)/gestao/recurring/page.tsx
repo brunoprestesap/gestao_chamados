@@ -32,9 +32,7 @@ export default async function RecurringTicketsPage() {
   await requireManager();
   await dbConnect();
 
-  const docs = await RecurringTicketModel.find()
-    .sort({ isActive: -1, nextRunAt: 1 })
-    .lean();
+  const docs = await RecurringTicketModel.find().sort({ isActive: -1, nextRunAt: 1 }).lean();
 
   const items: RecurringItem[] = docs.map((d) => ({
     _id: String(d._id),

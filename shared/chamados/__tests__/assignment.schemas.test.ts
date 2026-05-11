@@ -146,9 +146,7 @@ describe('ReassignTicketSchema', () => {
       // Assert
       expect(result.success).toBe(false);
       if (!result.success) {
-        const techIssue = result.error.issues.find((i) =>
-          i.path.includes('preferredTechnicianId'),
-        );
+        const techIssue = result.error.issues.find((i) => i.path.includes('preferredTechnicianId'));
         expect(techIssue?.message).toBe('ID inválido');
       }
     });

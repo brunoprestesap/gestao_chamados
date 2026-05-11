@@ -30,17 +30,10 @@ export function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium text-muted-foreground">{title}</p>
-          <p
-            className={cn(
-              'mt-2 text-2xl font-bold tracking-tight tabular-nums',
-              valueClassName,
-            )}
-          >
+          <p className={cn('mt-2 text-2xl font-bold tracking-tight tabular-nums', valueClassName)}>
             {value}
           </p>
-          {helper ? (
-            <p className="mt-1.5 text-xs text-muted-foreground/70">{helper}</p>
-          ) : null}
+          {helper ? <p className="mt-1.5 text-xs text-muted-foreground/70">{helper}</p> : null}
         </div>
 
         <div

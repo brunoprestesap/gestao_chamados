@@ -1,4 +1,3 @@
-
 import { expect, test } from '@playwright/test';
 
 import { login } from './fixtures/auth';
@@ -26,8 +25,8 @@ const TICKET_TITLE = `E2E Anexos ${Date.now()}`;
 function createMinimalJpegBuffer(): Buffer {
   // JPEG SOI (Start of Image) + APP0 marker — arquivo JPEG mínimo válido
   const bytes = [
-    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00,
-    0x01, 0x00, 0x01, 0x00, 0x00,
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
+    0x00, 0x01, 0x00, 0x00,
     // EOI (End of Image)
     0xff, 0xd9,
   ];
@@ -85,9 +84,9 @@ test.describe.serial('Upload de Anexos', () => {
 
     // Assert — chamado criado com sucesso e visível na tabela
     await expect(dialog).not.toBeVisible({ timeout: 15000 });
-    await expect(
-      page.getByRole('row').filter({ hasText: TICKET_TITLE }).first(),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('row').filter({ hasText: TICKET_TITLE }).first()).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test('2. Solicitante acessa o chamado e vê a seção de anexos', async ({ page }) => {
@@ -95,9 +94,9 @@ test.describe.serial('Upload de Anexos', () => {
     await navegarParaDetalhe(page);
     // A galeria pode mostrar "Nenhum anexo" ou botão "Adicionar" dependendo do estado.
     // Usa toBeVisible com timeout para aguardar o conteúdo carregar.
-    await expect(
-      page.getByText(/anexo|galeria|adicionar/i).first(),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/anexo|galeria|adicionar/i).first()).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test('3. Upload de imagem JPEG válida via input de arquivo', async ({ page }) => {
@@ -182,14 +181,17 @@ test.describe.serial('Upload de Anexos', () => {
 
     // Verifica que o anexo do teste 3 ainda aparece após navegação
     // (o upload do teste 3 deve ter persistido no banco)
-    const hasAttachment = await page.getByText('foto-teste.jpg').isVisible({ timeout: 10000 }).catch(() => false);
+    const hasAttachment = await page
+      .getByText('foto-teste.jpg')
+      .isVisible({ timeout: 10000 })
+      .catch(() => false);
     if (hasAttachment) {
       expect(hasAttachment).toBe(true);
     } else {
       // Aceita que não há anexo visível mas a seção de anexos existe
-      await expect(
-        page.getByText(/anexo|galeria|adicionar/i).first(),
-      ).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/anexo|galeria|adicionar/i).first()).toBeVisible({
+        timeout: 15000,
+      });
     }
   });
 

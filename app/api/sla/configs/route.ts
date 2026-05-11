@@ -7,7 +7,7 @@ import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { getBusinessMinutesPerDay } from '@/lib/sla-timezone';
 import { SlaConfigModel } from '@/models/SlaConfig';
 import { FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
-import { SlaConfigSaveSchema, type SlaTimeUnit,toMinutes } from '@/shared/sla/sla-config.schemas';
+import { SlaConfigSaveSchema, type SlaTimeUnit, toMinutes } from '@/shared/sla/sla-config.schemas';
 
 /**
  * GET /api/sla/configs

@@ -165,11 +165,7 @@ export function RecusarServicoDialog({ open, onOpenChange, chamado, onSuccess }:
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                variant="destructive"
-                disabled={submitting}
-              >
+              <Button type="submit" variant="destructive" disabled={submitting}>
                 {submitting ? 'Recusando…' : 'Recusar Serviço'}
               </Button>
             </DialogFooter>

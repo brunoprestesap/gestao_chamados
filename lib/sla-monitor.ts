@@ -69,9 +69,7 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
     chamadoId: { $in: chamadoIds },
   }).lean();
 
-  const escalationSet = new Set(
-    existingEscalations.map((e) => `${String(e.chamadoId)}:${e.type}`),
-  );
+  const escalationSet = new Set(existingEscalations.map((e) => `${String(e.chamadoId)}:${e.type}`));
 
   // Pré-busca gestores (Preposto + Admin) — admins derivados do mesmo resultado
   const managers = await UserModel.find(
@@ -159,13 +157,9 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
     // enquanto o chamado estiver pausado por dependência de terceiros/solicitante.
     // E ignora chamados que já tiveram a resposta iniciada no prazo (responseStartedAt
     // ≤ responseDueAt): nesses casos `responseBreachedAt` permanece null por design.
-    const responseStartedAt = sla.responseStartedAt
-      ? new Date(sla.responseStartedAt)
-      : null;
+    const responseStartedAt = sla.responseStartedAt ? new Date(sla.responseStartedAt) : null;
     const responseAlreadyAnsweredOnTime =
-      responseStartedAt !== null &&
-      responseDueAt !== null &&
-      responseStartedAt <= responseDueAt;
+      responseStartedAt !== null && responseDueAt !== null && responseStartedAt <= responseDueAt;
     if (
       responseDueAt !== null &&
       effectiveNowMs > responseDueAt.getTime() &&

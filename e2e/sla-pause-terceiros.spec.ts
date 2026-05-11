@@ -191,9 +191,9 @@ test.describe.serial('Pausas de SLA — Validação de detalhes obrigatórios pa
     const btnSubmit = dialog.getByRole('button', { name: /^pausar atendimento$/i });
     await btnSubmit.click();
 
-    await expect(
-      dialog.getByText(/detalhes obrigatórios|mín\. 10 caracteres/i),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText(/detalhes obrigatórios|mín\. 10 caracteres/i)).toBeVisible({
+      timeout: 5000,
+    });
 
     await expect(dialog).toBeVisible();
   });
@@ -206,9 +206,9 @@ test.describe.serial('Pausas de SLA — Validação de detalhes obrigatórios pa
     await dialog.getByRole('textbox').fill('curto');
     await dialog.getByRole('button', { name: /^pausar atendimento$/i }).click();
 
-    await expect(
-      dialog.getByText(/mín\. 10 caracteres|detalhes obrigatórios/i),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText(/mín\. 10 caracteres|detalhes obrigatórios/i)).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('deve exibir asterisco no campo detalhes quando motivo é Outro', async ({ page }) => {
@@ -286,9 +286,9 @@ test.describe('Pausas de SLA — Admin pausa chamado via Gestão Kanban', () => 
       const cardAtualizado = gestaoChamadoCard(page, tituloChamado);
       await expect(cardAtualizado).toBeVisible({ timeout: 15000 });
       // /gestão usa StatusBadge como <span> (sem data-slot="badge"); a célula da tabela espelha o rótulo.
-      await expect(
-        cardAtualizado.getByRole('cell', { name: /aguardando terceiros/i }),
-      ).toBeVisible({ timeout: 15000 });
+      await expect(cardAtualizado.getByRole('cell', { name: /aguardando terceiros/i })).toBeVisible(
+        { timeout: 15000 },
+      );
     });
   });
 });
@@ -481,7 +481,10 @@ test.describe.serial('Pausas de SLA — Chamado pausado bloqueia registro de exe
     await confirmarPausa(dialog);
 
     await expect(
-      page.locator('[data-slot="badge"]').filter({ hasText: /aguardando/i }).first(),
+      page
+        .locator('[data-slot="badge"]')
+        .filter({ hasText: /aguardando/i })
+        .first(),
     ).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByRole('button', { name: /registrar execução/i })).not.toBeVisible({
@@ -508,7 +511,8 @@ test.describe.serial('Pausas de SLA — Chamado pausado bloqueia registro de exe
 // Suite 7 — Todos os motivos de pausa podem ser selecionados
 // ---------------------------------------------------------------------------
 
-test.describe.serial('Pausas de SLA — Todos os motivos de pausa estão disponíveis no select', () => {
+test.describe
+  .serial('Pausas de SLA — Todos os motivos de pausa estão disponíveis no select', () => {
   /** Motivos no Select quando o papel é técnico (sem fluxo de cotação exclusivo do Preposto). */
   const MOTIVOS_ESPERADOS_TECNICO = [
     'Aguardando Solicitante',
@@ -564,9 +568,9 @@ test.describe.serial('Pausas de SLA — Todos os motivos de pausa estão dispon�
     const dialog = await abrirPauseDialogNaDetalhe(page);
 
     // Assert — mensagem informativa sobre SLA visível (pode haver 2: description + info box)
-    await expect(
-      dialog.getByText(/sla.*pausado|prazo.*pausado/i).first(),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText(/sla.*pausado|prazo.*pausado/i).first()).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('botão Cancelar fecha o dialog sem pausar', async ({ page }) => {

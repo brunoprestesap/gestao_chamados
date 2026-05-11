@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  CalendarCheck,
-  Loader2,
-  Pause,
-  Pencil,
-  Play,
-  Plus,
-  Repeat,
-  Trash2,
-} from 'lucide-react';
+import { CalendarCheck, Loader2, Pause, Pencil, Play, Plus, Repeat, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState, useTransition } from 'react';
 
@@ -112,42 +103,36 @@ export function RecurringTicketsClient({ items: initialItems }: Props) {
     setDialogOpen(true);
   }, []);
 
-  const handleToggle = useCallback(
-    (id: string) => {
-      setActionId(id);
-      startTransition(async () => {
-        try {
-          const result = await toggleRecurringTemplateAction(id);
-          if (result.ok) {
-            setItems((prev) =>
-              prev.map((it) => (it._id === id ? { ...it, isActive: !it.isActive } : it)),
-            );
-          }
-        } finally {
-          setActionId(null);
+  const handleToggle = useCallback((id: string) => {
+    setActionId(id);
+    startTransition(async () => {
+      try {
+        const result = await toggleRecurringTemplateAction(id);
+        if (result.ok) {
+          setItems((prev) =>
+            prev.map((it) => (it._id === id ? { ...it, isActive: !it.isActive } : it)),
+          );
         }
-      });
-    },
-    [],
-  );
+      } finally {
+        setActionId(null);
+      }
+    });
+  }, []);
 
-  const handleDelete = useCallback(
-    (id: string, name: string) => {
-      if (!confirm(`Deseja realmente excluir o agendamento "${name}"?`)) return;
-      setActionId(id);
-      startTransition(async () => {
-        try {
-          const result = await deleteRecurringTemplateAction(id);
-          if (result.ok) {
-            setItems((prev) => prev.filter((it) => it._id !== id));
-          }
-        } finally {
-          setActionId(null);
+  const handleDelete = useCallback((id: string, name: string) => {
+    if (!confirm(`Deseja realmente excluir o agendamento "${name}"?`)) return;
+    setActionId(id);
+    startTransition(async () => {
+      try {
+        const result = await deleteRecurringTemplateAction(id);
+        if (result.ok) {
+          setItems((prev) => prev.filter((it) => it._id !== id));
         }
-      });
-    },
-    [],
-  );
+      } finally {
+        setActionId(null);
+      }
+    });
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -174,9 +159,7 @@ export function RecurringTicketsClient({ items: initialItems }: Props) {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-950/60">
             <Repeat className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground">
-            Nenhum agendamento cadastrado
-          </h3>
+          <h3 className="text-lg font-semibold text-foreground">Nenhum agendamento cadastrado</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             Crie agendamentos para gerar chamados automaticamente em intervalos regulares.
           </p>

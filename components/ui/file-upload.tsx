@@ -73,7 +73,6 @@ export function FileUpload({
   // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
-       
       files.forEach((f) => {
         if (f.preview) URL.revokeObjectURL(f.preview);
       });
@@ -123,18 +122,14 @@ export function FileUpload({
 
         if (!json.ok) {
           setFiles((prev) =>
-            prev.map((f) =>
-              f.id === fileId ? { ...f, uploading: false, error: json.error } : f,
-            ),
+            prev.map((f) => (f.id === fileId ? { ...f, uploading: false, error: json.error } : f)),
           );
           return;
         }
 
         const uploaded: UploadedFile = json.data;
         setFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileId ? { ...f, uploading: false, uploaded } : f,
-          ),
+          prev.map((f) => (f.id === fileId ? { ...f, uploading: false, uploaded } : f)),
         );
         onUploadComplete?.(uploaded);
       } catch {

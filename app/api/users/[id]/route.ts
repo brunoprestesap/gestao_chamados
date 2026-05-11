@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { requireManager, verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
-import { type User,UserModel } from '@/models/user.model';
+import { type User, UserModel } from '@/models/user.model';
 import { UserUpdateSchema } from '@/shared/users/user.schemas';
 
 type LeanUserDoc = User & {

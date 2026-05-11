@@ -258,10 +258,7 @@ export function ReatribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess
                           <p className="text-xs text-muted-foreground">chamados</p>
                         </div>
                         {isSelected ? (
-                          <UserCheck
-                            className="h-5 w-5 text-primary shrink-0"
-                            aria-hidden="true"
-                          />
+                          <UserCheck className="h-5 w-5 text-primary shrink-0" aria-hidden="true" />
                         ) : isDisabled ? (
                           <UserX
                             className="h-5 w-5 text-muted-foreground shrink-0"
@@ -310,9 +307,7 @@ export function ReatribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess
                         </div>
                         <div className="flex-1 min-w-0 pb-1">
                           <p className="text-xs font-medium text-foreground">
-                            {item.action === 'atribuicao_tecnico'
-                              ? 'Atribuição'
-                              : 'Reatribuição'}
+                            {item.action === 'atribuicao_tecnico' ? 'Atribuição' : 'Reatribuição'}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {item.observacoes}

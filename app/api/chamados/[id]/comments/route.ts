@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
-import { type ChamadoCommentDoc,ChamadoCommentModel } from '@/models/ChamadoComment';
+import { type ChamadoCommentDoc, ChamadoCommentModel } from '@/models/ChamadoComment';
 
 const MAX_COMMENTS = 200;
 
@@ -38,8 +38,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
   }
 
-  const visibilityFilter =
-    session.role === 'Solicitante' ? { visibility: 'publico' } : {};
+  const visibilityFilter = session.role === 'Solicitante' ? { visibility: 'publico' } : {};
 
   const comments = await ChamadoCommentModel.find({
     chamadoId: new Types.ObjectId(id),
@@ -48,7 +47,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .sort({ createdAt: 1 })
     .limit(MAX_COMMENTS)
     .populate('userId', 'name username')
-    .lean<Array<ChamadoCommentDoc & { userId: { _id: Types.ObjectId; name?: string; username?: string } }>>();
+    .lean<
+      Array<
+        ChamadoCommentDoc & { userId: { _id: Types.ObjectId; name?: string; username?: string } }
+      >
+    >();
 
   const items = comments.map((c) => ({
     _id: String(c._id),

@@ -46,9 +46,7 @@ test.describe('Criação de chamado', () => {
 
     // Chamado deve aparecer na lista — verificamos pela coluna "Título" da tabela,
     // que contém o título auto-gerado ("Manutenção Predial — Sala E2E Criar <ts>").
-    await expect(
-      page.getByRole('row').filter({ hasText: localExato }).first(),
-    ).toBeVisible({
+    await expect(page.getByRole('row').filter({ hasText: localExato }).first()).toBeVisible({
       timeout: 10000,
     });
   });

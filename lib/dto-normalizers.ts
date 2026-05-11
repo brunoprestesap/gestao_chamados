@@ -15,9 +15,7 @@ export type MaterialObservationNormalized = {
   createdAt: string;
 };
 
-export function normalizeMaterialObservations(
-  raw: unknown,
-): MaterialObservationNormalized[] {
+export function normalizeMaterialObservations(raw: unknown): MaterialObservationNormalized[] {
   if (!Array.isArray(raw)) return [];
   return raw.map(
     (o: {

@@ -403,9 +403,7 @@ export default function UsuariosPage() {
               <SheetHeader>
                 <SheetTitle>Filtros</SheetTitle>
               </SheetHeader>
-              <div className="grid grid-cols-1 gap-4 pb-6">
-                {filtersContent}
-              </div>
+              <div className="grid grid-cols-1 gap-4 pb-6">{filtersContent}</div>
             </SheetContent>
           </Sheet>
         </div>

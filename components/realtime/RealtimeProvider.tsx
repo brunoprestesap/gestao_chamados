@@ -203,9 +203,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       toast.warning(`SLA do chamado ${numero} próximo do vencimento`, {
         description: (
           <div className="mt-1 flex flex-col gap-0.5 text-left">
-            {titulo && (
-              <p className="line-clamp-2 text-sm font-medium text-foreground">{titulo}</p>
-            )}
+            {titulo && <p className="line-clamp-2 text-sm font-medium text-foreground">{titulo}</p>}
             <p className="text-xs text-muted-foreground">
               Restam ~{Math.round(payload.remainingPercent)}% do prazo
             </p>
@@ -231,12 +229,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       toast.error(`SLA de ${tipoLabel} do chamado ${numero} estourou`, {
         description: (
           <div className="mt-1 flex flex-col gap-0.5 text-left">
-            {titulo && (
-              <p className="line-clamp-2 text-sm font-medium text-foreground">{titulo}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Prioridade: {payload.priority}
-            </p>
+            {titulo && <p className="line-clamp-2 text-sm font-medium text-foreground">{titulo}</p>}
+            <p className="text-xs text-muted-foreground">Prioridade: {payload.priority}</p>
           </div>
         ),
         duration: 10000,

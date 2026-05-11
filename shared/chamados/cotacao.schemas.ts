@@ -16,10 +16,7 @@ export const SubmitCotacaoSchema = z.object({
     .min(0, 'Prazo não pode ser negativo')
     .max(365, 'Prazo máximo de 365 dias')
     .optional(),
-  observacoes: z
-    .string()
-    .max(1000, 'Observações devem ter no máximo 1000 caracteres')
-    .optional(),
+  observacoes: z.string().max(1000, 'Observações devem ter no máximo 1000 caracteres').optional(),
   anexoId: z.string().min(1).optional(),
 });
 
@@ -27,10 +24,7 @@ export type SubmitCotacaoInput = z.infer<typeof SubmitCotacaoSchema>;
 
 export const ApproveCotacaoSchema = z.object({
   cotacaoId: z.string().min(1, 'ID da cotação é obrigatório'),
-  observacao: z
-    .string()
-    .max(1000, 'Observação deve ter no máximo 1000 caracteres')
-    .optional(),
+  observacao: z.string().max(1000, 'Observação deve ter no máximo 1000 caracteres').optional(),
 });
 
 export type ApproveCotacaoInput = z.infer<typeof ApproveCotacaoSchema>;

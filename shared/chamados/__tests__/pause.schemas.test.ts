@@ -23,7 +23,10 @@ describe('PauseForRequesterSchema', () => {
 
   it('deve aceitar input válido com motivo extenso', () => {
     // Arrange
-    const input = { ticketId: VALID_ID, reason: 'Solicitante viajou e não pode confirmar o serviço agora.' };
+    const input = {
+      ticketId: VALID_ID,
+      reason: 'Solicitante viajou e não pode confirmar o serviço agora.',
+    };
 
     // Act
     const result = PauseForRequesterSchema.safeParse(input);

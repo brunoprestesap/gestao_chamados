@@ -44,9 +44,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ items });
   } catch (error) {
     console.error('Erro ao buscar histórico de atribuições:', error);
-    return NextResponse.json(
-      { error: 'Erro ao buscar histórico de atribuições' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Erro ao buscar histórico de atribuições' }, { status: 500 });
   }
 }

@@ -156,9 +156,7 @@ export async function updateRecurringTemplateAction(
 /**
  * Ativa ou desativa um agendamento.
  */
-export async function toggleRecurringTemplateAction(
-  templateId: string,
-): Promise<Result> {
+export async function toggleRecurringTemplateAction(templateId: string): Promise<Result> {
   try {
     await requireManager();
 
@@ -203,9 +201,7 @@ export async function toggleRecurringTemplateAction(
 /**
  * Deleta um agendamento (hard delete).
  */
-export async function deleteRecurringTemplateAction(
-  templateId: string,
-): Promise<Result> {
+export async function deleteRecurringTemplateAction(templateId: string): Promise<Result> {
   try {
     await requireManager();
 

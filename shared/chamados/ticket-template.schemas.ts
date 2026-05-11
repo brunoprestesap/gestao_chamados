@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { GRAU_URGENCIA_OPTIONS, NATUREZA_OPTIONS, TIPO_SERVICO_OPTIONS } from './new-ticket.schemas';
+import {
+  GRAU_URGENCIA_OPTIONS,
+  NATUREZA_OPTIONS,
+  TIPO_SERVICO_OPTIONS,
+} from './new-ticket.schemas';
 
 export const TEMPLATE_SCOPE_OPTIONS = ['global', 'personal'] as const;
 

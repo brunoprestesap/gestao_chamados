@@ -91,7 +91,7 @@ Adicionar status intermediário `aguardando_solicitante` que pausa a contagem do
 
 ### UI — Cards
 
-9. No `ChamadoCard`: o novo status será renderizado automaticamente se os mappings estiverem corretos em _constants.ts. Verifique que o badge e ícone aparecem corretamente.
+9. No `ChamadoCard`: o novo status será renderizado automaticamente se os mappings estiverem corretos em \_constants.ts. Verifique que o badge e ícone aparecem corretamente.
 
 ### UI — Botões de Ação
 

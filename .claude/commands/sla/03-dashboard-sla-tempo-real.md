@@ -9,22 +9,26 @@ Criar página de dashboard dedicada ao SLA com visão em tempo real de todos os 
 ## Contexto do Projeto
 
 ### Dados de SLA disponíveis
+
 - **Subdocumento SLA no Chamado**: `models/Chamado.ts` (linhas 119-133) — responseDueAt, resolutionDueAt, resolvedAt, responseBreachedAt, resolutionBreachedAt, pausedMinutes, computedAt, priority, businessHoursOnly
 - **getSlaResolutionStatus()**: `lib/sla-utils.ts` (linha 138) — retorna 'no_prazo' | 'proximo_vencimento' | 'atrasado'
 - **Statuses ativos**: validado, em atendimento, aguardando_solicitante (com SLA computado)
 - **Campos de pausa**: slaPausedAt, totalPausedMinutes, sla.pausedMinutes
 
 ### APIs existentes
+
 - **GET /api/gestao/chamados**: retorna chamados com filtro (requer manager)
 - **GET /api/sla/configs**: retorna configurações SLA ativas
 - **Timezone**: `lib/expediente-config.ts` — getBusinessCalendarConfig()
 
 ### Componentes de dashboard existentes
+
 - **KPI Card**: `components/dashboard/kpi-card.tsx` — métricas com título, valor, helper text, ícone
 - **PageHeader**: `components/dashboard/header.tsx` — título + subtítulo + actions
 - **Design system**: rounded-2xl, accent stripes, glass effects, indigo/blue palette
 
 ### Navegação
+
 - **Nav items**: `components/dashboard/nav.ts` — itens filtrados por role
 
 ## Tarefas

@@ -14,6 +14,7 @@ Guia completo para deploy e atualização do **Sigma** em VPS usando Docker Comp
 | **nginx**         | Nginx Alpine            | 80            | Porta configurável        |
 
 O Nginx atua como proxy reverso unificado na porta 80, roteando:
+
 - `/` → **next-app:3000**
 - `/socket.io/` → **socket-server:3001** (com upgrade WebSocket)
 
@@ -88,15 +89,15 @@ O seed cria: unidades, tipos/subtipos de serviço, catálogo, usuários, configu
 
 **Credenciais padrão** (senha `123456` para todos):
 
-| Username        | Role        | Observação            |
-| --------------- | ----------- | --------------------- |
-| `admin`         | Admin       | Setor de TI           |
-| `preposto01`    | Preposto    | Diretoria Geral       |
-| `tecnico01`     | Técnico     | Predial + AC          |
-| `tecnico02`     | Técnico     | Predial               |
-| `tecnico03`     | Técnico     | Ar-Condicionado       |
-| `solicitante01` | Solicitante | RH                    |
-| `solicitante02` | Solicitante | Financeiro            |
+| Username        | Role        | Observação      |
+| --------------- | ----------- | --------------- |
+| `admin`         | Admin       | Setor de TI     |
+| `preposto01`    | Preposto    | Diretoria Geral |
+| `tecnico01`     | Técnico     | Predial + AC    |
+| `tecnico02`     | Técnico     | Predial         |
+| `tecnico03`     | Técnico     | Ar-Condicionado |
+| `solicitante01` | Solicitante | RH              |
+| `solicitante02` | Solicitante | Financeiro      |
 
 > **Atenção**: O seed usa `insertMany` com `ordered: true`. Se rodar novamente em banco já populado, itens duplicados causam erro e itens novos do mesmo batch não são inseridos. Para re-semear, limpe as collections primeiro (veja seção 4).
 
@@ -122,6 +123,7 @@ git push origin main
 ```
 
 O fluxo é:
+
 1. **CI** roda no GitHub (lint + build Next.js + build socket-server)
 2. **Deploy** roda no self-hosted runner na VPS (`git pull` + `docker compose up -d --build`)
 
@@ -202,19 +204,19 @@ docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js
 
 ## 5. Arquivos de Configuração
 
-| Arquivo                    | Descrição                                              |
-| -------------------------- | ------------------------------------------------------ |
-| `docker-compose.yml`       | Orquestra os 4 serviços (next, socket, mongo, nginx)   |
-| `Dockerfile`               | Build multi-stage do Next.js (standalone)               |
-| `socket-server/Dockerfile` | Build multi-stage do socket-server                      |
-| `nginx/default.conf`       | Proxy reverso: `/` → Next, `/socket.io/` → Socket      |
-| `.dockerignore`            | Exclui node_modules, .next, .env do contexto de build   |
-| `socket-server/.dockerignore` | Exclui node_modules e dist do contexto do socket     |
-| `.env`                     | Variáveis de ambiente (não versionado)                  |
-| `scripts/seed.js`          | Dados iniciais do banco                                 |
-| `deploy.sh`                | Script de setup inicial da VPS                          |
-| `.github/workflows/ci.yml` | CI: lint + build em push/PR na main                    |
-| `.github/workflows/deploy.yml` | CD: deploy via self-hosted runner                  |
+| Arquivo                        | Descrição                                             |
+| ------------------------------ | ----------------------------------------------------- |
+| `docker-compose.yml`           | Orquestra os 4 serviços (next, socket, mongo, nginx)  |
+| `Dockerfile`                   | Build multi-stage do Next.js (standalone)             |
+| `socket-server/Dockerfile`     | Build multi-stage do socket-server                    |
+| `nginx/default.conf`           | Proxy reverso: `/` → Next, `/socket.io/` → Socket     |
+| `.dockerignore`                | Exclui node_modules, .next, .env do contexto de build |
+| `socket-server/.dockerignore`  | Exclui node_modules e dist do contexto do socket      |
+| `.env`                         | Variáveis de ambiente (não versionado)                |
+| `scripts/seed.js`              | Dados iniciais do banco                               |
+| `deploy.sh`                    | Script de setup inicial da VPS                        |
+| `.github/workflows/ci.yml`     | CI: lint + build em push/PR na main                   |
+| `.github/workflows/deploy.yml` | CD: deploy via self-hosted runner                     |
 
 ---
 
@@ -243,40 +245,40 @@ journalctl -u actions.runner.brunoprestesap-gestao_chamados.srvmanutencao-ap -f
 
 ### App (next-app)
 
-| Variável                 | Descrição                                    | Definida em          |
-| ------------------------ | -------------------------------------------- | -------------------- |
-| `MONGODB_URI`            | Connection string do MongoDB                 | docker-compose.yml   |
-| `AUTH_SECRET`            | Segredo do NextAuth (JWT)                    | `.env`               |
-| `AUTH_COOKIE_NAME`       | Nome do cookie de sessão                     | `.env`               |
-| `AUTH_COOKIE_SECURE`     | `true` para HTTPS                            | `.env`               |
-| `AUTH_URL`               | URL pública da aplicação                     | `.env`               |
-| `SOCKET_INTERNAL_SECRET` | Secret para comunicação Next → Socket        | `.env`               |
-| `SOCKET_EMIT_URL`        | URL interna do socket (rede Docker)          | docker-compose.yml   |
-| `NEXT_PUBLIC_SOCKET_URL` | URL pública do socket (acesso pelo browser)  | `.env`               |
+| Variável                 | Descrição                                   | Definida em        |
+| ------------------------ | ------------------------------------------- | ------------------ |
+| `MONGODB_URI`            | Connection string do MongoDB                | docker-compose.yml |
+| `AUTH_SECRET`            | Segredo do NextAuth (JWT)                   | `.env`             |
+| `AUTH_COOKIE_NAME`       | Nome do cookie de sessão                    | `.env`             |
+| `AUTH_COOKIE_SECURE`     | `true` para HTTPS                           | `.env`             |
+| `AUTH_URL`               | URL pública da aplicação                    | `.env`             |
+| `SOCKET_INTERNAL_SECRET` | Secret para comunicação Next → Socket       | `.env`             |
+| `SOCKET_EMIT_URL`        | URL interna do socket (rede Docker)         | docker-compose.yml |
+| `NEXT_PUBLIC_SOCKET_URL` | URL pública do socket (acesso pelo browser) | `.env`             |
 
 ### LDAP / Active Directory (opcional)
 
-| Variável                       | Descrição                                         | Definida em |
-| ------------------------------ | ------------------------------------------------- | ----------- |
-| `LDAP_URL`                     | URL do servidor LDAP (`ldaps://...` ou `ldap://`) | `.env`      |
-| `LDAP_BASE_DN`                 | Base DN para busca de usuários                    | `.env`      |
-| `LDAP_BIND_DN`                 | DN da conta de serviço (para buscar usuários)      | `.env`      |
-| `LDAP_BIND_PASSWORD`           | Senha da conta de serviço                         | `.env`      |
-| `LDAP_USER_SEARCH_FILTER`      | Filtro LDAP (padrão: `(sAMAccountName={{username}})`) | `.env`  |
-| `LDAP_TLS_REJECT_UNAUTHORIZED` | `false` para certificados auto-assinados/CA interna | `.env`    |
-| `LDAP_DEBUG`                   | `true` para logs detalhados de autenticação       | `.env`      |
+| Variável                       | Descrição                                             | Definida em |
+| ------------------------------ | ----------------------------------------------------- | ----------- |
+| `LDAP_URL`                     | URL do servidor LDAP (`ldaps://...` ou `ldap://`)     | `.env`      |
+| `LDAP_BASE_DN`                 | Base DN para busca de usuários                        | `.env`      |
+| `LDAP_BIND_DN`                 | DN da conta de serviço (para buscar usuários)         | `.env`      |
+| `LDAP_BIND_PASSWORD`           | Senha da conta de serviço                             | `.env`      |
+| `LDAP_USER_SEARCH_FILTER`      | Filtro LDAP (padrão: `(sAMAccountName={{username}})`) | `.env`      |
+| `LDAP_TLS_REJECT_UNAUTHORIZED` | `false` para certificados auto-assinados/CA interna   | `.env`      |
+| `LDAP_DEBUG`                   | `true` para logs detalhados de autenticação           | `.env`      |
 
 > Se `LDAP_URL` não estiver definido, apenas autenticação local (senha no banco) será usada. Usuários autenticados via LDAP que não existem no MongoDB são provisionados automaticamente com role `Solicitante`.
 
 ### Socket Server
 
-| Variável                 | Descrição                                    | Definida em          |
-| ------------------------ | -------------------------------------------- | -------------------- |
-| `SOCKET_PORT`            | Porta do servidor (3001)                     | docker-compose.yml   |
-| `SOCKET_INTERNAL_SECRET` | Deve coincidir com o do next-app             | `.env`               |
-| `SOCKET_CORS_ORIGIN`     | Origem permitida para CORS                   | `.env`               |
-| `SOCKET_TRUSTED_PROXIES` | IPs/hosts confiáveis (rede Docker)           | docker-compose.yml   |
-| `APP_URL`                | URL interna do Next.js (validação de sessão) | docker-compose.yml   |
+| Variável                 | Descrição                                    | Definida em        |
+| ------------------------ | -------------------------------------------- | ------------------ |
+| `SOCKET_PORT`            | Porta do servidor (3001)                     | docker-compose.yml |
+| `SOCKET_INTERNAL_SECRET` | Deve coincidir com o do next-app             | `.env`             |
+| `SOCKET_CORS_ORIGIN`     | Origem permitida para CORS                   | `.env`             |
+| `SOCKET_TRUSTED_PROXIES` | IPs/hosts confiáveis (rede Docker)           | docker-compose.yml |
+| `APP_URL`                | URL interna do Next.js (validação de sessão) | docker-compose.yml |
 
 ---
 
@@ -351,6 +353,7 @@ cd /opt/severino
 ```
 
 O script:
+
 - Gera dump comprimido (gzip) em `/opt/severino/backups/`
 - Verifica integridade do backup (dry-run restore)
 - Remove backups com mais de 30 dias (configurável)
@@ -379,12 +382,12 @@ sudo crontab -l | grep severino
 
 O script aceita variáveis de ambiente para personalização:
 
-| Variável          | Padrão                     | Descrição                          |
-| ----------------- | -------------------------- | ---------------------------------- |
-| `MONGO_CONTAINER` | `severino-mongodb-1`       | Nome do container MongoDB          |
-| `MONGO_DB`        | `manutencao`               | Nome do banco de dados             |
-| `BACKUP_DIR`      | `/opt/severino/backups`    | Diretório de destino dos backups   |
-| `RETENTION_DAYS`  | `30`                       | Dias para manter backups antigos   |
+| Variável          | Padrão                  | Descrição                        |
+| ----------------- | ----------------------- | -------------------------------- |
+| `MONGO_CONTAINER` | `severino-mongodb-1`    | Nome do container MongoDB        |
+| `MONGO_DB`        | `manutencao`            | Nome do banco de dados           |
+| `BACKUP_DIR`      | `/opt/severino/backups` | Diretório de destino dos backups |
+| `RETENTION_DAYS`  | `30`                    | Dias para manter backups antigos |
 
 Exemplo com configuração customizada:
 
@@ -405,6 +408,7 @@ cd /opt/severino
 ```
 
 O script de restore:
+
 - Se nenhum arquivo for informado, usa o backup mais recente
 - Pede confirmação antes de sobrescrever (digitar `sim`)
 - Cria backup de segurança automático antes do restore

@@ -46,9 +46,9 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await dialog.getByRole('button', { name: /abrir chamado|enviar|criar/i }).click();
     await expect(dialog).not.toBeVisible({ timeout: 15000 });
     // Localiza pela linha da tabela contendo o ticketTitle no título auto-gerado.
-    await expect(
-      page.getByRole('row').filter({ hasText: ticketTitle }).first(),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('row').filter({ hasText: ticketTitle }).first()).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test('2. Preposto classifica chamado (define prioridade e SLA)', async ({ page }) => {
@@ -111,13 +111,9 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
       .getByLabel(/descrição do serviço executado/i)
       .fill('Lâmpada substituída com sucesso - teste E2E');
 
-    await dialog
-      .getByLabel(/materiais utilizados/i)
-      .fill('1x Lâmpada LED 15W, 1x Fita isolante');
+    await dialog.getByLabel(/materiais utilizados/i).fill('1x Lâmpada LED 15W, 1x Fita isolante');
 
-    await dialog
-      .getByLabel(/observações/i)
-      .fill('Serviço realizado sem intercorrências.');
+    await dialog.getByLabel(/observações/i).fill('Serviço realizado sem intercorrências.');
 
     const submitExec = dialog.getByRole('button', { name: /^registrar e concluir$/i });
     await submitExec.scrollIntoViewIfNeeded();

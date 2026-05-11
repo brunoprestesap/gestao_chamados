@@ -12,13 +12,7 @@ const CHECK_COLOR = '#4F46E5';
  * Usa cores sólidas (sem <defs>/<linearGradient>) para evitar colisão
  * de IDs SVG e hydration mismatch quando múltiplas instâncias coexistem.
  */
-export function SigmaLogo({
-  className,
-  size = 32,
-}: {
-  className?: string;
-  size?: number;
-}) {
+export function SigmaLogo({ className, size = 32 }: { className?: string; size?: number }) {
   return (
     <svg
       width={size}

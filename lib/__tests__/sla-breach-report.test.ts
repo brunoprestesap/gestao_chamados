@@ -70,9 +70,7 @@ function fullFacets() {
       byTipoServico: [
         { _id: 'Manutenção Predial', total: 2, responseBreaches: 1, resolutionBreaches: 1 },
       ],
-      breachTimeline: [
-        { _id: '2026-03', total: 2, responseBreaches: 1, resolutionBreaches: 1 },
-      ],
+      breachTimeline: [{ _id: '2026-03', total: 2, responseBreaches: 1, resolutionBreaches: 1 }],
       totals: [
         {
           _id: null,
@@ -300,7 +298,13 @@ describe('computeBreachReport — byTechnician', () => {
         byTipoServico: [],
         breachTimeline: [],
         totals: [
-          { _id: null, totalChamados: 10, breachedChamados: 3, responseBreaches: 2, resolutionBreaches: 2 },
+          {
+            _id: null,
+            totalChamados: 10,
+            breachedChamados: 3,
+            responseBreaches: 2,
+            resolutionBreaches: 2,
+          },
         ],
       },
     ];
@@ -359,7 +363,15 @@ describe('computeBreachReport — byTechnician', () => {
         byPriority: [],
         byTipoServico: [],
         breachTimeline: [],
-        totals: [{ _id: null, totalChamados: 10, breachedChamados: 0, responseBreaches: 0, resolutionBreaches: 0 }],
+        totals: [
+          {
+            _id: null,
+            totalChamados: 10,
+            breachedChamados: 0,
+            responseBreaches: 0,
+            resolutionBreaches: 0,
+          },
+        ],
       },
     ];
     mockAggregate.mockResolvedValue(facets);
@@ -390,7 +402,15 @@ describe('computeBreachReport — byTechnician', () => {
         byPriority: [],
         byTipoServico: [],
         breachTimeline: [],
-        totals: [{ _id: null, totalChamados: 5, breachedChamados: 2, responseBreaches: 1, resolutionBreaches: 1 }],
+        totals: [
+          {
+            _id: null,
+            totalChamados: 5,
+            breachedChamados: 2,
+            responseBreaches: 1,
+            resolutionBreaches: 1,
+          },
+        ],
       },
     ];
     mockAggregate.mockResolvedValue(facets);
@@ -425,7 +445,15 @@ describe('computeBreachReport — avgDelayMinutes', () => {
         byPriority: [],
         byTipoServico: [],
         breachTimeline: [],
-        totals: [{ _id: null, totalChamados: 5, breachedChamados: 2, responseBreaches: 2, resolutionBreaches: 0 }],
+        totals: [
+          {
+            _id: null,
+            totalChamados: 5,
+            breachedChamados: 2,
+            responseBreaches: 2,
+            resolutionBreaches: 0,
+          },
+        ],
       },
     ];
     mockAggregate.mockResolvedValue(facets);
@@ -468,7 +496,15 @@ describe('computeBreachReport — avgDelayMinutes', () => {
         byPriority: [],
         byTipoServico: [],
         breachTimeline: [],
-        totals: [{ _id: null, totalChamados: 5, breachedChamados: 2, responseBreaches: 1, resolutionBreaches: 1 }],
+        totals: [
+          {
+            _id: null,
+            totalChamados: 5,
+            breachedChamados: 2,
+            responseBreaches: 1,
+            resolutionBreaches: 1,
+          },
+        ],
       },
     ];
     mockAggregate.mockResolvedValue(facets);
@@ -530,7 +566,15 @@ describe('computeBreachReport — byUnit', () => {
         byPriority: [],
         byTipoServico: [],
         breachTimeline: [],
-        totals: [{ _id: null, totalChamados: 8, breachedChamados: 0, responseBreaches: 0, resolutionBreaches: 0 }],
+        totals: [
+          {
+            _id: null,
+            totalChamados: 8,
+            breachedChamados: 0,
+            responseBreaches: 0,
+            resolutionBreaches: 0,
+          },
+        ],
       },
     ];
     mockAggregate.mockResolvedValue(facets);
@@ -662,7 +706,15 @@ describe('computeBreachReport — timeline', () => {
           { _id: '2026-02', total: 3, responseBreaches: 2, resolutionBreaches: 1 },
           { _id: '2026-03', total: 2, responseBreaches: 1, resolutionBreaches: 1 },
         ],
-        totals: [{ _id: null, totalChamados: 30, breachedChamados: 10, responseBreaches: 6, resolutionBreaches: 4 }],
+        totals: [
+          {
+            _id: null,
+            totalChamados: 30,
+            breachedChamados: 10,
+            responseBreaches: 6,
+            resolutionBreaches: 4,
+          },
+        ],
       },
     ];
     mockAggregate.mockResolvedValue(facets);
@@ -727,10 +779,7 @@ describe('computeBreachReport — populate nomes', () => {
     await computeBreachReport(START, END);
 
     // Assert
-    expect(mockUserFind).toHaveBeenCalledWith(
-      { _id: { $in: [TECH_ID] } },
-      '_id name',
-    );
+    expect(mockUserFind).toHaveBeenCalledWith({ _id: { $in: [TECH_ID] } }, '_id name');
   });
 
   it('should call UnitModel.find with correct unit ids when units are present', async () => {
@@ -742,10 +791,7 @@ describe('computeBreachReport — populate nomes', () => {
     await computeBreachReport(START, END);
 
     // Assert
-    expect(mockUnitFind).toHaveBeenCalledWith(
-      { _id: { $in: [UNIT_ID] } },
-      '_id name',
-    );
+    expect(mockUnitFind).toHaveBeenCalledWith({ _id: { $in: [UNIT_ID] } }, '_id name');
   });
 });
 
@@ -823,7 +869,15 @@ describe('computeBreachReport — edge cases', () => {
         byPriority: [],
         byTipoServico: [],
         breachTimeline: [],
-        totals: [{ _id: null, totalChamados: 14, breachedChamados: 5, responseBreaches: 4, resolutionBreaches: 1 }],
+        totals: [
+          {
+            _id: null,
+            totalChamados: 14,
+            breachedChamados: 5,
+            responseBreaches: 4,
+            resolutionBreaches: 1,
+          },
+        ],
       },
     ];
     mockAggregate.mockResolvedValue(facets);
@@ -871,7 +925,15 @@ describe('computeBreachReport — edge cases', () => {
         byPriority: [],
         byTipoServico: [],
         breachTimeline: [],
-        totals: [{ _id: null, totalChamados: 15, breachedChamados: 5, responseBreaches: 4, resolutionBreaches: 1 }],
+        totals: [
+          {
+            _id: null,
+            totalChamados: 15,
+            breachedChamados: 5,
+            responseBreaches: 4,
+            resolutionBreaches: 1,
+          },
+        ],
       },
     ];
     mockAggregate.mockResolvedValue(facets);

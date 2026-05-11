@@ -25,6 +25,7 @@ Você é especialista em testes para Next.js 16 + TypeScript + MongoDB/Mongoose.
 ## O que testar por tipo
 
 ### Server Actions (`actions.ts`)
+
 - Mock de `requireSession()` / `requireManager()` / `requireAdmin()`
 - Mock de `dbConnect()` e models Mongoose
 - Validação Zod (inputs válidos e inválidos)
@@ -33,22 +34,26 @@ Você é especialista em testes para Next.js 16 + TypeScript + MongoDB/Mongoose.
 - Notificação (`emitToRoom`)
 
 ### Utils / Helpers
+
 - Funções puras: todas as branches e edge cases
 - SLA: `lib/sla-utils.ts`, `lib/sla-timezone.ts` — testar com horário de expediente, feriados, timezone
 - `generateTicketNumber`: formato CHM-YYYY-NNNNN
 
 ### Componentes React
+
 - Renderização com props variadas
 - Interações (click, submit, input)
 - Estados: loading, error, empty, success
 - Acessibilidade básica (roles, labels)
 
 ### Schemas Zod
+
 - Dados válidos passam
 - Dados inválidos retornam erros corretos
 - Refinements e transforms
 
 ### E2E (Playwright)
+
 - Page Object Model para páginas complexas
 - `data-testid` para seletores
 - Fixtures para auth (`storageState`)

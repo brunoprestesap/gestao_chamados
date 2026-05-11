@@ -116,7 +116,10 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[95vh] w-full max-w-2xl flex-col gap-0 p-0 sm:max-h-[90vh]" showCloseButton>
+      <DialogContent
+        className="flex max-h-[95vh] w-full max-w-2xl flex-col gap-0 p-0 sm:max-h-[90vh]"
+        showCloseButton
+      >
         <DialogHeader className="border-b border-border/40 px-6 py-5">
           <DialogTitle className="text-xl">Registrar Execução do Serviço</DialogTitle>
         </DialogHeader>
@@ -130,8 +133,12 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
                   <Clock className="h-3.5 w-3.5" />
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium text-indigo-900 dark:text-indigo-100">Início do atendimento:</span>
-                  <p className="text-indigo-700 dark:text-indigo-300">{formatDateTime(chamado.createdAt, tzOpt)} (abertura do chamado)</p>
+                  <span className="font-medium text-indigo-900 dark:text-indigo-100">
+                    Início do atendimento:
+                  </span>
+                  <p className="text-indigo-700 dark:text-indigo-300">
+                    {formatDateTime(chamado.createdAt, tzOpt)} (abertura do chamado)
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -139,8 +146,12 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
                   <CheckCircle2 className="h-3.5 w-3.5" />
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium text-emerald-900 dark:text-emerald-100">Conclusão:</span>
-                  <p className="text-emerald-700 dark:text-emerald-300">Será registrada automaticamente ao salvar este formulário</p>
+                  <span className="font-medium text-emerald-900 dark:text-emerald-100">
+                    Conclusão:
+                  </span>
+                  <p className="text-emerald-700 dark:text-emerald-300">
+                    Será registrada automaticamente ao salvar este formulário
+                  </p>
                 </div>
               </div>
             </div>
@@ -153,7 +164,11 @@ export function RegisterExecutionDialog({ open, onOpenChange, chamado, onSuccess
             )}
 
             <Form {...form}>
-              <form id="register-execution-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <form
+                id="register-execution-form"
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-5"
+              >
                 <FormField
                   control={form.control}
                   name="serviceDescription"

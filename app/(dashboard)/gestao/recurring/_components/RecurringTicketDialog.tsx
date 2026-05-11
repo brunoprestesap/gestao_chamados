@@ -159,8 +159,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
         descricao: editingItem.descricao,
         unitId: editingItem.unitId,
         tipoServico: editingItem.tipoServico as (typeof TIPO_SERVICO_DISPLAY)[number],
-        naturezaAtendimento:
-          editingItem.naturezaAtendimento as (typeof NATUREZA_DISPLAY)[number],
+        naturezaAtendimento: editingItem.naturezaAtendimento as (typeof NATUREZA_DISPLAY)[number],
         grauUrgencia: (editingItem.grauUrgencia as (typeof GRAU_DISPLAY)[number]) || 'Normal',
         solicitanteId: editingItem.solicitanteId,
         recurrenceType: editingItem.recurrenceType as RecurrenceType,
@@ -349,7 +348,10 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                 id="recurring-ticket-form"
               >
                 {/* ── Bloco 1: Agendamento ── */}
-                <section aria-labelledby="section-agendamento" className="px-4 py-5 sm:px-6 sm:py-5">
+                <section
+                  aria-labelledby="section-agendamento"
+                  className="px-4 py-5 sm:px-6 sm:py-5"
+                >
                   <div className="mb-4 flex items-center gap-2.5">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100 shadow-sm dark:bg-indigo-950/60">
                       <RefreshCw
@@ -357,10 +359,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                         aria-hidden="true"
                       />
                     </div>
-                    <h2
-                      id="section-agendamento"
-                      className="text-sm font-semibold text-foreground"
-                    >
+                    <h2 id="section-agendamento" className="text-sm font-semibold text-foreground">
                       Agendamento
                     </h2>
                   </div>
@@ -553,10 +552,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                                 <SelectValue placeholder="Selecione o solicitante..." />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent
-                              className="max-h-[min(60vh,18rem)]"
-                              position="popper"
-                            >
+                            <SelectContent className="max-h-[min(60vh,18rem)]" position="popper">
                               {users.length === 0 ? (
                                 <div className="px-3 py-4 text-center text-sm text-muted-foreground">
                                   Nenhum usuário encontrado.
@@ -620,10 +616,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                 </div>
 
                 {/* ── Bloco 2: Template do Chamado ── */}
-                <section
-                  aria-labelledby="section-template"
-                  className="px-4 py-5 sm:px-6 sm:py-5"
-                >
+                <section aria-labelledby="section-template" className="px-4 py-5 sm:px-6 sm:py-5">
                   <div className="mb-4 flex items-center gap-2.5">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100 shadow-sm dark:bg-indigo-950/60">
                       <FileText
@@ -631,10 +624,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                         aria-hidden="true"
                       />
                     </div>
-                    <h2
-                      id="section-template"
-                      className="text-sm font-semibold text-foreground"
-                    >
+                    <h2 id="section-template" className="text-sm font-semibold text-foreground">
                       Template do Chamado
                     </h2>
                   </div>
@@ -696,10 +686,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                                   <SelectValue placeholder="Selecione..." />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent
-                                className="max-h-[min(60vh,16rem)]"
-                                position="popper"
-                              >
+                              <SelectContent className="max-h-[min(60vh,16rem)]" position="popper">
                                 {units.length === 0 ? (
                                   <div className="px-3 py-4 text-center text-sm text-muted-foreground">
                                     Nenhuma unidade encontrada.
@@ -781,10 +768,7 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Grau de urgência</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value ?? 'Normal'}
-                            >
+                            <Select onValueChange={field.onChange} value={field.value ?? 'Normal'}>
                               <FormControl>
                                 <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                   <SelectValue placeholder="Normal" />

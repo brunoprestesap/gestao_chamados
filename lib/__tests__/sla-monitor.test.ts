@@ -245,7 +245,9 @@ describe('checkSlaEscalations — breach de resposta', () => {
     );
     expect(ChamadoModel.updateOne).toHaveBeenCalledWith(
       expect.objectContaining({ _id: CHAMADO_ID, 'sla.responseBreachedAt': null }),
-      expect.objectContaining({ $set: expect.objectContaining({ 'sla.responseBreachedAt': expect.any(Date) }) }),
+      expect.objectContaining({
+        $set: expect.objectContaining({ 'sla.responseBreachedAt': expect.any(Date) }),
+      }),
     );
   });
 
@@ -354,7 +356,9 @@ describe('checkSlaEscalations — breach de resolução', () => {
     );
     expect(ChamadoModel.updateOne).toHaveBeenCalledWith(
       expect.objectContaining({ _id: CHAMADO_ID, 'sla.resolutionBreachedAt': null }),
-      expect.objectContaining({ $set: expect.objectContaining({ 'sla.resolutionBreachedAt': expect.any(Date) }) }),
+      expect.objectContaining({
+        $set: expect.objectContaining({ 'sla.resolutionBreachedAt': expect.any(Date) }),
+      }),
     );
   });
 

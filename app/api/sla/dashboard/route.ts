@@ -86,15 +86,11 @@ export async function GET() {
 
     // Calcula tempo com desconto de pausas (totalPausedMinutes é o campo canônico)
     const pausedMs = (c.totalPausedMinutes ?? 0) * 60_000;
-    const activePauseMs = c.slaPausedAt
-      ? now.getTime() - new Date(c.slaPausedAt).getTime()
-      : 0;
+    const activePauseMs = c.slaPausedAt ? now.getTime() - new Date(c.slaPausedAt).getTime() : 0;
     const totalPauseMs = pausedMs + activePauseMs;
 
     const totalMs =
-      resolutionDueAt && computedAt
-        ? resolutionDueAt.getTime() - computedAt.getTime()
-        : 0;
+      resolutionDueAt && computedAt ? resolutionDueAt.getTime() - computedAt.getTime() : 0;
     const elapsedMs = Math.max(
       0,
       computedAt ? now.getTime() - computedAt.getTime() - totalPauseMs : 0,
@@ -183,9 +179,7 @@ export async function GET() {
       totalMs,
       percentUsed: Math.round(percentUsed * 100) / 100,
       slaStatus,
-      responseDueAt: sla?.responseDueAt
-        ? new Date(sla.responseDueAt).toISOString()
-        : null,
+      responseDueAt: sla?.responseDueAt ? new Date(sla.responseDueAt).toISOString() : null,
       resolutionDueAt: resolutionDueAt?.toISOString() ?? null,
       isPaused: c.slaPausedAt != null,
     };

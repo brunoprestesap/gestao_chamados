@@ -14,7 +14,7 @@ Permitir que Admin/Preposto recuse um chamado com status "aberto" durante a tria
 - **chamado.constants.ts**: `shared/chamados/chamado.constants.ts` — CHAMADO_STATUSES
 - **history.constants.ts**: `shared/chamados/history.constants.ts` — HISTORY_ACTIONS
 - **ChamadoCard**: `app/(dashboard)/meus-chamados/_components/ChamadoCard.tsx`
-- **_constants.ts**: `app/(dashboard)/meus-chamados/_constants.ts` — STATUS_ICONS, STATUS_ACCENT, STATUS_BADGE
+- **\_constants.ts**: `app/(dashboard)/meus-chamados/_constants.ts` — STATUS_ICONS, STATUS_ACCENT, STATUS_BADGE
 - **Detalhe**: `app/(dashboard)/meus-chamados/[id]/page.tsx`
 - **Model Chamado**: `models/Chamado.ts`
 - **Socket**: `shared/socket.ts`, `lib/realtime-emit.ts`

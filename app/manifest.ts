@@ -4,8 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Sigma - Sistema Integrado de Manutenção',
     short_name: 'Sigma',
-    description:
-      'Sistema integrado de gerenciamento de chamados de manutenção',
+    description: 'Sistema integrado de gerenciamento de chamados de manutenção',
     start_url: '/dashboard',
     display: 'standalone',
     background_color: '#f8f9fc',

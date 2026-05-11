@@ -20,13 +20,9 @@ import { toast } from 'sonner';
 import { CotacaoApprovalCard } from '@/app/(dashboard)/gestao/_components/CotacaoApprovalCard';
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
-import {
-  AvaliarChamadoDialog,
-} from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
+import { AvaliarChamadoDialog } from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
 import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
-import {
-  RecusarServicoDialog,
-} from '@/app/(dashboard)/meus-chamados/_components/RecusarServicoDialog';
+import { RecusarServicoDialog } from '@/app/(dashboard)/meus-chamados/_components/RecusarServicoDialog';
 import {
   CHAMADO_STATUS_LABELS,
   type ChamadoStatus,
@@ -326,11 +322,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
           <p className="mt-1 text-sm text-muted-foreground">
             O chamado solicitado não existe ou foi removido.
           </p>
-          <Button
-            onClick={() => router.push('/meus-chamados')}
-            className="mt-4"
-            variant="outline"
-          >
+          <Button onClick={() => router.push('/meus-chamados')} className="mt-4" variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
             Voltar para Meus Chamados
           </Button>
@@ -370,9 +362,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
         <PageHeader title="Detalhes do Chamado" />
       </div>
 
-      <div
-        className={`grid min-w-0 gap-6 ${hasRightColumn ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}
-      >
+      <div className={`grid min-w-0 gap-6 ${hasRightColumn ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}>
         {/* ─── Left column ─── */}
         <div className={`min-w-0 space-y-6 ${hasRightColumn ? 'lg:col-span-2' : ''}`}>
           {/* Main info card */}
@@ -601,9 +591,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
           </Card>
 
           {/* Comentários */}
-          {userRole && (
-            <CommentThread chamadoId={chamado._id} userRole={userRole} />
-          )}
+          {userRole && <CommentThread chamadoId={chamado._id} userRole={userRole} />}
 
           {/* Attachments card */}
           <Card className="group relative overflow-hidden rounded-2xl border-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/4">
@@ -611,7 +599,11 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
             <CardContent className="pt-5">
               <AttachmentGallery
                 chamadoId={chamado._id}
-                canUpload={chamado.status !== 'encerrado' && chamado.status !== 'cancelado' && chamado.status !== 'recusado'}
+                canUpload={
+                  chamado.status !== 'encerrado' &&
+                  chamado.status !== 'cancelado' &&
+                  chamado.status !== 'recusado'
+                }
               />
             </CardContent>
           </Card>
@@ -651,7 +643,10 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                 <CardHeader>
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 transition-transform group-hover:scale-105 dark:bg-amber-900/30">
-                      <RefreshCw className="h-5 w-5 text-amber-600 dark:text-amber-400" aria-hidden />
+                      <RefreshCw
+                        className="h-5 w-5 text-amber-600 dark:text-amber-400"
+                        aria-hidden
+                      />
                     </div>
                     <CardTitle className="text-base">Ações (Gestão)</CardTitle>
                   </div>
@@ -675,7 +670,10 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                 <CardHeader>
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 transition-transform group-hover:scale-105 dark:bg-emerald-900/30">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                      <CheckCircle2
+                        className="h-5 w-5 text-emerald-600 dark:text-emerald-400"
+                        aria-hidden
+                      />
                     </div>
                     <CardTitle className="text-base">Ações (Gestão)</CardTitle>
                   </div>
@@ -707,7 +705,10 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                 <CardContent className="space-y-2">
                   {hasValidEvaluation(chamado.evaluation) ? (
                     <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-2 dark:border-emerald-800 dark:bg-emerald-950/20">
-                      <Star className="h-4 w-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400" aria-hidden />
+                      <Star
+                        className="h-4 w-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400"
+                        aria-hidden
+                      />
                       <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
                         Avaliado
                         {chamado.evaluation?.rating != null && ` · ${chamado.evaluation.rating}/5`}

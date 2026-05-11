@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { GRAU_URGENCIA_OPTIONS, NATUREZA_OPTIONS, TIPO_SERVICO_OPTIONS } from './new-ticket.schemas';
+import {
+  GRAU_URGENCIA_OPTIONS,
+  NATUREZA_OPTIONS,
+  TIPO_SERVICO_OPTIONS,
+} from './new-ticket.schemas';
 
 export const RECURRENCE_TYPES = ['weekly', 'monthly', 'custom'] as const;
 export type RecurrenceType = (typeof RECURRENCE_TYPES)[number];
@@ -58,10 +62,13 @@ export const CreateRecurringTicketSchema = z
     message: 'Selecione o dia do mês (1-28)',
     path: ['dayOfMonth'],
   })
-  .refine((d) => d.recurrenceType !== 'custom' || (d.intervalDays !== undefined && d.intervalDays >= 1), {
-    message: 'Informe o intervalo em dias',
-    path: ['intervalDays'],
-  });
+  .refine(
+    (d) => d.recurrenceType !== 'custom' || (d.intervalDays !== undefined && d.intervalDays >= 1),
+    {
+      message: 'Informe o intervalo em dias',
+      path: ['intervalDays'],
+    },
+  );
 
 export type CreateRecurringTicketInput = z.input<typeof CreateRecurringTicketSchema>;
 export type CreateRecurringTicketValues = z.infer<typeof CreateRecurringTicketSchema>;

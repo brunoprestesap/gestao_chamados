@@ -15,8 +15,16 @@ const RecurringTicketSchema = new Schema(
     tipoServico: { type: String, enum: TIPO_SERVICO_OPTIONS, required: true },
     naturezaAtendimento: { type: String, required: true, trim: true },
     grauUrgencia: { type: String, default: 'Normal', trim: true },
-    subtypeId: { type: Schema.Types.ObjectId, ref: 'ServiceSubType', required: [true, 'Selecione o subtipo de serviço'] },
-    catalogServiceId: { type: Schema.Types.ObjectId, ref: 'ServiceCatalog', required: [true, 'Selecione o serviço do catálogo'] },
+    subtypeId: {
+      type: Schema.Types.ObjectId,
+      ref: 'ServiceSubType',
+      required: [true, 'Selecione o subtipo de serviço'],
+    },
+    catalogServiceId: {
+      type: Schema.Types.ObjectId,
+      ref: 'ServiceCatalog',
+      required: [true, 'Selecione o serviço do catálogo'],
+    },
 
     // Campos de recorrência
     recurrenceType: { type: String, enum: RECURRENCE_TYPES, required: true },

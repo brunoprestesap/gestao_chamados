@@ -270,9 +270,7 @@ describe('addMaterialObservationAction — sucesso', () => {
 
   it('deve criar notificação para o solicitante', async () => {
     const solicitanteId = new Types.ObjectId();
-    mockChamadoFindById.mockResolvedValue(
-      makeChamadoDoc({ solicitanteId }),
-    );
+    mockChamadoFindById.mockResolvedValue(makeChamadoDoc({ solicitanteId }));
 
     await addMaterialObservationAction(VALID_INPUT);
 

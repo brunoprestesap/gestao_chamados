@@ -105,12 +105,20 @@ describe('getBusinessMinutesPerDay', () => {
   });
 
   it('09:00-17:00 = 480 minutos', () => {
-    const config: BusinessCalendarConfig = { ...DEFAULT_CONFIG, workdayStart: '09:00', workdayEnd: '17:00' };
+    const config: BusinessCalendarConfig = {
+      ...DEFAULT_CONFIG,
+      workdayStart: '09:00',
+      workdayEnd: '17:00',
+    };
     expect(getBusinessMinutesPerDay(config)).toBe(480);
   });
 
   it('08:30-12:00 = 210 minutos (meio período)', () => {
-    const config: BusinessCalendarConfig = { ...DEFAULT_CONFIG, workdayStart: '08:30', workdayEnd: '12:00' };
+    const config: BusinessCalendarConfig = {
+      ...DEFAULT_CONFIG,
+      workdayStart: '08:30',
+      workdayEnd: '12:00',
+    };
     expect(getBusinessMinutesPerDay(config)).toBe(210);
   });
 });

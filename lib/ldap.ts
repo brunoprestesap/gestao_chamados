@@ -112,10 +112,7 @@ export async function authenticateWithLdap(
     ldapDebug('Bind com conta de serviço OK');
 
     // 2. Busca o DN e atributos do usuário pelo filtro configurado
-    const filter = config.searchFilter.replace(
-      /\{\{username\}\}/g,
-      escapeLdapFilter(username),
-    );
+    const filter = config.searchFilter.replace(/\{\{username\}\}/g, escapeLdapFilter(username));
 
     ldapDebug(`Buscando usuário — base: "${config.baseDn}", filtro: "${filter}"`);
 

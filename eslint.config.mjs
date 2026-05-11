@@ -51,5 +51,12 @@ export default defineConfig([
     },
   },
 
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'coverage/**', 'next-env.d.ts', 'socket-server/dist/**']),
+  globalIgnores([
+    '.next/**',
+    'out/**',
+    'build/**',
+    'coverage/**',
+    'next-env.d.ts',
+    'socket-server/dist/**',
+  ]),
 ]);

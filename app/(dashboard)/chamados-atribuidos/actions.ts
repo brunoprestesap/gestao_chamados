@@ -181,7 +181,9 @@ export async function registerExecutionAction(
         data: payload,
         readAt: null,
       });
-      sendNotificationEmail(String(manager._id), 'ticket:execution_registered', payload).catch(() => {});
+      sendNotificationEmail(String(manager._id), 'ticket:execution_registered', payload).catch(
+        () => {},
+      );
     }
     await NotificationModel.create({
       userId: doc.solicitanteId,
@@ -191,7 +193,9 @@ export async function registerExecutionAction(
       data: payload,
       readAt: null,
     });
-    sendNotificationEmail(String(doc.solicitanteId), 'ticket:execution_registered', payload).catch(() => {});
+    sendNotificationEmail(String(doc.solicitanteId), 'ticket:execution_registered', payload).catch(
+      () => {},
+    );
     await emitToRoom('managers', 'ticket:execution_registered', payload);
     await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:execution_registered', payload);
 
@@ -299,9 +303,7 @@ export async function pauseTicketAction(raw: PauseTicketInput): Promise<ActionRe
     });
 
     const reasonLabel = PAUSE_REASON_LABELS[reason as PauseReason];
-    const obs = details?.trim()
-      ? `${reasonLabel}: ${details.trim().slice(0, 200)}`
-      : reasonLabel;
+    const obs = details?.trim() ? `${reasonLabel}: ${details.trim().slice(0, 200)}` : reasonLabel;
 
     await ChamadoHistoryModel.create({
       chamadoId: doc._id,
@@ -526,7 +528,9 @@ export async function resumeTicketAction(raw: ResumeTicketInput): Promise<Action
       data: notifPayload,
       readAt: null,
     });
-    sendNotificationEmail(String(doc.solicitanteId), 'ticket:resumed', notifPayload).catch(() => {});
+    sendNotificationEmail(String(doc.solicitanteId), 'ticket:resumed', notifPayload).catch(
+      () => {},
+    );
     await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:resumed', notifPayload);
 
     // Notifica managers
@@ -579,8 +583,7 @@ export async function addMaterialObservationAction(
     const parsed = MaterialObservationSchema.safeParse(raw);
     if (!parsed.success) {
       const first = parsed.error.flatten().fieldErrors;
-      const msg =
-        first.description?.[0] ?? first.ticketId?.[0] ?? 'Dados inválidos.';
+      const msg = first.description?.[0] ?? first.ticketId?.[0] ?? 'Dados inválidos.';
       return { ok: false, error: msg };
     }
 
@@ -690,11 +693,9 @@ export async function addMaterialObservationAction(
         })),
       );
       for (const m of managers) {
-        sendNotificationEmail(
-          String(m._id),
-          'ticket:material_observation',
-          notifPayload,
-        ).catch(() => {});
+        sendNotificationEmail(String(m._id), 'ticket:material_observation', notifPayload).catch(
+          () => {},
+        );
       }
     }
     await emitToRoom('managers', 'ticket:material_observation', notifPayload);
@@ -717,9 +718,7 @@ export async function addMaterialObservationAction(
 // Legacy wrappers (mantidos para imports existentes)
 // ---------------------------------------------------------------------------
 
-export async function pauseForRequesterAction(
-  raw: PauseForRequesterInput,
-): Promise<ActionResult> {
+export async function pauseForRequesterAction(raw: PauseForRequesterInput): Promise<ActionResult> {
   const parsed = PauseForRequesterSchema.safeParse(raw);
   if (!parsed.success) {
     const first = parsed.error.flatten().fieldErrors;

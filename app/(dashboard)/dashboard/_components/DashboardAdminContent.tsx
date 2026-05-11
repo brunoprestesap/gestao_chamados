@@ -19,12 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 
-const ADMIN_CARD_STATUSES = [
-  'aberto',
-  'em atendimento',
-  'concluído',
-  'encerrado',
-] as const;
+const ADMIN_CARD_STATUSES = ['aberto', 'em atendimento', 'concluído', 'encerrado'] as const;
 
 type Props = {
   data: DashboardAdminData;
@@ -99,11 +94,7 @@ export function DashboardAdminContent({ data }: Props) {
         >
           <div className="flex flex-wrap gap-1.5">
             {ADMIN_CARD_STATUSES.map((status) => (
-              <Badge
-                key={status}
-                variant="secondary"
-                className="rounded-md text-xs font-medium"
-              >
+              <Badge key={status} variant="secondary" className="rounded-md text-xs font-medium">
                 {CHAMADO_STATUS_LABELS[status]}{' '}
                 <span className="ml-1 font-bold tabular-nums">{data.porStatus[status]}</span>
               </Badge>
@@ -179,8 +170,7 @@ export function DashboardAdminContent({ data }: Props) {
             </p>
             {data.tecnicosNoLimite > 0 && (
               <p className="text-sm">
-                {data.tecnicosNoLimite}{' '}
-                <span className="text-muted-foreground">no limite</span>
+                {data.tecnicosNoLimite} <span className="text-muted-foreground">no limite</span>
               </p>
             )}
             {data.tecnicosSobrecarregados === 0 && data.tecnicosNoLimite === 0 && (
@@ -219,8 +209,7 @@ export function DashboardAdminContent({ data }: Props) {
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 {data.totalAvaliacoes} avaliacoes
-                {data.avaliacoesNegativas > 0 &&
-                  ` · ${data.avaliacoesNegativas} negativas`}
+                {data.avaliacoesNegativas > 0 && ` · ${data.avaliacoesNegativas} negativas`}
               </p>
             </>
           ) : (

@@ -29,5 +29,7 @@ async function selectOptionWithRetry(page: Page, dialog: Locator, comboboxName: 
       await page.waitForTimeout(1000);
     }
   }
-  throw new Error(`Nenhuma opção carregou para o combobox ${comboboxName} após ${maxAttempts} tentativas`);
+  throw new Error(
+    `Nenhuma opção carregou para o combobox ${comboboxName} após ${maxAttempts} tentativas`,
+  );
 }

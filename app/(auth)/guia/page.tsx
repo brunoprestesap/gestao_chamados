@@ -105,7 +105,8 @@ function FeatureCard({
       custom={index}
       className="group relative rounded-2xl border border-border/50 bg-card p-6 transition-all hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <div className="absolute inset-x-0 top-0 h-[3px] rounded-t-2xl bg-gradient-to-r opacity-60 transition-opacity group-hover:opacity-100"
+      <div
+        className="absolute inset-x-0 top-0 h-[3px] rounded-t-2xl bg-gradient-to-r opacity-60 transition-opacity group-hover:opacity-100"
         style={{ backgroundImage: `linear-gradient(to right, ${color}, ${color}88)` }}
       />
       <div
@@ -151,7 +152,9 @@ function StepCard({
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-blue-600 text-sm font-bold text-white shadow-md shadow-indigo-500/20">
           {step}
         </div>
-        {step < 5 && <div className="mt-2 h-full w-px bg-gradient-to-b from-indigo-300 to-transparent" />}
+        {step < 5 && (
+          <div className="mt-2 h-full w-px bg-gradient-to-b from-indigo-300 to-transparent" />
+        )}
       </div>
       <div className="pb-10">
         <div className="mb-1 flex items-center gap-2">
@@ -232,7 +235,11 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
         className="flex w-full cursor-pointer items-center justify-between gap-3 px-5 py-4 text-left text-sm font-medium transition-colors hover:text-indigo-600"
       >
         {q}
-        {open ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
       </button>
       {open && (
         <motion.div
@@ -264,10 +271,27 @@ function GuideHeader() {
           </div>
         </Link>
         <nav className="hidden items-center gap-6 text-sm md:flex">
-          <a href="#recursos" className="text-muted-foreground transition-colors hover:text-foreground">Recursos</a>
-          <a href="#como-funciona" className="text-muted-foreground transition-colors hover:text-foreground">Como funciona</a>
-          <a href="#perfis" className="text-muted-foreground transition-colors hover:text-foreground">Perfis</a>
-          <a href="#faq" className="text-muted-foreground transition-colors hover:text-foreground">FAQ</a>
+          <a
+            href="#recursos"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Recursos
+          </a>
+          <a
+            href="#como-funciona"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Como funciona
+          </a>
+          <a
+            href="#perfis"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Perfis
+          </a>
+          <a href="#faq" className="text-muted-foreground transition-colors hover:text-foreground">
+            FAQ
+          </a>
         </nav>
         <Link href="/login">
           <Button
@@ -321,9 +345,9 @@ export default function GuiaPage() {
             transition={{ delay: 0.2, duration: 0.5 }}
             className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
-            O Sistema Integrado de Manutenção da sua instituição. Solicite serviços de
-            manutenção predial, ar-condicionado e elevadores com apenas alguns cliques
-            e acompanhe tudo em tempo real.
+            O Sistema Integrado de Manutenção da sua instituição. Solicite serviços de manutenção
+            predial, ar-condicionado e elevadores com apenas alguns cliques e acompanhe tudo em
+            tempo real.
           </motion.p>
 
           <motion.div
@@ -429,9 +453,7 @@ export default function GuiaPage() {
 
       {/* ───── How it works ───── */}
       <Section id="como-funciona">
-        <SectionTitle sub="Do problema à solução em 5 passos simples.">
-          Como funciona?
-        </SectionTitle>
+        <SectionTitle sub="Do problema à solução em 5 passos simples.">Como funciona?</SectionTitle>
 
         <div className="mx-auto max-w-xl">
           <StepCard
@@ -675,8 +697,8 @@ export default function GuiaPage() {
             <MessageSquare className="mx-auto mb-4 h-10 w-10 text-indigo-200" />
             <h2 className="text-2xl font-bold sm:text-3xl">Pronto para começar?</h2>
             <p className="mx-auto mt-3 max-w-md text-sm text-indigo-100/80 sm:text-base">
-              Acesse o Sigma agora e abra seu primeiro chamado. É rápido, simples e você
-              acompanha tudo em tempo real.
+              Acesse o Sigma agora e abra seu primeiro chamado. É rápido, simples e você acompanha
+              tudo em tempo real.
             </p>
             <Link href="/login" className="mt-8 inline-block">
               <Button

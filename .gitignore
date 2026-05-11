@@ -13,8 +13,9 @@ node_modules/
 # testing
 /coverage
 
-# Playwright — relatório HTML e logs locais (não versionar)
+# Playwright — relatório HTML, resultados e logs locais (não versionar)
 /playwright-report/
+/test-results/
 playwright-output*.log
 
 # Claude Code — preferências locais; agents/ e commands/ continuam versionados

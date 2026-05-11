@@ -111,8 +111,7 @@ function normalizeChamado(
     slaPausedAt: c.slaPausedAt
       ? new Date(c.slaPausedAt as string | number | Date).toISOString()
       : null,
-    totalPausedMinutes:
-      typeof c.totalPausedMinutes === 'number' ? c.totalPausedMinutes : 0,
+    totalPausedMinutes: typeof c.totalPausedMinutes === 'number' ? c.totalPausedMinutes : 0,
     pauseReason: (c.pauseReason as string) ?? null,
     pauseDetails: (c.pauseDetails as string) ?? null,
     materialObservations: normalizeMaterialObservations(c.materialObservations),

@@ -91,9 +91,7 @@ export function DashboardSolicitanteContent({ data }: Props) {
             <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent opacity-60 transition-opacity group-hover:opacity-100" />
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[13px] font-medium text-muted-foreground">
-                  Chamados Encerrados
-                </p>
+                <p className="text-[13px] font-medium text-muted-foreground">Chamados Encerrados</p>
                 <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight">
                   {data.encerradosTotal}
                 </p>

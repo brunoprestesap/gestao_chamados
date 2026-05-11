@@ -39,8 +39,18 @@ import {
 const VALID_ID = new Types.ObjectId().toHexString();
 const USER_ID = new Types.ObjectId().toHexString();
 
-const SESSION_SOLICITANTE = { userId: USER_ID, role: 'Solicitante', username: 'solicitante1', isActive: true };
-const SESSION_PREPOSTO = { userId: USER_ID, role: 'Preposto', username: 'preposto1', isActive: true };
+const SESSION_SOLICITANTE = {
+  userId: USER_ID,
+  role: 'Solicitante',
+  username: 'solicitante1',
+  isActive: true,
+};
+const SESSION_PREPOSTO = {
+  userId: USER_ID,
+  role: 'Preposto',
+  username: 'preposto1',
+  isActive: true,
+};
 const SESSION_ADMIN = { userId: USER_ID, role: 'Admin', username: 'admin1', isActive: true };
 
 const VALID_CREATE_INPUT = {

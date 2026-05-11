@@ -1,7 +1,4 @@
-export function getNotificationUrl(
-  type: string,
-  data?: Record<string, unknown> | null,
-): string {
+export function getNotificationUrl(type: string, data?: Record<string, unknown> | null): string {
   const rawId = data?.ticketId;
   const ticketId = typeof rawId === 'string' && rawId.length > 0 ? rawId : '';
 

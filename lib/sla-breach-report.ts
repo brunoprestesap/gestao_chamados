@@ -95,10 +95,7 @@ const AVG_DELAY_EXPR = {
 
 /* ─── Aggregation ──────────────────────────────────────────────── */
 
-export async function computeBreachReport(
-  startDate: Date,
-  endDate: Date,
-): Promise<BreachReport> {
+export async function computeBreachReport(startDate: Date, endDate: Date): Promise<BreachReport> {
   await dbConnect();
 
   // Match: TODOS os chamados com SLA computado no período (não apenas breaches).
@@ -203,12 +200,8 @@ export async function computeBreachReport(
   const facets = results[0] ?? {};
 
   // Populate nomes de técnicos e unidades
-  const techIds = (facets.byTechnician ?? [])
-    .map((t: { _id: unknown }) => t._id)
-    .filter(Boolean);
-  const unitIds = (facets.byUnit ?? [])
-    .map((u: { _id: unknown }) => u._id)
-    .filter(Boolean);
+  const techIds = (facets.byTechnician ?? []).map((t: { _id: unknown }) => t._id).filter(Boolean);
+  const unitIds = (facets.byUnit ?? []).map((u: { _id: unknown }) => u._id).filter(Boolean);
 
   const [techUsers, units] = await Promise.all([
     techIds.length > 0
@@ -257,9 +250,7 @@ export async function computeBreachReport(
       resolutionBreaches: t.resolutionBreaches,
       avgDelayMinutes: t.avgDelayMs != null ? Math.round(t.avgDelayMs / 60_000) : null,
       breachRate:
-        t.totalChamados > 0
-          ? Math.round((t.breachedChamados / t.totalChamados) * 10000) / 100
-          : 0,
+        t.totalChamados > 0 ? Math.round((t.breachedChamados / t.totalChamados) * 10000) / 100 : 0,
     }))
     .sort((a: BreachByTechnician, b: BreachByTechnician) => b.breachRate - a.breachRate);
 
@@ -274,9 +265,7 @@ export async function computeBreachReport(
       resolutionBreaches: u.resolutionBreaches,
       avgDelayMinutes: u.avgDelayMs != null ? Math.round(u.avgDelayMs / 60_000) : null,
       breachRate:
-        u.totalChamados > 0
-          ? Math.round((u.breachedChamados / u.totalChamados) * 10000) / 100
-          : 0,
+        u.totalChamados > 0 ? Math.round((u.breachedChamados / u.totalChamados) * 10000) / 100 : 0,
     }))
     .sort((a: BreachByUnit, b: BreachByUnit) => b.breachRate - a.breachRate);
 

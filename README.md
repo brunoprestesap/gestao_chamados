@@ -26,7 +26,7 @@ Sistema de gestão de chamados (tickets) com autenticação por perfis, controle
 ## Pré-requisitos
 
 | Requisito | Versão mínima |
-|-----------|---------------|
+| --------- | ------------- |
 | Node.js   | 20+           |
 | npm       | 9+            |
 | MongoDB   | 7+            |
@@ -37,16 +37,16 @@ O desenvolvimento exige **dois terminais simultâneos** (aplicação Next.js + s
 
 ## Stack Tecnológica
 
-| Camada      | Tecnologias                                                            |
-|-------------|------------------------------------------------------------------------|
-| Frontend    | Next.js 16 (App Router), React 19, Tailwind CSS v4, Radix UI, Framer Motion |
-| Backend     | Next.js API Routes, Server Actions, Mongoose                           |
-| Banco       | MongoDB                                                                |
-| Auth        | NextAuth v5 (Credentials, JWT em cookie HTTP-only) + LDAP/AD opcional (ldapts) |
-| Realtime    | Socket.IO (servidor Express separado, porta 3001)                      |
-| Estado      | Zustand (sidebar), React Hook Form + Zod (formulários)                 |
-| UI          | shadcn/ui (New York), Lucide icons, Sonner (toasts)                    |
-| Produção    | PM2 (`ecosystem.config.cjs`) ou Docker Compose                        |
+| Camada   | Tecnologias                                                                    |
+| -------- | ------------------------------------------------------------------------------ |
+| Frontend | Next.js 16 (App Router), React 19, Tailwind CSS v4, Radix UI, Framer Motion    |
+| Backend  | Next.js API Routes, Server Actions, Mongoose                                   |
+| Banco    | MongoDB                                                                        |
+| Auth     | NextAuth v5 (Credentials, JWT em cookie HTTP-only) + LDAP/AD opcional (ldapts) |
+| Realtime | Socket.IO (servidor Express separado, porta 3001)                              |
+| Estado   | Zustand (sidebar), React Hook Form + Zod (formulários)                         |
+| UI       | shadcn/ui (New York), Lucide icons, Sonner (toasts)                            |
+| Produção | PM2 (`ecosystem.config.cjs`) ou Docker Compose                                 |
 
 ---
 
@@ -130,26 +130,26 @@ npm run socket:dev
 npm run dev
 ```
 
-| Serviço        | URL                     |
-|----------------|-------------------------|
-| Aplicação      | http://localhost:3000    |
-| Socket-server  | http://localhost:3001    |
+| Serviço       | URL                   |
+| ------------- | --------------------- |
+| Aplicação     | http://localhost:3000 |
+| Socket-server | http://localhost:3001 |
 
 ---
 
 ## Scripts Disponíveis
 
-| Comando                | Descrição                                    |
-|------------------------|----------------------------------------------|
-| `npm run dev`          | Inicia o Next.js em modo de desenvolvimento  |
-| `npm run build`        | Gera o build de produção do Next.js          |
-| `npm run start`        | Inicia o Next.js em modo de produção         |
+| Comando                | Descrição                                         |
+| ---------------------- | ------------------------------------------------- |
+| `npm run dev`          | Inicia o Next.js em modo de desenvolvimento       |
+| `npm run build`        | Gera o build de produção do Next.js               |
+| `npm run start`        | Inicia o Next.js em modo de produção              |
 | `npm run socket:dev`   | Inicia o socket-server em modo de desenvolvimento |
-| `npm run socket:build` | Compila o socket-server (TypeScript → JS)    |
-| `npm run lint`         | Executa o ESLint                             |
-| `npm run lint:fix`     | Executa o ESLint com correção automática     |
-| `npm run format`       | Formata o código com Prettier                |
-| `npm run format:check` | Verifica a formatação sem alterar arquivos   |
+| `npm run socket:build` | Compila o socket-server (TypeScript → JS)         |
+| `npm run lint`         | Executa o ESLint                                  |
+| `npm run lint:fix`     | Executa o ESLint com correção automática          |
+| `npm run format`       | Formata o código com Prettier                     |
+| `npm run format:check` | Verifica a formatação sem alterar arquivos        |
 
 ---
 
@@ -235,29 +235,29 @@ sigma/
 
 ## Funcionalidades
 
-| Funcionalidade                  | Descrição                                                                 |
-|---------------------------------|---------------------------------------------------------------------------|
-| Autenticação LDAP/AD            | Login integrado com Active Directory, com fallback para senha local       |
-| Auto-provisionamento            | Primeiro login via LDAP cria usuário automaticamente (role: Solicitante)  |
-| Gestão de chamados              | Abertura, classificação, atribuição, execução e encerramento              |
-| Controle de SLA                 | Prazos de resposta e resolução por prioridade, respeitando expediente     |
-| Notificações em tempo real      | Eventos via Socket.IO com fallback para persistência no MongoDB           |
-| Avaliação de atendimento        | Rating 1–5 com comentário opcional, disponível após encerramento          |
-| Catálogo de serviços            | Hierarquia de tipos e subtipos para classificação de chamados             |
-| Gestão de unidades e usuários   | CRUD completo com controle de perfis e especialidades de técnicos         |
-| Configuração de expediente      | Horário comercial, dias úteis e feriados para cálculo de SLA              |
-| Dashboards por perfil           | Visões diferenciadas por role do usuário                                  |
+| Funcionalidade                | Descrição                                                                |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| Autenticação LDAP/AD          | Login integrado com Active Directory, com fallback para senha local      |
+| Auto-provisionamento          | Primeiro login via LDAP cria usuário automaticamente (role: Solicitante) |
+| Gestão de chamados            | Abertura, classificação, atribuição, execução e encerramento             |
+| Controle de SLA               | Prazos de resposta e resolução por prioridade, respeitando expediente    |
+| Notificações em tempo real    | Eventos via Socket.IO com fallback para persistência no MongoDB          |
+| Avaliação de atendimento      | Rating 1–5 com comentário opcional, disponível após encerramento         |
+| Catálogo de serviços          | Hierarquia de tipos e subtipos para classificação de chamados            |
+| Gestão de unidades e usuários | CRUD completo com controle de perfis e especialidades de técnicos        |
+| Configuração de expediente    | Horário comercial, dias úteis e feriados para cálculo de SLA             |
+| Dashboards por perfil         | Visões diferenciadas por role do usuário                                 |
 
 ---
 
 ## Perfis de Usuário
 
-| Perfil         | Permissões principais                                                       |
-|----------------|-----------------------------------------------------------------------------|
-| **Admin**      | Acesso total: gestão de usuários, unidades, catálogo, SLA, chamados         |
-| **Preposto**   | Classificação e gestão de chamados, atribuição de técnicos                  |
-| **Técnico**    | Visualização e execução dos chamados atribuídos                             |
-| **Solicitante**| Abertura de chamados, acompanhamento e avaliação após encerramento          |
+| Perfil          | Permissões principais                                               |
+| --------------- | ------------------------------------------------------------------- |
+| **Admin**       | Acesso total: gestão de usuários, unidades, catálogo, SLA, chamados |
+| **Preposto**    | Classificação e gestão de chamados, atribuição de técnicos          |
+| **Técnico**     | Visualização e execução dos chamados atribuídos                     |
+| **Solicitante** | Abertura de chamados, acompanhamento e avaliação após encerramento  |
 
 ---
 
@@ -314,6 +314,7 @@ Busca usuário no AD (sAMAccountName)
 ### Auto-provisionamento
 
 No primeiro login via LDAP, se o usuário não existir no MongoDB, ele é criado automaticamente com:
+
 - **Nome**: `displayName` do AD
 - **Email**: `mail` do AD
 - **Unidade**: `department` do AD (mapeado para Unit por nome)
@@ -365,8 +366,8 @@ Consulte [DOCKER_PRODUCAO.md](./DOCKER_PRODUCAO.md) para instruções detalhadas
 
 ## Documentação Complementar
 
-| Documento | Descrição |
-|-----------|-----------|
-| [DOCKER_PRODUCAO.md](./DOCKER_PRODUCAO.md)       | Deploy com Docker Compose, Dockerfiles e proxy reverso |
-| [NOTIFICACOES_REALTIME.md](./NOTIFICACOES_REALTIME.md) | Arquitetura do Socket.IO e fluxo de notificações |
-| [DIAGNOSTICO_SLA.md](./DIAGNOSTICO_SLA.md)       | Configuração de SLA, cálculos de prazo e expediente |
+| Documento                                              | Descrição                                              |
+| ------------------------------------------------------ | ------------------------------------------------------ |
+| [DOCKER_PRODUCAO.md](./DOCKER_PRODUCAO.md)             | Deploy com Docker Compose, Dockerfiles e proxy reverso |
+| [NOTIFICACOES_REALTIME.md](./NOTIFICACOES_REALTIME.md) | Arquitetura do Socket.IO e fluxo de notificações       |
+| [DIAGNOSTICO_SLA.md](./DIAGNOSTICO_SLA.md)             | Configuração de SLA, cálculos de prazo e expediente    |

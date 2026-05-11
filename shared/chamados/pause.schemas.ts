@@ -20,17 +20,17 @@ export const PauseTicketBaseSchema = z.object({
 });
 
 export const PauseTicketSchema = PauseTicketBaseSchema.refine(
-    (data) => {
-      if (data.reason === 'outro') {
-        return !!data.details && data.details.trim().length >= 10;
-      }
-      return true;
-    },
-    {
-      message: 'Detalhes obrigatórios quando motivo é "Outro" (mín. 10 caracteres)',
-      path: ['details'],
-    },
-  );
+  (data) => {
+    if (data.reason === 'outro') {
+      return !!data.details && data.details.trim().length >= 10;
+    }
+    return true;
+  },
+  {
+    message: 'Detalhes obrigatórios quando motivo é "Outro" (mín. 10 caracteres)',
+    path: ['details'],
+  },
+);
 
 export type PauseTicketInput = z.infer<typeof PauseTicketSchema>;
 

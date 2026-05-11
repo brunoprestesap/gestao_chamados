@@ -87,12 +87,7 @@ export function computeNewResolutionDueAtOnResume(
     workdayEnd: '18:00',
     weekdays: [1, 2, 3, 4, 5],
   };
-  const businessMinutesDuringPause = getBusinessMinutesBetween(
-    slaPausedAt,
-    now,
-    config,
-    holidays,
-  );
+  const businessMinutesDuringPause = getBusinessMinutesBetween(slaPausedAt, now, config, holidays);
   if (businessMinutesDuringPause <= 0) return new Date(currentDueAt.getTime());
   return addBusinessMinutesWithConfig(currentDueAt, businessMinutesDuringPause, config, holidays);
 }

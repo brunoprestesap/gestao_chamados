@@ -479,10 +479,7 @@ export default function GestaoPage() {
     [],
   );
 
-  const handleClassificar = useMemo(
-    () => openDialogFor(setClassificarDialogOpen),
-    [openDialogFor],
-  );
+  const handleClassificar = useMemo(() => openDialogFor(setClassificarDialogOpen), [openDialogFor]);
   const handleRecusar = useMemo(() => openDialogFor(setRecusarDialogOpen), [openDialogFor]);
   const handleAtribuir = useMemo(() => openDialogFor(setAtribuirDialogOpen), [openDialogFor]);
 
@@ -839,11 +836,7 @@ export default function GestaoPage() {
           <MobileCardsSkeleton />
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20">
-            <EmptyState
-              hasFilter={hasActiveFilter}
-              message={emptyMessage}
-              onClear={clearFilters}
-            />
+            <EmptyState hasFilter={hasActiveFilter} message={emptyMessage} onClear={clearFilters} />
           </div>
         ) : (
           <div className="space-y-3">
@@ -919,13 +912,12 @@ export default function GestaoPage() {
             Mostrando{' '}
             <span className="font-medium text-foreground">
               {(pagination.page - 1) * pagination.limit + 1}
-            </span>
-            {' '}&ndash;{' '}
+            </span>{' '}
+            &ndash;{' '}
             <span className="font-medium text-foreground">
               {Math.min(pagination.page * pagination.limit, pagination.total)}
-            </span>
-            {' '}de{' '}
-            <span className="font-medium text-foreground">{pagination.total}</span>
+            </span>{' '}
+            de <span className="font-medium text-foreground">{pagination.total}</span>
           </p>
 
           <div className="flex items-center gap-1">

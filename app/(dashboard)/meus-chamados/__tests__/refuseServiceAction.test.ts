@@ -103,7 +103,10 @@ beforeEach(() => {
 
 describe('refuseServiceAction — validação', () => {
   it('retorna erro com ticketId inválido', async () => {
-    const result = await refuseServiceAction({ ticketId: 'invalid', reason: 'Motivo válido com mais de 10 chars' });
+    const result = await refuseServiceAction({
+      ticketId: 'invalid',
+      reason: 'Motivo válido com mais de 10 chars',
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('ID inválido');
   });
@@ -249,9 +252,7 @@ describe('refuseServiceAction — sucesso', () => {
   });
 
   it('notifica apenas managers quando não há técnico atribuído', async () => {
-    mockChamadoFindOneAndUpdate.mockResolvedValue(
-      makeUpdatedDoc({ assignedToUserId: null }),
-    );
+    mockChamadoFindOneAndUpdate.mockResolvedValue(makeUpdatedDoc({ assignedToUserId: null }));
 
     await refuseServiceAction(validInput());
 

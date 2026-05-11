@@ -222,8 +222,7 @@ describe('processRecurringTickets — fluxo principal', () => {
     await processRecurringTickets();
 
     expect(RecurringTicketModel.updateOne).toHaveBeenCalledOnce();
-    const [filter, update] = vi.mocked(RecurringTicketModel.updateOne).mock
-      .calls[0] as unknown as [
+    const [filter, update] = vi.mocked(RecurringTicketModel.updateOne).mock.calls[0] as unknown as [
       { _id: string },
       { $set: { nextRunAt: unknown; lastRunAt: unknown }; $inc: { totalGenerated: number } },
     ];
@@ -300,9 +299,7 @@ describe('processRecurringTickets — múltiplos templates', () => {
 
     // Primeiro solicitante inativo, segundo ativo
     vi.mocked(UserModel.findById)
-      .mockReturnValueOnce(
-        withSelectLean({ _id: SOLICITANTE_ID, isActive: false }) as never,
-      )
+      .mockReturnValueOnce(withSelectLean({ _id: SOLICITANTE_ID, isActive: false }) as never)
       .mockReturnValueOnce(withSelectLean(makeSolicitante()) as never);
 
     const report = await processRecurringTickets();

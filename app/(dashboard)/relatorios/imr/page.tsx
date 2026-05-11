@@ -107,10 +107,7 @@ export default async function ImrPage({ searchParams }: PageProps) {
         </CardContent>
       </Card>
 
-      <ImrTipoServicoTabs
-        resumoGeral={result.resumoGeral}
-        porTipoServico={result.porTipoServico}
-      />
+      <ImrTipoServicoTabs resumoGeral={result.resumoGeral} porTipoServico={result.porTipoServico} />
     </div>
   );
 }

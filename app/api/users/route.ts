@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
-import { type User,UserModel } from '@/models/user.model';
+import { type User, UserModel } from '@/models/user.model';
 import { UserCreateSchema, UserListQuerySchema } from '@/shared/users/user.schemas';
 
 type LeanUserDoc = User & {

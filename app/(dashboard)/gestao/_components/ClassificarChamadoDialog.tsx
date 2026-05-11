@@ -312,64 +312,58 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3 sm:p-4">
-                <p className="text-sm font-medium">Serviço Catalogado</p>
+              <p className="text-sm font-medium">Serviço Catalogado</p>
 
-                <FormField
-                  control={form.control}
-                  name="subtypeId"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-xs">Subtipo *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value || undefined}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full min-h-10 sm:min-h-9">
-                            <SelectValue placeholder="Selecione o subtipo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
-                          {subtypes.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="subtypeId"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Subtipo *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                      <FormControl>
+                        <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                          <SelectValue placeholder="Selecione o subtipo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
+                        {subtypes.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="catalogServiceId"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-xs">Serviço do Catálogo *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value || undefined}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full min-h-10 sm:min-h-9">
-                            <SelectValue placeholder="Selecione o serviço" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
-                          {catalogServices.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.code} — {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="catalogServiceId"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Serviço do Catálogo *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                      <FormControl>
+                        <SelectTrigger className="w-full min-h-10 sm:min-h-9">
+                          <SelectValue placeholder="Selecione o serviço" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
+                        {catalogServices.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.code} — {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

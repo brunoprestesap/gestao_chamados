@@ -155,7 +155,11 @@ beforeEach(() => {
 describe('addCommentAction — validação de input (Zod)', () => {
   it('deve retornar erro quando chamadoId é inválido', async () => {
     // Arrange
-    const input = { chamadoId: 'id-invalido', content: 'Comentário', visibility: 'publico' as const };
+    const input = {
+      chamadoId: 'id-invalido',
+      content: 'Comentário',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -216,7 +220,11 @@ describe('addCommentAction — chamado não encontrado', () => {
   it('deve retornar erro quando chamado não existe no banco', async () => {
     // Arrange
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(null));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -234,7 +242,11 @@ describe('addCommentAction — regras de acesso', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_SOLICITANTE);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Meu comentário', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Meu comentário',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -247,7 +259,11 @@ describe('addCommentAction — regras de acesso', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_TECNICO);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Atendimento iniciado', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Atendimento iniciado',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -267,7 +283,11 @@ describe('addCommentAction — regras de acesso', () => {
         }),
       ),
     );
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Prioridade alterada', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Prioridade alterada',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -287,7 +307,11 @@ describe('addCommentAction — regras de acesso', () => {
         }),
       ),
     );
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário de admin', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário de admin',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -300,7 +324,11 @@ describe('addCommentAction — regras de acesso', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_OUTRO);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Tentativa indevida', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Tentativa indevida',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -320,7 +348,11 @@ describe('addCommentAction — regras de acesso', () => {
       isActive: true,
     });
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário indevido', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário indevido',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -517,7 +549,11 @@ describe('addCommentAction — persistência', () => {
       makeFindByIdChain(makeChamadoDoc({ assignedToUserId: null })),
     );
     const longContent = 'a'.repeat(200);
-    const input = { chamadoId: VALID_CHAMADO_ID, content: longContent, visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: longContent,
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -535,7 +571,11 @@ describe('addCommentAction — persistência', () => {
       makeFindByIdChain(makeChamadoDoc({ assignedToUserId: null })),
     );
     const shortContent = 'a'.repeat(100);
-    const input = { chamadoId: VALID_CHAMADO_ID, content: shortContent, visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: shortContent,
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -553,7 +593,11 @@ describe('addCommentAction — notificações', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_SOLICITANTE);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Olá técnico', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Olá técnico',
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -567,7 +611,11 @@ describe('addCommentAction — notificações', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_TECNICO);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Resposta do técnico', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Resposta do técnico',
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -582,7 +630,11 @@ describe('addCommentAction — notificações', () => {
     mockRequireSession.mockResolvedValue(SESSION_SOLICITANTE);
     // Chamado onde solicitante = autor; técnico atribuído é diferente
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Minha mensagem', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Minha mensagem',
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -596,7 +648,11 @@ describe('addCommentAction — notificações', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_TECNICO);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Nota pública', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Nota pública',
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -610,7 +666,11 @@ describe('addCommentAction — notificações', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_TECNICO);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Nota interna', visibility: 'interno' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Nota interna',
+      visibility: 'interno' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -624,11 +684,13 @@ describe('addCommentAction — notificações', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
     mockChamadoFindById.mockReturnValue(
-      makeFindByIdChain(
-        makeChamadoDoc({ solicitanteId: new Types.ObjectId(OUTRO_USER_ID) }),
-      ),
+      makeFindByIdChain(makeChamadoDoc({ solicitanteId: new Types.ObjectId(OUTRO_USER_ID) })),
     );
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário do gestor', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário do gestor',
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -642,7 +704,11 @@ describe('addCommentAction — notificações', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_SOLICITANTE);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Notificação persistida', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Notificação persistida',
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -659,7 +725,11 @@ describe('addCommentAction — notificações', () => {
     mockChamadoFindById.mockReturnValue(
       makeFindByIdChain(makeChamadoDoc({ assignedToUserId: null })),
     );
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Sem técnico', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Sem técnico',
+      visibility: 'publico' as const,
+    };
 
     // Act
     await addCommentAction(input);
@@ -679,7 +749,11 @@ describe('addCommentAction — retorno e tratamento de erros', () => {
     mockChamadoFindById.mockReturnValue(
       makeFindByIdChain(makeChamadoDoc({ assignedToUserId: null })),
     );
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário válido', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário válido',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -695,7 +769,11 @@ describe('addCommentAction — retorno e tratamento de erros', () => {
       makeFindByIdChain(makeChamadoDoc({ assignedToUserId: null })),
     );
     mockCommentCreate.mockRejectedValue(new Error('Falha no banco'));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário com erro', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário com erro',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -712,7 +790,11 @@ describe('addCommentAction — retorno e tratamento de erros', () => {
       makeFindByIdChain(makeChamadoDoc({ assignedToUserId: null })),
     );
     mockCommentCreate.mockRejectedValue('erro genérico');
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário com erro genérico', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário com erro genérico',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);
@@ -728,7 +810,11 @@ describe('addCommentAction — retorno e tratamento de erros', () => {
     mockChamadoFindById.mockImplementation(() => {
       throw new Error('Erro inesperado');
     });
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário',
+      visibility: 'publico' as const,
+    };
 
     // Act & Assert — não deve lançar
     await expect(addCommentAction(input)).resolves.toMatchObject({ ok: false });
@@ -739,7 +825,11 @@ describe('addCommentAction — retorno e tratamento de erros', () => {
     mockRequireSession.mockResolvedValue(SESSION_SOLICITANTE);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
     mockEmitToRoom.mockRejectedValue(new Error('Socket offline'));
-    const input = { chamadoId: VALID_CHAMADO_ID, content: 'Comentário', visibility: 'publico' as const };
+    const input = {
+      chamadoId: VALID_CHAMADO_ID,
+      content: 'Comentário',
+      visibility: 'publico' as const,
+    };
 
     // Act
     const result = await addCommentAction(input);

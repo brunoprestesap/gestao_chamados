@@ -106,16 +106,13 @@ function normalizeChamado(
   const assignedRaw = c.assignedToUserId;
   const assignedToUserId = assignedRaw
     ? String(
-        typeof assignedRaw === 'object' &&
-          (assignedRaw as Record<string, unknown>)._id
+        typeof assignedRaw === 'object' && (assignedRaw as Record<string, unknown>)._id
           ? (assignedRaw as Record<string, unknown>)._id
           : assignedRaw,
       )
     : null;
   const assignedToUserName =
-    assignedRaw &&
-    typeof assignedRaw === 'object' &&
-    (assignedRaw as Record<string, unknown>).name
+    assignedRaw && typeof assignedRaw === 'object' && (assignedRaw as Record<string, unknown>).name
       ? String((assignedRaw as Record<string, unknown>).name)
       : null;
 
@@ -147,8 +144,7 @@ function normalizeChamado(
     slaPausedAt: c.slaPausedAt
       ? new Date(c.slaPausedAt as string | number | Date).toISOString()
       : null,
-    totalPausedMinutes:
-      typeof c.totalPausedMinutes === 'number' ? c.totalPausedMinutes : 0,
+    totalPausedMinutes: typeof c.totalPausedMinutes === 'number' ? c.totalPausedMinutes : 0,
     pauseReason: (c.pauseReason as string) ?? null,
     pauseDetails: (c.pauseDetails as string) ?? null,
     materialObservations: normalizeMaterialObservations(c.materialObservations),

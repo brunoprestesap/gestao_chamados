@@ -16,9 +16,14 @@ export async function GET(req: Request) {
     envVars: {
       LDAP_URL: process.env.LDAP_URL ? `✅ ${process.env.LDAP_URL}` : '❌ não definido',
       LDAP_BASE_DN: process.env.LDAP_BASE_DN ? `✅ ${process.env.LDAP_BASE_DN}` : '❌ não definido',
-      LDAP_BIND_DN: process.env.LDAP_BIND_DN ? `✅ (${process.env.LDAP_BIND_DN.length} chars)` : '❌ não definido',
-      LDAP_BIND_PASSWORD: process.env.LDAP_BIND_PASSWORD ? `✅ (${process.env.LDAP_BIND_PASSWORD.length} chars)` : '❌ não definido',
-      LDAP_USER_SEARCH_FILTER: process.env.LDAP_USER_SEARCH_FILTER ?? '(não definido, usando padrão)',
+      LDAP_BIND_DN: process.env.LDAP_BIND_DN
+        ? `✅ (${process.env.LDAP_BIND_DN.length} chars)`
+        : '❌ não definido',
+      LDAP_BIND_PASSWORD: process.env.LDAP_BIND_PASSWORD
+        ? `✅ (${process.env.LDAP_BIND_PASSWORD.length} chars)`
+        : '❌ não definido',
+      LDAP_USER_SEARCH_FILTER:
+        process.env.LDAP_USER_SEARCH_FILTER ?? '(não definido, usando padrão)',
       LDAP_TLS_REJECT_UNAUTHORIZED: process.env.LDAP_TLS_REJECT_UNAUTHORIZED ?? '(não definido)',
       LDAP_DEBUG: process.env.LDAP_DEBUG ?? '(não definido)',
     },

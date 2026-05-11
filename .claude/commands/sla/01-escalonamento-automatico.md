@@ -9,22 +9,26 @@ Notificar automaticamente gestores quando o SLA de um chamado atinge 80% do praz
 ## Contexto do Projeto
 
 ### Cálculo de SLA existente
+
 - **computeSlaDueDatesFromConfig()**: `lib/sla-utils.ts` (linha 65) — calcula responseDueAt e resolutionDueAt no momento da classificação
 - **evaluateResolutionBreach()**: `lib/sla-utils.ts` (linha 116) — detecta breach pontualmente (chamado no registerExecutionAction)
 - **getSlaResolutionStatus()**: `lib/sla-utils.ts` (linha 138) — retorna 'no_prazo' | 'proximo_vencimento' | 'atrasado' (usado apenas em UI)
 - **Subdocumento SLA no Chamado**: `models/Chamado.ts` (linhas 119-133) — responseDueAt, resolutionDueAt, responseBreachedAt, resolutionBreachedAt, pausedMinutes
 
 ### Notificações existentes
+
 - **NotificationModel**: `models/Notification.ts` — 9 tipos (nenhum de SLA/breach)
 - **emitToRoom()**: `lib/realtime-emit.ts` — fire-and-forget para socket rooms (`user:<id>`, `managers`)
 - **Socket events**: `shared/socket.ts` — ServerToClientEvents com payloads tipados
 - **socket-server**: `socket-server/src/index.ts` — ALLOWED_EVENTS whitelist, rooms auto-join
 
 ### Statuses ativos para monitoramento
+
 - Chamados com SLA computado e não encerrados: status in ['validado', 'em atendimento', 'aguardando_solicitante']
 - `ACTIVE_STATUSES` em `app/(dashboard)/gestao/actions.ts` (linha 47): ['emvalidacao', 'validado', 'em atendimento']
 
 ### Business hours
+
 - **getBusinessCalendarConfig()**: `lib/expediente-config.ts` — timezone, workdayStart, workdayEnd, weekdays
 - **Holidays**: `lib/holidays.ts` — getActiveHolidaysForRange()
 - **Timezone**: `lib/sla-timezone.ts` — addBusinessMinutesWithConfig(), isWithinBusinessHours()
@@ -49,6 +53,7 @@ Notificar automaticamente gestores quando o SLA de um chamado atinge 80% do praz
    - `'sla:breach'` — SLA estourou
 
 3. Em `shared/socket.ts`, adicione:
+
    ```typescript
    export interface SlaWarningPayload {
      ticketId: string;
@@ -72,6 +77,7 @@ Notificar automaticamente gestores quando o SLA de um chamado atinge 80% do praz
      at: string;
    }
    ```
+
    Adicione em ServerToClientEvents: `'sla:warning'` e `'sla:breach'`
 
 4. Em `lib/realtime-emit.ts`, adicione `'sla:warning'` e `'sla:breach'` ao AllowedEmitEvents e os payloads na union
@@ -145,11 +151,11 @@ Notificar automaticamente gestores quando o SLA de um chamado atinge 80% do praz
 
 ## Regras de Escalonamento
 
-| Condição | Nível | Notifica | Evento |
-|---|---|---|---|
-| ≤20% tempo restante | manager | Preposto + Admin | sla:warning |
-| Response breach (responseDueAt ultrapassado sem resposta) | admin | Admin | sla:breach |
-| Resolution breach (resolutionDueAt ultrapassado sem resolução) | admin | Admin | sla:breach |
+| Condição                                                       | Nível   | Notifica         | Evento      |
+| -------------------------------------------------------------- | ------- | ---------------- | ----------- |
+| ≤20% tempo restante                                            | manager | Preposto + Admin | sla:warning |
+| Response breach (responseDueAt ultrapassado sem resposta)      | admin   | Admin            | sla:breach  |
+| Resolution breach (resolutionDueAt ultrapassado sem resolução) | admin   | Admin            | sla:breach  |
 
 ## Regras Técnicas
 

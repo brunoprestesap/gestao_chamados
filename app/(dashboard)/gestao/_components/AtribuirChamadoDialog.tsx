@@ -127,7 +127,9 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
   useEffect(() => {
     if (!showCatalogPhase || !typeIdRef.current) return;
     setSelectedCatalogServiceId('');
-    fetchCatalogServices(typeIdRef.current, selectedSubtypeId || undefined).then(setCatalogServices);
+    fetchCatalogServices(typeIdRef.current, selectedSubtypeId || undefined).then(
+      setCatalogServices,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubtypeId]);
 
@@ -234,9 +236,7 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
         showCloseButton
       >
         <DialogHeader className="pr-8 sm:pr-0">
-          <DialogTitle className="text-base font-semibold sm:text-lg">
-            Atribuir Chamado
-          </DialogTitle>
+          <DialogTitle className="text-base font-semibold sm:text-lg">Atribuir Chamado</DialogTitle>
         </DialogHeader>
 
         <div className="rounded-xl border bg-muted/30 p-3 space-y-1 sm:p-4">
@@ -264,14 +264,17 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
           ) : (
             <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800 dark:bg-amber-950/30 sm:p-4">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                <AlertTriangle
+                  className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400"
+                  aria-hidden
+                />
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                     Serviço catalogado ausente
                   </p>
                   <p className="text-xs text-amber-700/80 dark:text-amber-300/70">
-                    Este chamado foi validado sem serviço do catálogo. Selecione abaixo para liberar a
-                    atribuição.
+                    Este chamado foi validado sem serviço do catálogo. Selecione abaixo para liberar
+                    a atribuição.
                   </p>
                 </div>
               </div>
@@ -279,7 +282,10 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
               <div className="space-y-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Subtipo *</label>
-                  <Select value={selectedSubtypeId || undefined} onValueChange={setSelectedSubtypeId}>
+                  <Select
+                    value={selectedSubtypeId || undefined}
+                    onValueChange={setSelectedSubtypeId}
+                  >
                     <SelectTrigger className="w-full min-h-10 sm:min-h-9">
                       <SelectValue placeholder="Selecione o subtipo" />
                     </SelectTrigger>
@@ -295,7 +301,10 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
 
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Serviço do Catálogo *</label>
-                  <Select value={selectedCatalogServiceId || undefined} onValueChange={setSelectedCatalogServiceId}>
+                  <Select
+                    value={selectedCatalogServiceId || undefined}
+                    onValueChange={setSelectedCatalogServiceId}
+                  >
                     <SelectTrigger className="w-full min-h-10 sm:min-h-9">
                       <SelectValue placeholder="Selecione o serviço" />
                     </SelectTrigger>
@@ -368,7 +377,9 @@ export function AtribuirChamadoDialog({ open, onOpenChange, chamado, onSuccess }
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm truncate">{tech.name}</p>
                               {isDisabled && (
-                                <span className="text-xs text-muted-foreground">(Sobrecarregado)</span>
+                                <span className="text-xs text-muted-foreground">
+                                  (Sobrecarregado)
+                                </span>
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">

@@ -40,8 +40,10 @@ function detectMimeType(buffer: Uint8Array): string | null {
 }
 
 function sanitizeFilename(name: string): string {
-  // path.basename strips directory components, then clean special chars
-  const base = path.basename(name);
+  // Normaliza separadores Windows para POSIX antes do basename — `path.basename`
+  // nativo não reconhece `\` no Linux, deixando passar path traversal cross-platform.
+  const normalized = name.replace(/\\/g, '/');
+  const base = path.posix.basename(normalized);
   return base
     .replace(/\0/g, '')
     .replace(/[/\\:*?"<>|]/g, '')
@@ -144,7 +146,10 @@ export async function POST(request: NextRequest) {
     const existingCount = await AttachmentModel.countDocuments({ chamadoId });
     if (existingCount >= MAX_ATTACHMENTS_PER_TICKET) {
       return NextResponse.json(
-        { ok: false, error: `Limite de ${MAX_ATTACHMENTS_PER_TICKET} anexos por chamado atingido.` },
+        {
+          ok: false,
+          error: `Limite de ${MAX_ATTACHMENTS_PER_TICKET} anexos por chamado atingido.`,
+        },
         { status: 400 },
       );
     }
