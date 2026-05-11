@@ -6,10 +6,7 @@ import { dbConnect } from '@/lib/db';
 import { AttachmentModel } from '@/models/Attachment';
 import { ChamadoModel } from '@/models/Chamado';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await verifySession();
     if (!session) {
@@ -25,9 +22,7 @@ export async function GET(
     await dbConnect();
 
     // Verify access
-    const chamado = await ChamadoModel.findById(id)
-      .select('solicitanteId assignedToUserId')
-      .lean();
+    const chamado = await ChamadoModel.findById(id).select('solicitanteId assignedToUserId').lean();
 
     if (!chamado) {
       return NextResponse.json({ ok: false, error: 'Chamado não encontrado.' }, { status: 404 });

@@ -60,9 +60,7 @@ function formatBrl(value: number): string {
 // para aprovação do Gestor do Contrato (Admin). Somente Preposto pode submeter.
 // ---------------------------------------------------------------------------
 
-export async function submitCotacaoAction(
-  raw: SubmitCotacaoInput,
-): Promise<CotacaoActionResult> {
+export async function submitCotacaoAction(raw: SubmitCotacaoInput): Promise<CotacaoActionResult> {
   try {
     const session = await requireSession();
     if (!isPreposto(session.role)) {
@@ -253,9 +251,7 @@ export async function submitCotacaoAction(
       data: pausePayload,
       readAt: null,
     });
-    sendNotificationEmail(String(doc.solicitanteId), 'ticket:paused', pausePayload).catch(
-      () => {},
-    );
+    sendNotificationEmail(String(doc.solicitanteId), 'ticket:paused', pausePayload).catch(() => {});
 
     await emitToRoom('managers', 'ticket:quote_submitted', quotePayload);
     await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:paused', pausePayload);
@@ -468,9 +464,7 @@ async function resumeChamadoAfterQuoteReview(params: {
 // Preposto que submeteu NÃO pode aprovar (separação contratual de papéis).
 // ---------------------------------------------------------------------------
 
-export async function approveCotacaoAction(
-  raw: ApproveCotacaoInput,
-): Promise<CotacaoActionResult> {
+export async function approveCotacaoAction(raw: ApproveCotacaoInput): Promise<CotacaoActionResult> {
   try {
     const session = await requireSession();
     if (!isAdmin(session.role)) {
@@ -483,10 +477,7 @@ export async function approveCotacaoAction(
     const parsed = ApproveCotacaoSchema.safeParse(raw);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
-      const msg =
-        fieldErrors.cotacaoId?.[0] ??
-        fieldErrors.observacao?.[0] ??
-        'Dados inválidos.';
+      const msg = fieldErrors.cotacaoId?.[0] ?? fieldErrors.observacao?.[0] ?? 'Dados inválidos.';
       return { ok: false, error: msg };
     }
 
@@ -513,9 +504,7 @@ export async function approveCotacaoAction(
 // e a contratada (via Preposto) pode enviar nova cotação ajustada.
 // ---------------------------------------------------------------------------
 
-export async function rejectCotacaoAction(
-  raw: RejectCotacaoInput,
-): Promise<CotacaoActionResult> {
+export async function rejectCotacaoAction(raw: RejectCotacaoInput): Promise<CotacaoActionResult> {
   try {
     const session = await requireSession();
     if (!isAdmin(session.role)) {
@@ -528,10 +517,7 @@ export async function rejectCotacaoAction(
     const parsed = RejectCotacaoSchema.safeParse(raw);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
-      const msg =
-        fieldErrors.observacao?.[0] ??
-        fieldErrors.cotacaoId?.[0] ??
-        'Dados inválidos.';
+      const msg = fieldErrors.observacao?.[0] ?? fieldErrors.cotacaoId?.[0] ?? 'Dados inválidos.';
       return { ok: false, error: msg };
     }
 

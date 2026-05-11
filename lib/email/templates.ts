@@ -1,7 +1,8 @@
 import type { AllowedEmitEvents } from '@/lib/realtime-emit';
 import type { ServerToClientEvents } from '@/shared/socket';
 
-const APP_URL = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3000';
+const APP_URL =
+  process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3000';
 
 interface TemplatePayload {
   ticketId?: string;
@@ -23,7 +24,8 @@ interface EmailContent {
 }
 
 const SUBJECT_MAP: Record<string, (p: TemplatePayload) => string> = {
-  'ticket:assigned': (p) => `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} atribu\u00eddo a voc\u00ea`,
+  'ticket:assigned': (p) =>
+    `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} atribu\u00eddo a voc\u00ea`,
   'ticket:new': (p) => `Novo chamado aberto: ${p.ticketNumber ? `#${p.ticketNumber}` : ''}`,
   'ticket:execution_registered': (p) =>
     `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} \u2014 servi\u00e7o registrado`,
@@ -124,8 +126,13 @@ export function renderNotificationEmail<T extends AllowedEmitEvents>(
   payload: TemplatePayloadByEvent[T],
   recipientName: string,
 ): EmailContent {
-  const subjectFn = SUBJECT_MAP[type] ?? (() => `Notifica\u00e7\u00e3o sobre o chamado ${payload.ticketNumber ?? ''}`);
-  const bodyFn = BODY_MAP[type] ?? (() => `Voc\u00ea tem uma nova notifica\u00e7\u00e3o sobre o chamado${payload.ticketNumber ? ` #${payload.ticketNumber}` : ''}.`);
+  const subjectFn =
+    SUBJECT_MAP[type] ??
+    (() => `Notifica\u00e7\u00e3o sobre o chamado ${payload.ticketNumber ?? ''}`);
+  const bodyFn =
+    BODY_MAP[type] ??
+    (() =>
+      `Voc\u00ea tem uma nova notifica\u00e7\u00e3o sobre o chamado${payload.ticketNumber ? ` #${payload.ticketNumber}` : ''}.`);
 
   const subject = subjectFn(payload).trim();
   const bodyHtml = bodyFn(payload);

@@ -27,7 +27,7 @@ function getExpectedBelemHourStr(): string {
   // Hora em Belém (UTC-3) = totalUTC - 3
   const machineOffsetHours = machineOffsetMinutes / 60;
   const utcHour = 8 + machineOffsetHours + 3;
-  const belemHour = ((utcHour - 3) + 24) % 24;
+  const belemHour = (utcHour - 3 + 24) % 24;
   const hh = String(belemHour).padStart(2, '0');
   return `${hh}:00:00`;
 }

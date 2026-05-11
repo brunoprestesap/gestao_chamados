@@ -9,6 +9,7 @@ Implementar Web Push API para enviar notificações nativas do navegador mesmo c
 ## Contexto do Projeto
 
 ### PWA existente (parcial)
+
 - **Service Worker**: `public/sw.js` (22 linhas) — handler de `push` event que exibe notificação + handler de `notificationclick` que abre `/dashboard`
 - **Registro**: `components/pwa/service-worker-register.tsx` — registra `/sw.js` no mount
 - **Manifest**: `app/manifest.webmanifest/route.ts` ou `public/manifest.json` — presente
@@ -16,6 +17,7 @@ Implementar Web Push API para enviar notificações nativas do navegador mesmo c
 - **Ícones**: `icon-192x192.svg` referenciado no sw.js
 
 ### O que falta
+
 - Geração e armazenamento de VAPID keys
 - Gestão de subscriptions (PushSubscription) no client e server
 - Endpoint server-side para enviar push via web-push library
@@ -23,11 +25,13 @@ Implementar Web Push API para enviar notificações nativas do navegador mesmo c
 - Persistência de subscriptions no MongoDB
 
 ### Notificações atuais
+
 - 11 tipos em `models/Notification.ts`
 - Entrega via Socket.IO + MongoDB
 - `components/realtime/RealtimeProvider.tsx` — toasts e som
 
 ### Socket events
+
 - `shared/socket.ts` — 11 payloads tipados
 - `lib/realtime-emit.ts` — emitToRoom fire-and-forget
 
@@ -36,17 +40,20 @@ Implementar Web Push API para enviar notificações nativas do navegador mesmo c
 ### Infraestrutura VAPID
 
 1. Instale web-push:
+
    ```bash
    npm install web-push
    npm install -D @types/web-push
    ```
 
 2. Gere VAPID keys (one-time):
+
    ```bash
    npx web-push generate-vapid-keys
    ```
 
 3. Adicione ao `.env.example`:
+
    ```
    NEXT_PUBLIC_VAPID_PUBLIC_KEY=
    VAPID_PRIVATE_KEY=
@@ -54,6 +61,7 @@ Implementar Web Push API para enviar notificações nativas do navegador mesmo c
    ```
 
 4. Crie `lib/push/web-push-config.ts`:
+
    ```typescript
    import webpush from 'web-push';
 
@@ -115,6 +123,7 @@ Implementar Web Push API para enviar notificações nativas do navegador mesmo c
 ### Atualização do Service Worker
 
 10. Atualize `public/sw.js`:
+
     ```javascript
     self.addEventListener('push', (event) => {
       const data = event.data?.json() ?? {};
@@ -169,6 +178,7 @@ Implementar Web Push API para enviar notificações nativas do navegador mesmo c
 ### Integração nos pontos de criação
 
 13. Em cada Server Action que cria notificações, após NotificationModel.create e emitToRoom:
+
     ```typescript
     sendPushNotification(userId, {
       title: 'Chamado atribuído',

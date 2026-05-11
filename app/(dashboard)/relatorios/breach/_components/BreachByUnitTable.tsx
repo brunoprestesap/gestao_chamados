@@ -62,7 +62,12 @@ export function BreachByUnitTable({ data }: { data: BreachByUnit[] }) {
               <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
                 {formatDelay(u.avgDelayMinutes)}
               </td>
-              <td className={cn('px-3 py-3 text-right font-semibold tabular-nums', rateColor(u.breachRate))}>
+              <td
+                className={cn(
+                  'px-3 py-3 text-right font-semibold tabular-nums',
+                  rateColor(u.breachRate),
+                )}
+              >
                 {u.breachRate}%
               </td>
               <td className="hidden px-3 py-3 md:table-cell">

@@ -260,15 +260,14 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange }: Props) {
                     {STATUS_LABEL[c.status]}
                   </Badge>
                 </div>
-                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                  {c.descricao}
-                </p>
+                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.descricao}</p>
                 <div className="mt-1 text-xs text-muted-foreground">
                   Enviada por {c.submittedByName ?? '—'} em{' '}
                   {formatDateTime(new Date(c.submittedAt))}
                   {c.reviewedAt && (
                     <>
-                      {' '}· Decidida por {c.reviewedByName ?? '—'} em{' '}
+                      {' '}
+                      · Decidida por {c.reviewedByName ?? '—'} em{' '}
                       {formatDateTime(new Date(c.reviewedAt))}
                     </>
                   )}

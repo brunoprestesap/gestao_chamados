@@ -77,11 +77,7 @@ export default async function BreachReportPage({ searchParams }: PageProps) {
           <CardTitle className="text-base">Período de apuração</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form
-            method="GET"
-            action="/relatorios/breach"
-            className="flex flex-wrap items-end gap-4"
-          >
+          <form method="GET" action="/relatorios/breach" className="flex flex-wrap items-end gap-4">
             <div className="space-y-2">
               <Label htmlFor="dataInicial" className="text-xs">
                 Data inicial
@@ -110,8 +106,7 @@ export default async function BreachReportPage({ searchParams }: PageProps) {
           </form>
           <div className="flex flex-wrap gap-4 border-t pt-3 text-xs text-muted-foreground">
             <span>
-              Período analisado: {formatDate(dataInicial, tzOpt)} a{' '}
-              {formatDate(dataFinal, tzOpt)}
+              Período analisado: {formatDate(dataInicial, tzOpt)} a {formatDate(dataFinal, tzOpt)}
             </span>
             <span>
               Gerado em: {formatDate(dataGeracao, tzOpt)} às {formatTime(dataGeracao, tzOpt)}

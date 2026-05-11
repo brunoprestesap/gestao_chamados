@@ -9,18 +9,21 @@ Enviar um resumo matinal por e-mail com visão consolidada dos chamados pendente
 ## Contexto do Projeto
 
 ### Infraestrutura necessária (do command 01)
+
 - **Nodemailer**: `lib/email/transporter.ts` — SMTP transporter configurado
 - **Templates**: `lib/email/templates.ts` — renderização de HTML para email
 - **sendNotificationEmail**: `lib/email/send-notification-email.ts` — envio fire-and-forget
 - **Env vars SMTP**: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
 
 ### Dados disponíveis
+
 - **Chamado model** (`models/Chamado.ts`): status, assignedToUserId, solicitanteId, sla.resolutionDueAt, sla.responseDueAt, sla.resolvedAt, sla.resolutionBreachedAt, finalPriority, tipoServico
 - **SLA utils** (`lib/sla-utils.ts`): getSlaResolutionStatus() — 'no_prazo' | 'proximo_vencimento' | 'atrasado'
 - **User model** (`models/user.model.ts`): email, name, role
 - **Business hours**: `lib/expediente-config.ts` — timezone America/Belem, workdayStart 08:00
 
 ### Cron existente
+
 - **Pattern**: API route protegida por `x-cron-secret` header
 - **Exemplo**: `app/api/cron/recurring-tickets/route.ts`, `app/api/cron/sla-monitor/route.ts`
 - **CRON_SECRET**: já definido no `.env.example`
@@ -50,6 +53,7 @@ Enviar um resumo matinal por e-mail com visão consolidada dos chamados pendente
    - Chamados encerrados pendentes de avaliação
 
    Retorne objeto tipado:
+
    ```typescript
    export type DigestData = {
      userName: string;

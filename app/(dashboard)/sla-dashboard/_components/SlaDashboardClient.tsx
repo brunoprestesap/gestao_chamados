@@ -152,9 +152,7 @@ export function SlaDashboardClient() {
               disabled={refreshing}
               className="gap-1.5"
             >
-              <RefreshCw
-                className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
-              />
+              <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
               Atualizar
             </Button>
           </div>

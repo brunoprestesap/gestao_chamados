@@ -238,7 +238,7 @@ describe('lógica de cálculo de pausedMinutes', () => {
   it('deve calcular pausa de vários dias (ex: fim de semana)', () => {
     // Arrange — pausa sexta 17h, retomada segunda 08h = 2340 min = 39 horas
     const slaPausedAt = new Date('2024-06-14T20:00:00.000Z'); // sexta 17h BRT (UTC-3)
-    const now = new Date('2024-06-17T11:00:00.000Z');          // segunda 08h BRT
+    const now = new Date('2024-06-17T11:00:00.000Z'); // segunda 08h BRT
 
     // Act
     const pausedMs = now.getTime() - slaPausedAt.getTime();
@@ -290,8 +290,6 @@ describe('lógica de cálculo de pausedMinutes', () => {
     const dueAtAposPausa2 = addElapsedMinutes(dueAtAposPausa1, pausa2Minutes);
 
     // Assert — prazo total estendido em 90 min
-    expect(dueAtAposPausa2.getTime()).toBe(
-      new Date('2024-06-10T19:30:00.000Z').getTime(),
-    );
+    expect(dueAtAposPausa2.getTime()).toBe(new Date('2024-06-10T19:30:00.000Z').getTime());
   });
 });

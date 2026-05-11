@@ -408,9 +408,7 @@ describe('notifyAttachmentAction — emissão de socket', () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
     mockChamadoFindById.mockReturnValue(
-      makeFindByIdChain(
-        makeChamadoDoc({ solicitanteId: new Types.ObjectId(OUTRO_USER_ID) }),
-      ),
+      makeFindByIdChain(makeChamadoDoc({ solicitanteId: new Types.ObjectId(OUTRO_USER_ID) })),
     );
     const input = { chamadoId: VALID_CHAMADO_ID, attachmentId: VALID_ATTACHMENT_ID };
 

@@ -29,12 +29,8 @@ export const NewTicketFormSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ?? '').trim() || undefined),
-  subtypeId: z
-    .string()
-    .min(1, 'Selecione o subtipo de serviço'),
-  catalogServiceId: z
-    .string()
-    .min(1, 'Selecione o serviço do catálogo'),
+  subtypeId: z.string().min(1, 'Selecione o subtipo de serviço'),
+  catalogServiceId: z.string().min(1, 'Selecione o serviço do catálogo'),
 });
 
 export type NewTicketFormInput = z.input<typeof NewTicketFormSchema>;

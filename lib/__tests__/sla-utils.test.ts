@@ -96,12 +96,7 @@ describe('computeSlaDueDatesFromConfig', () => {
 
   it('businessHoursOnly = false usa minutos corridos (24x7)', () => {
     const from = utc('2024-03-18T13:00:00Z');
-    const { responseDueAt, resolutionDueAt } = computeSlaDueDatesFromConfig(
-      from,
-      120,
-      480,
-      false,
-    );
+    const { responseDueAt, resolutionDueAt } = computeSlaDueDatesFromConfig(from, 120, 480, false);
 
     expect(responseDueAt.toISOString()).toBe('2024-03-18T15:00:00.000Z');
     expect(resolutionDueAt.toISOString()).toBe('2024-03-18T21:00:00.000Z');
@@ -184,7 +179,9 @@ describe('evaluateResolutionBreach', () => {
 
   it('retorna resolvedAt se resolvido DEPOIS do prazo', () => {
     const resolvedAt = utc('2024-03-18T22:00:00Z');
-    expect(evaluateResolutionBreach(utc('2024-03-19T00:00:00Z'), due, resolvedAt)).toEqual(resolvedAt);
+    expect(evaluateResolutionBreach(utc('2024-03-19T00:00:00Z'), due, resolvedAt)).toEqual(
+      resolvedAt,
+    );
   });
 
   it('retorna now se não resolvido e now > due', () => {
@@ -215,13 +212,7 @@ describe('getSlaResolutionStatus', () => {
   });
 
   it('retorna "atrasado" se now > due e não resolvido', () => {
-    const result = getSlaResolutionStatus(
-      utc('2024-03-18T22:00:00Z'),
-      dueAt,
-      null,
-      null,
-      'NORMAL',
-    );
+    const result = getSlaResolutionStatus(utc('2024-03-18T22:00:00Z'), dueAt, null, null, 'NORMAL');
     expect(result).toBe('atrasado');
   });
 
@@ -237,13 +228,7 @@ describe('getSlaResolutionStatus', () => {
   });
 
   it('retorna "no_prazo" se resolutionDueAt é null', () => {
-    const result = getSlaResolutionStatus(
-      utc('2024-03-18T22:00:00Z'),
-      null,
-      null,
-      null,
-      'NORMAL',
-    );
+    const result = getSlaResolutionStatus(utc('2024-03-18T22:00:00Z'), null, null, null, 'NORMAL');
     expect(result).toBe('no_prazo');
   });
 

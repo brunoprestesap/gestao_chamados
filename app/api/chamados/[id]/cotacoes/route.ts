@@ -9,10 +9,7 @@ import { UserModel } from '@/models/user.model';
 
 type LeanCotacao = Omit<CotacaoDoc, keyof Document>;
 
-function normalizeCotacao(
-  c: LeanCotacao,
-  nameByUserId: Record<string, string>,
-) {
+function normalizeCotacao(c: LeanCotacao, nameByUserId: Record<string, string>) {
   return {
     _id: String(c._id),
     chamadoId: String(c.chamadoId),
@@ -27,13 +24,8 @@ function normalizeCotacao(
     submittedByName: nameByUserId[String(c.submittedByUserId)] ?? null,
     submittedAt: c.submittedAt instanceof Date ? c.submittedAt.toISOString() : c.submittedAt,
     reviewedByUserId: c.reviewedByUserId ? String(c.reviewedByUserId) : null,
-    reviewedByName: c.reviewedByUserId
-      ? (nameByUserId[String(c.reviewedByUserId)] ?? null)
-      : null,
-    reviewedAt:
-      c.reviewedAt instanceof Date
-        ? c.reviewedAt.toISOString()
-        : (c.reviewedAt ?? null),
+    reviewedByName: c.reviewedByUserId ? (nameByUserId[String(c.reviewedByUserId)] ?? null) : null,
+    reviewedAt: c.reviewedAt instanceof Date ? c.reviewedAt.toISOString() : (c.reviewedAt ?? null),
     reviewObservacao: c.reviewObservacao ?? null,
     createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
   };

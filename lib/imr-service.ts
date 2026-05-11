@@ -240,10 +240,7 @@ function unifiedFacets() {
           avaliacaoNegativa: {
             $cond: [
               {
-                $and: [
-                  { $gte: ['$evaluation.rating', 1] },
-                  { $lte: ['$evaluation.rating', 2] },
-                ],
+                $and: [{ $gte: ['$evaluation.rating', 1] }, { $lte: ['$evaluation.rating', 2] }],
               },
               1,
               0,
@@ -348,7 +345,12 @@ function extractPerType(facet: UnifiedFacetResult, tipo: string): ImrResultPorTi
 
   const prioridadeRows = facet.slaPorTipoEPrioridade
     .filter((r) => r._id.tipo === tipo)
-    .map((r) => ({ prioridade: r._id.prioridade ?? '—', total: r.total, dentro: r.dentro, fora: r.fora }));
+    .map((r) => ({
+      prioridade: r._id.prioridade ?? '—',
+      total: r.total,
+      dentro: r.dentro,
+      fora: r.fora,
+    }));
   const slaPorPrioridade = buildSlaPorPrioridade(prioridadeRows);
 
   const tempoRow = facet.tempoPorTipo.find((r) => r._id === tipo);
@@ -370,7 +372,16 @@ function extractPerType(facet: UnifiedFacetResult, tipo: string): ImrResultPorTi
     totalChamados,
   );
 
-  return { tipoServico: tipo, totalChamados, sla, slaPorPrioridade, tempoMedioMs, avaliacao, penalidades, chamadosForaSla: sla.totalFora };
+  return {
+    tipoServico: tipo,
+    totalChamados,
+    sla,
+    slaPorPrioridade,
+    tempoMedioMs,
+    avaliacao,
+    penalidades,
+    chamadosForaSla: sla.totalFora,
+  };
 }
 
 /** Agrega os resultados de todos os tipos para produzir o resumo geral. */

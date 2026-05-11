@@ -9,16 +9,19 @@ Criar relatório analítico que identifique gargalos recorrentes de SLA por téc
 ## Contexto do Projeto
 
 ### Dados de breach disponíveis
+
 - **Chamado model** (`models/Chamado.ts`): sla.responseBreachedAt, sla.resolutionBreachedAt, sla.resolvedAt, sla.priority, sla.responseDueAt, sla.resolutionDueAt
 - **Campos de atribuição**: assignedToUserId, unitId, tipoServico
 - **Timestamps**: classifiedAt, assignedAt, concludedAt, closedAt, createdAt
 
 ### Relatório IMR existente (pattern a seguir)
+
 - **IMR service**: `lib/imr-service.ts` — aggregation com $facet, filtra por closedAt em range, agrupa por tipoServico
 - **IMR page**: `app/(dashboard)/relatorios/imr/page.tsx` — date range selector, abas por tipo
 - **Pattern**: server component chama computeImrReport() → passa dados para componentes client
 
 ### Modelos relevantes
+
 - **User**: `models/user.model.ts` — name, username, role, specialties, maxAssignedTickets
 - **Unit**: `models/Unit.ts` — name (departamento/setor)
 
@@ -50,9 +53,10 @@ Criar relatório analítico que identifique gargalos recorrentes de SLA por téc
 
    - $match: `sla.computedAt` in [startDate, endDate] AND ($or: responseBreachedAt != null, resolutionBreachedAt != null)
    - Após aggregation, populate nomes de técnicos e unidades via UserModel e UnitModel
-   - Calcule `breachRate` para cada técnico/unidade: (breaches / total) * 100
+   - Calcule `breachRate` para cada técnico/unidade: (breaches / total) \* 100
 
    **Tipos exportados**:
+
    ```typescript
    export type BreachByTechnician = {
      technicianId: string;
@@ -154,11 +158,11 @@ Criar relatório analítico que identifique gargalos recorrentes de SLA por téc
 
 ## Métricas Calculadas
 
-| Métrica | Fórmula |
-|---|---|
-| Taxa de breach | (responseBreaches + resolutionBreaches) / totalChamados × 100 |
-| Atraso médio | avg(resolvedAt - resolutionDueAt) para breaches com resolvedAt |
-| Tendência | Comparação breach rate mês atual vs anterior |
+| Métrica        | Fórmula                                                        |
+| -------------- | -------------------------------------------------------------- |
+| Taxa de breach | (responseBreaches + resolutionBreaches) / totalChamados × 100  |
+| Atraso médio   | avg(resolvedAt - resolutionDueAt) para breaches com resolvedAt |
+| Tendência      | Comparação breach rate mês atual vs anterior                   |
 
 ## Regras
 

@@ -92,10 +92,7 @@ export const { auth, signIn, signOut, handlers } = initAuth({
 
         if (isLdapConfigured()) {
           authDebug('LDAP configurado, tentando autenticação LDAP...');
-          const ldapResult = await authenticateWithLdap(
-            parsed.data.username,
-            parsed.data.password,
-          );
+          const ldapResult = await authenticateWithLdap(parsed.data.username, parsed.data.password);
 
           authDebug('Resultado LDAP:', ldapResult.status);
 
@@ -108,7 +105,9 @@ export const { auth, signIn, signOut, handlers } = initAuth({
             if (user?.passwordHash) {
               authDebug('Senha inválida no LDAP, mas usuário tem senha local → tentando fallback');
             } else {
-              authDebug('Senha inválida no LDAP → negando acesso (usuário LDAP-only, sem fallback)');
+              authDebug(
+                'Senha inválida no LDAP → negando acesso (usuário LDAP-only, sem fallback)',
+              );
               return null;
             }
           }
@@ -122,12 +121,12 @@ export const { auth, signIn, signOut, handlers } = initAuth({
           authDebug('Provisionando novo usuário a partir do LDAP...');
 
           const unitId = ldapProfile.department
-            ? (
+            ? ((
                 await UnitModel.findOne({
                   name: { $regex: `^${ldapProfile.department}$`, $options: 'i' },
                   isActive: true,
                 }).lean()
-              )?._id ?? null
+              )?._id ?? null)
             : null;
 
           authDebug(

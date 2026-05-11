@@ -144,7 +144,10 @@ export async function POST(request: NextRequest) {
     const existingCount = await AttachmentModel.countDocuments({ chamadoId });
     if (existingCount >= MAX_ATTACHMENTS_PER_TICKET) {
       return NextResponse.json(
-        { ok: false, error: `Limite de ${MAX_ATTACHMENTS_PER_TICKET} anexos por chamado atingido.` },
+        {
+          ok: false,
+          error: `Limite de ${MAX_ATTACHMENTS_PER_TICKET} anexos por chamado atingido.`,
+        },
         { status: 400 },
       );
     }

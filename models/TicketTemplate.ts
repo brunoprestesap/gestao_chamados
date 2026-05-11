@@ -39,5 +39,7 @@ if (mongoose.models.TicketTemplate) {
   delete mongoose.models.TicketTemplate;
 }
 
-export const TicketTemplateModel: Model<TicketTemplate> =
-  mongoose.model<TicketTemplate>('TicketTemplate', TicketTemplateSchema);
+export const TicketTemplateModel: Model<TicketTemplate> = mongoose.model<TicketTemplate>(
+  'TicketTemplate',
+  TicketTemplateSchema,
+);

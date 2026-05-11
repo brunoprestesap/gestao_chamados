@@ -28,6 +28,7 @@ Você é especialista em MongoDB + Mongoose para aplicações Next.js 16 + TypeS
 ## Padrões obrigatórios
 
 ### Schema Mongoose
+
 ```typescript
 import mongoose, { type Document, Schema } from 'mongoose';
 
@@ -36,22 +37,26 @@ export interface INomeModel extends Document {
 }
 
 const NomeSchema = new Schema<INomeModel>(
-  { /* campos */ },
-  { timestamps: true }
+  {
+    /* campos */
+  },
+  { timestamps: true },
 );
 
 // Indexes compostos para queries frequentes
 NomeSchema.index({ campo1: 1, campo2: 1 });
 
-export default mongoose.models.Nome ||
-  mongoose.model<INomeModel>('Nome', NomeSchema);
+export default mongoose.models.Nome || mongoose.model<INomeModel>('Nome', NomeSchema);
 ```
 
 ### Schema Zod correspondente
+
 ```typescript
 import { z } from 'zod';
 
-export const CreateNomeSchema = z.object({ /* campos */ });
+export const CreateNomeSchema = z.object({
+  /* campos */
+});
 export const UpdateNomeSchema = CreateNomeSchema.partial().extend({
   id: z.string().min(1),
 });

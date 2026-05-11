@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  AssignTicketSchema,
-  ReassignTicketSchema,
-} from '@/shared/chamados/assignment.schemas';
+import { AssignTicketSchema, ReassignTicketSchema } from '@/shared/chamados/assignment.schemas';
 import {
   ATTENDANCE_NATURE_VALUES,
   FINAL_PRIORITY_VALUES,
@@ -121,12 +118,18 @@ describe('ClassificarChamadoSchema', () => {
   });
 
   it('rejeita prioridade inválida', () => {
-    const result = ClassificarChamadoSchema.safeParse({ ...baseInput, finalPriority: 'INEXISTENTE' });
+    const result = ClassificarChamadoSchema.safeParse({
+      ...baseInput,
+      finalPriority: 'INEXISTENTE',
+    });
     expect(result.success).toBe(false);
   });
 
   it('rejeita natureza inválida', () => {
-    const result = ClassificarChamadoSchema.safeParse({ ...baseInput, naturezaAtendimento: 'Inventada' });
+    const result = ClassificarChamadoSchema.safeParse({
+      ...baseInput,
+      naturezaAtendimento: 'Inventada',
+    });
     expect(result.success).toBe(false);
   });
 

@@ -44,7 +44,15 @@ export function BreachCsvExport({
   periodLabel: string;
 }) {
   function handleExport() {
-    const headers = ['Nome', 'Tipo', 'Total', 'Breach Resposta', 'Breach Resolução', 'Taxa %', 'Atraso Médio'];
+    const headers = [
+      'Nome',
+      'Tipo',
+      'Total',
+      'Breach Resposta',
+      'Breach Resolução',
+      'Taxa %',
+      'Atraso Médio',
+    ];
     const rows: string[][] = [];
 
     for (const t of byTechnician) {

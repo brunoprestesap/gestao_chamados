@@ -44,10 +44,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateTime } from '@/lib/utils';
-import {
-  PAUSE_REASON_LABELS,
-  type PauseReason,
-} from '@/shared/chamados/pause-reason.constants';
+import { PAUSE_REASON_LABELS, type PauseReason } from '@/shared/chamados/pause-reason.constants';
 
 import type { ChamadoDTO } from '../../meus-chamados/_components/ChamadoCard';
 import {
@@ -181,9 +178,7 @@ export function ChamadoDetailSheet({
   const [unitName, setUnitName] = useState<string | null>(null);
   const [subtypeName, setSubtypeName] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('detalhes');
-  const [mountedTabs, setMountedTabs] = useState<Set<TabId>>(
-    () => new Set<TabId>(['detalhes']),
-  );
+  const [mountedTabs, setMountedTabs] = useState<Set<TabId>>(() => new Set<TabId>(['detalhes']));
 
   useEffect(() => {
     if (!open || !chamado) {
@@ -275,8 +270,7 @@ export function ChamadoDetailSheet({
 
   const StatusIcon = STATUS_ICONS[chamado.status];
   const status = chamado.status as ChamadoStatus;
-  const accentGradient =
-    STATUS_ACCENT_GRADIENT[chamado.status] ?? 'from-indigo-400 to-blue-500';
+  const accentGradient = STATUS_ACCENT_GRADIENT[chamado.status] ?? 'from-indigo-400 to-blue-500';
 
   const isSolicitante = userRole === 'Solicitante';
   const isManager = userRole === 'Preposto' || userRole === 'Admin' || userRole === null;
@@ -297,12 +291,9 @@ export function ChamadoDetailSheet({
 
   // Ações do Solicitante
   const showCancelar = isSolicitante && status === 'aberto' && !!onCancelar;
-  const showAvaliar =
-    isSolicitante && status === 'encerrado' && !chamado.evaluation && !!onAvaliar;
+  const showAvaliar = isSolicitante && status === 'encerrado' && !chamado.evaluation && !!onAvaliar;
   const showRecusarServico =
-    isSolicitante &&
-    (status === 'concluído' || status === 'encerrado') &&
-    !!onRecusarServico;
+    isSolicitante && (status === 'concluído' || status === 'encerrado') && !!onRecusarServico;
 
   const hasActions =
     showClassificar ||
@@ -319,10 +310,7 @@ export function ChamadoDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex flex-col gap-0 p-0 sm:max-w-2xl"
-      >
+      <SheetContent side="right" className="flex flex-col gap-0 p-0 sm:max-w-2xl">
         {/* Accent stripe — slightly thicker for more visual presence */}
         <div
           className={cn('h-1.5 w-full shrink-0 bg-linear-to-r', accentGradient)}
@@ -331,10 +319,7 @@ export function ChamadoDetailSheet({
 
         {/* Header — with subtle tinted background */}
         <SheetHeader
-          className={cn(
-            'shrink-0 px-5 pb-4 pt-5',
-            'bg-linear-to-b from-muted/30 to-transparent',
-          )}
+          className={cn('shrink-0 px-5 pb-4 pt-5', 'bg-linear-to-b from-muted/30 to-transparent')}
         >
           <div className="flex items-start gap-3.5">
             {/* Icon container */}
@@ -425,198 +410,183 @@ export function ChamadoDetailSheet({
           <ScrollArea className="min-h-0 flex-1">
             <TabsContent value="detalhes" className="mt-0">
               <div className="space-y-5 px-5 py-5">
-                <CotacaoApprovalCard
-                  ticketId={chamado._id}
-                  canReview={userRole === 'Admin'}
-                />
+                <CotacaoApprovalCard ticketId={chamado._id} canReview={userRole === 'Admin'} />
 
-            {/* Description — primary focus area */}
-            <section aria-labelledby="desc-heading">
-              <div className="mb-2.5 flex items-center gap-2">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/40">
-                  <FileText
-                    className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
-                    aria-hidden="true"
-                  />
-                </div>
-                <h2
-                  id="desc-heading"
-                  className="text-sm font-semibold text-foreground"
-                >
-                  Descrição
-                </h2>
-              </div>
-              {/* Description box with max-height + fade-out gradient for long text */}
-              <div className="relative">
-                <div
-                  className={cn(
-                    'max-h-48 overflow-hidden rounded-xl border border-border/60 bg-muted/30',
-                    'px-4 py-3.5 text-sm leading-relaxed text-foreground whitespace-pre-wrap',
-                    'dark:bg-muted/20',
-                  )}
-                >
-                  {chamado.descricao || (
-                    <span className="italic text-muted-foreground">Sem descrição informada.</span>
-                  )}
-                </div>
-                {/* Fade gradient at bottom when text may overflow */}
-                {chamado.descricao && chamado.descricao.length > 300 && (
-                  <div
-                    className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 rounded-b-xl bg-linear-to-t from-muted/60 to-transparent dark:from-muted/40"
-                    aria-hidden="true"
-                  />
-                )}
-              </div>
-            </section>
-
-            {/* Urgency & Nature badges */}
-            <section aria-label="Classificação de urgência">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    'border text-xs font-medium',
-                    GRAU_URGENCIA_COLORS[chamado.grauUrgencia] ?? 'bg-gray-100 text-gray-700',
-                  )}
-                >
-                  {GRAU_URGENCIA_LABELS[chamado.grauUrgencia] ?? chamado.grauUrgencia}
-                </Badge>
-                {chamado.naturezaAtendimento && (
-                  <Badge variant="outline" className="text-xs">
-                    {chamado.naturezaAtendimento === 'Urgente'
-                      ? 'Solicitado: Urgente'
-                      : 'Solicitado: Padrão'}
-                  </Badge>
-                )}
-              </div>
-            </section>
-
-            <Separator className="opacity-60" />
-
-            {/* Metadata grid */}
-            <section aria-labelledby="meta-heading">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-950/40">
-                  <ClipboardList
-                    className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400"
-                    aria-hidden="true"
-                  />
-                </div>
-                <h2
-                  id="meta-heading"
-                  className="text-sm font-semibold text-foreground"
-                >
-                  Informações do chamado
-                </h2>
-              </div>
-              <div className="space-y-0 divide-y divide-border/40 overflow-hidden rounded-xl border border-border/50 bg-card">
-                {unitName && (
-                  <MetadataRow icon={Building2} label="Unidade" value={unitName} />
-                )}
-                {chamado.localExato && (
-                  <MetadataRow icon={MapPin} label="Local" value={chamado.localExato} />
-                )}
-                {userName && (
-                  <MetadataRow icon={User} label="Solicitante" value={userName} />
-                )}
-                {chamado.telefoneContato && (
-                  <MetadataRow icon={Phone} label="Telefone" value={chamado.telefoneContato} />
-                )}
-                {chamado.assignedToUserName && (
-                  <MetadataRow icon={UserCheck} label="Técnico" value={chamado.assignedToUserName} />
-                )}
-                <MetadataRow icon={Clock} label="Aberto em" value={formattedDate} />
-                {categoriaText && (
-                  <MetadataRow icon={Wrench} label="Serviço" value={categoriaText} />
-                )}
-              </div>
-            </section>
-
-            {/* Material Necessário */}
-            {chamado.materialObservations && chamado.materialObservations.length > 0 && (
-              <>
-                <Separator className="opacity-60" />
-                <section aria-labelledby="material-heading">
-                  <div className="mb-3 flex items-center gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/40">
-                      <Package
-                        className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                {/* Description — primary focus area */}
+                <section aria-labelledby="desc-heading">
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/40">
+                      <FileText
+                        className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
                         aria-hidden="true"
                       />
                     </div>
-                    <h2
-                      id="material-heading"
-                      className="text-sm font-semibold text-foreground"
-                    >
-                      Material Necessário
+                    <h2 id="desc-heading" className="text-sm font-semibold text-foreground">
+                      Descrição
                     </h2>
                   </div>
-                  <MaterialObservationsList observations={chamado.materialObservations} />
+                  {/* Description box with max-height + fade-out gradient for long text */}
+                  <div className="relative">
+                    <div
+                      className={cn(
+                        'max-h-48 overflow-hidden rounded-xl border border-border/60 bg-muted/30',
+                        'px-4 py-3.5 text-sm leading-relaxed text-foreground whitespace-pre-wrap',
+                        'dark:bg-muted/20',
+                      )}
+                    >
+                      {chamado.descricao || (
+                        <span className="italic text-muted-foreground">
+                          Sem descrição informada.
+                        </span>
+                      )}
+                    </div>
+                    {/* Fade gradient at bottom when text may overflow */}
+                    {chamado.descricao && chamado.descricao.length > 300 && (
+                      <div
+                        className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 rounded-b-xl bg-linear-to-t from-muted/60 to-transparent dark:from-muted/40"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
                 </section>
-              </>
-            )}
 
-            {/* Informações da Pausa (Aguardando Terceiros / Solicitante) */}
-            {chamado.pauseReason && (
-              <>
+                {/* Urgency & Nature badges */}
+                <section aria-label="Classificação de urgência">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'border text-xs font-medium',
+                        GRAU_URGENCIA_COLORS[chamado.grauUrgencia] ?? 'bg-gray-100 text-gray-700',
+                      )}
+                    >
+                      {GRAU_URGENCIA_LABELS[chamado.grauUrgencia] ?? chamado.grauUrgencia}
+                    </Badge>
+                    {chamado.naturezaAtendimento && (
+                      <Badge variant="outline" className="text-xs">
+                        {chamado.naturezaAtendimento === 'Urgente'
+                          ? 'Solicitado: Urgente'
+                          : 'Solicitado: Padrão'}
+                      </Badge>
+                    )}
+                  </div>
+                </section>
+
                 <Separator className="opacity-60" />
-                <section aria-labelledby="pause-heading">
+
+                {/* Metadata grid */}
+                <section aria-labelledby="meta-heading">
                   <div className="mb-3 flex items-center gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
-                      <AlertTriangle
-                        className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400"
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-950/40">
+                      <ClipboardList
+                        className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400"
                         aria-hidden="true"
                       />
                     </div>
-                    <h2
-                      id="pause-heading"
-                      className="text-sm font-semibold text-foreground"
-                    >
-                      Informações da Pausa
+                    <h2 id="meta-heading" className="text-sm font-semibold text-foreground">
+                      Informações do chamado
                     </h2>
                   </div>
-                  <div className="space-y-2.5 rounded-xl border border-orange-200/60 bg-orange-50/60 px-4 py-3.5 dark:border-orange-800/40 dark:bg-orange-950/20">
-                    <div>
-                      <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
-                        Motivo
-                      </p>
-                      <p className="text-sm font-medium text-foreground">
-                        {PAUSE_REASON_LABELS[chamado.pauseReason as PauseReason] ?? chamado.pauseReason}
-                      </p>
-                    </div>
-                    {chamado.pauseDetails && chamado.pauseDetails.trim() !== '' && (
-                      <div>
-                        <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
-                          Observações do Técnico
-                        </p>
-                        <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-                          {chamado.pauseDetails}
-                        </p>
-                      </div>
+                  <div className="space-y-0 divide-y divide-border/40 overflow-hidden rounded-xl border border-border/50 bg-card">
+                    {unitName && <MetadataRow icon={Building2} label="Unidade" value={unitName} />}
+                    {chamado.localExato && (
+                      <MetadataRow icon={MapPin} label="Local" value={chamado.localExato} />
                     )}
-                    {chamado.slaPausedAt && (
-                      <div>
-                        <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
-                          Pausado desde
-                        </p>
-                        <p className="text-sm text-foreground">
-                          {formatDateTime(chamado.slaPausedAt, tzOpt)}
-                        </p>
-                      </div>
+                    {userName && <MetadataRow icon={User} label="Solicitante" value={userName} />}
+                    {chamado.telefoneContato && (
+                      <MetadataRow icon={Phone} label="Telefone" value={chamado.telefoneContato} />
+                    )}
+                    {chamado.assignedToUserName && (
+                      <MetadataRow
+                        icon={UserCheck}
+                        label="Técnico"
+                        value={chamado.assignedToUserName}
+                      />
+                    )}
+                    <MetadataRow icon={Clock} label="Aberto em" value={formattedDate} />
+                    {categoriaText && (
+                      <MetadataRow icon={Wrench} label="Serviço" value={categoriaText} />
                     )}
                   </div>
                 </section>
-              </>
-            )}
 
+                {/* Material Necessário */}
+                {chamado.materialObservations && chamado.materialObservations.length > 0 && (
+                  <>
+                    <Separator className="opacity-60" />
+                    <section aria-labelledby="material-heading">
+                      <div className="mb-3 flex items-center gap-2">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/40">
+                          <Package
+                            className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                            aria-hidden="true"
+                          />
+                        </div>
+                        <h2 id="material-heading" className="text-sm font-semibold text-foreground">
+                          Material Necessário
+                        </h2>
+                      </div>
+                      <MaterialObservationsList observations={chamado.materialObservations} />
+                    </section>
+                  </>
+                )}
+
+                {/* Informações da Pausa (Aguardando Terceiros / Solicitante) */}
+                {chamado.pauseReason && (
+                  <>
+                    <Separator className="opacity-60" />
+                    <section aria-labelledby="pause-heading">
+                      <div className="mb-3 flex items-center gap-2">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                          <AlertTriangle
+                            className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400"
+                            aria-hidden="true"
+                          />
+                        </div>
+                        <h2 id="pause-heading" className="text-sm font-semibold text-foreground">
+                          Informações da Pausa
+                        </h2>
+                      </div>
+                      <div className="space-y-2.5 rounded-xl border border-orange-200/60 bg-orange-50/60 px-4 py-3.5 dark:border-orange-800/40 dark:bg-orange-950/20">
+                        <div>
+                          <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
+                            Motivo
+                          </p>
+                          <p className="text-sm font-medium text-foreground">
+                            {PAUSE_REASON_LABELS[chamado.pauseReason as PauseReason] ??
+                              chamado.pauseReason}
+                          </p>
+                        </div>
+                        {chamado.pauseDetails && chamado.pauseDetails.trim() !== '' && (
+                          <div>
+                            <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
+                              Observações do Técnico
+                            </p>
+                            <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                              {chamado.pauseDetails}
+                            </p>
+                          </div>
+                        )}
+                        {chamado.slaPausedAt && (
+                          <div>
+                            <p className="text-xs font-medium text-orange-700/80 dark:text-orange-400/80">
+                              Pausado desde
+                            </p>
+                            <p className="text-sm text-foreground">
+                              {formatDateTime(chamado.slaPausedAt, tzOpt)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  </>
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="historico" className="mt-0">
               <div className="px-5 py-5">
-                {mountedTabs.has('historico') ? (
-                  <HistoryTimeline chamadoId={chamado._id} />
-                ) : null}
+                {mountedTabs.has('historico') ? <HistoryTimeline chamadoId={chamado._id} /> : null}
               </div>
             </TabsContent>
 
@@ -666,133 +636,133 @@ export function ChamadoDetailSheet({
                 Abrir em tela cheia
               </Button>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-              {showRecusar && onRecusar && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full border-rose-200 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 sm:w-auto"
-                  onClick={() => handleAction(onRecusar)}
-                >
-                  <Ban className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Recusar
-                </Button>
-              )}
-              {showClassificar && onClassificar && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
-                  onClick={() => handleAction(onClassificar)}
-                >
-                  <ClipboardList className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Classificar
-                </Button>
-              )}
-              {showAtribuir && onAtribuir && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
-                  onClick={() => handleAction(onAtribuir)}
-                >
-                  <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Atribuir
-                </Button>
-              )}
-              {showReatribuir && onReatribuir && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full transition-colors sm:w-auto"
-                  onClick={() => handleAction(onReatribuir)}
-                >
-                  <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Reatribuir
-                </Button>
-              )}
-              {showPausar && onPausar && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full border-orange-200 text-orange-700 transition-colors hover:border-orange-300 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/30 sm:w-auto"
-                  onClick={() => handleAction(onPausar)}
-                >
-                  <PauseCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Pausar
-                </Button>
-              )}
-              {showRetomar && onRetomar && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="w-full bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 sm:w-auto"
-                  onClick={() => handleAction(onRetomar)}
-                >
-                  <Play className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Retomar
-                </Button>
-              )}
-              {showEncerrar && onEncerrar && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="w-full bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 sm:w-auto"
-                  onClick={() => handleAction(onEncerrar)}
-                >
-                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Encerrar Chamado
-                </Button>
-              )}
-              {showReabrir && onReabrir && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full border-amber-200 text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30 sm:w-auto"
-                  onClick={() => handleAction(onReabrir)}
-                >
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Reabrir Chamado
-                </Button>
-              )}
-              {showCancelar && onCancelar && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full border-rose-200 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 sm:w-auto"
-                  onClick={() => handleAction(onCancelar)}
-                >
-                  <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Cancelar
-                </Button>
-              )}
-              {showRecusarServico && onRecusarServico && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full border-orange-200 text-orange-700 transition-colors hover:border-orange-300 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/30 sm:w-auto"
-                  onClick={() => handleAction(onRecusarServico)}
-                >
-                  <Ban className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Recusar Serviço
-                </Button>
-              )}
-              {showAvaliar && onAvaliar && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
-                  onClick={() => handleAction(onAvaliar)}
-                >
-                  <Star className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Avaliar
-                </Button>
-              )}
+                {showRecusar && onRecusar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-rose-200 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 sm:w-auto"
+                    onClick={() => handleAction(onRecusar)}
+                  >
+                    <Ban className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Recusar
+                  </Button>
+                )}
+                {showClassificar && onClassificar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
+                    onClick={() => handleAction(onClassificar)}
+                  >
+                    <ClipboardList className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Classificar
+                  </Button>
+                )}
+                {showAtribuir && onAtribuir && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
+                    onClick={() => handleAction(onAtribuir)}
+                  >
+                    <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Atribuir
+                  </Button>
+                )}
+                {showReatribuir && onReatribuir && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full transition-colors sm:w-auto"
+                    onClick={() => handleAction(onReatribuir)}
+                  >
+                    <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Reatribuir
+                  </Button>
+                )}
+                {showPausar && onPausar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-orange-200 text-orange-700 transition-colors hover:border-orange-300 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/30 sm:w-auto"
+                    onClick={() => handleAction(onPausar)}
+                  >
+                    <PauseCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Pausar
+                  </Button>
+                )}
+                {showRetomar && onRetomar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 sm:w-auto"
+                    onClick={() => handleAction(onRetomar)}
+                  >
+                    <Play className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Retomar
+                  </Button>
+                )}
+                {showEncerrar && onEncerrar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 sm:w-auto"
+                    onClick={() => handleAction(onEncerrar)}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Encerrar Chamado
+                  </Button>
+                )}
+                {showReabrir && onReabrir && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-amber-200 text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30 sm:w-auto"
+                    onClick={() => handleAction(onReabrir)}
+                  >
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Reabrir Chamado
+                  </Button>
+                )}
+                {showCancelar && onCancelar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-rose-200 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 sm:w-auto"
+                    onClick={() => handleAction(onCancelar)}
+                  >
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Cancelar
+                  </Button>
+                )}
+                {showRecusarServico && onRecusarServico && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-orange-200 text-orange-700 transition-colors hover:border-orange-300 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/30 sm:w-auto"
+                    onClick={() => handleAction(onRecusarServico)}
+                  >
+                    <Ban className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Recusar Serviço
+                  </Button>
+                )}
+                {showAvaliar && onAvaliar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full bg-linear-to-r from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-500/20 transition-opacity hover:opacity-90 sm:w-auto"
+                    onClick={() => handleAction(onAvaliar)}
+                  >
+                    <Star className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Avaliar
+                  </Button>
+                )}
               </div>
             </div>
           </div>

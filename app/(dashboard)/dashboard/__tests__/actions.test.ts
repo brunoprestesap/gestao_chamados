@@ -64,25 +64,34 @@ describe('getDashboardTecnicoData', () => {
       select: vi.fn().mockReturnValue({
         lean: vi.fn().mockResolvedValue({
           maxAssignedTickets: 5,
-          specialties: [
-            new Types.ObjectId(),
-            new Types.ObjectId(),
-          ],
+          specialties: [new Types.ObjectId(), new Types.ObjectId()],
         }),
       }),
     });
 
     // Mock counts via aggregate
-    mockChamadoAggregate.mockResolvedValue([{
-      cargaAtiva: [{ total: 3 }],
-      emAtendimento: [{ total: 2 }],
-      concluidosAguardando: [{ total: 1 }],
-      chamadosPorSubtype: [],
-      ultimosChamados: [
-        { _id: new Types.ObjectId(), ticket_number: 'T-001', titulo: 'Chamado 1', status: 'em atendimento' },
-        { _id: new Types.ObjectId(), ticket_number: 'T-002', titulo: 'Chamado 2', status: 'concluído' },
-      ],
-    }]);
+    mockChamadoAggregate.mockResolvedValue([
+      {
+        cargaAtiva: [{ total: 3 }],
+        emAtendimento: [{ total: 2 }],
+        concluidosAguardando: [{ total: 1 }],
+        chamadosPorSubtype: [],
+        ultimosChamados: [
+          {
+            _id: new Types.ObjectId(),
+            ticket_number: 'T-001',
+            titulo: 'Chamado 1',
+            status: 'em atendimento',
+          },
+          {
+            _id: new Types.ObjectId(),
+            ticket_number: 'T-002',
+            titulo: 'Chamado 2',
+            status: 'concluído',
+          },
+        ],
+      },
+    ]);
 
     // Mock ServiceSubType
     mockServiceSubTypeFind.mockReturnValue({
@@ -112,13 +121,15 @@ describe('getDashboardTecnicoData', () => {
     });
 
     // Mock counts via aggregate
-    mockChamadoAggregate.mockResolvedValue([{
-      cargaAtiva: [],
-      emAtendimento: [],
-      concluidosAguardando: [],
-      chamadosPorSubtype: [],
-      ultimosChamados: [],
-    }]);
+    mockChamadoAggregate.mockResolvedValue([
+      {
+        cargaAtiva: [],
+        emAtendimento: [],
+        concluidosAguardando: [],
+        chamadosPorSubtype: [],
+        ultimosChamados: [],
+      },
+    ]);
 
     const data = await getDashboardTecnicoData();
     expect(data).toBeDefined();

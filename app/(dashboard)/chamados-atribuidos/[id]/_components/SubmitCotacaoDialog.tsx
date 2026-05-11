@@ -115,8 +115,7 @@ export function SubmitCotacaoDialog({ open, onOpenChange, ticketId, onSuccess }:
             Solicitar Aprovação de Cotação
           </DialogTitle>
           <DialogDescription>
-            O SLA será pausado a partir do envio até a decisão do gestor (aprovação ou
-            recusa).
+            O SLA será pausado a partir do envio até a decisão do gestor (aprovação ou recusa).
           </DialogDescription>
         </DialogHeader>
 
@@ -233,8 +232,8 @@ export function SubmitCotacaoDialog({ open, onOpenChange, ticketId, onSuccess }:
             />
 
             <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-3 text-sm text-indigo-900 dark:border-indigo-800/50 dark:bg-indigo-950/30 dark:text-indigo-100">
-              Para anexar fotos ou documentos da cotação, use a galeria de anexos do chamado
-              após o envio.
+              Para anexar fotos ou documentos da cotação, use a galeria de anexos do chamado após o
+              envio.
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">

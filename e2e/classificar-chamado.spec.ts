@@ -40,9 +40,9 @@ test.describe('Classificação de chamado', () => {
       await expect(dialog).not.toBeVisible({ timeout: 10000 });
 
       // Confirma que apareceu na lista — verifica via row da tabela.
-      await expect(
-        page.getByRole('row').filter({ hasText: ticketTitle }).first(),
-      ).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('row').filter({ hasText: ticketTitle }).first()).toBeVisible({
+        timeout: 10000,
+      });
     });
 
     test('preposto classifica o chamado em /gestao', async ({ page }) => {

@@ -168,9 +168,7 @@ describe('authenticateWithLdap', () => {
 
   it('retorna error quando bind do usuário falha com erro genérico', async () => {
     setLdapEnv();
-    mockBind
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('Timeout'));
+    mockBind.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Timeout'));
 
     mockSearch.mockResolvedValue({
       searchEntries: [{ dn: 'CN=Joao,DC=empresa,DC=com', displayName: 'João' }],

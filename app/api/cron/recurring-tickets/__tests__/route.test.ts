@@ -185,10 +185,7 @@ describe('POST /api/cron/recurring-tickets — erros internos', () => {
 
   it('should return 500 when processRecurringTickets throws with timeout message', async () => {
     process.env.CRON_SECRET = VALID_SECRET;
-    const { POST } = await loadRoute(
-      undefined,
-      new Error('Timeout connecting to MongoDB'),
-    );
+    const { POST } = await loadRoute(undefined, new Error('Timeout connecting to MongoDB'));
 
     const response = await POST(makeRequest(VALID_SECRET));
 

@@ -33,13 +33,12 @@ export function SlaPriorityBreakdown({ data }: { data: PriorityBreakdown[] }) {
                   {p.noPrazo}/{p.total} OK
                   {p.proximoVencimento > 0 && (
                     <span className="text-amber-600 dark:text-amber-400">
-                      {' '}· {p.proximoVencimento} risco
+                      {' '}
+                      · {p.proximoVencimento} risco
                     </span>
                   )}
                   {p.atrasado > 0 && (
-                    <span className="text-red-600 dark:text-red-400">
-                      {' '}· {p.atrasado} atrasado
-                    </span>
+                    <span className="text-red-600 dark:text-red-400"> · {p.atrasado} atrasado</span>
                   )}
                 </span>
               </div>

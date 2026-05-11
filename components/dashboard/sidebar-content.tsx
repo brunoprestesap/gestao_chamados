@@ -80,18 +80,10 @@ export function SidebarContent({
     return groupItems(filtered);
   }, [user?.role]);
 
-  const sidebarClasses = inDrawer
-    ? 'bg-sidebar text-sidebar-foreground'
-    : '';
+  const sidebarClasses = inDrawer ? 'bg-sidebar text-sidebar-foreground' : '';
 
   return (
-    <div
-      className={cn(
-        'flex h-full flex-col',
-        sidebarClasses,
-        inDrawer && 'pt-14',
-      )}
-    >
+    <div className={cn('flex h-full flex-col', sidebarClasses, inDrawer && 'pt-14')}>
       {/* Header */}
       <div
         className={cn(
@@ -176,9 +168,7 @@ export function SidebarContent({
                       className={cn(
                         'group/item flex items-center rounded-lg py-2.5 text-[13px] font-medium transition-all duration-150',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2',
-                        collapsed
-                          ? 'justify-center px-2.5'
-                          : 'gap-3 px-3',
+                        collapsed ? 'justify-center px-2.5' : 'gap-3 px-3',
                         isActive
                           ? 'bg-sidebar-active font-semibold text-sidebar-active-foreground'
                           : 'text-sidebar-foreground/65 hover:bg-sidebar-hover hover:text-sidebar-hover-foreground',

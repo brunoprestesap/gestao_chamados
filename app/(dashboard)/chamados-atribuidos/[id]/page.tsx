@@ -178,7 +178,8 @@ export default function ChamadoAtribuidoDetailPage({
         <div>
           <h2 className="text-xl font-bold tracking-tight">Chamado não encontrado</h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-            O chamado que você está tentando acessar não existe ou você não tem permissão para vê-lo.
+            O chamado que você está tentando acessar não existe ou você não tem permissão para
+            vê-lo.
           </p>
         </div>
         <Button
@@ -202,7 +203,7 @@ export default function ChamadoAtribuidoDetailPage({
   const hasActions = canRegisterExecution || canPause || canResume;
 
   const renderActions = (isMobile: boolean = false) => (
-    <div className={cn("flex gap-3", isMobile ? "flex-col w-full" : "flex-col w-full")}>
+    <div className={cn('flex gap-3', isMobile ? 'flex-col w-full' : 'flex-col w-full')}>
       {canRegisterExecution && (
         <Button
           onClick={() => setExecutionDialogOpen(true)}
@@ -249,9 +250,9 @@ export default function ChamadoAtribuidoDetailPage({
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => router.back()}
             className="mt-1 shrink-0 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-400"
           >
@@ -265,17 +266,15 @@ export default function ChamadoAtribuidoDetailPage({
               <Badge
                 variant="outline"
                 className={cn(
-                  "rounded-full px-3 py-1 border text-xs font-bold uppercase tracking-wider shadow-sm",
-                  STATUS_BADGE[chamado.status]
+                  'rounded-full px-3 py-1 border text-xs font-bold uppercase tracking-wider shadow-sm',
+                  STATUS_BADGE[chamado.status],
                 )}
               >
                 <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
                 {CHAMADO_STATUS_LABELS[chamado.status]}
               </Badge>
             </div>
-            <p className="text-base font-medium text-muted-foreground">
-              {chamado.titulo}
-            </p>
+            <p className="text-base font-medium text-muted-foreground">{chamado.titulo}</p>
           </div>
         </div>
       </div>
@@ -284,7 +283,6 @@ export default function ChamadoAtribuidoDetailPage({
       <div className="grid gap-6 lg:grid-cols-12 items-start">
         {/* Left Column (Content) */}
         <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-          
           {/* Detalhes Principais */}
           <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-blue-500 opacity-80" />
@@ -309,8 +307,12 @@ export default function ChamadoAtribuidoDetailPage({
                     <Briefcase className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Tipo de Serviço</p>
-                    <p className="text-sm font-semibold truncate" title={chamado.tipoServico}>{chamado.tipoServico}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+                      Tipo de Serviço
+                    </p>
+                    <p className="text-sm font-semibold truncate" title={chamado.tipoServico}>
+                      {chamado.tipoServico}
+                    </p>
                   </div>
                 </div>
 
@@ -319,8 +321,12 @@ export default function ChamadoAtribuidoDetailPage({
                     <AlertTriangle className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Urgência</p>
-                    <p className="text-sm font-semibold truncate" title={chamado.grauUrgencia}>{chamado.grauUrgencia}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+                      Urgência
+                    </p>
+                    <p className="text-sm font-semibold truncate" title={chamado.grauUrgencia}>
+                      {chamado.grauUrgencia}
+                    </p>
                   </div>
                 </div>
 
@@ -329,8 +335,12 @@ export default function ChamadoAtribuidoDetailPage({
                     <MapPin className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Local Exato</p>
-                    <p className="text-sm font-semibold truncate" title={chamado.localExato}>{chamado.localExato}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+                      Local Exato
+                    </p>
+                    <p className="text-sm font-semibold truncate" title={chamado.localExato}>
+                      {chamado.localExato}
+                    </p>
                   </div>
                 </div>
 
@@ -339,8 +349,15 @@ export default function ChamadoAtribuidoDetailPage({
                     <FileText className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Natureza</p>
-                    <p className="text-sm font-semibold truncate" title={chamado.naturezaAtendimento}>{chamado.naturezaAtendimento}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+                      Natureza
+                    </p>
+                    <p
+                      className="text-sm font-semibold truncate"
+                      title={chamado.naturezaAtendimento}
+                    >
+                      {chamado.naturezaAtendimento}
+                    </p>
                   </div>
                 </div>
 
@@ -350,8 +367,12 @@ export default function ChamadoAtribuidoDetailPage({
                       <Phone className="h-4.5 w-4.5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">Contato</p>
-                      <p className="text-sm font-semibold truncate" title={chamado.telefoneContato}>{chamado.telefoneContato}</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+                        Contato
+                      </p>
+                      <p className="text-sm font-semibold truncate" title={chamado.telefoneContato}>
+                        {chamado.telefoneContato}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -401,7 +422,9 @@ export default function ChamadoAtribuidoDetailPage({
           <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-sky-500 opacity-80" />
             <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-bold tracking-tight">Histórico do Chamado</CardTitle>
+              <CardTitle className="text-lg font-bold tracking-tight">
+                Histórico do Chamado
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <HistoryTimeline chamadoId={chamado._id} refreshTrigger={historyRefreshTrigger} />
@@ -436,11 +459,11 @@ export default function ChamadoAtribuidoDetailPage({
             <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-80" />
               <CardHeader>
-                <CardTitle className="text-base font-bold tracking-tight">Ações Disponíveis</CardTitle>
+                <CardTitle className="text-base font-bold tracking-tight">
+                  Ações Disponíveis
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                {renderActions(false)}
-              </CardContent>
+              <CardContent>{renderActions(false)}</CardContent>
             </Card>
           </div>
         )}
@@ -449,9 +472,7 @@ export default function ChamadoAtribuidoDetailPage({
       {/* Mobile Sticky Actions Bar */}
       {hasActions && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/50 bg-background/80 backdrop-blur-xl p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] lg:hidden">
-          <div className="mx-auto max-w-md">
-            {renderActions(true)}
-          </div>
+          <div className="mx-auto max-w-md">{renderActions(true)}</div>
         </div>
       )}
 

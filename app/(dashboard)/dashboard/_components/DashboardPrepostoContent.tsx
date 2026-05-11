@@ -62,10 +62,7 @@ function MetricCard({
               {title}
             </p>
             <p
-              className={cn(
-                'mt-2 text-2xl font-bold tabular-nums tracking-tight',
-                valueClassName,
-              )}
+              className={cn('mt-2 text-2xl font-bold tabular-nums tracking-tight', valueClassName)}
             >
               {value}
             </p>
@@ -188,8 +185,12 @@ export function DashboardPrepostoContent({ data }: Props) {
               ? 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400'
               : 'bg-muted/50 text-muted-foreground'
           }
-          accentClassName={data.sobrecargaTecnicos > 0 ? 'via-red-400/60' : 'via-muted-foreground/20'}
-          valueClassName={data.sobrecargaTecnicos > 0 ? 'text-red-700 dark:text-red-300' : undefined}
+          accentClassName={
+            data.sobrecargaTecnicos > 0 ? 'via-red-400/60' : 'via-muted-foreground/20'
+          }
+          valueClassName={
+            data.sobrecargaTecnicos > 0 ? 'text-red-700 dark:text-red-300' : undefined
+          }
           alertIcon={
             data.sobrecargaTecnicos > 0
               ? ({ className }) => <AlertCircle className={cn(className, 'text-red-500')} />
@@ -223,9 +224,7 @@ export function DashboardPrepostoContent({ data }: Props) {
                 <Users className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Atendimentos por tecnico
-                </h3>
+                <h3 className="text-sm font-semibold text-foreground">Atendimentos por tecnico</h3>
                 <p className="text-[11px] text-muted-foreground">
                   Chamados concluidos ou encerrados
                 </p>

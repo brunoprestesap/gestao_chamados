@@ -265,9 +265,7 @@ describe('pauseTicketAction', () => {
 
     it('deve retornar erro quando chamado já está pausado (aguardando_terceiros)', async () => {
       // Arrange
-      mockChamadoFindById.mockResolvedValue(
-        makeChamadoDoc({ status: 'aguardando_terceiros' }),
-      );
+      mockChamadoFindById.mockResolvedValue(makeChamadoDoc({ status: 'aguardando_terceiros' }));
 
       // Act
       const result = await pauseTicketAction({
@@ -302,9 +300,7 @@ describe('pauseTicketAction', () => {
 
     it('deve retornar erro quando assignedToUserId é null (Técnico)', async () => {
       // Arrange
-      mockChamadoFindById.mockResolvedValue(
-        makeChamadoDoc({ assignedToUserId: null }),
-      );
+      mockChamadoFindById.mockResolvedValue(makeChamadoDoc({ assignedToUserId: null }));
 
       // Act
       const result = await pauseTicketAction({
@@ -342,7 +338,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_solicitante', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_solicitante',
+        details: 'test details',
+      });
 
       // Assert
       const updateCall = mockChamadoUpdateOne.mock.calls[0];
@@ -354,7 +354,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_fornecedor', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_fornecedor',
+        details: 'test details',
+      });
 
       // Assert
       const updateCall = mockChamadoUpdateOne.mock.calls[0];
@@ -366,7 +370,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_peca', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_peca',
+        details: 'test details',
+      });
 
       // Assert
       const updateCall = mockChamadoUpdateOne.mock.calls[0];
@@ -378,7 +386,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_aprovacao', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_aprovacao',
+        details: 'test details',
+      });
 
       // Assert
       const updateCall = mockChamadoUpdateOne.mock.calls[0];
@@ -390,7 +402,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_acesso', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_acesso',
+        details: 'test details',
+      });
 
       // Assert
       const updateCall = mockChamadoUpdateOne.mock.calls[0];
@@ -420,7 +436,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_solicitante', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_solicitante',
+        details: 'test details',
+      });
 
       // Assert
       const historyCall = mockHistoryCreate.mock.calls[0][0];
@@ -432,7 +452,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_fornecedor', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_fornecedor',
+        details: 'test details',
+      });
 
       // Assert
       const historyCall = mockHistoryCreate.mock.calls[0][0];
@@ -444,7 +468,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_peca', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_peca',
+        details: 'test details',
+      });
 
       // Assert
       const historyCall = mockHistoryCreate.mock.calls[0][0];
@@ -490,7 +518,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_fornecedor', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_fornecedor',
+        details: 'test details',
+      });
 
       // Assert
       expect(mockNotificationCreate).toHaveBeenCalledOnce();
@@ -507,7 +539,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_fornecedor', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_fornecedor',
+        details: 'test details',
+      });
 
       // Assert
       expect(mockNotificationInsertMany).toHaveBeenCalledOnce();
@@ -524,7 +560,11 @@ describe('pauseTicketAction', () => {
       mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
       // Act
-      await pauseTicketAction({ ticketId: VALID_ID, reason: 'aguardando_fornecedor', details: 'test details' });
+      await pauseTicketAction({
+        ticketId: VALID_ID,
+        reason: 'aguardando_fornecedor',
+        details: 'test details',
+      });
 
       // Assert
       expect(mockNotificationInsertMany).not.toHaveBeenCalled();
@@ -568,7 +608,11 @@ describe('pauseTicketAction', () => {
   describe('validação Zod', () => {
     it('deve retornar erro quando ticketId está vazio', async () => {
       // Act
-      const result = await pauseTicketAction({ ticketId: '', reason: 'aguardando_fornecedor', details: 'test details' });
+      const result = await pauseTicketAction({
+        ticketId: '',
+        reason: 'aguardando_fornecedor',
+        details: 'test details',
+      });
 
       // Assert
       expect(result.ok).toBe(false);

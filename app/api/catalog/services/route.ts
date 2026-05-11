@@ -11,7 +11,7 @@ import {
   extractSequential,
   getCodePrefixFromSubtypeName,
 } from '@/lib/service-code';
-import { type ServiceCatalog,ServiceCatalogModel } from '@/models/ServiceCatalog';
+import { type ServiceCatalog, ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
 import { ServiceListQuerySchema } from '@/shared/catalog/service.schemas';
 
@@ -28,9 +28,7 @@ function populatedPair(
   return null;
 }
 
-function refObjectIdString(
-  ref: Types.ObjectId | PopulatedNameRef | null | undefined,
-): string {
+function refObjectIdString(ref: Types.ObjectId | PopulatedNameRef | null | undefined): string {
   if (ref == null) return '';
   if (typeof ref === 'object' && '_id' in ref) {
     return String((ref as PopulatedNameRef)._id);

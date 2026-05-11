@@ -81,9 +81,8 @@ export async function GET(
         'Content-Type': contentType,
         'Content-Length': String(fileBuffer.length),
         'Cache-Control': 'private, max-age=86400',
-        'Content-Disposition': contentType === 'application/pdf'
-          ? `inline; filename="${decodedFilename}"`
-          : 'inline',
+        'Content-Disposition':
+          contentType === 'application/pdf' ? `inline; filename="${decodedFilename}"` : 'inline',
       },
     });
   } catch (e) {

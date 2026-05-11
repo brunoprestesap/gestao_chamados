@@ -72,9 +72,7 @@ export function SlaCountdown({ remainingMs, slaStatus, isPaused }: Props) {
       >
         {text}
       </span>
-      {isPaused && (
-        <Pause className="h-3.5 w-3.5 text-muted-foreground" aria-label="SLA pausado" />
-      )}
+      {isPaused && <Pause className="h-3.5 w-3.5 text-muted-foreground" aria-label="SLA pausado" />}
     </div>
   );
 }

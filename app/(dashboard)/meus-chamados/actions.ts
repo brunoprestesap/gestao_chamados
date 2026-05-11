@@ -24,7 +24,10 @@ import {
   type SubmitEvaluationInput,
   SubmitEvaluationSchema,
 } from '@/shared/chamados/evaluation.schemas';
-import { NewTicketFormSchema, type NewTicketFormValues } from '@/shared/chamados/new-ticket.schemas';
+import {
+  NewTicketFormSchema,
+  type NewTicketFormValues,
+} from '@/shared/chamados/new-ticket.schemas';
 import {
   type RefuseServiceInput,
   RefuseServiceSchema,
@@ -325,18 +328,14 @@ export async function addCommentAction(
     // Notificar solicitante (se não for o autor e se o comentário for público)
     const solicitanteId = chamado.solicitanteId ? String(chamado.solicitanteId) : null;
     if (finalVisibility === 'publico' && solicitanteId && solicitanteId !== session.userId) {
-      emitPromises.push(
-        emitToRoom(`user:${solicitanteId}`, 'ticket:comment_added', payload),
-      );
+      emitPromises.push(emitToRoom(`user:${solicitanteId}`, 'ticket:comment_added', payload));
       notificationRecipients.push(new Types.ObjectId(solicitanteId));
     }
 
     // Notificar técnico atribuído (se existir e não for o autor)
     const assignedId = chamado.assignedToUserId ? String(chamado.assignedToUserId) : null;
     if (assignedId && assignedId !== session.userId) {
-      emitPromises.push(
-        emitToRoom(`user:${assignedId}`, 'ticket:comment_added', payload),
-      );
+      emitPromises.push(emitToRoom(`user:${assignedId}`, 'ticket:comment_added', payload));
       notificationRecipients.push(new Types.ObjectId(assignedId));
     }
 
@@ -470,17 +469,13 @@ export async function notifyAttachmentAction(
     // Notificar solicitante se não for o autor
     const solicitanteId = chamado.solicitanteId ? String(chamado.solicitanteId) : null;
     if (solicitanteId && solicitanteId !== session.userId) {
-      emitPromises.push(
-        emitToRoom(`user:${solicitanteId}`, 'ticket:attachment_added', payload),
-      );
+      emitPromises.push(emitToRoom(`user:${solicitanteId}`, 'ticket:attachment_added', payload));
     }
 
     // Notificar técnico atribuído se não for o autor
     const assignedId = chamado.assignedToUserId ? String(chamado.assignedToUserId) : null;
     if (assignedId && assignedId !== session.userId) {
-      emitPromises.push(
-        emitToRoom(`user:${assignedId}`, 'ticket:attachment_added', payload),
-      );
+      emitPromises.push(emitToRoom(`user:${assignedId}`, 'ticket:attachment_added', payload));
     }
 
     // Notificar gestores
@@ -553,9 +548,7 @@ export type RefuseServiceResult = { ok: true } | { ok: false; error: string };
  * O chamado volta para "em atendimento" com o mesmo técnico para retrabalho.
  * Apenas chamados encerrados e ainda não avaliados podem ser recusados.
  */
-export async function refuseServiceAction(
-  raw: RefuseServiceInput,
-): Promise<RefuseServiceResult> {
+export async function refuseServiceAction(raw: RefuseServiceInput): Promise<RefuseServiceResult> {
   try {
     const session = await requireSession();
     const parsed = RefuseServiceSchema.safeParse(raw);
@@ -648,9 +641,7 @@ export async function refuseServiceAction(
     // Notificar técnico atribuído
     const assignedId = updated.assignedToUserId ? String(updated.assignedToUserId) : null;
     if (assignedId) {
-      emitPromises.push(
-        emitToRoom(`user:${assignedId}`, 'ticket:service_refused', payload),
-      );
+      emitPromises.push(emitToRoom(`user:${assignedId}`, 'ticket:service_refused', payload));
       notificationRecipients.push(assignedId);
     }
 

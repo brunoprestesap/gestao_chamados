@@ -73,5 +73,4 @@ export type CotacaoDoc = Cotacao & {
 };
 
 export const CotacaoModel: Model<Cotacao> =
-  (mongoose.models.Cotacao as Model<Cotacao>) ??
-  mongoose.model<Cotacao>('Cotacao', CotacaoSchema);
+  (mongoose.models.Cotacao as Model<Cotacao>) ?? mongoose.model<Cotacao>('Cotacao', CotacaoSchema);

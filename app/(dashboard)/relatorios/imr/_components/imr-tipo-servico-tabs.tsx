@@ -1,7 +1,7 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { ImrResultPorTipo,ImrResumoGeral } from '@/lib/imr-service';
+import type { ImrResultPorTipo, ImrResumoGeral } from '@/lib/imr-service';
 
 import {
   SectionAvaliacao,

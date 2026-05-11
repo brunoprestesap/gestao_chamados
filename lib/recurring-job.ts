@@ -60,9 +60,7 @@ export async function processRecurringTickets(): Promise<RecurringJobReport> {
         .lean();
 
       if (!solicitante || !solicitante.isActive) {
-        throw new Error(
-          `Solicitante ${String(template.solicitanteId)} inativo ou inexistente`,
-        );
+        throw new Error(`Solicitante ${String(template.solicitanteId)} inativo ou inexistente`);
       }
 
       const ticketNumber = await generateTicketNumber();

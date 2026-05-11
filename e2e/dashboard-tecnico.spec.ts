@@ -10,7 +10,9 @@ test.describe('Dashboard Técnico', () => {
 
     // Verifica o título do dashboard
     await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible();
-    await expect(page.getByText(/visão geral da sua carga de trabalho e chamados atribuídos/i)).toBeVisible();
+    await expect(
+      page.getByText(/visão geral da sua carga de trabalho e chamados atribuídos/i),
+    ).toBeVisible();
 
     // Verifica os 4 cards de estatísticas (StatCard)
     await expect(page.getByText(/minha carga de trabalho/i).first()).toBeVisible();

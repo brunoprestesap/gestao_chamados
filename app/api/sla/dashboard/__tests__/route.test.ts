@@ -274,13 +274,9 @@ describe('GET /api/sla/dashboard', () => {
     const body = (await getJson(response)) as { items: { remainingMs: number }[] };
 
     // Sem pausa: remainingMs = totalMs - elapsedMs = 28_800_000 - 14_400_000 = 14_400_000
-    const semPausa = body.items.find(
-      (i: { remainingMs: number }) => i.remainingMs === 14_400_000,
-    );
+    const semPausa = body.items.find((i: { remainingMs: number }) => i.remainingMs === 14_400_000);
     // Com 60min de pausa: remainingMs = 28_800_000 - 10_800_000 = 18_000_000
-    const comPausa = body.items.find(
-      (i: { remainingMs: number }) => i.remainingMs === 18_000_000,
-    );
+    const comPausa = body.items.find((i: { remainingMs: number }) => i.remainingMs === 18_000_000);
 
     expect(semPausa).toBeDefined();
     expect(comPausa).toBeDefined();
@@ -304,7 +300,9 @@ describe('GET /api/sla/dashboard', () => {
     vi.mocked(getSlaResolutionStatus).mockReturnValue('no_prazo');
 
     const response = await callGet();
-    const body = (await getJson(response)) as { items: { remainingMs: number; isPaused: boolean }[] };
+    const body = (await getJson(response)) as {
+      items: { remainingMs: number; isPaused: boolean }[];
+    };
     const item = body.items[0];
 
     expect(item.remainingMs).toBe(18_000_000);

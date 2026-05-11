@@ -120,7 +120,9 @@ describe('createRecurringTemplateAction — validação Zod', () => {
   it('should return error when recurrenceType is weekly but dayOfWeek is missing', async () => {
     const { dayOfWeek: _, ...input } = validCreateInput();
     void _;
-    const result = await createRecurringTemplateAction(input as Parameters<typeof createRecurringTemplateAction>[0]);
+    const result = await createRecurringTemplateAction(
+      input as Parameters<typeof createRecurringTemplateAction>[0],
+    );
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBeTruthy();

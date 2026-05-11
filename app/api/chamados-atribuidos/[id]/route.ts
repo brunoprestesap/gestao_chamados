@@ -63,7 +63,9 @@ function normalizeChamado(
     assignedToUserId: c.assignedToUserId ? String(c.assignedToUserId) : null,
     assignedAt: c.assignedAt ?? null,
     concludedAt: c.concludedAt ?? null,
-    slaPausedAt: c.slaPausedAt ? new Date(c.slaPausedAt as string | number | Date).toISOString() : null,
+    slaPausedAt: c.slaPausedAt
+      ? new Date(c.slaPausedAt as string | number | Date).toISOString()
+      : null,
     pauseReason: (c.pauseReason as string) ?? null,
     pauseDetails: (c.pauseDetails as string) ?? null,
     materialObservations: normalizeMaterialObservations(c.materialObservations),

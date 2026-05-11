@@ -137,25 +137,15 @@ export function SlaTicketTable({ items }: { items: SlaDashboardItem[] }) {
           </thead>
           <tbody className="divide-y divide-border/30">
             {filtered.map((item) => (
-              <tr
-                key={item._id}
-                className="transition-colors hover:bg-accent/40"
-              >
+              <tr key={item._id} className="transition-colors hover:bg-accent/40">
                 <td className="px-5 py-3">
-                  <span className="text-sm font-semibold text-primary">
-                    {item.ticket_number}
-                  </span>
-                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                    {item.titulo}
-                  </p>
+                  <span className="text-sm font-semibold text-primary">{item.ticket_number}</span>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.titulo}</p>
                 </td>
                 <td className="px-3 py-3">
                   <Badge
                     variant="outline"
-                    className={cn(
-                      'text-[10px]',
-                      STATUS_COLORS[item.status] ?? '',
-                    )}
+                    className={cn('text-[10px]', STATUS_COLORS[item.status] ?? '')}
                   >
                     {STATUS_LABELS[item.status] ?? item.status}
                   </Badge>
@@ -163,10 +153,7 @@ export function SlaTicketTable({ items }: { items: SlaDashboardItem[] }) {
                 <td className="px-3 py-3">
                   <Badge
                     variant="outline"
-                    className={cn(
-                      'text-[10px]',
-                      PRIORITY_COLORS[item.finalPriority ?? ''] ?? '',
-                    )}
+                    className={cn('text-[10px]', PRIORITY_COLORS[item.finalPriority ?? ''] ?? '')}
                   >
                     {item.finalPriority ?? '-'}
                   </Badge>
@@ -183,10 +170,7 @@ export function SlaTicketTable({ items }: { items: SlaDashboardItem[] }) {
                   />
                 </td>
                 <td className="hidden w-28 px-3 py-3 md:table-cell">
-                  <SlaProgressBar
-                    percentUsed={item.percentUsed}
-                    slaStatus={item.slaStatus}
-                  />
+                  <SlaProgressBar percentUsed={item.percentUsed} slaStatus={item.slaStatus} />
                 </td>
                 <td className="hidden px-3 py-3 lg:table-cell">
                   <span className="text-xs text-muted-foreground">

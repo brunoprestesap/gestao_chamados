@@ -23,9 +23,7 @@ interface StatusMultiSelectProps {
 export function StatusMultiSelect({ value, onValueChange, className }: StatusMultiSelectProps) {
   const toggle = useCallback(
     (status: ChamadoStatus) => {
-      const next = value.includes(status)
-        ? value.filter((s) => s !== status)
-        : [...value, status];
+      const next = value.includes(status) ? value.filter((s) => s !== status) : [...value, status];
       // If all selected, reset to empty (= all)
       onValueChange(next.length === CHAMADO_STATUSES.length ? [] : next);
     },
@@ -97,10 +95,7 @@ export function StatusMultiSelect({ value, onValueChange, className }: StatusMul
               key={s}
               className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors hover:bg-accent"
             >
-              <Checkbox
-                checked={value.includes(s)}
-                onCheckedChange={() => toggle(s)}
-              />
+              <Checkbox checked={value.includes(s)} onCheckedChange={() => toggle(s)} />
               {CHAMADO_STATUS_LABELS[s]}
             </label>
           ))}

@@ -39,9 +39,7 @@ const MATERIAL_TEXT = 'Necessário 5 lâmpadas fluorescentes T8 de 32W para corr
  * Cria um chamado como solicitante, classifica como preposto e atribui ao técnico.
  * Retorna o título único do chamado criado.
  */
-async function criarChamadoEmAtendimento(
-  page: Parameters<typeof login>[0],
-): Promise<string> {
+async function criarChamadoEmAtendimento(page: Parameters<typeof login>[0]): Promise<string> {
   const titulo = `E2E Material ${Date.now()}`;
 
   // 1. Solicitante abre chamado

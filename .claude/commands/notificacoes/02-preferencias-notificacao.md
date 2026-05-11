@@ -9,17 +9,20 @@ Permitir que cada usuário configure quais eventos deseja receber e por qual can
 ## Contexto do Projeto
 
 ### Notificações atuais
+
 - **11 tipos** em `models/Notification.ts` (linhas 3-15)
 - **Canais**: in-app (NotificationModel + Socket.IO) — e-mail será adicionado no command 01
 - **Sem preferências**: User model (`models/user.model.ts`) não tem campo de preferências
 - **Roles**: Solicitante, Técnico, Preposto, Admin — cada role recebe subset de eventos
 
 ### Páginas de configuração existentes
+
 - `app/(dashboard)/configuracoes/expediente/page.tsx` — config de horário de expediente
 - `app/(dashboard)/configuracoes/feriados/page.tsx` — config de feriados
 - Pattern: Server Component com form client, Server Actions para salvar
 
 ### Eventos por role (comportamento atual implícito)
+
 - **Solicitante**: ticket:closed, ticket:rejected, ticket:execution_registered, ticket:comment_added, ticket:attachment_added
 - **Técnico**: ticket:assigned, ticket:comment_added, ticket:attachment_added
 - **Preposto/Admin**: ticket:new, ticket:execution_registered, ticket:closed, sla:warning, sla:breach, ticket:comment_added, ticket:attachment_added
@@ -83,6 +86,7 @@ Permitir que cada usuário configure quais eventos deseja receber e por qual can
 ### Integração nos pontos de criação
 
 5. Em cada Server Action que cria notificações, antes de criar NotificationModel e enviar email:
+
    ```typescript
    const shouldInApp = await shouldDeliver(userId, 'ticket:assigned', 'inApp');
    if (shouldInApp) {
@@ -145,10 +149,32 @@ Permitir que cada usuário configure quais eventos deseja receber e por qual can
 9. Crie `shared/notifications/notification-type-by-role.ts`:
    ```typescript
    export const NOTIFICATION_TYPES_BY_ROLE: Record<string, string[]> = {
-     Solicitante: ['ticket:closed', 'ticket:rejected', 'ticket:execution_registered', 'ticket:comment_added', 'ticket:attachment_added'],
-     'Técnico': ['ticket:assigned', 'ticket:comment_added', 'ticket:attachment_added'],
-     Preposto: ['ticket:new', 'ticket:execution_registered', 'ticket:closed', 'ticket:comment_added', 'ticket:attachment_added', 'sla:warning', 'sla:breach'],
-     Admin: ['ticket:new', 'ticket:execution_registered', 'ticket:closed', 'ticket:comment_added', 'ticket:attachment_added', 'sla:warning', 'sla:breach'],
+     Solicitante: [
+       'ticket:closed',
+       'ticket:rejected',
+       'ticket:execution_registered',
+       'ticket:comment_added',
+       'ticket:attachment_added',
+     ],
+     Técnico: ['ticket:assigned', 'ticket:comment_added', 'ticket:attachment_added'],
+     Preposto: [
+       'ticket:new',
+       'ticket:execution_registered',
+       'ticket:closed',
+       'ticket:comment_added',
+       'ticket:attachment_added',
+       'sla:warning',
+       'sla:breach',
+     ],
+     Admin: [
+       'ticket:new',
+       'ticket:execution_registered',
+       'ticket:closed',
+       'ticket:comment_added',
+       'ticket:attachment_added',
+       'sla:warning',
+       'sla:breach',
+     ],
    };
    ```
 

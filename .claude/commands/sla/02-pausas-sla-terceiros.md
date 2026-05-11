@@ -9,12 +9,14 @@ Permitir que técnicos e gestores pausem o SLA quando o chamado depende de terce
 ## Contexto do Projeto
 
 ### Mecanismo de pausa existente
+
 - **Status `aguardando_solicitante`**: `shared/chamados/chamado.constants.ts` — pausa SLA quando técnico aguarda resposta do solicitante
 - **pauseForRequesterAction()**: `app/(dashboard)/chamados-atribuidos/actions.ts` — muda status para aguardando_solicitante, seta `slaPausedAt`
 - **resumeFromRequesterAction()**: `app/(dashboard)/chamados-atribuidos/actions.ts` — calcula pausedMinutes, ajusta `sla.resolutionDueAt`, incrementa `totalPausedMinutes` e `sla.pausedMinutes`
 - **Campos no Chamado**: `slaPausedAt` (Date), `totalPausedMinutes` (Number), `sla.pausedMinutes` (Number)
 
 ### Limitação atual
+
 - Apenas 1 motivo de pausa (aguardando solicitante)
 - Não distingue se a pausa é por dependência externa, falta de material, etc.
 - Relatórios não conseguem categorizar causas de atraso
@@ -24,6 +26,7 @@ Permitir que técnicos e gestores pausem o SLA quando o chamado depende de terce
 ### Constants e Enums
 
 1. Crie `shared/chamados/pause-reason.constants.ts`:
+
    ```typescript
    export const PAUSE_REASONS = [
      'aguardando_solicitante',

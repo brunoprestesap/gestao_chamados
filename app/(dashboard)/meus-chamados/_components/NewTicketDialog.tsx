@@ -22,7 +22,10 @@ import {
   TemplateManager,
   TemplateSelector,
 } from '@/app/(dashboard)/meus-chamados/_components/TemplateSelector';
-import { createTicketAction, notifyAttachmentAction } from '@/app/(dashboard)/meus-chamados/actions';
+import {
+  createTicketAction,
+  notifyAttachmentAction,
+} from '@/app/(dashboard)/meus-chamados/actions';
 import { incrementTemplateUsageAction } from '@/app/(dashboard)/meus-chamados/template-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -350,7 +353,9 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
         }
         if (uploaded.length < totalFiles) {
           // Some files failed — user can add them on the detail page
-          console.warn(`[NewTicketDialog] ${totalFiles - uploaded.length} anexos falharam no upload`);
+          console.warn(
+            `[NewTicketDialog] ${totalFiles - uploaded.length} anexos falharam no upload`,
+          );
         }
       });
       setPendingFiles([]);
@@ -382,10 +387,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
             )}
           >
             {/* Template selector */}
-            <TemplateSelector
-              onSelect={handleTemplateSelect}
-              refreshKey={templateRefreshKey}
-            />
+            <TemplateSelector onSelect={handleTemplateSelect} refreshKey={templateRefreshKey} />
 
             <div className={FORM_GRID_CLASS}>
               <FormField
@@ -490,10 +492,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                   render={({ field }) => (
                     <FormItem className={FORM_ITEM_MIN_CLASS}>
                       <FormLabel>Subtipo *</FormLabel>
-                      <Select
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
-                      >
+                      <Select value={field.value || undefined} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger className={SELECT_TRIGGER_FULL_CLASS}>
                             <SelectValue placeholder="Selecione o subtipo" />
@@ -518,10 +517,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                   render={({ field }) => (
                     <FormItem className={FORM_ITEM_MIN_CLASS}>
                       <FormLabel>Serviço *</FormLabel>
-                      <Select
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
-                      >
+                      <Select value={field.value || undefined} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger className={SELECT_TRIGGER_FULL_CLASS}>
                             <SelectValue placeholder="Selecione o serviço" />
@@ -729,8 +725,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
             {/* Anexos */}
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                Anexos{' '}
-                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                Anexos <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
               </p>
               <FileUpload
                 mode="deferred"

@@ -17,7 +17,10 @@ export function BreachTimelineChart({ data }: { data: BreachTimeline[] }) {
 
   const innerW = CHART_WIDTH - PADDING.left - PADDING.right;
   const innerH = CHART_HEIGHT - PADDING.top - PADDING.bottom;
-  const maxVal = Math.max(...data.map((d) => Math.max(d.responseBreaches, d.resolutionBreaches)), 1);
+  const maxVal = Math.max(
+    ...data.map((d) => Math.max(d.responseBreaches, d.resolutionBreaches)),
+    1,
+  );
 
   const xStep = data.length > 1 ? innerW / (data.length - 1) : innerW / 2;
 
@@ -45,12 +48,8 @@ export function BreachTimelineChart({ data }: { data: BreachTimeline[] }) {
   const resolutionArea = toArea(data.map((d) => d.resolutionBreaches));
 
   // Tendência: compara último mês com penúltimo
-  const trend =
-    data.length >= 2
-      ? data[data.length - 1].total - data[data.length - 2].total
-      : 0;
-  const trendLabel =
-    trend > 0 ? 'Piorando' : trend < 0 ? 'Melhorando' : 'Estável';
+  const trend = data.length >= 2 ? data[data.length - 1].total - data[data.length - 2].total : 0;
+  const trendLabel = trend > 0 ? 'Piorando' : trend < 0 ? 'Melhorando' : 'Estável';
   const trendColor =
     trend > 0
       ? 'text-red-600 dark:text-red-400'
@@ -63,9 +62,7 @@ export function BreachTimelineChart({ data }: { data: BreachTimeline[] }) {
       <div className="flex items-center justify-between">
         <p className="text-[13px] font-medium text-muted-foreground">Evolução mensal</p>
         {data.length >= 2 && (
-          <span className={`text-xs font-medium ${trendColor}`}>
-            Tendência: {trendLabel}
-          </span>
+          <span className={`text-xs font-medium ${trendColor}`}>Tendência: {trendLabel}</span>
         )}
       </div>
 

@@ -151,7 +151,8 @@ export async function classificarChamadoAction(
       `Natureza aprovada: ${naturezaAtendimento}, Prioridade: ${finalPriority}`,
       'Status alterado para Validado.',
     ];
-    if (catalogUpdates.catalogServiceId) obsParts.push('Serviço catalogado definido na classificação.');
+    if (catalogUpdates.catalogServiceId)
+      obsParts.push('Serviço catalogado definido na classificação.');
     if (classificationNotes) obsParts.push(`Observações: ${classificationNotes}`);
     const observacoes = obsParts.join(' ');
     await ChamadoHistoryModel.create({
@@ -314,7 +315,11 @@ export async function closeTicketAction(raw: CloseTicketInput): Promise<CloseTic
       data: ticketClosedPayload,
       readAt: null,
     });
-    sendNotificationEmail(String(updated.solicitanteId), 'ticket:closed', ticketClosedPayload).catch(() => {});
+    sendNotificationEmail(
+      String(updated.solicitanteId),
+      'ticket:closed',
+      ticketClosedPayload,
+    ).catch(() => {});
     await emitToRoom(`user:${String(updated.solicitanteId)}`, 'ticket:closed', ticketClosedPayload);
 
     revalidatePath('/gestao');
@@ -335,9 +340,7 @@ export async function closeTicketAction(raw: CloseTicketInput): Promise<CloseTic
  * O chamado volta para "em atendimento" mantendo o técnico atribuído.
  * Avaliação existente é preservada como histórico imutável.
  */
-export async function reopenTicketAction(
-  raw: ReopenTicketInput,
-): Promise<ReopenTicketResult> {
+export async function reopenTicketAction(raw: ReopenTicketInput): Promise<ReopenTicketResult> {
   try {
     const session = await requireManager();
 
@@ -713,7 +716,9 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       data: ticketAssignedPayload,
       readAt: null,
     });
-    sendNotificationEmail(technicianIdStr, 'ticket:assigned', ticketAssignedPayload).catch(() => {});
+    sendNotificationEmail(technicianIdStr, 'ticket:assigned', ticketAssignedPayload).catch(
+      () => {},
+    );
     await emitToRoom(`user:${technicianIdStr}`, 'ticket:assigned', ticketAssignedPayload);
 
     revalidatePath('/gestao');
@@ -898,9 +903,7 @@ export async function reassignTicketAction(
  * Recusa um chamado na triagem (Admin ou Preposto). Pré-condição: status "aberto".
  * Exige justificativa obrigatória (min 10 chars) e aceita orientação opcional.
  */
-export async function rejectTicketAction(
-  raw: RejectTicketInput,
-): Promise<RejectTicketResult> {
+export async function rejectTicketAction(raw: RejectTicketInput): Promise<RejectTicketResult> {
   try {
     const session = await requireManager();
     const parsed = RejectTicketSchema.safeParse(raw);

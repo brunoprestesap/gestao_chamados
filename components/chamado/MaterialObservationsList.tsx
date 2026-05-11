@@ -32,8 +32,8 @@ export function MaterialObservationsList({ observations }: Props) {
                 {obs.description}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                <span className="font-medium">{obs.createdByName || 'Técnico'}</span>{' '}
-                &middot; {formatDateTime(obs.createdAt, tzOpt)}
+                <span className="font-medium">{obs.createdByName || 'Técnico'}</span> &middot;{' '}
+                {formatDateTime(obs.createdAt, tzOpt)}
               </p>
             </div>
           </div>

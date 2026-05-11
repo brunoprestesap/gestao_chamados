@@ -54,11 +54,7 @@ function getSlaDisplayStatus(chamado: ChamadoDTO): SlaStatusDisplay | null {
 
   // Indicador visual de pausa para chamados ativos (sem breach prévio nem resolução).
   // resolutionDueAt é imutável durante a pausa — quem desconta o tempo é a UI.
-  if (
-    chamado.slaPausedAt &&
-    resolvedAt == null &&
-    resolutionBreachedAt == null
-  ) {
+  if (chamado.slaPausedAt && resolvedAt == null && resolutionBreachedAt == null) {
     return 'pausado';
   }
 
@@ -377,7 +373,13 @@ export function ChamadoCard({
     if (s?.resolutionDueAt)
       parts.push(`Prazo solução: ${formatDateTime(s.resolutionDueAt, tzOpt)}`);
     return parts.join(' · ');
-  }, [chamado.sla, chamado.finalPriority, chamado.attendanceNature, chamado.naturezaAtendimento, tzOpt]);
+  }, [
+    chamado.sla,
+    chamado.finalPriority,
+    chamado.attendanceNature,
+    chamado.naturezaAtendimento,
+    tzOpt,
+  ]);
 
   const handleCardClick = useCallback(() => {
     if (hideDetailLink) {
@@ -790,22 +792,24 @@ export function ChamadoCard({
                       Reatribuir
                     </Button>
                   )}
-                  {onRegistrarExecucao && chamado.status === 'em atendimento' && chamado.assignedToUserId && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      title="Registrar Execução"
-                      className={cn(
-                        'bg-linear-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/20 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30',
-                        compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs',
-                      )}
-                      onClick={handleRegistrarExecucaoClick}
-                    >
-                      <Wrench className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
-                      Registrar Execução
-                    </Button>
-                  )}
+                  {onRegistrarExecucao &&
+                    chamado.status === 'em atendimento' &&
+                    chamado.assignedToUserId && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="default"
+                        title="Registrar Execução"
+                        className={cn(
+                          'bg-linear-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/20 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30',
+                          compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs',
+                        )}
+                        onClick={handleRegistrarExecucaoClick}
+                      >
+                        <Wrench className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+                        Registrar Execução
+                      </Button>
+                    )}
                 </div>
               )}
             </div>

@@ -230,7 +230,10 @@ describe('AddAttachmentSchema', () => {
   });
 
   it('deve rejeitar url que não começa com /api/uploads/', () => {
-    const result = AddAttachmentSchema.safeParse({ ...validInput, url: '/public/uploads/foto.jpg' });
+    const result = AddAttachmentSchema.safeParse({
+      ...validInput,
+      url: '/public/uploads/foto.jpg',
+    });
     expect(result.success).toBe(false);
   });
 

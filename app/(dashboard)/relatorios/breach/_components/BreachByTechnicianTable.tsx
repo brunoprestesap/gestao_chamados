@@ -62,7 +62,12 @@ export function BreachByTechnicianTable({ data }: { data: BreachByTechnician[] }
               <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
                 {formatDelay(t.avgDelayMinutes)}
               </td>
-              <td className={cn('px-3 py-3 text-right font-semibold tabular-nums', rateColor(t.breachRate))}>
+              <td
+                className={cn(
+                  'px-3 py-3 text-right font-semibold tabular-nums',
+                  rateColor(t.breachRate),
+                )}
+              >
                 {t.breachRate}%
               </td>
               <td className="hidden px-3 py-3 md:table-cell">

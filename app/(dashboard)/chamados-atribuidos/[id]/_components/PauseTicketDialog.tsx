@@ -188,11 +188,7 @@ export function PauseTicketDialog({
                   <FormLabel>
                     Motivo da Pausa <span className="text-destructive">*</span>
                   </FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={submitting}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value} disabled={submitting}>
                     <FormControl>
                       <SelectTrigger className="rounded-xl transition-all focus:ring-orange-500/30">
                         <SelectValue placeholder="Selecione o motivo..." />
@@ -220,9 +216,9 @@ export function PauseTicketDialog({
                 <div>
                   <p className="font-medium">Pausa não permitida.</p>
                   <p className="mt-1">
-                    A peça/material é de responsabilidade da contratada. Providencie o item e
-                    use &ldquo;Observação de material&rdquo; para registrar o andamento, sem
-                    pausar o SLA.
+                    A peça/material é de responsabilidade da contratada. Providencie o item e use
+                    &ldquo;Observação de material&rdquo; para registrar o andamento, sem pausar o
+                    SLA.
                   </p>
                 </div>
               </div>
@@ -230,8 +226,8 @@ export function PauseTicketDialog({
 
             {isQuoteReason && (
               <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-3 text-sm text-indigo-900 dark:border-indigo-800/50 dark:bg-indigo-950/30 dark:text-indigo-100">
-                Para este motivo, o SLA só pausa após o envio da cotação ao gestor. No próximo
-                passo você informa o valor e a descrição do material para aprovação.
+                Para este motivo, o SLA só pausa após o envio da cotação ao gestor. No próximo passo
+                você informa o valor e a descrição do material para aprovação.
               </div>
             )}
 
@@ -242,9 +238,7 @@ export function PauseTicketDialog({
                 <FormItem>
                   <FormLabel>
                     Detalhes
-                    {watchedReason === 'outro' && (
-                      <span className="text-destructive"> *</span>
-                    )}
+                    {watchedReason === 'outro' && <span className="text-destructive"> *</span>}
                   </FormLabel>
                   <FormControl>
                     <Textarea

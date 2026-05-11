@@ -9,9 +9,7 @@ test.describe('Restrição de acesso por role', () => {
     await expect(page).toHaveURL(/\/dashboard/);
   });
 
-  test('Solicitante não acessa /relatorios/imr — redireciona para /dashboard', async ({
-    page,
-  }) => {
+  test('Solicitante não acessa /relatorios/imr — redireciona para /dashboard', async ({ page }) => {
     await login(page, 'solicitante');
     await page.goto('/relatorios/imr');
     await expect(page).toHaveURL(/\/dashboard/);

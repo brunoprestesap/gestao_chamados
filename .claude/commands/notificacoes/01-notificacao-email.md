@@ -9,21 +9,25 @@ Enviar notificações por e-mail quando o usuário não está online (socket des
 ## Contexto do Projeto
 
 ### Notificações atuais
+
 - **11 tipos** definidos em `models/Notification.ts` (linhas 3-15): ticket:assigned, ticket:new, ticket:execution_registered, ticket:closed, ticket:comment_added, ticket:attachment_added, ticket:paused, ticket:resumed, ticket:rejected, sla:warning, sla:breach
 - **Criação**: Server Actions criam `NotificationModel` + `emitToRoom()` (fire-and-forget)
 - **Persistência**: NotificationModel salva em MongoDB sempre (fallback offline parcial — lido ao abrir app)
 - **UI**: NotificationsBell em `components/realtime/NotificationsBell.tsx` — popover com 20 últimas, mark as read
 
 ### User model
+
 - **email**: `models/user.model.ts` (linha 13) — campo existe, optional, lowercase, trimmed — **não usado para notificações hoje**
 - **Sem preferências**: não há campo de preferências de notificação no User model
 
 ### Socket server
+
 - **Rooms**: `user:<userId>` (individual) e `managers` (Preposto + Admin)
 - **Auth**: `socket-server/src/auth.ts` — verifyHandshakeSession() via GET /api/session/verify
 - **Conexão**: `components/realtime/RealtimeProvider.tsx` — reconexão automática com 10 tentativas
 
 ### Env vars existentes
+
 - `.env.example`: MONGODB_URI, AUTH_SECRET, SOCKET_INTERNAL_SECRET, SOCKET_EMIT_URL, CRON_SECRET
 - **Sem variáveis SMTP/email**
 
@@ -32,6 +36,7 @@ Enviar notificações por e-mail quando o usuário não está online (socket des
 ### Infraestrutura de E-mail
 
 1. Instale o Nodemailer:
+
    ```bash
    npm install nodemailer
    npm install -D @types/nodemailer
@@ -39,6 +44,7 @@ Enviar notificações por e-mail quando o usuário não está online (socket des
 
 2. Crie `lib/email/transporter.ts`:
    - Configure transporter Nodemailer usando env vars:
+
      ```typescript
      import nodemailer from 'nodemailer';
 
@@ -55,6 +61,7 @@ Enviar notificações por e-mail quando o usuário não está online (socket des
      export const FROM_ADDRESS = process.env.SMTP_FROM ?? 'sigma@ap.trf1.gov.br';
      export { transporter };
      ```
+
    - Adicione ao `.env.example`:
      ```
      SMTP_HOST=smtp.exemplo.com
@@ -115,11 +122,13 @@ Enviar notificações por e-mail quando o usuário não está online (socket des
    - `lib/sla-monitor.ts` — checkSlaEscalations (sla:warning, sla:breach)
 
    Pattern em cada ação, APÓS o NotificationModel.create:
+
    ```typescript
    sendNotificationEmail(userId, 'ticket:assigned', payload).catch(() => {});
    ```
 
    Para notificações enviadas a múltiplos destinatários (managers), itere:
+
    ```typescript
    for (const managerId of managerIds) {
      sendNotificationEmail(managerId, 'ticket:new', payload).catch(() => {});

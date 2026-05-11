@@ -47,12 +47,7 @@ export type DashboardPrepostoData = {
 };
 
 /** Status exibidos no card "Chamados no Sistema" (Admin) */
-const ADMIN_CARD_STATUSES = [
-  'aberto',
-  'em atendimento',
-  'concluído',
-  'encerrado',
-] as const;
+const ADMIN_CARD_STATUSES = ['aberto', 'em atendimento', 'concluído', 'encerrado'] as const;
 
 export type DashboardAdminData = {
   /** Contagens por status para card 1 */

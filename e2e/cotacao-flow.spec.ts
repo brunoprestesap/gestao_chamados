@@ -141,23 +141,17 @@ test.describe.serial('Cotação — Falta de peça contratada bloqueia pausa', (
     await navegarDetalheTecnico(page, tituloChamado);
 
     const dialog = await abrirPauseDialogNaDetalhe(page);
-    await selecionarMotivoPausa(
-      page,
-      dialog,
-      'Falta de Peça (Responsabilidade da Contratada)',
-    );
+    await selecionarMotivoPausa(page, dialog, 'Falta de Peça (Responsabilidade da Contratada)');
 
-    await expect(
-      dialog.getByText(/responsabilidade da contratada/i).first(),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText(/responsabilidade da contratada/i).first()).toBeVisible({
+      timeout: 5000,
+    });
 
     const btnSubmit = dialog.getByRole('button', { name: /pausar atendimento/i });
     await expect(btnSubmit).toBeDisabled();
   });
 
-  test('técnico NÃO vê opção "Aguardando Aprovação do Cliente" no dropdown', async ({
-    page,
-  }) => {
+  test('técnico NÃO vê opção "Aguardando Aprovação do Cliente" no dropdown', async ({ page }) => {
     await navegarDetalheTecnico(page, tituloChamado);
 
     const dialog = await abrirPauseDialogNaDetalhe(page);
@@ -240,9 +234,9 @@ test.describe('Cotação — Fluxo de envio (Preposto) e aprovação (Admin)', (
       await expect(sheet).toBeVisible({ timeout: 5000 });
 
       // Card de cotação visível
-      await expect(
-        sheet.getByText(/cotação aguardando aprovação/i).first(),
-      ).toBeVisible({ timeout: 10000 });
+      await expect(sheet.getByText(/cotação aguardando aprovação/i).first()).toBeVisible({
+        timeout: 10000,
+      });
 
       // Botões Aprovar/Recusar NÃO existem para Preposto (apenas Admin aprova)
       await expect(sheet.getByRole('button', { name: /^aprovar$/i })).toHaveCount(0);
@@ -262,9 +256,9 @@ test.describe('Cotação — Fluxo de envio (Preposto) e aprovação (Admin)', (
       const sheet = page.locator('[data-slot="sheet-content"]');
       await expect(sheet).toBeVisible({ timeout: 5000 });
 
-      await expect(
-        sheet.getByText(/cotação aguardando aprovação/i).first(),
-      ).toBeVisible({ timeout: 10000 });
+      await expect(sheet.getByText(/cotação aguardando aprovação/i).first()).toBeVisible({
+        timeout: 10000,
+      });
       await expect(sheet.getByText(/R\$\s*1\.500,00/)).toBeVisible();
 
       const btnAprovar = sheet.getByRole('button', { name: /^aprovar$/i });
@@ -272,9 +266,9 @@ test.describe('Cotação — Fluxo de envio (Preposto) e aprovação (Admin)', (
       await btnAprovar.click();
 
       // Após aprovação, card ativo desaparece (status do chamado volta a "em atendimento")
-      await expect(
-        sheet.getByText(/cotação aguardando aprovação/i).first(),
-      ).not.toBeVisible({ timeout: 10000 });
+      await expect(sheet.getByText(/cotação aguardando aprovação/i).first()).not.toBeVisible({
+        timeout: 10000,
+      });
     });
   });
 });
