@@ -20,7 +20,8 @@ import { describe, expect, it } from 'vitest';
  * caracteres especiais e espaços, limitando a 200 chars.
  */
 function sanitizeFilename(name: string): string {
-  const base = path.basename(name);
+  const normalized = name.replace(/\\/g, '/');
+  const base = path.posix.basename(normalized);
   return base
     .replace(/\0/g, '')
     .replace(/[/\\:*?"<>|]/g, '')
