@@ -9,7 +9,7 @@ test.describe('Dashboard Técnico', () => {
     await page.waitForLoadState('networkidle');
 
     // Verifica o título do dashboard
-    await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /painel de gestão/i })).toBeVisible();
     await expect(
       page.getByText(/visão geral da sua carga de trabalho e chamados atribuídos/i),
     ).toBeVisible();
