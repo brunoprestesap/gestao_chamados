@@ -437,7 +437,7 @@ export default function GuiaPage() {
           <FeatureCard
             index={4}
             icon={BarChart3}
-            title="Dashboards e relatórios"
+            title="Painéis de Gestão e relatórios"
             description="Acompanhe métricas de desempenho, cumprimento de SLA e indicadores de qualidade (IMR) em painéis visuais."
             color="#ec4899"
           />

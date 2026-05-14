@@ -73,7 +73,7 @@ export function DashboardTecnicoContent({ data }: Props) {
   return (
     <div className="w-full space-y-8">
       <PageHeader
-        title="Dashboard"
+        title="Painel de Gestão"
         subtitle="Visão geral da sua carga de trabalho e chamados atribuídos"
       />
 

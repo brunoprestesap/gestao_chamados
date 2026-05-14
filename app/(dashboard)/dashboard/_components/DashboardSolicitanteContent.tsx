@@ -22,7 +22,7 @@ export function DashboardSolicitanteContent({ data }: Props) {
   const tzOpt = { timeZone: timezone };
   return (
     <div className="space-y-8">
-      <PageHeader title="Dashboard" subtitle="Visao geral dos seus chamados de manutencao" />
+      <PageHeader title="Painel de Gestão" subtitle="Visao geral dos seus chamados de manutencao" />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* 1) Chamados em Andamento */}

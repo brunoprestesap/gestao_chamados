@@ -138,7 +138,7 @@ export function SlaDashboardClient() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Dashboard SLA"
+        title="Painel de Gestão SLA"
         subtitle="Monitoramento em tempo real dos prazos de SLA"
         actions={
           <div className="flex items-center gap-3">
