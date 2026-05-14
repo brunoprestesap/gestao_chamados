@@ -79,7 +79,7 @@ export function DashboardAdminContent({ data }: Props) {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Dashboard"
+        title="Painel de Gestão"
         subtitle="Visao global do sistema: saude operacional, gargalos e qualidade"
       />
 

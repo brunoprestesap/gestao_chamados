@@ -86,7 +86,7 @@ export function DashboardPrepostoContent({ data }: Props) {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Dashboard"
+        title="Painel de Gestão"
         subtitle="Visao operacional e pontos de acao para gestao de chamados"
       />
 

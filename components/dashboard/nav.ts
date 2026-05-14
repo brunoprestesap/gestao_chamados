@@ -40,7 +40,7 @@ export const NAV_GROUP_ORDER: readonly NavItem['group'][] = [
 
 export const NAV_ITEMS: readonly NavItem[] = [
   {
-    label: 'Dashboard',
+    label: 'Painel de Gestão',
     href: '/dashboard',
     icon: LayoutDashboard,
     group: 'Principal',
@@ -73,7 +73,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     allowedRoles: ['Admin', 'Preposto'],
   },
   {
-    label: 'Dashboard SLA',
+    label: 'Painel de Gestão SLA',
     href: '/sla-dashboard',
     icon: Gauge,
     group: 'Gestão',

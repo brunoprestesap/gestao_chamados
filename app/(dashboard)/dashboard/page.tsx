@@ -67,7 +67,7 @@ export default async function DashboardPage() {
   // Fallback para outros perfis
   return (
     <PageEnter>
-      <PageHeader title="Dashboard" subtitle="Visão geral dos chamados de manutenção" />
+      <PageHeader title="Painel de Gestão" subtitle="Visão geral dos chamados de manutenção" />
 
       <Stagger className="grid gap-4 md:grid-cols-4">
         <StaggerItem>
