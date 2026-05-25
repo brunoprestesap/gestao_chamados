@@ -41,7 +41,7 @@ chmod 600 /opt/severino/.env
 No `docker-compose.yml`, serviço `mongodb`, descomentar:
 
 ```yaml
-    command: ['--auth']
+command: ['--auth']
 ```
 
 ## 4. Aplicar e validar
@@ -56,5 +56,6 @@ docker logs severino-next-app-1 --tail 30
 ```
 
 ## Rollback
+
 Se a app não conectar: comentar `command: ['--auth']`, remover a linha
 `MONGODB_URI` adicionada no `.env`, `docker compose up -d`.
