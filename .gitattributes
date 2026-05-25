@@ -1,0 +1,2 @@
+# Scripts shell sempre com LF — evita "$'\r': command not found" no Linux/VPS
+*.sh text eol=lf

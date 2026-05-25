@@ -110,6 +110,14 @@ fi
 # -----------------------------------------------
 # 6. Build e iniciar serviços
 # -----------------------------------------------
+# Garante o diretório de uploads gravável pelo usuário do container
+# (uid 1001 / nextjs). Como é bind mount (./uploads:/app/data/uploads), o
+# dono do host prevalece; sem isto, fs.mkdir falha com EACCES e /api/upload
+# retorna 500. [auditoria 2026-05-25, M3]
+echo "[6/6] Garantindo permissões do diretório de uploads..."
+mkdir -p "$APP_DIR/uploads/chamados"
+chown -R 1001:1001 "$APP_DIR/uploads"
+
 echo "[6/6] Construindo e iniciando containers..."
 docker compose up -d --build
 
