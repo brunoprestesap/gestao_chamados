@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { authConfig } from '@/auth.config';
 import { dbConnect } from '@/lib/db';
 import { authenticateWithLdap, isLdapConfigured, type LdapUserProfile } from '@/lib/ldap';
+import { escapeRegex } from '@/lib/regex';
 import { UnitModel } from '@/models/unit';
 import { UserModel } from '@/models/user.model';
 import type { UserRole } from '@/shared/auth/auth.constants';
@@ -123,7 +124,9 @@ export const { auth, signIn, signOut, handlers } = initAuth({
           const unitId = ldapProfile.department
             ? ((
                 await UnitModel.findOne({
-                  name: { $regex: `^${ldapProfile.department}$`, $options: 'i' },
+                  // Escapa o department do AD: sem isto, metacaracteres de
+                  // regex tornam o padrão inválido e quebram o login.
+                  name: { $regex: `^${escapeRegex(ldapProfile.department)}$`, $options: 'i' },
                   isActive: true,
                 }).lean()
               )?._id ?? null)
