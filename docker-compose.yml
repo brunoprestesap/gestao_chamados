@@ -32,6 +32,9 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-sigma@ap.trf1.gov.br}
     volumes:
+      # Bind mount: o diretório no host DEVE pertencer a 1001:1001 (uid do
+      # usuário nextjs no container), senão /api/upload falha com EACCES.
+      # Garantido pelo deploy.sh. [auditoria 2026-05-25, M3]
       - ./uploads:/app/data/uploads
     depends_on:
       mongodb:
