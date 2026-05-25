@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { escapeRegex } from '@/lib/regex';
 import { type User, UserModel } from '@/models/user.model';
 import { UserCreateSchema, UserListQuerySchema } from '@/shared/users/user.schemas';
 
@@ -56,7 +57,7 @@ export async function GET(req: Request) {
   if (status === 'inactive') filter.isActive = false;
 
   if (q.trim()) {
-    const term = q.trim();
+    const term = escapeRegex(q.trim());
     filter.$or = [
       { name: { $regex: term, $options: 'i' } },
       { username: { $regex: term, $options: 'i' } },

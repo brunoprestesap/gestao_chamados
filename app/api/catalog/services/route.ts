@@ -6,6 +6,7 @@ import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import { dbConnect } from '@/lib/db';
+import { escapeRegex } from '@/lib/regex';
 import {
   buildServiceCode,
   extractSequential,
@@ -64,10 +65,11 @@ export async function GET(req: Request) {
   if (typeId) filter.typeId = typeId;
   if (subtypeId) filter.subtypeId = subtypeId;
   if (q) {
+    const term = escapeRegex(q);
     filter.$or = [
-      { code: new RegExp(q, 'i') },
-      { name: new RegExp(q, 'i') },
-      { description: new RegExp(q, 'i') },
+      { code: new RegExp(term, 'i') },
+      { name: new RegExp(term, 'i') },
+      { description: new RegExp(term, 'i') },
     ];
   }
 

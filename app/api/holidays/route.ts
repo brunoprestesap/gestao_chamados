@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { requireAdmin } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { escapeRegex } from '@/lib/regex';
 import { HolidayModel } from '@/models/Holiday';
 import { HolidayCreateSchema, HolidayListQuerySchema } from '@/shared/holidays/holiday.schemas';
 
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
     const year = parsed.success ? parsed.data.year : undefined;
 
     const filter: Record<string, unknown> = {};
-    if (q) filter.name = { $regex: q, $options: 'i' };
+    if (q) filter.name = { $regex: escapeRegex(q), $options: 'i' };
     if (year && /^\d{4}$/.test(year)) {
       filter.date = { $regex: `^${year}-`, $options: 'i' };
     }

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
+import { escapeRegex } from '@/lib/regex';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 
@@ -153,7 +154,7 @@ export async function GET(req: Request) {
   }
 
   if (q.trim()) {
-    const term = q.trim();
+    const term = escapeRegex(q.trim());
     const regex = { $regex: term, $options: 'i' as const };
     filter.$or = [
       { ticket_number: regex },
