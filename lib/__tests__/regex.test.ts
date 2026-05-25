@@ -16,9 +16,7 @@ describe('escapeRegex', () => {
   });
 
   it('escapa todos os metacaracteres de regex', () => {
-    expect(escapeRegex('.*+?^${}()|[]\\')).toBe(
-      '\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\',
-    );
+    expect(escapeRegex('.*+?^${}()|[]\\')).toBe('\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\');
   });
 
   it('produz um padrão válido e que casa o literal quando ancorado', () => {
