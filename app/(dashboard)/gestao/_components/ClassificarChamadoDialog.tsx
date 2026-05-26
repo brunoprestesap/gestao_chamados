@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Clock, Zap } from 'lucide-react';
+import { AlertTriangle, Clock, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { RecorrenciaItem } from '@/lib/recorrencia';
 import { FINAL_PRIORITY_VALUES, type FinalPriority } from '@/shared/chamados/chamado.constants';
 import {
   type ClassificarChamadoInput,
@@ -130,12 +131,20 @@ async function fetchSlaConfigs(): Promise<SlaConfigItem[]> {
   return Array.isArray(data.items) ? data.items : [];
 }
 
+async function fetchRecorrencias(chamadoId: string): Promise<RecorrenciaItem[]> {
+  const res = await fetch(`/api/gestao/chamados/${chamadoId}/recorrencia`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = (await res.json().catch(() => ({}))) as { items?: RecorrenciaItem[] };
+  return Array.isArray(data.items) ? data.items : [];
+}
+
 export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unitName, setUnitName] = useState<string | null>(null);
   const [slaConfigs, setSlaConfigs] = useState<SlaConfigItem[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [recorrencias, setRecorrencias] = useState<RecorrenciaItem[]>([]);
 
   const [subtypes, setSubtypes] = useState<SubtypeOption[]>([]);
   const [catalogServices, setCatalogServices] = useState<CatalogServiceOption[]>([]);
@@ -165,6 +174,7 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
       setSlaConfigs([]);
       setSubtypes([]);
       setCatalogServices([]);
+      setRecorrencias([]);
       typeIdRef.current = '';
       return;
     }
@@ -175,14 +185,16 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
     });
     setError(null);
     const load = async () => {
-      const [units, configs, sessionRes] = await Promise.all([
+      const [units, configs, sessionRes, recorrenciasData] = await Promise.all([
         fetchUnits(),
         fetchSlaConfigs(),
         fetch('/api/session', { cache: 'no-store' }),
+        fetchRecorrencias(chamado._id),
       ]);
       const u = units.find((x) => x.id === chamado.unitId);
       setUnitName(u?.name ?? null);
       setSlaConfigs(configs);
+      setRecorrencias(recorrenciasData);
       const sessionData = await sessionRes.json().catch(() => ({}));
       setIsAdmin(sessionData?.role === 'Admin');
 
@@ -302,6 +314,38 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
               : 'Atendimento Padrão'}
           </p>
         </div>
+
+        {recorrencias.length > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold leading-snug">Possível defeito recorrente</p>
+              <p className="text-xs leading-relaxed">
+                {recorrencias.length === 1
+                  ? '1 chamado do mesmo tipo e local foi concluído nos últimos 30 dias.'
+                  : `${recorrencias.length} chamados do mesmo tipo e local foram concluídos nos últimos 30 dias.`}{' '}
+                Avalie se o defeito é recorrente.
+              </p>
+              <ul className="space-y-0.5 text-xs">
+                {recorrencias.map((r) => (
+                  <li key={r._id}>
+                    <span className="font-medium">#{r.ticket_number}</span>
+                    {r.diasDesdeConclusao != null && (
+                      <>
+                        {' — concluído há '}
+                        {r.diasDesdeConclusao === 0
+                          ? 'menos de 1 dia'
+                          : r.diasDesdeConclusao === 1
+                            ? '1 dia'
+                            : `${r.diasDesdeConclusao} dias`}
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-xs text-destructive sm:text-sm">
