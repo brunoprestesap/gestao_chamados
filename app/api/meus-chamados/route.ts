@@ -5,6 +5,7 @@ import { generateTicketNumber } from '@/lib/chamado-utils';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
+import { escapeRegex } from '@/lib/regex';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
@@ -187,7 +188,7 @@ export async function GET(req: Request) {
   }
 
   if (q.trim()) {
-    const term = q.trim();
+    const term = escapeRegex(q.trim());
     const regex = { $regex: term, $options: 'i' as const };
     filter.$or = [
       { ticket_number: regex },
