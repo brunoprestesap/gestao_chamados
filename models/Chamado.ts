@@ -172,6 +172,8 @@ ChamadoSchema.index({ 'sla.computedAt': 1 }, { sparse: true });
 ChamadoSchema.index({ status: 1, updatedAt: -1 });
 // Detecção de recorrência: mesmo defeito (unidade + tipo + subtipo) já concluído na janela
 ChamadoSchema.index({ unitId: 1, tipoServico: 1, subtypeId: 1, status: 1, concludedAt: -1 });
+// Relatório IMR: filtra { status: 'encerrado', closedAt: { $gte, $lte } } por janela de tempo
+ChamadoSchema.index({ status: 1, closedAt: 1 }, { sparse: true });
 
 export type MaterialObservationDoc = {
   _id?: Types.ObjectId;

@@ -31,8 +31,12 @@ vi.mock('@/models/ChamadoHistory', () => ({
 }));
 
 const mockNotificationCreate = vi.fn();
+const mockNotificationInsertMany = vi.fn();
 vi.mock('@/models/Notification', () => ({
-  NotificationModel: { create: (...args: unknown[]) => mockNotificationCreate(...args) },
+  NotificationModel: {
+    create: (...args: unknown[]) => mockNotificationCreate(...args),
+    insertMany: (...args: unknown[]) => mockNotificationInsertMany(...args),
+  },
 }));
 
 const mockUserFindById = vi.fn();
@@ -85,6 +89,7 @@ beforeEach(() => {
   mockRequireSession.mockResolvedValue(SESSION);
   mockHistoryCreate.mockResolvedValue({});
   mockNotificationCreate.mockResolvedValue({});
+  mockNotificationInsertMany.mockResolvedValue([]);
 });
 
 // ── registerExecutionAction ──────────────────────────────────────
@@ -207,7 +212,9 @@ describe('registerExecutionAction', () => {
 
     await registerExecutionAction(validInput);
 
-    // 2 managers + 1 solicitante = 3 notificações
-    expect(mockNotificationCreate).toHaveBeenCalledTimes(3);
+    // 2 managers em lote (insertMany) + 1 solicitante (create) = 3 notificações
+    expect(mockNotificationInsertMany).toHaveBeenCalledTimes(1);
+    expect(mockNotificationInsertMany.mock.calls[0][0]).toHaveLength(2);
+    expect(mockNotificationCreate).toHaveBeenCalledTimes(1);
   });
 });

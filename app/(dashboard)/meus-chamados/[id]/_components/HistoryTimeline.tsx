@@ -32,50 +32,59 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
   const [history, setHistory] = useState<HistoryItemDTO[]>([]);
   const [users, setUsers] = useState<Record<string, string>>({});
 
-  const fetchHistory = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/chamados/${chamadoId}/history`, {
-        cache: 'no-store',
-        credentials: 'same-origin',
-      });
-      if (!res.ok) {
-        console.error('Erro ao buscar histórico');
-        return;
-      }
-      const data = await res.json().catch(() => ({}));
-      const items = (data.items ?? []) as HistoryItemDTO[];
-      setHistory(items);
+  const fetchHistory = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/chamados/${chamadoId}/history`, {
+          cache: 'no-store',
+          credentials: 'same-origin',
+          signal,
+        });
+        if (!res.ok) {
+          console.error('Erro ao buscar histórico');
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        const items = (data.items ?? []) as HistoryItemDTO[];
+        if (signal?.aborted) return;
+        setHistory(items);
 
-      // Busca nomes dos usuários (em paralelo)
-      const userIds = [...new Set(items.map((h) => h.userId))];
-      const usersMap: Record<string, string> = {};
+        // Busca nomes dos usuários (em paralelo)
+        const userIds = [...new Set(items.map((h) => h.userId))];
+        const usersMap: Record<string, string> = {};
 
-      await Promise.all(
-        userIds.map(async (userId) => {
-          try {
-            const userRes = await fetch(`/api/users/${userId}`, { cache: 'no-store' });
-            if (userRes.ok) {
-              const userData = await userRes.json().catch(() => ({}));
-              usersMap[userId] = userData.item?.name || 'Usuário desconhecido';
-            } else {
+        await Promise.all(
+          userIds.map(async (userId) => {
+            try {
+              const userRes = await fetch(`/api/users/${userId}`, { cache: 'no-store', signal });
+              if (userRes.ok) {
+                const userData = await userRes.json().catch(() => ({}));
+                usersMap[userId] = userData.item?.name || 'Usuário desconhecido';
+              } else {
+                usersMap[userId] = 'Usuário desconhecido';
+              }
+            } catch {
               usersMap[userId] = 'Usuário desconhecido';
             }
-          } catch {
-            usersMap[userId] = 'Usuário desconhecido';
-          }
-        }),
-      );
-      setUsers(usersMap);
-    } catch (error) {
-      console.error('Erro ao buscar histórico:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [chamadoId]);
+          }),
+        );
+        if (signal?.aborted) return;
+        setUsers(usersMap);
+      } catch (error) {
+        if ((error as Error)?.name === 'AbortError') return;
+        console.error('Erro ao buscar histórico:', error);
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [chamadoId],
+  );
 
   useEffect(() => {
-    fetchHistory();
+    const controller = new AbortController();
+    fetchHistory(controller.signal);
+    return () => controller.abort();
   }, [fetchHistory, refreshTrigger]);
 
   if (loading) {

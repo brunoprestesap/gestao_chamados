@@ -30,10 +30,15 @@ npm run lint             # ESLint
 npm run lint:fix         # ESLint com auto-fix
 npm run format           # Prettier
 npm run format:check     # Verifica formatação
+npm run typecheck        # tsc --noEmit
+npm test                 # Vitest (unitários, single run)
+npm run test:watch       # Vitest em modo watch
+npm run test:coverage    # Vitest com cobertura
+npm run test:e2e         # Playwright (E2E)
 pm2 start ecosystem.config.cjs  # Produção (Next + Socket)
 ```
 
-Não há framework de testes configurado.
+Testes configurados: **Vitest** (unitários, ~1182 testes em `__tests__/` e `*.test.ts`) e **Playwright** (E2E em `e2e/`).
 
 ## Lint & Formatação
 
