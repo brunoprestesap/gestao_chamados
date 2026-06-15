@@ -20,6 +20,18 @@ vi.mock('@/auth', () => ({
   auth: () => mockAuth(),
 }));
 
+// Mock de @/lib/db e do UserModel (verifySession revalida isActive/role no banco)
+vi.mock('@/lib/db', () => ({ dbConnect: vi.fn().mockResolvedValue(undefined) }));
+
+const mockFindById = vi.fn();
+vi.mock('@/models/user.model', () => ({
+  UserModel: {
+    findById: (...args: unknown[]) => ({
+      select: () => ({ lean: () => mockFindById(...args) }),
+    }),
+  },
+}));
+
 import { redirect } from 'next/navigation';
 
 import {
@@ -35,6 +47,8 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: usuário existe e está ativo no banco (role vem do token nos testes)
+  mockFindById.mockResolvedValue({ isActive: true });
 });
 
 // ── Funções síncronas ────────────────────────────────────────────
@@ -102,6 +116,31 @@ describe('verifySession', () => {
     });
     const session = await verifySession();
     expect(session!.unitId).toBeNull();
+  });
+
+  it('retorna null quando o token é ativo mas o usuário foi desativado no banco', async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: '123', username: 'joao', role: 'Admin', isActive: true },
+    });
+    mockFindById.mockResolvedValue({ isActive: false });
+    expect(await verifySession()).toBeNull();
+  });
+
+  it('retorna null quando o usuário não existe mais no banco', async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: '123', username: 'joao', role: 'Admin', isActive: true },
+    });
+    mockFindById.mockResolvedValue(null);
+    expect(await verifySession()).toBeNull();
+  });
+
+  it('usa o role fresco do banco quando difere do token', async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: '123', username: 'joao', role: 'Solicitante', isActive: true },
+    });
+    mockFindById.mockResolvedValue({ isActive: true, role: 'Admin' });
+    const session = await verifySession();
+    expect(session!.role).toBe('Admin');
   });
 });
 

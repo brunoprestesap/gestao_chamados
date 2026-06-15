@@ -34,6 +34,8 @@ const UserSchema = new Schema(
 );
 
 UserSchema.index({ name: 'text', username: 'text', email: 'text' });
+// Lookups por papel: atribuição de técnicos e fan-out de notificações a gestores
+UserSchema.index({ role: 1, isActive: 1 });
 
 export type User = InferSchemaType<typeof UserSchema> & {
   unitId?: Types.ObjectId;

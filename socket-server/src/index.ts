@@ -134,16 +134,24 @@ function isLocalhost(ip: string): boolean {
   return normalized === '127.0.0.1' || normalized === '::1';
 }
 
+function isPrivateIp(ip: string): boolean {
+  const normalized = ip.replace(/^::ffff:/, '');
+  // 10.0.0.0/8 e 192.168.0.0/16
+  if (normalized.startsWith('10.') || normalized.startsWith('192.168.')) return true;
+  // 172.16.0.0/12 → apenas segundo octeto 16–31 (não a faixa pública 172.0–15 / 172.32–255)
+  const m = /^172\.(\d{1,3})\./.exec(normalized);
+  if (m) {
+    const secondOctet = Number(m[1]);
+    return secondOctet >= 16 && secondOctet <= 31;
+  }
+  return false;
+}
+
 function isTrustedSource(ip: string): boolean {
   if (isLocalhost(ip)) return true;
   if (!TRUSTED_PROXIES) return false;
   // Em Docker, aceitar IPs de rede privada quando SOCKET_TRUSTED_PROXIES está configurado
-  const normalized = ip.replace(/^::ffff:/, '');
-  return (
-    normalized.startsWith('10.') ||
-    normalized.startsWith('172.') ||
-    normalized.startsWith('192.168.')
-  );
+  return isPrivateIp(ip);
 }
 
 app.post('/emit', (req, res) => {

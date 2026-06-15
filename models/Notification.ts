@@ -42,6 +42,8 @@ const NotificationSchema = new Schema(
 );
 
 NotificationSchema.index({ userId: 1, createdAt: -1 });
+// Não-lidas: updateMany({ userId, readAt: null }) e contagem do badge
+NotificationSchema.index({ userId: 1, readAt: 1, createdAt: -1 });
 
 export type Notification = InferSchemaType<typeof NotificationSchema> & {
   userId: Types.ObjectId;

@@ -172,18 +172,22 @@ export async function registerExecutionAction(
     const notificationTitle = doc.ticket_number
       ? `Execução registrada no chamado #${doc.ticket_number}`
       : 'Execução registrada no chamado';
-    for (const manager of managers) {
-      await NotificationModel.create({
-        userId: manager._id,
-        type: 'ticket:execution_registered',
-        title: notificationTitle,
-        body: doc.titulo ?? '',
-        data: payload,
-        readAt: null,
-      });
-      sendNotificationEmail(String(manager._id), 'ticket:execution_registered', payload).catch(
-        () => {},
+    if (managers.length > 0) {
+      await NotificationModel.insertMany(
+        managers.map((manager) => ({
+          userId: manager._id,
+          type: 'ticket:execution_registered',
+          title: notificationTitle,
+          body: doc.titulo ?? '',
+          data: payload,
+          readAt: null,
+        })),
       );
+      for (const manager of managers) {
+        sendNotificationEmail(String(manager._id), 'ticket:execution_registered', payload).catch(
+          () => {},
+        );
+      }
     }
     await NotificationModel.create({
       userId: doc.solicitanteId,

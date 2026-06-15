@@ -108,25 +108,38 @@ function pct(numerador: number, denominador: number): number {
 
 /* ─────────────────────────── Expressões SLA ─────────────────────────── */
 
-const DENTRO_SLA_CONDITION = {
+// Um chamado só entra no cálculo de cumprimento de SLA se tiver snapshot de SLA
+// (resolutionDueAt definido). Chamados sem SLA (legados / que chegaram a
+// 'encerrado' sem classificação) não contam como "dentro" nem como "fora" —
+// antes, o ramo `resolutionBreachedAt == null` os contava como "dentro" e
+// inflava o percentual de cumprimento.
+const TEM_SLA = { $ne: ['$sla.resolutionDueAt', null] };
+
+// Pressupõe TEM_SLA: está "dentro" se não houve breach de resolução (ou,
+// defensivamente, se foi resolvido até o prazo).
+const DENTRO_SLA_INNER = {
   $or: [
     { $eq: ['$sla.resolutionBreachedAt', null] },
     {
       $and: [
         { $ne: ['$sla.resolvedAt', null] },
-        { $ne: ['$sla.resolutionDueAt', null] },
         { $lte: ['$sla.resolvedAt', '$sla.resolutionDueAt'] },
       ],
     },
   ],
 };
 
+/** 1 se o chamado tem snapshot de SLA (base do cálculo de cumprimento). */
+function temSlaExpr(): Record<string, unknown> {
+  return { $cond: { if: TEM_SLA, then: 1, else: 0 } };
+}
+
 function dentroSlaExpr(): Record<string, unknown> {
-  return { $cond: { if: DENTRO_SLA_CONDITION, then: 1, else: 0 } };
+  return { $cond: { if: { $and: [TEM_SLA, DENTRO_SLA_INNER] }, then: 1, else: 0 } };
 }
 
 function foraSlaExpr(): Record<string, unknown> {
-  return { $cond: { if: DENTRO_SLA_CONDITION, then: 0, else: 1 } };
+  return { $cond: { if: { $and: [TEM_SLA, { $not: [DENTRO_SLA_INNER] }] }, then: 1, else: 0 } };
 }
 
 /* ─────────────────────────── Facet unificado ─────────────────────────── */
@@ -174,7 +187,8 @@ function unifiedFacets() {
           _id: '$tipoServico',
           dentro: { $sum: dentroSlaExpr() },
           fora: { $sum: foraSlaExpr() },
-          total: { $sum: 1 },
+          // base = chamados com SLA (dentro + fora), não todos os chamados
+          total: { $sum: temSlaExpr() },
         },
       },
     ],
@@ -186,7 +200,7 @@ function unifiedFacets() {
             tipo: '$tipoServico',
             prioridade: { $ifNull: ['$finalPriority', '$sla.priority'] },
           },
-          total: { $sum: 1 },
+          total: { $sum: temSlaExpr() },
           dentro: { $sum: dentroSlaExpr() },
           fora: { $sum: foraSlaExpr() },
         },
@@ -198,15 +212,23 @@ function unifiedFacets() {
       {
         $project: {
           tipoServico: 1,
-          resolvedOrClosed: { $ifNull: ['$sla.resolvedAt', '$closedAt'] },
+          // Tempo de atendimento = resolvedAt - createdAt - tempo pausado.
+          // Usa apenas a resolução técnica (sla.resolvedAt); NÃO usa closedAt
+          // como fallback, pois o encerramento administrativo pode ocorrer dias
+          // depois e inflaria o tempo médio. Descontar pausas evita contar
+          // janelas de "aguardando solicitante/terceiros" como tempo de trabalho.
+          resolvedAt: '$sla.resolvedAt',
           createdAt: 1,
+          pausedMs: { $multiply: [{ $ifNull: ['$totalPausedMinutes', 0] }, 60000] },
         },
       },
-      { $match: { resolvedOrClosed: { $ne: null }, createdAt: { $ne: null } } },
+      { $match: { resolvedAt: { $ne: null }, createdAt: { $ne: null } } },
       {
         $project: {
           tipoServico: 1,
-          diffMs: { $subtract: ['$resolvedOrClosed', '$createdAt'] },
+          diffMs: {
+            $max: [0, { $subtract: [{ $subtract: ['$resolvedAt', '$createdAt'] }, '$pausedMs'] }],
+          },
         },
       },
       {

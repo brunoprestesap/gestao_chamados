@@ -130,16 +130,20 @@ export async function createTicketAction(
     const notificationTitle = doc.ticket_number
       ? `Novo chamado #${doc.ticket_number} aberto`
       : 'Novo chamado aberto';
-    for (const manager of managers) {
-      await NotificationModel.create({
-        userId: manager._id,
-        type: 'ticket:new',
-        title: notificationTitle,
-        body: titulo,
-        data: ticketNewPayload,
-        readAt: null,
-      });
-      sendNotificationEmail(String(manager._id), 'ticket:new', ticketNewPayload).catch(() => {});
+    if (managers.length > 0) {
+      await NotificationModel.insertMany(
+        managers.map((manager) => ({
+          userId: manager._id,
+          type: 'ticket:new',
+          title: notificationTitle,
+          body: titulo,
+          data: ticketNewPayload,
+          readAt: null,
+        })),
+      );
+      for (const manager of managers) {
+        sendNotificationEmail(String(manager._id), 'ticket:new', ticketNewPayload).catch(() => {});
+      }
     }
     await emitToRoom('managers', 'ticket:new', ticketNewPayload);
 

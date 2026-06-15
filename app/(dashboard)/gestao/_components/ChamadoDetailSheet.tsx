@@ -62,9 +62,9 @@ type TabId = 'detalhes' | 'historico' | 'comentarios' | 'anexos';
 
 // ---------- API helpers (same pattern as ChamadoCard) ----------
 
-async function fetchUser(userId: string): Promise<string | null> {
+async function fetchUser(userId: string, signal?: AbortSignal): Promise<string | null> {
   try {
-    const res = await fetch(`/api/users/${userId}`, { cache: 'no-store' });
+    const res = await fetch(`/api/users/${userId}`, { cache: 'no-store', signal });
     if (!res.ok) return null;
     const data = await res.json().catch(() => ({}));
     return data.item?.name || null;
@@ -73,9 +73,9 @@ async function fetchUser(userId: string): Promise<string | null> {
   }
 }
 
-async function fetchUnit(unitId: string): Promise<string | null> {
+async function fetchUnit(unitId: string, signal?: AbortSignal): Promise<string | null> {
   try {
-    const res = await fetch('/api/units', { cache: 'no-store' });
+    const res = await fetch('/api/units', { cache: 'no-store', signal });
     if (!res.ok) return null;
     const data = await res.json().catch(() => ({}));
     const unit = (data.items || []).find(
@@ -87,9 +87,9 @@ async function fetchUnit(unitId: string): Promise<string | null> {
   }
 }
 
-async function fetchSubtype(subtypeId: string): Promise<string | null> {
+async function fetchSubtype(subtypeId: string, signal?: AbortSignal): Promise<string | null> {
   try {
-    const res = await fetch(`/api/catalog/subtypes/${subtypeId}`, { cache: 'no-store' });
+    const res = await fetch(`/api/catalog/subtypes/${subtypeId}`, { cache: 'no-store', signal });
     if (!res.ok) return null;
     const data = await res.json().catch(() => ({}));
     return data.item?.name || null;
@@ -191,26 +191,28 @@ export function ChamadoDetailSheet({
     }
 
     let mounted = true;
+    const controller = new AbortController();
+    const { signal } = controller;
 
     const promises: Promise<void>[] = [];
 
     if (chamado.solicitanteId) {
       promises.push(
-        fetchUser(chamado.solicitanteId).then((name) => {
+        fetchUser(chamado.solicitanteId, signal).then((name) => {
           if (mounted) setUserName(name);
         }),
       );
     }
     if (chamado.unitId) {
       promises.push(
-        fetchUnit(chamado.unitId).then((name) => {
+        fetchUnit(chamado.unitId, signal).then((name) => {
           if (mounted) setUnitName(name);
         }),
       );
     }
     if (chamado.subtypeId) {
       promises.push(
-        fetchSubtype(chamado.subtypeId).then((name) => {
+        fetchSubtype(chamado.subtypeId, signal).then((name) => {
           if (mounted) setSubtypeName(name);
         }),
       );
@@ -220,6 +222,7 @@ export function ChamadoDetailSheet({
 
     return () => {
       mounted = false;
+      controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, chamado?._id]);

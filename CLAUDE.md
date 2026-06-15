@@ -30,10 +30,15 @@ npm run lint             # ESLint
 npm run lint:fix         # ESLint com auto-fix
 npm run format           # Prettier
 npm run format:check     # Verifica formatação
+npm run typecheck        # tsc --noEmit
+npm test                 # Vitest (unitários, single run)
+npm run test:watch       # Vitest em modo watch
+npm run test:coverage    # Vitest com cobertura
+npm run test:e2e         # Playwright (E2E)
 pm2 start ecosystem.config.cjs  # Produção (Next + Socket)
 ```
 
-Não há framework de testes configurado.
+Testes configurados: **Vitest** (unitários, ~1182 testes em `__tests__/` e `*.test.ts`) e **Playwright** (E2E em `e2e/`).
 
 ## Lint & Formatação
 
@@ -151,6 +156,8 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Todos os facets agrupam por `tipoServico`, permitindo derivar o resumo geral (soma em JS) e os resultados por tipo (filtro por `_id`) sem queries adicionais
 - Tipos de serviço: definidos em `TIPO_SERVICO_OPTIONS` (`shared/chamados/new-ticket.schemas.ts`)
 - Indicadores: volume, SLA (cumprimento + por prioridade), tempo médio de atendimento, avaliação dos usuários, penalidades (base para glosa)
+- **Cumprimento de SLA**: base = apenas chamados com snapshot de SLA (`sla.resolutionDueAt` definido). Chamados sem SLA (legados/não classificados) não entram no percentual dentro/fora
+- **Tempo médio de atendimento**: `sla.resolvedAt − createdAt − tempo pausado` (não usa `closedAt`; desconta pausas de "aguardando solicitante/terceiros")
 - UI com abas (shadcn/ui Tabs): **Resumo Geral** | **Manutenção Predial** | **Ar-Condicionado**
 - Componentes de seção reutilizáveis em `app/(dashboard)/relatorios/imr/_components/imr-sections.tsx`
 - Componente de abas (client) em `app/(dashboard)/relatorios/imr/_components/imr-tipo-servico-tabs.tsx`
