@@ -10,41 +10,17 @@ function utc(iso: string): Date {
 }
 
 /**
- * Calcula a hora esperada no timezone Belém quando a função roda nesta máquina.
+ * Verifica que a data `d` representa sempre 08:00 no timezone America/Belem,
+ * independentemente do timezone da máquina que roda os testes.
  *
- * A função `calculateNextRunAt` usa `setHours(8)` na hora LOCAL da máquina
- * (obtida via `toLocaleString` → `new Date()`), depois soma 3h com `fromLocalToUtc`.
- * Em uma máquina UTC: 08:00 UTC + 3h = 11:00 UTC = 08:00 Belém ✓
- * Em uma máquina UTC-3: 08:00 local (UTC-3) = 11:00 UTC, + 3h = 14:00 UTC = 11:00 Belém
- *
- * Para tornar os testes portáveis, calculamos a hora esperada com base no offset da máquina.
- */
-function getExpectedBelemHourStr(): string {
-  // O offset do machine em minutos (positivo = west of UTC)
-  const machineOffsetMinutes = new Date().getTimezoneOffset();
-  // A função faz: setHours(8) em hora local (= 8 + machineOffsetHours em UTC)
-  // Depois soma 3h. Total UTC = 8 + machineOffsetHours + 3
-  // Hora em Belém (UTC-3) = totalUTC - 3
-  const machineOffsetHours = machineOffsetMinutes / 60;
-  const utcHour = 8 + machineOffsetHours + 3;
-  const belemHour = (utcHour - 3 + 24) % 24;
-  const hh = String(belemHour).padStart(2, '0');
-  return `${hh}:00:00`;
-}
-
-/**
- * Verifica que a data `d` representa a hora consistente no timezone America/Belem.
- * A hora esperada varia conforme o timezone da máquina (ver getExpectedBelemHourStr).
+ * `calculateNextRunAt` agora opera em espaço de "relógio de parede" (UTC-based)
+ * e converte para UTC pelo offset real do IANA timezone, então o resultado é
+ * 08:00 Belém em qualquer servidor (antes dependia do TZ do processo Node).
  */
 function expectConsistentBelemTime(d: Date) {
-  const localStr = d.toLocaleString('en-US', {
-    timeZone: 'America/Belem',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-    hour12: false,
-  });
-  expect(localStr).toBe(getExpectedBelemHourStr());
+  const parts = belemDateParts(d);
+  expect(parts.hour).toBe(8);
+  expect(parts.minute).toBe(0);
 }
 
 /**

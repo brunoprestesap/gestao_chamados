@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { cache } from 'react';
 
 import { auth } from '@/auth';
+import { dbConnect } from '@/lib/db';
+import { UserModel } from '@/models/user.model';
 import type { UserRole } from '@/shared/auth/auth.constants';
 
 export type Role = UserRole;
@@ -20,12 +22,20 @@ export const verifySession = cache(async (): Promise<SessionLike | null> => {
   const session = await auth();
   if (!session?.user?.id || !session.user.isActive) return null;
 
+  // Revalida o usuário contra o banco. O JWT vive 7 dias e o `isActive`/`role`
+  // ficam congelados no token desde o login; sem esta checagem fresca, um usuário
+  // desativado (ou rebaixado) por um admin manteria acesso até o token expirar.
+  // `verifySession` é memoizado por request (React.cache), então é 1 query/request.
+  await dbConnect();
+  const dbUser = await UserModel.findById(session.user.id).select('role isActive').lean();
+  if (!dbUser || dbUser.isActive === false) return null;
+
   return {
     userId: session.user.id,
     username: session.user.username ?? '',
-    role: session.user.role as Role,
+    role: (dbUser.role ?? session.user.role) as Role,
     unitId: session.user.unitId ?? null,
-    isActive: session.user.isActive,
+    isActive: true,
   };
 });
 
