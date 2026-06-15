@@ -611,6 +611,12 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       }
 
       // Verifica carga
+      // NOTA (corrida conhecida): esta contagem e o findOneAndUpdate de atribuição
+      // (abaixo) não são atômicos entre si. Duas atribuições concorrentes de tickets
+      // diferentes ao mesmo técnico com carga = max-1 podem ambas passar e estourar o
+      // limite em 1. A correção limpa exige transação (replica set — o Mongo de
+      // produção é standalone hoje) ou um contador denormalizado no User. Mantido
+      // como dívida técnica documentada; impacto: raro overflow de 1 ticket.
       const currentLoad = await ChamadoModel.countDocuments({
         assignedToUserId: preferredId,
         status: { $in: [...ACTIVE_STATUSES] },

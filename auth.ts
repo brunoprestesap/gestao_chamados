@@ -111,8 +111,17 @@ export const { auth, signIn, signOut, handlers } = initAuth({
               );
               return null;
             }
+          } else if (ldapResult.status === 'error') {
+            // Falha de INFRAESTRUTURA do LDAP (timeout/TLS/rede), não senha inválida.
+            // Política: manter o fallback para senha local (disponibilidade), mas
+            // sinalizar ao operador que a autenticação está degradada — mesmo sem
+            // LDAP_DEBUG ligado, pois indica AD fora do ar.
+            console.warn(
+              `[Auth] LDAP indisponível (status=error) ao autenticar "${parsed.data.username}"; ` +
+                'usando fallback de senha local se disponível.',
+            );
           }
-          // 'not_found' ou 'error' → continua para autenticação local
+          // 'not_found' (usuário não existe no AD) ou 'error' → continua para autenticação local
         } else {
           authDebug('LDAP não configurado, usando apenas autenticação local');
         }
