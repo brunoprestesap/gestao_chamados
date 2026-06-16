@@ -1,7 +1,10 @@
+import { MongoServerError } from 'mongodb';
 import { NextResponse } from 'next/server';
 
+import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ServiceTypeModel } from '@/models/ServiceType';
+import { TypeCreateSchema } from '@/shared/catalog/type.schemas';
 
 export async function GET() {
   await dbConnect();
@@ -10,12 +13,35 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const session = await verifySession();
+  if (!session) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  }
+  if (session.role !== 'Admin') {
+    return NextResponse.json(
+      { error: 'Apenas usuário Admin pode cadastrar tipo de serviço' },
+      { status: 403 },
+    );
+  }
+
   await dbConnect();
-  const body = await req.json();
 
-  const name = String(body?.name || '').trim();
-  if (!name) return NextResponse.json({ error: 'Missing name' }, { status: 400 });
+  const raw = await req.json().catch(() => null);
+  const parsed = TypeCreateSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation error', issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
 
-  const created = await ServiceTypeModel.create({ name, isActive: true });
-  return NextResponse.json({ item: created }, { status: 201 });
+  try {
+    const created = await ServiceTypeModel.create(parsed.data);
+    return NextResponse.json({ item: created }, { status: 201 });
+  } catch (err) {
+    if (err instanceof MongoServerError && err.code === 11000) {
+      return NextResponse.json({ error: 'Já existe um tipo com este nome.' }, { status: 409 });
+    }
+    throw err;
+  }
 }
