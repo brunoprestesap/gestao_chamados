@@ -237,14 +237,14 @@ export function ServicosTab() {
       {/* Desktop: tabela */}
       <Card className="hidden overflow-hidden md:block">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px] sm:w-[120px]">Código</TableHead>
-                <TableHead className="min-w-[200px]">Serviço</TableHead>
-                <TableHead className="min-w-[140px]">Tipo/Subtipo</TableHead>
-                <TableHead className="w-[100px]">Prioridade</TableHead>
-                <TableHead className="w-[80px]">Tempo</TableHead>
+                <TableHead className="w-[110px]">Código</TableHead>
+                <TableHead>Serviço</TableHead>
+                <TableHead className="w-[170px]">Tipo/Subtipo</TableHead>
+                <TableHead className="w-[110px]">Prioridade</TableHead>
+                <TableHead className="w-[90px]">Tempo</TableHead>
                 <TableHead className="w-[90px] text-center">Status</TableHead>
                 <TableHead className="w-[100px] text-right">Ações</TableHead>
               </TableRow>
@@ -271,14 +271,14 @@ export function ServicosTab() {
               ) : (
                 items.map((row) => (
                   <TableRow key={row._id} className="hover:bg-muted/30">
-                    <TableCell className="w-[120px] font-mono text-xs">{row.code}</TableCell>
+                    <TableCell className="truncate font-mono text-xs">{row.code}</TableCell>
                     <TableCell>
                       <div className="flex items-start gap-3">
                         <div className="h-9 w-9 shrink-0 rounded-lg bg-muted" />
                         <div className="min-w-0 leading-tight">
-                          <div className="font-semibold uppercase">{row.name}</div>
+                          <div className="truncate font-semibold uppercase">{row.name}</div>
                           {row.description ? (
-                            <div className="text-xs text-muted-foreground line-clamp-1">
+                            <div className="truncate text-xs text-muted-foreground">
                               {row.description}
                             </div>
                           ) : (
@@ -288,11 +288,11 @@ export function ServicosTab() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <span className="inline-flex w-fit rounded-md bg-muted px-2 py-0.5 text-xs">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="inline-flex w-fit max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-xs">
                           {row.type?.name ?? row.typeId}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="truncate text-xs text-muted-foreground">
                           {row.subtype?.name ?? row.subtypeId}
                         </span>
                       </div>
