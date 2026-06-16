@@ -1,10 +1,12 @@
 import '@/models/ServiceType'; // Registra o modelo para populate('typeId')
 
+import { MongoServerError } from 'mongodb';
 import { NextResponse } from 'next/server';
 
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
+import { SubtypeCreateSchema } from '@/shared/catalog/subtype.schemas';
 
 export async function GET(req: Request) {
   try {
@@ -28,9 +30,10 @@ export async function GET(req: Request) {
 
     type Populated = (typeof raw)[0] & { typeId?: { _id: unknown; name: string } | null };
     const items = (raw as Populated[]).map((it) => ({
-      _id: it._id,
+      _id: String(it._id),
       name: it.name,
       isActive: it.isActive,
+      typeId: it.typeId?._id ? String(it.typeId._id) : '',
       typeName: it.typeId?.name ?? '',
     }));
 
@@ -57,24 +60,36 @@ export async function POST(req: Request) {
   }
 
   await dbConnect();
-  const body = await req.json();
 
-  const typeId = String(body?.typeId || '').trim();
-  const name = String(body?.name || '').trim();
+  const raw = await req.json().catch(() => null);
+  const parsed = SubtypeCreateSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation error', issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
 
-  if (!typeId) return NextResponse.json({ error: 'Missing typeId' }, { status: 400 });
-  if (!name) return NextResponse.json({ error: 'Missing name' }, { status: 400 });
-
-  const created = await ServiceSubTypeModel.create({ typeId, name, isActive: true });
-  return NextResponse.json(
-    {
-      item: {
-        _id: String(created._id),
-        name: created.name,
-        typeId: String(created.typeId),
-        isActive: created.isActive,
+  try {
+    const created = await ServiceSubTypeModel.create(parsed.data);
+    return NextResponse.json(
+      {
+        item: {
+          _id: String(created._id),
+          name: created.name,
+          typeId: String(created.typeId),
+          isActive: created.isActive,
+        },
       },
-    },
-    { status: 201 },
-  );
+      { status: 201 },
+    );
+  } catch (err) {
+    if (err instanceof MongoServerError && err.code === 11000) {
+      return NextResponse.json(
+        { error: 'Já existe um subtipo com este nome neste tipo.' },
+        { status: 409 },
+      );
+    }
+    throw err;
+  }
 }
