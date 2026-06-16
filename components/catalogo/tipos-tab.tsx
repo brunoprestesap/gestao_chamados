@@ -28,7 +28,9 @@ export function TiposTab() {
   async function fetchTypes() {
     setLoading(true);
     const res = await fetch('/api/catalog/types', { cache: 'no-store' });
-    const data = (await res.json()) as { items?: Array<{ _id: unknown; name: string; isActive?: boolean }> };
+    const data = (await res.json()) as {
+      items?: Array<{ _id: unknown; name: string; isActive?: boolean }>;
+    };
     setItems(
       (data.items || []).map((t) => ({
         _id: String(t._id),
@@ -90,13 +92,19 @@ export function TiposTab() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={3}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={3}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
                     Nenhum tipo cadastrado.
                   </TableCell>
                 </TableRow>

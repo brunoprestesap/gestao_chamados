@@ -55,7 +55,13 @@ export function SubtiposTab() {
         : '/api/catalog/subtypes';
     const res = await fetch(url, { cache: 'no-store' });
     const data = (await res.json()) as {
-      items?: Array<{ _id: string; name: string; typeId: string; isActive: boolean; typeName?: string }>;
+      items?: Array<{
+        _id: string;
+        name: string;
+        typeId: string;
+        isActive: boolean;
+        typeName?: string;
+      }>;
     };
     setItems(
       (data.items || []).map((s) => ({
@@ -146,13 +152,19 @@ export function SubtiposTab() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={4}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={4}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
                     Nenhum subtipo cadastrado.
                   </TableCell>
                 </TableRow>
