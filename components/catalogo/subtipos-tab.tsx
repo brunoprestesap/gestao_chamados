@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ListTree, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -110,19 +110,19 @@ export function SubtiposTab() {
       toast.error(data?.error || 'Erro ao remover subtipo');
       return;
     }
-    toast.success('Subtipo removido');
+    toast.success('Subtipo removido com sucesso');
     fetchSubtypes();
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full min-w-0 sm:w-56 md:w-64">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="w-full min-w-0 sm:w-64">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger>
+            <SelectTrigger className="h-10 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background">
               <SelectValue placeholder="Todos os Tipos" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl">
               <SelectItem value="all">Todos os Tipos</SelectItem>
               {typeOptions.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
@@ -132,61 +132,72 @@ export function SubtiposTab() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={openCreate} className="w-full shrink-0 gap-2 sm:w-auto">
+        <Button
+          onClick={openCreate}
+          className="w-full shrink-0 gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 shadow-indigo-500/20 hover:shadow-indigo-500/30 sm:w-auto"
+        >
           <Plus className="h-4 w-4 shrink-0" />
           <span>Novo Subtipo</span>
         </Button>
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden rounded-2xl border-border/50">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[200px]">Nome</TableHead>
-                <TableHead className="min-w-[140px]">Tipo</TableHead>
-                <TableHead className="w-[100px] text-center">Status</TableHead>
-                <TableHead className="w-[100px] text-right">Ações</TableHead>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="min-w-[200px] font-semibold">Nome</TableHead>
+                <TableHead className="min-w-[160px] font-semibold">Tipo</TableHead>
+                <TableHead className="w-[120px] text-center font-semibold">Status</TableHead>
+                <TableHead className="w-[120px] text-right font-semibold">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="py-10 text-center text-sm text-muted-foreground"
-                  >
-                    Carregando...
+                  <TableCell colSpan={4} className="h-32 text-center text-sm text-muted-foreground">
+                    Carregando subtipos...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="py-10 text-center text-sm text-muted-foreground"
-                  >
+                  <TableCell colSpan={4} className="h-32 text-center text-sm text-muted-foreground">
                     Nenhum subtipo cadastrado.
                   </TableCell>
                 </TableRow>
               ) : (
                 items.map((row) => (
-                  <TableRow key={row._id} className="hover:bg-muted/30">
-                    <TableCell className="font-medium">{row.name}</TableCell>
+                  <TableRow key={row._id} className="group transition-colors hover:bg-muted/30">
                     <TableCell>
-                      <span className="inline-flex w-fit rounded-md bg-muted px-2 py-0.5 text-xs">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                          <ListTree className="h-5 w-5 opacity-75" />
+                        </div>
+                        <span className="font-medium text-foreground">{row.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-300"
+                      >
                         {row.typeName || '—'}
-                      </span>
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={row.isActive ? 'default' : 'secondary'}>
+                      <Badge
+                        variant={row.isActive ? 'default' : 'secondary'}
+                        className="text-[10px] uppercase tracking-wider"
+                      >
                         {row.isActive ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="h-8 w-8 rounded-lg"
                           onClick={() => openEdit(row)}
                           aria-label="Editar"
                         >
@@ -195,9 +206,9 @@ export function SubtiposTab() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="h-8 w-8 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
                           onClick={() => onDelete(row)}
                           aria-label="Excluir"
-                          className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

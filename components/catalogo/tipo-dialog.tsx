@@ -92,10 +92,12 @@ export function TipoDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !submitting && onOpenChange(v)}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{mode === 'create' ? 'Novo Tipo' : 'Editar Tipo'}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-md rounded-2xl border-border/50">
+        <DialogHeader className="space-y-2">
+          <DialogTitle className="text-xl">
+            {mode === 'create' ? 'Novo Tipo' : 'Editar Tipo'}
+          </DialogTitle>
+          <DialogDescription className="text-sm">
             {mode === 'create'
               ? 'Cadastre um novo tipo de serviço.'
               : 'Atualize os dados do tipo de serviço.'}
@@ -103,15 +105,19 @@ export function TipoDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-2">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem className="space-y-2">
-                  <FormLabel>Nome do Tipo</FormLabel>
+                  <FormLabel className="text-sm font-medium">Nome do Tipo</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Manutenção Predial" {...field} />
+                    <Input
+                      placeholder="Ex: Manutenção Predial"
+                      className="h-11 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -122,25 +128,34 @@ export function TipoDialog({
               control={form.control}
               name="isActive"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center gap-3 space-y-0">
+                <FormItem className="flex flex-row items-center gap-3 space-y-0 rounded-xl border border-border/50 bg-muted/30 p-4">
                   <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="rounded-md"
+                    />
                   </FormControl>
-                  <FormLabel className="font-normal">Ativo</FormLabel>
+                  <FormLabel className="font-medium cursor-pointer">Tipo Ativo</FormLabel>
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="gap-2 sm:justify-end">
+            <DialogFooter className="gap-3 sm:justify-end pt-2">
               <Button
                 type="button"
                 variant="outline"
+                className="rounded-xl w-full sm:w-auto"
                 onClick={() => onOpenChange(false)}
                 disabled={submitting}
               >
                 Cancelar
               </Button>
-              <Button type="submit" className="sm:min-w-28" disabled={submitting}>
+              <Button
+                type="submit"
+                className="rounded-xl w-full sm:w-auto sm:min-w-28 bg-gradient-to-r from-indigo-600 to-blue-600 shadow-indigo-500/20 hover:shadow-indigo-500/30"
+                disabled={submitting}
+              >
                 {submitting ? 'Salvando...' : 'Salvar'}
               </Button>
             </DialogFooter>

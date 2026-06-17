@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { SubtypeSelectWithCreate } from '@/components/catalogo/subtype-select-with-create';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -245,6 +246,7 @@ export function ServicoDialog({
       return;
     }
 
+    toast.success(isEdit ? 'Serviço atualizado' : 'Serviço cadastrado');
     onOpenChange(false);
     onSaved();
   }
@@ -252,220 +254,254 @@ export function ServicoDialog({
   return (
     <Dialog open={open} onOpenChange={(v) => !submitting && onOpenChange(v)}>
       <DialogContent
-        className="flex max-h-[85dvh] w-[min(100vw-1rem,calc(100%-2rem))] max-w-4xl flex-col gap-4 overflow-hidden p-4 sm:p-5 md:p-6"
+        className="flex max-h-[90dvh] w-[min(100vw-1rem,calc(100%-2rem))] max-w-4xl flex-col gap-0 overflow-hidden p-0 rounded-2xl border-border/50"
         aria-describedby="servico-dialog-desc"
       >
-        <DialogHeader className="shrink-0 space-y-1 pr-8 sm:pr-0">
-          <DialogTitle className="text-base font-semibold sm:text-lg">{title}</DialogTitle>
-          <DialogDescription id="servico-dialog-desc" className="text-sm">
-            {descriptionText}
-          </DialogDescription>
-        </DialogHeader>
+        <div className="p-6 pb-4 border-b border-border/50 bg-muted/10">
+          <DialogHeader className="shrink-0 space-y-2 pr-8 sm:pr-0">
+            <DialogTitle className="text-xl font-semibold">{title}</DialogTitle>
+            <DialogDescription id="servico-dialog-desc" className="text-sm">
+              {descriptionText}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain sm:gap-6"
-          >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
+                <FormField
+                  control={form.control}
+                  name="code"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">Código do Serviço</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={codePreview}
+                          readOnly
+                          className="h-11 rounded-xl bg-muted/50 font-mono text-sm"
+                          placeholder="Selecione o subtipo para ver o código"
+                          aria-readonly
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        Código gerado automaticamente com base no subtipo.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">Nome do Serviço</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: Troca de lâmpadas"
+                          className="h-11 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="typeId"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">Tipo de Serviço</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger className="h-11 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background">
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="rounded-xl">
+                          {typeOptions.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="subtypeId"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <SubtypeSelectWithCreate
+                        typeId={typeId}
+                        value={field.value}
+                        onChange={field.onChange}
+                        subtypes={displaySubtypes}
+                        onSubtypesRefetch={() => fetchSubtypes(typeId)}
+                        disabled={!typeId}
+                        placeholder="Selecione o subtipo"
+                        label="Subtipo"
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
-                name="code"
+                name="description"
                 render={({ field }) => (
-                  <FormItem className="gap-y-0!">
-                    <FormLabel className="min-h-10 block">Código do Serviço</FormLabel>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-sm font-medium">Descrição</FormLabel>
                     <FormControl>
-                      <Input
+                      <Textarea
+                        placeholder="Descreva o serviço..."
+                        className="min-h-[100px] resize-y rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background"
+                        rows={3}
                         {...field}
-                        value={codePreview}
-                        readOnly
-                        className="min-h-10 bg-muted"
-                        placeholder="Selecione o subtipo para ver o código"
-                        aria-readonly
                       />
                     </FormControl>
-                    <FormDescription className="text-xs sm:text-sm">
-                      Código gerado automaticamente com base no subtipo do serviço.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="priorityDefault"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">Prioridade Padrão</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger className="h-11 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="rounded-xl">
+                          {PRIORITIES.map((p) => (
+                            <SelectItem key={p} value={p}>
+                              {p}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="estimatedHours"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">Tempo Estimado (horas)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          className="h-11 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
-                name="name"
+                name="materials"
                 render={({ field }) => (
-                  <FormItem className="gap-y-0!">
-                    <FormLabel className="min-h-10 block">Nome do Serviço</FormLabel>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-sm font-medium">Materiais Necessários</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Troca de lâmpadas" className="min-h-10" {...field} />
+                      <Textarea
+                        placeholder="Liste os materiais normalmente necessários..."
+                        className="min-h-[100px] resize-y rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background"
+                        rows={3}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="typeId"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel>Tipo de Serviço</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {typeOptions.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}
-                name="subtypeId"
+                name="procedure"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <SubtypeSelectWithCreate
-                      typeId={typeId}
-                      value={field.value}
-                      onChange={field.onChange}
-                      subtypes={displaySubtypes}
-                      onSubtypesRefetch={() => fetchSubtypes(typeId)}
-                      disabled={!typeId}
-                      placeholder="Selecione o subtipo"
-                      label="Subtipo"
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>Descrição</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Descreva o serviço..."
-                      className="min-h-[100px] resize-y"
-                      rows={3}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="priorityDefault"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel>Prioridade Padrão</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {PRIORITIES.map((p) => (
-                          <SelectItem key={p} value={p}>
-                            {p}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="estimatedHours"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel>Tempo Estimado (horas)</FormLabel>
+                    <FormLabel className="text-sm font-medium">Procedimento Padrão</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} step={0.5} className="min-h-10" {...field} />
+                      <Textarea
+                        placeholder="Descreva o procedimento padrão de execução..."
+                        className="min-h-[100px] resize-y rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background"
+                        rows={3}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center gap-3 space-y-0 rounded-xl border border-border/50 bg-muted/30 p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        className="rounded-md"
+                      />
+                    </FormControl>
+                    <FormLabel className="font-medium cursor-pointer">Serviço Ativo</FormLabel>
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <FormField
-              control={form.control}
-              name="materials"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>Materiais Necessários</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Liste os materiais normalmente necessários..."
-                      className="min-h-[100px] resize-y"
-                      rows={3}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="procedure"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>Procedimento Padrão</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Descreva o procedimento padrão de execução..."
-                      className="min-h-[100px] resize-y"
-                      rows={3}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter className="shrink-0 flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => onOpenChange(false)}
-                disabled={submitting}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" className="w-full sm:w-auto sm:min-w-28" disabled={submitting}>
-                {submitting ? 'Salvando...' : 'Salvar'}
-              </Button>
-            </DialogFooter>
+            <div className="shrink-0 border-t border-border/50 bg-muted/10 p-6">
+              <DialogFooter className="flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto rounded-xl"
+                  onClick={() => onOpenChange(false)}
+                  disabled={submitting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto sm:min-w-28 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 shadow-indigo-500/20 hover:shadow-indigo-500/30"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Salvando...' : 'Salvar'}
+                </Button>
+              </DialogFooter>
+            </div>
           </form>
         </Form>
       </DialogContent>

@@ -117,17 +117,20 @@ export function SubtypeSelectWithCreate({
           onValueChange={handleSelectChange}
           disabled={disabled || !typeId}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-11 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background">
             <SelectValue placeholder={placeholder} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="rounded-xl">
             {subtypes.map((s) => (
               <SelectItem key={s._id} value={s._id}>
                 {s.name}
               </SelectItem>
             ))}
             {canCreateSubtype && typeId ? (
-              <SelectItem value={NEW_SUBTYPE_VALUE}>
+              <SelectItem
+                value={NEW_SUBTYPE_VALUE}
+                className="text-indigo-600 focus:text-indigo-700 dark:text-indigo-400 dark:focus:text-indigo-300 font-medium"
+              >
                 <span className="inline-flex items-center gap-2">
                   <Plus className="h-3.5 w-3.5" />
                   Cadastrar novo subtipo...
@@ -139,14 +142,14 @@ export function SubtypeSelectWithCreate({
       </div>
 
       <Dialog open={openNewSubtype} onOpenChange={setOpenNewSubtype}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Novo subtipo de serviço</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-md rounded-2xl border-border/50">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-xl">Novo subtipo de serviço</DialogTitle>
+            <DialogDescription className="text-sm">
               Informe o nome do novo subtipo. Ele será vinculado ao tipo de serviço já selecionado.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-2">
             <div className="grid gap-2">
               <label className="text-sm font-medium">Nome do subtipo</label>
               <Input
@@ -154,13 +157,15 @@ export function SubtypeSelectWithCreate({
                 value={newSubtypeName}
                 onChange={(e) => setNewSubtypeName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateSubtype()}
+                className="h-11 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm transition-all focus:bg-background"
               />
             </div>
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-3 sm:justify-end pt-2">
             <Button
               type="button"
               variant="outline"
+              className="rounded-xl w-full sm:w-auto"
               onClick={() => setOpenNewSubtype(false)}
               disabled={submitting}
             >
@@ -168,6 +173,7 @@ export function SubtypeSelectWithCreate({
             </Button>
             <Button
               type="button"
+              className="rounded-xl w-full sm:w-auto sm:min-w-28 bg-gradient-to-r from-indigo-600 to-blue-600 shadow-indigo-500/20 hover:shadow-indigo-500/30"
               onClick={handleCreateSubtype}
               disabled={submitting || !newSubtypeName.trim()}
             >
