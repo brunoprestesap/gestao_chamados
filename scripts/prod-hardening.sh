@@ -12,11 +12,17 @@ APP_DIR="/opt/severino"
 ENV="$APP_DIR/.env"
 
 echo "== A1: restringindo permissões dos arquivos .env =="
+# Dono = github-runner (usuário do CD self-hosted): o `docker compose` do
+# deploy precisa LER o .env para interpolar variáveis. chmod 600 remove
+# acesso de outros usuários locais (ex.: manutencao) sem quebrar o deploy.
+# NÃO usar root:root — github-runner perderia o acesso e o deploy falharia
+# com "open /opt/severino/.env: permission denied". [auditoria 2026-05-25]
+DEPLOY_USER="${DEPLOY_USER:-github-runner}"
 shopt -s nullglob
 for f in "$ENV" "$APP_DIR"/.env.bak.* "$APP_DIR"/.env.*; do
   [ -f "$f" ] || continue
   before=$(stat -c '%a %U:%G' "$f")
-  chown root:root "$f"
+  chown "$DEPLOY_USER:$DEPLOY_USER" "$f"
   chmod 600 "$f"
   echo "  $f : $before -> $(stat -c '%a %U:%G' "$f")"
 done
