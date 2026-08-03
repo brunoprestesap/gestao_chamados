@@ -42,6 +42,12 @@ services:
     networks:
       - sigma
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-T', '5', '-O', '/dev/null', 'http://localhost:3000/login']
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 40s
 
   socket-server:
     build:
@@ -60,6 +66,12 @@ services:
     networks:
       - sigma
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(3001,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   mongodb:
     image: mongo:7
@@ -77,6 +89,12 @@ services:
     networks:
       - sigma
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     # SEGURANÇA: porta 27017 NÃO é publicada no host. O next-app acessa o
     # MongoDB pela rede interna do Docker (mongodb:27017). Publicar a porta
     # expunha o banco a toda a rede interna (Docker ignora o UFW). [auditoria 2026-05-25]
@@ -93,6 +111,12 @@ services:
     networks:
       - sigma
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # Cron job — chamados recorrentes (a cada 30 min)
   cron:
@@ -112,6 +136,12 @@ services:
     networks:
       - sigma
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep crond >/dev/null 2>&1 || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 networks:
   sigma:
