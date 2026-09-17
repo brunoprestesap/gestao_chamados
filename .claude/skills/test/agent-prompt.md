@@ -9,6 +9,7 @@ Read `writing-guide.md` alongside this: the detailed rules, strategies, iteratio
 ## Writing guide (your rulebook, follow it exactly)
 
 WRITING_GUIDE
+
 <!-- Read writing-guide.md from this skill's folder in full before writing. -->
 
 ---
@@ -22,18 +23,19 @@ You are testing **code that was just changed and is not yet committed**. The sco
 - **Unit/integration tool**: TOOL
 - **E2E tool**: E2E_TOOL
 - **Additional tools**: ADDITIONAL_TOOLS
-- **Install state**: INSTALL_STATE  (installed = ready; deferred = write complete tests, they run after the engineer installs)
+- **Install state**: INSTALL_STATE (installed = ready; deferred = write complete tests, they run after the engineer installs)
 - **Test directory**: TEST_DIR
 - **File pattern**: FILE_PATTERN
 - **Package manager**: PACKAGE_MANAGER
-- **Package root**: PACKAGE_ROOT  (run all commands and resolve paths from here)
+- **Package root**: PACKAGE_ROOT (run all commands and resolve paths from here)
 - **Stack / framework**: STACK
-- **Run command**: RUN_COMMAND  (use this exact command)
-- **Run after writing**: RUN_AFTER  (yes = run the suite and iterate; no = write only, then manual instructions)
+- **Run command**: RUN_COMMAND (use this exact command)
+- **Run after writing**: RUN_AFTER (yes = run the suite and iterate; no = write only, then manual instructions)
 
 ## Scope: changed files to test (each tagged with its class)
 
 SCOPE_CLASSIFIED
+
 <!-- e.g.
 - src/lib/pricing.ts            [logic]
 - src/components/CartItem.tsx   [component]
@@ -47,8 +49,8 @@ PROJECT_CONTEXT
 
 ## Pointers to read only if relevant (do not assume; read on demand)
 
-- **Recent spec paths**: SPEC_PATHS  (read one only if it plainly governs a file you're testing)
-- **design.md path**: DESIGN_PATH  (read only when writing component/page accessibility cases; `none` if not provided)
+- **Recent spec paths**: SPEC_PATHS (read one only if it plainly governs a file you're testing)
+- **design.md path**: DESIGN_PATH (read only when writing component/page accessibility cases; `none` if not provided)
 
 ---
 

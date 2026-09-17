@@ -1,109 +1,109 @@
 - generic [active] [ref=e1]:
-  - generic [ref=e2]:
-    - complementary "Barra lateral de navegação" [ref=e3]:
-      - generic [ref=e5]:
-        - generic [ref=e6]:
-          - img [ref=e7]
-          - generic [ref=e18]:
-            - paragraph [ref=e19]: Sigma
-            - paragraph [ref=e20]: Gestão de Chamados
-          - button "Recolher barra lateral" [expanded] [ref=e22]:
-            - img
-        - navigation [ref=e26]
-        - generic [ref=e28]:
-          - generic [ref=e29]: "?"
-          - generic [ref=e30]:
-            - paragraph [ref=e31]: Carregando...
-            - paragraph [ref=e32]: —
-          - button "Sair" [ref=e34]:
-            - img
-    - main [ref=e35]:
-      - button "Notificações" [ref=e38]:
-        - img
-      - generic [ref=e41]:
-        - generic [ref=e42]:
-          - generic [ref=e44]:
-            - img [ref=e46]
-            - generic [ref=e48]:
-              - heading "Meus Chamados" [level=1] [ref=e49]
-              - paragraph [ref=e50]: Acompanhe e gerencie as suas solicitações
-          - button "Novo Chamado" [ref=e52]:
-            - img
-            - generic [ref=e53]: Novo Chamado
-        - generic [ref=e55]:
-          - generic [ref=e56]:
-            - img
-            - textbox "Buscar chamados" [ref=e57]:
-              - /placeholder: Buscar por número, título, descrição...
-          - button "Todos os status" [ref=e59]:
-            - generic [ref=e60]: Todos os status
-            - img
-        - table [ref=e65]:
-          - rowgroup [ref=e75]:
-            - row "Nº Título Status Prioridade Serviço Técnico Data Ações" [ref=e76]:
-              - columnheader "Nº" [ref=e77]
-              - columnheader "Título" [ref=e78]
-              - columnheader "Status" [ref=e79]
-              - columnheader "Prioridade" [ref=e80]
-              - columnheader "Serviço" [ref=e81]
-              - columnheader "Técnico" [ref=e82]
-              - columnheader "Data" [ref=e83]
-              - columnheader "Ações" [ref=e84]
-          - rowgroup [ref=e85]:
-            - row [ref=e86]:
-              - cell [ref=e87]
-              - cell [ref=e89]
-              - cell [ref=e93]
-              - cell [ref=e95]
-              - cell [ref=e97]
-              - cell [ref=e99]
-              - cell [ref=e101]
-              - cell [ref=e103]
-            - row [ref=e106]:
-              - cell [ref=e107]
-              - cell [ref=e109]
-              - cell [ref=e113]
-              - cell [ref=e115]
-              - cell [ref=e117]
-              - cell [ref=e119]
-              - cell [ref=e121]
-              - cell [ref=e123]
-            - row [ref=e126]:
-              - cell [ref=e127]
-              - cell [ref=e129]
-              - cell [ref=e133]
-              - cell [ref=e135]
-              - cell [ref=e137]
-              - cell [ref=e139]
-              - cell [ref=e141]
-              - cell [ref=e143]
-            - row [ref=e146]:
-              - cell [ref=e147]
-              - cell [ref=e149]
-              - cell [ref=e153]
-              - cell [ref=e155]
-              - cell [ref=e157]
-              - cell [ref=e159]
-              - cell [ref=e161]
-              - cell [ref=e163]
-            - row [ref=e166]:
-              - cell [ref=e167]
-              - cell [ref=e169]
-              - cell [ref=e173]
-              - cell [ref=e175]
-              - cell [ref=e177]
-              - cell [ref=e179]
-              - cell [ref=e181]
-              - cell [ref=e183]
-            - row [ref=e186]:
-              - cell [ref=e187]
-              - cell [ref=e189]
-              - cell [ref=e193]
-              - cell [ref=e195]
-              - cell [ref=e197]
-              - cell [ref=e199]
-              - cell [ref=e201]
-              - cell [ref=e203]
-  - region "Notifications alt+T"
-  - button "Open Next.js Dev Tools" [ref=e211] [cursor=pointer]:
-    - img [ref=e212]
+    - generic [ref=e2]:
+        - complementary "Barra lateral de navegação" [ref=e3]:
+            - generic [ref=e5]:
+                - generic [ref=e6]:
+                    - img [ref=e7]
+                    - generic [ref=e18]:
+                        - paragraph [ref=e19]: Sigma
+                        - paragraph [ref=e20]: Gestão de Chamados
+                    - button "Recolher barra lateral" [expanded] [ref=e22]:
+                        - img
+                - navigation [ref=e26]
+                - generic [ref=e28]:
+                    - generic [ref=e29]: '?'
+                    - generic [ref=e30]:
+                        - paragraph [ref=e31]: Carregando...
+                        - paragraph [ref=e32]: —
+                    - button "Sair" [ref=e34]:
+                        - img
+        - main [ref=e35]:
+            - button "Notificações" [ref=e38]:
+                - img
+            - generic [ref=e41]:
+                - generic [ref=e42]:
+                    - generic [ref=e44]:
+                        - img [ref=e46]
+                        - generic [ref=e48]:
+                            - heading "Meus Chamados" [level=1] [ref=e49]
+                            - paragraph [ref=e50]: Acompanhe e gerencie as suas solicitações
+                    - button "Novo Chamado" [ref=e52]:
+                        - img
+                        - generic [ref=e53]: Novo Chamado
+                - generic [ref=e55]:
+                    - generic [ref=e56]:
+                        - img
+                        - textbox "Buscar chamados" [ref=e57]:
+                            - /placeholder: Buscar por número, título, descrição...
+                    - button "Todos os status" [ref=e59]:
+                        - generic [ref=e60]: Todos os status
+                        - img
+                - table [ref=e65]:
+                    - rowgroup [ref=e75]:
+                        - row "Nº Título Status Prioridade Serviço Técnico Data Ações" [ref=e76]:
+                            - columnheader "Nº" [ref=e77]
+                            - columnheader "Título" [ref=e78]
+                            - columnheader "Status" [ref=e79]
+                            - columnheader "Prioridade" [ref=e80]
+                            - columnheader "Serviço" [ref=e81]
+                            - columnheader "Técnico" [ref=e82]
+                            - columnheader "Data" [ref=e83]
+                            - columnheader "Ações" [ref=e84]
+                    - rowgroup [ref=e85]:
+                        - row [ref=e86]:
+                            - cell [ref=e87]
+                            - cell [ref=e89]
+                            - cell [ref=e93]
+                            - cell [ref=e95]
+                            - cell [ref=e97]
+                            - cell [ref=e99]
+                            - cell [ref=e101]
+                            - cell [ref=e103]
+                        - row [ref=e106]:
+                            - cell [ref=e107]
+                            - cell [ref=e109]
+                            - cell [ref=e113]
+                            - cell [ref=e115]
+                            - cell [ref=e117]
+                            - cell [ref=e119]
+                            - cell [ref=e121]
+                            - cell [ref=e123]
+                        - row [ref=e126]:
+                            - cell [ref=e127]
+                            - cell [ref=e129]
+                            - cell [ref=e133]
+                            - cell [ref=e135]
+                            - cell [ref=e137]
+                            - cell [ref=e139]
+                            - cell [ref=e141]
+                            - cell [ref=e143]
+                        - row [ref=e146]:
+                            - cell [ref=e147]
+                            - cell [ref=e149]
+                            - cell [ref=e153]
+                            - cell [ref=e155]
+                            - cell [ref=e157]
+                            - cell [ref=e159]
+                            - cell [ref=e161]
+                            - cell [ref=e163]
+                        - row [ref=e166]:
+                            - cell [ref=e167]
+                            - cell [ref=e169]
+                            - cell [ref=e173]
+                            - cell [ref=e175]
+                            - cell [ref=e177]
+                            - cell [ref=e179]
+                            - cell [ref=e181]
+                            - cell [ref=e183]
+                        - row [ref=e186]:
+                            - cell [ref=e187]
+                            - cell [ref=e189]
+                            - cell [ref=e193]
+                            - cell [ref=e195]
+                            - cell [ref=e197]
+                            - cell [ref=e199]
+                            - cell [ref=e201]
+                            - cell [ref=e203]
+    - region "Notifications alt+T"
+    - button "Open Next.js Dev Tools" [ref=e211] [cursor=pointer]:
+        - img [ref=e212]

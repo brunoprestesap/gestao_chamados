@@ -1,284 +1,284 @@
 - generic:
-  - generic:
-    - complementary:
-      - generic:
-        - generic:
-          - generic:
-            - img
+    - generic:
+        - complementary:
             - generic:
-              - paragraph: Sigma
-              - paragraph: Gestão de Chamados
-            - generic:
-              - button [expanded]:
-                - img
-          - generic:
-            - generic:
-              - generic:
-                - navigation:
-                  - generic:
-                    - paragraph: Principal
-                    - generic:
-                      - generic:
-                        - link:
-                          - /url: /dashboard
-                          - img
-                          - generic: Painel de Gestão
-                      - generic:
-                        - link:
-                          - /url: /meus-chamados
-                          - img
-                          - generic: Meus Chamados
-                  - generic:
-                    - paragraph: Gestão
-                    - generic:
-                      - generic:
-                        - link:
-                          - /url: /gestao
-                          - img
-                          - generic: Gestão
-                      - generic:
-                        - link:
-                          - /url: /gestao/recurring
-                          - img
-                          - generic: Chamados Recorrentes
-                      - generic:
-                        - link:
-                          - /url: /sla-dashboard
-                          - img
-                          - generic: Painel de Gestão SLA
-                      - generic:
-                        - link:
-                          - /url: /relatorios/breach
-                          - img
-                          - generic: Relatório de Breaches
-                  - generic:
-                    - paragraph: Admin
-                    - generic:
-                      - generic:
-                        - link:
-                          - /url: /relatorios/imr
-                          - img
-                          - generic: Relatórios IMR
-                      - generic:
-                        - link:
-                          - /url: /catalogo
-                          - img
-                          - generic: Catálogo
-                      - generic:
-                        - link:
-                          - /url: /unidades
-                          - img
-                          - generic: Unidades
-                      - generic:
-                        - link:
-                          - /url: /usuarios
-                          - img
-                          - generic: Usuários
-                      - generic:
-                        - link:
-                          - /url: /sla
-                          - img
-                          - generic: SLA
-                      - generic:
-                        - link:
-                          - /url: /configuracoes/expediente
-                          - img
-                          - generic: Expediente
-                      - generic:
-                        - link:
-                          - /url: /configuracoes/feriados
-                          - img
-                          - generic: Feriados
-          - generic:
-            - generic:
-              - generic: A
-              - generic:
-                - paragraph: Administrador E2E
-                - paragraph: Admin
-              - generic:
-                - button:
-                  - img
-    - main:
-      - generic:
-        - generic:
-          - button:
-            - img
-      - generic:
-        - generic:
-          - generic:
-            - generic:
-              - generic:
                 - generic:
-                  - generic:
+                    - generic:
+                        - img
+                        - generic:
+                            - paragraph: Sigma
+                            - paragraph: Gestão de Chamados
+                        - generic:
+                            - button [expanded]:
+                                - img
+                    - generic:
+                        - generic:
+                            - generic:
+                                - navigation:
+                                    - generic:
+                                        - paragraph: Principal
+                                        - generic:
+                                            - generic:
+                                                - link:
+                                                    - /url: /dashboard
+                                                    - img
+                                                    - generic: Painel de Gestão
+                                            - generic:
+                                                - link:
+                                                    - /url: /meus-chamados
+                                                    - img
+                                                    - generic: Meus Chamados
+                                    - generic:
+                                        - paragraph: Gestão
+                                        - generic:
+                                            - generic:
+                                                - link:
+                                                    - /url: /gestao
+                                                    - img
+                                                    - generic: Gestão
+                                            - generic:
+                                                - link:
+                                                    - /url: /gestao/recurring
+                                                    - img
+                                                    - generic: Chamados Recorrentes
+                                            - generic:
+                                                - link:
+                                                    - /url: /sla-dashboard
+                                                    - img
+                                                    - generic: Painel de Gestão SLA
+                                            - generic:
+                                                - link:
+                                                    - /url: /relatorios/breach
+                                                    - img
+                                                    - generic: Relatório de Breaches
+                                    - generic:
+                                        - paragraph: Admin
+                                        - generic:
+                                            - generic:
+                                                - link:
+                                                    - /url: /relatorios/imr
+                                                    - img
+                                                    - generic: Relatórios IMR
+                                            - generic:
+                                                - link:
+                                                    - /url: /catalogo
+                                                    - img
+                                                    - generic: Catálogo
+                                            - generic:
+                                                - link:
+                                                    - /url: /unidades
+                                                    - img
+                                                    - generic: Unidades
+                                            - generic:
+                                                - link:
+                                                    - /url: /usuarios
+                                                    - img
+                                                    - generic: Usuários
+                                            - generic:
+                                                - link:
+                                                    - /url: /sla
+                                                    - img
+                                                    - generic: SLA
+                                            - generic:
+                                                - link:
+                                                    - /url: /configuracoes/expediente
+                                                    - img
+                                                    - generic: Expediente
+                                            - generic:
+                                                - link:
+                                                    - /url: /configuracoes/feriados
+                                                    - img
+                                                    - generic: Feriados
+                    - generic:
+                        - generic:
+                            - generic: A
+                            - generic:
+                                - paragraph: Administrador E2E
+                                - paragraph: Admin
+                            - generic:
+                                - button:
+                                    - img
+        - main:
+            - generic:
+                - generic:
+                    - button:
+                        - img
+            - generic:
+                - generic:
+                    - generic:
+                        - generic:
+                            - generic:
+                                - generic:
+                                    - generic:
+                                        - img
+                                    - generic:
+                                        - heading [level=1]: Meus Chamados
+                                        - paragraph: Acompanhe e gerencie as suas solicitações
+                            - generic:
+                                - generic: 3 chamados
+                                - button:
+                                    - img
+                                    - generic: Novo Chamado
+                        - generic:
+                            - generic:
+                                - generic:
+                                    - img
+                                    - textbox:
+                                        - /placeholder: Buscar por número, título, descrição...
+                                - generic:
+                                    - button:
+                                        - generic: Todos os status
+                                        - img
+                        - generic:
+                            - generic:
+                                - generic:
+                                    - table:
+                                        - rowgroup:
+                                            - row:
+                                                - columnheader: Nº
+                                                - columnheader: Título
+                                                - columnheader: Status
+                                                - columnheader: Prioridade
+                                                - columnheader: Serviço
+                                                - columnheader: Técnico
+                                                - columnheader: Data
+                                                - columnheader: Ações
+                                        - rowgroup:
+                                            - row:
+                                                - cell: CHM-2026-00410
+                                                - cell:
+                                                    - generic: Ar-Condicionado — Sala principal
+                                                - cell:
+                                                    - generic:
+                                                        - img
+                                                        - text: Em atendimento
+                                                - cell:
+                                                    - generic: Normal
+                                                - cell:
+                                                    - generic: Ar-Condicionado
+                                                - cell:
+                                                    - generic: —
+                                                - cell: 15/04/26
+                                                - cell
+                                            - row:
+                                                - cell: CHM-2026-00409
+                                                - cell:
+                                                    - generic: Ar-Condicionado — Sala principal
+                                                - cell:
+                                                    - generic:
+                                                        - img
+                                                        - text: Em atendimento
+                                                - cell:
+                                                    - generic: Emergencial
+                                                - cell:
+                                                    - generic: Ar-Condicionado
+                                                - cell:
+                                                    - generic: —
+                                                - cell: 15/04/26
+                                                - cell
+                                            - row:
+                                                - cell: CHM-2026-00019
+                                                - cell:
+                                                    - generic: Manutenção Predial — Sala principal
+                                                - cell:
+                                                    - generic:
+                                                        - img
+                                                        - text: Em atendimento
+                                                - cell:
+                                                    - generic: Normal
+                                                - cell:
+                                                    - generic: Manutenção Predial
+                                                - cell:
+                                                    - generic: LUCIRA
+                                                - cell: 09/04/26
+                                                - cell
+    - region "Notifications alt+T"
+    - button "Open Next.js Dev Tools" [ref=e211] [cursor=pointer]:
+        - img [ref=e212]
+    - alert
+    - dialog "#CHM-2026-00019" [ref=e360]:
+        - generic [ref=e362]:
+            - generic [ref=e363]:
+                - img [ref=e365]
+                - generic [ref=e367]:
+                    - generic [ref=e368]:
+                        - heading "#CHM-2026-00019" [level=2] [ref=e369]
+                        - generic [ref=e370]:
+                            - img
+                            - text: Em atendimento
+                    - paragraph [ref=e371]: Manutenção Predial — Sala principal
+                - button "Abrir em tela cheia" [active] [ref=e372]:
                     - img
-                  - generic:
-                    - heading [level=1]: Meus Chamados
-                    - paragraph: Acompanhe e gerencie as suas solicitações
-              - generic:
-                - generic: 3 chamados
-                - button:
-                  - img
-                  - generic: Novo Chamado
-            - generic:
-              - generic:
-                - generic:
-                  - img
-                  - textbox:
-                    - /placeholder: Buscar por número, título, descrição...
-                - generic:
-                  - button:
-                    - generic: Todos os status
+            - paragraph [ref=e373]: 'Detalhes do chamado #CHM-2026-00019: Manutenção Predial — Sala principal'
+        - generic [ref=e374]:
+            - tablist [ref=e376]:
+                - tab "Detalhes" [selected] [ref=e377]:
                     - img
-            - generic:
-              - generic:
-                - generic:
-                  - table:
-                    - rowgroup:
-                      - row:
-                        - columnheader: Nº
-                        - columnheader: Título
-                        - columnheader: Status
-                        - columnheader: Prioridade
-                        - columnheader: Serviço
-                        - columnheader: Técnico
-                        - columnheader: Data
-                        - columnheader: Ações
-                    - rowgroup:
-                      - row:
-                        - cell: CHM-2026-00410
-                        - cell:
-                          - generic: Ar-Condicionado — Sala principal
-                        - cell:
-                          - generic:
-                            - img
-                            - text: Em atendimento
-                        - cell:
-                          - generic: Normal
-                        - cell:
-                          - generic: Ar-Condicionado
-                        - cell:
-                          - generic: —
-                        - cell: 15/04/26
-                        - cell
-                      - row:
-                        - cell: CHM-2026-00409
-                        - cell:
-                          - generic: Ar-Condicionado — Sala principal
-                        - cell:
-                          - generic:
-                            - img
-                            - text: Em atendimento
-                        - cell:
-                          - generic: Emergencial
-                        - cell:
-                          - generic: Ar-Condicionado
-                        - cell:
-                          - generic: —
-                        - cell: 15/04/26
-                        - cell
-                      - row:
-                        - cell: CHM-2026-00019
-                        - cell:
-                          - generic: Manutenção Predial — Sala principal
-                        - cell:
-                          - generic:
-                            - img
-                            - text: Em atendimento
-                        - cell:
-                          - generic: Normal
-                        - cell:
-                          - generic: Manutenção Predial
-                        - cell:
-                          - generic: LUCIRA
-                        - cell: 09/04/26
-                        - cell
-  - region "Notifications alt+T"
-  - button "Open Next.js Dev Tools" [ref=e211] [cursor=pointer]:
-    - img [ref=e212]
-  - alert
-  - dialog "#CHM-2026-00019" [ref=e360]:
-    - generic [ref=e362]:
-      - generic [ref=e363]:
-        - img [ref=e365]
-        - generic [ref=e367]:
-          - generic [ref=e368]:
-            - heading "#CHM-2026-00019" [level=2] [ref=e369]
-            - generic [ref=e370]:
-              - img
-              - text: Em atendimento
-          - paragraph [ref=e371]: Manutenção Predial — Sala principal
-        - button "Abrir em tela cheia" [active] [ref=e372]:
-          - img
-      - paragraph [ref=e373]: "Detalhes do chamado #CHM-2026-00019: Manutenção Predial — Sala principal"
-    - generic [ref=e374]:
-      - tablist [ref=e376]:
-        - tab "Detalhes" [selected] [ref=e377]:
-          - img
-          - generic [ref=e378]: Detalhes
-        - tab "Histórico" [ref=e379]:
-          - img
-          - generic [ref=e380]: Histórico
-        - tab "Comentários" [ref=e381]:
-          - img
-          - generic [ref=e382]: Comentários
-        - tab "Anexos" [ref=e383]:
-          - img
-          - generic [ref=e384]: Anexos
-      - tabpanel "Detalhes" [ref=e388]:
-        - generic [ref=e389]:
-          - region "Descrição" [ref=e390]:
-            - generic [ref=e391]:
-              - img [ref=e393]
-              - heading "Descrição" [level=2] [ref=e396]
-            - generic [ref=e398]: Verificação de tomadas da nova sala do NUTEC
-          - region "Classificação de urgência" [ref=e399]:
-            - generic [ref=e400]:
-              - generic [ref=e401]: Alta
-              - generic [ref=e402]: "Solicitado: Padrão"
-          - region "Informações do chamado" [ref=e403]:
-            - generic [ref=e404]:
-              - img [ref=e406]
-              - heading "Informações do chamado" [level=2] [ref=e409]
-            - generic [ref=e410]:
-              - generic [ref=e411]:
-                - img [ref=e413]
-                - generic [ref=e417]:
-                  - paragraph [ref=e418]: Unidade
-                  - paragraph [ref=e419]: NUTEC - NÚCLEO DE TECNOLOGIA
-              - generic [ref=e420]:
-                - img [ref=e422]
-                - generic [ref=e425]:
-                  - paragraph [ref=e426]: Local
-                  - paragraph [ref=e427]: Sala principal
-              - generic [ref=e428]:
-                - img [ref=e430]
-                - generic [ref=e433]:
-                  - paragraph [ref=e434]: Solicitante
-                  - paragraph [ref=e435]: Administrador E2E
-              - generic [ref=e436]:
-                - img [ref=e438]
-                - generic [ref=e440]:
-                  - paragraph [ref=e441]: Telefone
-                  - paragraph [ref=e442]: "96981020202"
-              - generic [ref=e443]:
-                - img [ref=e445]
-                - generic [ref=e449]:
-                  - paragraph [ref=e450]: Técnico
-                  - paragraph [ref=e451]: LUCIRA
-              - generic [ref=e452]:
-                - img [ref=e454]
-                - generic [ref=e457]:
-                  - paragraph [ref=e458]: Aberto em
-                  - paragraph [ref=e459]: 09/04/2026, 13:02
-              - generic [ref=e460]:
-                - img [ref=e462]
-                - generic [ref=e464]:
-                  - paragraph [ref=e465]: Serviço
-                  - paragraph [ref=e466]: Manutenção Predial › Elétrica
-    - button "Close" [ref=e467]:
-      - img [ref=e468]
-      - generic [ref=e471]: Close
-  - generic [ref=e472]:
-    - text: Abrir em tela cheia
-    - img [ref=e474]
-    - tooltip "Abrir em tela cheia" [ref=e476]
+                    - generic [ref=e378]: Detalhes
+                - tab "Histórico" [ref=e379]:
+                    - img
+                    - generic [ref=e380]: Histórico
+                - tab "Comentários" [ref=e381]:
+                    - img
+                    - generic [ref=e382]: Comentários
+                - tab "Anexos" [ref=e383]:
+                    - img
+                    - generic [ref=e384]: Anexos
+            - tabpanel "Detalhes" [ref=e388]:
+                - generic [ref=e389]:
+                    - region "Descrição" [ref=e390]:
+                        - generic [ref=e391]:
+                            - img [ref=e393]
+                            - heading "Descrição" [level=2] [ref=e396]
+                        - generic [ref=e398]: Verificação de tomadas da nova sala do NUTEC
+                    - region "Classificação de urgência" [ref=e399]:
+                        - generic [ref=e400]:
+                            - generic [ref=e401]: Alta
+                            - generic [ref=e402]: 'Solicitado: Padrão'
+                    - region "Informações do chamado" [ref=e403]:
+                        - generic [ref=e404]:
+                            - img [ref=e406]
+                            - heading "Informações do chamado" [level=2] [ref=e409]
+                        - generic [ref=e410]:
+                            - generic [ref=e411]:
+                                - img [ref=e413]
+                                - generic [ref=e417]:
+                                    - paragraph [ref=e418]: Unidade
+                                    - paragraph [ref=e419]: NUTEC - NÚCLEO DE TECNOLOGIA
+                            - generic [ref=e420]:
+                                - img [ref=e422]
+                                - generic [ref=e425]:
+                                    - paragraph [ref=e426]: Local
+                                    - paragraph [ref=e427]: Sala principal
+                            - generic [ref=e428]:
+                                - img [ref=e430]
+                                - generic [ref=e433]:
+                                    - paragraph [ref=e434]: Solicitante
+                                    - paragraph [ref=e435]: Administrador E2E
+                            - generic [ref=e436]:
+                                - img [ref=e438]
+                                - generic [ref=e440]:
+                                    - paragraph [ref=e441]: Telefone
+                                    - paragraph [ref=e442]: '96981020202'
+                            - generic [ref=e443]:
+                                - img [ref=e445]
+                                - generic [ref=e449]:
+                                    - paragraph [ref=e450]: Técnico
+                                    - paragraph [ref=e451]: LUCIRA
+                            - generic [ref=e452]:
+                                - img [ref=e454]
+                                - generic [ref=e457]:
+                                    - paragraph [ref=e458]: Aberto em
+                                    - paragraph [ref=e459]: 09/04/2026, 13:02
+                            - generic [ref=e460]:
+                                - img [ref=e462]
+                                - generic [ref=e464]:
+                                    - paragraph [ref=e465]: Serviço
+                                    - paragraph [ref=e466]: Manutenção Predial › Elétrica
+        - button "Close" [ref=e467]:
+            - img [ref=e468]
+            - generic [ref=e471]: Close
+    - generic [ref=e472]:
+        - text: Abrir em tela cheia
+        - img [ref=e474]
+        - tooltip "Abrir em tela cheia" [ref=e476]
