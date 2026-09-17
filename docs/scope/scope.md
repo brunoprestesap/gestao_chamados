@@ -10,29 +10,29 @@ _São recomendações para manter a construção organizada, não obrigações. 
 
 ## At a glance
 
-| #   | Feature                                            | Phase      | Status      |
-| --- | -------------------------------------------------- | ---------- | ----------- |
-| 1   | Autenticação LDAP e perfis                         | Contexto   | existing    |
-| 2   | Unidades e usuários                                | Contexto   | existing    |
-| 3   | Catálogo de serviços                               | Contexto   | existing    |
-| 4   | Abertura de chamado por formulário                 | Contexto   | existing    |
-| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto   | existing    |
-| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto   | existing    |
-| 7   | SLA, expediente e pausas                           | Contexto   | existing    |
-| 8   | Notificações em tempo real                         | Contexto   | existing    |
-| 9   | Integração com a IA local                          | Foundation | in-progress |
-| 10  | Conversa e decisões da IA no banco                 | Foundation | planned     |
-| 11  | Tela de chat de chamados                           | Slice 1    | planned     |
-| 12  | Abertura do chamado pela IA                        | Slice 1    | planned     |
-| 13  | Andamento e conversa com o técnico                 | Slice 2    | planned     |
-| 14  | Calibração da trava de confiança                   | Slice 3    | planned     |
-| 15  | Prioridade e SLA automáticos                       | Slice 3    | planned     |
-| 16  | Atribuição automática ao técnico                   | Slice 3    | planned     |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned     |
-| 18  | Painel de acurácia da IA                           | Slice 3    | planned     |
-| 19  | Fotos no chat                                      | Slice 4    | planned     |
-| 20  | Aviso de chamado duplicado                         | Slice 4    | planned     |
-| 21  | Entrada por voz                                    | Slice 4    | planned     |
+| #   | Feature                                            | Phase      | Status   |
+| --- | -------------------------------------------------- | ---------- | -------- |
+| 1   | Autenticação LDAP e perfis                         | Contexto   | existing |
+| 2   | Unidades e usuários                                | Contexto   | existing |
+| 3   | Catálogo de serviços                               | Contexto   | existing |
+| 4   | Abertura de chamado por formulário                 | Contexto   | existing |
+| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto   | existing |
+| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto   | existing |
+| 7   | SLA, expediente e pausas                           | Contexto   | existing |
+| 8   | Notificações em tempo real                         | Contexto   | existing |
+| 9   | Integração com a IA local                          | Foundation | done     |
+| 10  | Conversa e decisões da IA no banco                 | Foundation | planned  |
+| 11  | Tela de chat de chamados                           | Slice 1    | planned  |
+| 12  | Abertura do chamado pela IA                        | Slice 1    | planned  |
+| 13  | Andamento e conversa com o técnico                 | Slice 2    | planned  |
+| 14  | Calibração da trava de confiança                   | Slice 3    | planned  |
+| 15  | Prioridade e SLA automáticos                       | Slice 3    | planned  |
+| 16  | Atribuição automática ao técnico                   | Slice 3    | planned  |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned  |
+| 18  | Painel de acurácia da IA                           | Slice 3    | planned  |
+| 19  | Fotos no chat                                      | Slice 4    | planned  |
+| 20  | Aviso de chamado duplicado                         | Slice 4    | planned  |
+| 21  | Entrada por voz                                    | Slice 4    | planned  |
 
 ## Existing (contexto)
 
@@ -72,7 +72,7 @@ Socket.IO separado com salas por usuário e gestores, emissão sem bloquear a re
 
 ## Foundations
 
-### 9. Integração com a IA local · in-progress
+### 9. Integração com a IA local · done
 
 Acesso do servidor ao modelo Qwen no vLLM da rede interna, com respostas estruturadas e validadas, para que toda funcionalidade de IA use o mesmo caminho.
 **Done when:** o servidor consulta o modelo e recebe uma resposta estruturada e validada; lentidão ou queda viram uma falha controlada que não derruba a requisição; endereço e credenciais ficam só em variáveis de ambiente, nunca no navegador.
@@ -85,8 +85,8 @@ spec [0001](../specs/0001-integracao-ia-local/index.md) · code in `lib/llm/`, `
   - [x] Proteção da GPU compartilhada (vagas, novas tentativas, disjuntor, limite por usuário) · AC-4, AC-6, AC-7, AC-8, AC-10
   - [x] Operação e guarda (rota de status, debug, ESLint, variáveis na VPS) · AC-9, AC-11, AC-12, AC-13
   - [x] Amostragem revisada (valores do card do Qwen3 em todo pedido, medição de velocidade com carga, comparação de repetição contra o vLLM real, `finishReason` e `sampling` no registro) · AC-10, AC-14, AC-15, AC-16
-- [ ] Verify it: `/check verify integração com a IA local`
-- [ ] Test it: `/test integração com a IA local`
+- [x] Verify it: `/check verify integração com a IA local`
+- [x] Test it: `/test integração com a IA local`
 
 ### 10. Conversa e decisões da IA no banco · needs a decision
 
@@ -108,6 +108,7 @@ Tela no estilo dos assistentes conhecidos: os chamados do usuário na lateral co
 
 A IA lê o relato, escolhe o serviço no catálogo, preenche unidade e andar pelo perfil, tira o local exato do texto, pergunta só o que faltar e mostra um cartão resumo para o usuário confirmar. Nesta fatia o chamado ainda nasce `aberto` para a triagem do Preposto, já com a sugestão da IA.
 **Done when:** um relato em texto livre vira chamado confirmado com serviço, unidade e local exato sem o usuário abrir o catálogo; quem não tem unidade no perfil, ou relata problema em outro lugar, recebe uma pergunta; com a IA fora do ar ou lenta, o chamado abre mesmo assim com o texto como descrição; o chamado mostra que foi classificado pela IA e o histórico registra a sugestão.
+**Herda da 9:** no verify desta funcionalidade, conferir na VPS com `docker logs` do `next-app` que as chamadas reais geram linhas `[llm]` com `task`, `status`, `reason`, `finishReason`, `attempts` e `latencyMs`, sem texto de relato nem chave (passo movido do verify da spec 0001, AC-11).
 
 - [ ] Design it (spec): `/architect abertura do chamado pela IA`
 

@@ -12,9 +12,9 @@ Amostragem revisada (Marco 5, 2026-09-17, 13h, `LLM_MAX_CONCURRENCY=4`): valores
 - [x] Sem sessão, `GET /api/llm/status` → 401 JSON (sem redirecionar) → AC-12
 - [x] Logado como Preposto, Solicitante ou Técnico, `GET /api/llm/status` → 403 JSON → AC-12
 - [x] Na VPS, com as variáveis `LLM_*` no `.env` e o `next-app` recriado, abrir `/api/llm/status` como Admin → `reachable: true` e `modelServed: true` de dentro do container → AC-9, AC-12
-- [ ] Na VPS, `LLM_ENABLED=false` e recriar o `next-app` → o status mostra `enabled: false`, `reachable: null`, e o app sobe normal → AC-9
+- [x] Na VPS, `LLM_ENABLED=false` e recriar o `next-app` → o status mostra `enabled: false`, `reachable: null`, e o app sobe normal → AC-9
 - [x] Na VPS, confirmar que a rede Docker `sigma` não usa faixa que cubra `172.18.5.240` (`docker network inspect` do projeto): se usar, o container não alcança o vLLM → AC-9, AC-12
-- [ ] Na VPS, `docker logs` do `next-app` depois de chamadas de IA → linhas `[llm] {...}` com `task`, `status`, `reason`, `attempts`, `latencyMs` e nenhum texto de relato nem a chave → AC-11
+- Movido para a funcionalidade 12 (2026-09-17): na VPS, `docker logs` do `next-app` depois de chamadas de IA → linhas `[llm] {...}` com `task`, `status`, `reason`, `finishReason`, `attempts`, `latencyMs` e nenhum texto de relato nem a chave → AC-11. Motivo: nenhuma funcionalidade chama o modelo em produção antes da 12. As linhas `[llm]` reais já foram conferidas localmente contra o vLLM e o MongoDB de verdade no `/check verify` de 2026-09-17.
 
 ## Commands
 
@@ -28,13 +28,13 @@ Amostragem revisada (Marco 5, 2026-09-17, 13h, `LLM_MAX_CONCURRENCY=4`): valores
 - [x] `npx vitest run lib/llm/__tests__/guard.test.ts` → só `lib/llm/model-call.ts` chama o AI SDK, o modelo é a instância `vllm.chat`, todo arquivo importa `server-only` e não há `NEXT_PUBLIC_LLM_*` → AC-11, AC-13
 - [x] Com `MONGODB_URI` local, subir o app (ou `LlmCallModel.init()`) e listar os índices de `llmcalls` → `{ createdAt: 1 }` com `expireAfterSeconds: 31536000`, `{ status: 1, createdAt: -1 }`, `{ task: 1, createdAt: -1 }`, `{ refType: 1, refId: 1 }` → AC-10
 - [x] `npm run build` → compila, e `/api/llm/status` aparece como rota dinâmica (`ƒ`) → AC-11, AC-12
-- [ ] `npx vitest run lib/llm/__tests__/generate.integration.test.ts lib/llm/__tests__/stream.integration.test.ts` → o servidor falso recebe os oito campos de amostragem com os valores padrão nas duas funções; a sobrescrita muda só os campos passados; cada valor fora das faixas dá `bad_request` sem tráfego com `LlmCall` `attempts: 0` e `sampling: null` → AC-14, AC-15
-- [ ] Mesmos testes: resposta com `finish_reason: 'length'` e JSON incompleto, com e sem streaming, dá `invalid_output`, grava `finishReason: 'length'` e o log `[llm]` traz `"finishReason":"length"` → AC-15
-- [ ] `npx vitest run lib/llm/__tests__/protection.integration.test.ts -t "corte"` → timeout, timeout, corte, timeout, timeout e depois `ok: true` (o corte zerou a contagem do disjuntor); `finishReason` gravado `null, null, length, null, null, stop` → AC-7, AC-15
-- [ ] `npx vitest run models/__tests__/LlmCall.test.ts` → `finishReason` e `sampling` existem, são `null` por padrão, o enum recusa valor desconhecido, o subdocumento não tem `_id` e recusa amostragem incompleta, e continuam 4 índices → AC-10, AC-15
-- [ ] `LLM_SMOKE=1 npx vitest run lib/llm/__tests__/llm.smoke.test.ts -t "json_schema" --reporter=default` → o vLLM real aceita os oito campos de amostragem e responde `finish_reason: stop` com `ok: true` → AC-14
-- [ ] `LLM_SMOKE=1 npx vitest run lib/llm/__tests__/llm.smoke.test.ts -t "velocidade" --reporter=default` → 3 rodadas de `LLM_MAX_CONCURRENCY` chamadas interativas, todas com `outputTokens` igual ao limite, e mediana até 12.000 ms (a linha `[smoke] velocidade` mostra latências e tokens por segundo) → AC-16
-- [ ] Fora do horário de pico: `LLM_SMOKE=1 npx vitest run lib/llm/__tests__/llm.smoke.test.ts -t "repeti" --reporter=default` → contagens impressas por configuração (antiga, gulosa, padrão) e 0 corte com conteúdo repetido na padrão; corte com espaço em branco imprime a `PENDÊNCIA` e não reprova → AC-16
+- [x] `npx vitest run lib/llm/__tests__/generate.integration.test.ts lib/llm/__tests__/stream.integration.test.ts` → o servidor falso recebe os oito campos de amostragem com os valores padrão nas duas funções; a sobrescrita muda só os campos passados; cada valor fora das faixas dá `bad_request` sem tráfego com `LlmCall` `attempts: 0` e `sampling: null` → AC-14, AC-15
+- [x] Mesmos testes: resposta com `finish_reason: 'length'` e JSON incompleto, com e sem streaming, dá `invalid_output`, grava `finishReason: 'length'` e o log `[llm]` traz `"finishReason":"length"` → AC-15
+- [x] `npx vitest run lib/llm/__tests__/protection.integration.test.ts -t "corte"` → timeout, timeout, corte, timeout, timeout e depois `ok: true` (o corte zerou a contagem do disjuntor); `finishReason` gravado `null, null, length, null, null, stop` → AC-7, AC-15
+- [x] `npx vitest run models/__tests__/LlmCall.test.ts` → `finishReason` e `sampling` existem, são `null` por padrão, o enum recusa valor desconhecido, o subdocumento não tem `_id` e recusa amostragem incompleta, e continuam 4 índices → AC-10, AC-15
+- [x] `LLM_SMOKE=1 npx vitest run lib/llm/__tests__/llm.smoke.test.ts -t "json_schema" --reporter=default` → o vLLM real aceita os oito campos de amostragem e responde `finish_reason: stop` com `ok: true` → AC-14
+- [x] `LLM_SMOKE=1 npx vitest run lib/llm/__tests__/llm.smoke.test.ts -t "velocidade" --reporter=default` → 3 rodadas de `LLM_MAX_CONCURRENCY` chamadas interativas, todas com `outputTokens` igual ao limite, e mediana até 12.000 ms (a linha `[smoke] velocidade` mostra latências e tokens por segundo) → AC-16
+- [x] Fora do horário de pico: `LLM_SMOKE=1 npx vitest run lib/llm/__tests__/llm.smoke.test.ts -t "repeti" --reporter=default` → contagens impressas por configuração (antiga, gulosa, padrão) e 0 corte com conteúdo repetido na padrão; corte com espaço em branco imprime a `PENDÊNCIA` e não reprova → AC-16
 
 _Dica: no Claude Code o Vitest 4 escolhe um reporter que esconde o log de testes que passam; use `--reporter=default` para ver as linhas `[smoke]`._
 
@@ -53,10 +53,10 @@ _Dica: no Claude Code o Vitest 4 escolhe um reporter que esconde o log de testes
 - [x] Prazos por raia: interativa com 20s, 10s e 60s, e 20s em `generateLlmObject`; lote com 120s, 30s e 180s, e 180s em `generateLlmObject`; fila interativa de 5s (conferir em `lib/llm/config.ts`) → AC-3, AC-6
 - [x] Limite de vagas: `LLM_MAX_CONCURRENCY=2` limita a 2 pedidos simultâneos; `0`, `17` ou texto voltam ao padrão 4 com aviso; o lote nunca passa de 1 → AC-6
 - [x] Novas tentativas: 1 na interativa, sem espera, dentro do mesmo prazo; lote com 3 tentativas e esperas de 2s e 4s → AC-4
-- [ ] Amostragem: o pedido sai com os oito campos `temperature: 0.7`, `top_p: 0.8`, `top_k: 20`, `min_p: 0`, `presence_penalty: 0`, `frequency_penalty: 0`, `repetition_penalty: 1` e `max_tokens: 448`, nas duas funções; `sampling: { topK: 40, maxOutputTokens: 200 }` muda só esses dois; `frequencyPenalty` ou `repetitionPenalty` passados à força não mudam nada (conferir também em `lib/llm/config.ts`) → AC-1, AC-14
-- [ ] Faixas aceitas de `sampling`: `temperature: 3`, `topP: 0`, `topK: 0`, `topK: 2.5`, `minP: 1.5`, `presencePenalty: 2.5`, `maxOutputTokens: 9000` ou `0` e `NaN` dão `bad_request` sem tráfego; `temperature: 0`, `topK: -1` e os limites exatos (`topP: 1`, `minP: 1`, `presencePenalty: -2`, `maxOutputTokens: 8192`) chegam ao vLLM → AC-14
-- [ ] `LlmCall.sampling`: grava os seis valores efetivos (padrão mais sobrescrita) em sucesso, falha e cancelamento; `null` só quando a faixa foi rejeitada → AC-15
-- [ ] `LlmCall.finishReason` e o log `[llm]`: `stop` no caminho feliz; `length` no corte, com e sem streaming; `null` em `timeout` antes de conteúdo, `interrupted` sem `finish`, `circuit_open`, `bad_request` e cancelamento → AC-15
+- [x] Amostragem: o pedido sai com os oito campos `temperature: 0.7`, `top_p: 0.8`, `top_k: 20`, `min_p: 0`, `presence_penalty: 0`, `frequency_penalty: 0`, `repetition_penalty: 1` e `max_tokens: 448`, nas duas funções; `sampling: { topK: 40, maxOutputTokens: 200 }` muda só esses dois; `frequencyPenalty` ou `repetitionPenalty` passados à força não mudam nada (conferir também em `lib/llm/config.ts`) → AC-1, AC-14
+- [x] Faixas aceitas de `sampling`: `temperature: 3`, `topP: 0`, `topK: 0`, `topK: 2.5`, `minP: 1.5`, `presencePenalty: 2.5`, `maxOutputTokens: 9000` ou `0` e `NaN` dão `bad_request` sem tráfego; `temperature: 0`, `topK: -1` e os limites exatos (`topP: 1`, `minP: 1`, `presencePenalty: -2`, `maxOutputTokens: 8192`) chegam ao vLLM → AC-14
+- [x] `LlmCall.sampling`: grava os seis valores efetivos (padrão mais sobrescrita) em sucesso, falha e cancelamento; `null` só quando a faixa foi rejeitada → AC-15
+- [x] `LlmCall.finishReason` e o log `[llm]`: `stop` no caminho feliz; `length` no corte, com e sem streaming; `null` em `timeout` antes de conteúdo, `interrupted` sem `finish`, `circuit_open`, `bad_request` e cancelamento → AC-15
 - [x] Limites de usuário e de entrada: 20 chamadas aceitas em 60s com janela deslizante, e as rejeitadas não contam; 24.000 caracteres passam e 24.001 não → AC-8
 - [x] Registro de `rate_limited`: no máximo 1 por usuário a cada 60s, e cada usuário tem o próprio controle → AC-10
 - [x] Parâmetros do disjuntor: 3 falhas contáveis seguidas abrem por 30s; `invalid_output` e `auth_error` zeram a contagem; rejeições locais e cancelamentos não mexem nela → AC-7
@@ -76,7 +76,7 @@ _Dica: no Claude Code o Vitest 4 escolhe um reporter que esconde o log de testes
 - AC-8: `user-rate-limit.test` · `protection.integration` limite e entrada
 - AC-9: `config.test` · `generate.integration` IA desligada · passos da VPS
 - AC-10: registros conferidos em todos os testes de integração · índices vivos no MongoDB
-- AC-11: `logging.integration` · `guard.test` (server-only) · passo dos logs na VPS
+- AC-11: `logging.integration` · `guard.test` (server-only) · linhas `[llm]` reais na verificação ao vivo local · passo dos logs na VPS movido para a funcionalidade 12
 - AC-12: `app/api/llm/status` route test · fumaça do status · passos manuais e da VPS
 - AC-13: `guard.test` (ponto único, instância vllm, ESLint) · passo do ESLint pela linha de comando
 - AC-14: `generate.integration` e `stream.integration` (corpo e faixas) · fumaça do `json_schema` (vLLM real aceita os campos) · sourcing da amostragem e das faixas
