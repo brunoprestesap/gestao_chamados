@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"exit=$?\")",
+      "PowerShell(git -C \"C:\\\\Users\\\\ap20256.JFAP\\\\Desktop\\\\projetos\\\\severino\" status --short)",
+      "PowerShell(git -C \"C:\\\\Users\\\\ap20256.JFAP\\\\Desktop\\\\projetos\\\\severino\" branch --show-current)",
+      "PowerShell(git -C \"C:\\\\Users\\\\ap20256.JFAP\\\\Desktop\\\\projetos\\\\severino\" add scripts/update-ldap-creds.sh)",
+      "PowerShell(git -C \"C:\\\\Users\\\\ap20256.JFAP\\\\Desktop\\\\projetos\\\\severino\" push -u origin chore/gitignore-claude-lock)",
+      "PowerShell(git -C \"C:\\\\Users\\\\ap20256.JFAP\\\\Desktop\\\\projetos\\\\severino\" log --oneline origin/main..HEAD)",
+      "PowerShell(gh pr checks 8 --repo brunoprestesap/gestao_chamados)",
+      "PowerShell(gh pr view 8 --repo brunoprestesap/gestao_chamados --json mergeable,mergeStateStatus,state)",
+      "PowerShell(gh pr merge 8 --repo brunoprestesap/gestao_chamados --merge)",
+      "PowerShell(gh pr view 8 --repo brunoprestesap/gestao_chamados --json state,merged,mergedAt,mergeCommit)",
+      "PowerShell(gh pr view 8 --repo brunoprestesap/gestao_chamados --json state,mergedAt,mergeCommit,mergedBy)",
+      "PowerShell(gh run list --repo brunoprestesap/gestao_chamados --branch main --limit 5)",
+      "PowerShell(gh run watch 26404104252 --repo brunoprestesap/gestao_chamados --exit-status --interval 20; \"CI exit: $LASTEXITCODE\")",
+      "PowerShell(gh run view 26404104252 --repo brunoprestesap/gestao_chamados --json status,conclusion)",
+      "PowerShell(gh run list --repo brunoprestesap/gestao_chamados --workflow Deploy --limit 3)",
+      "PowerShell(\"---\")",
+      "PowerShell(gh run watch 26404456915 --repo brunoprestesap/gestao_chamados --exit-status --interval 15 --compact; \"Deploy exit: $LASTEXITCODE\")",
+      "Bash(Select-Object -Last 40)",
+      "Bash(cp \"app/api/gestao/chamados/[id]/recorrencia/route.ts\" /tmp/route_before.ts)",
+      "Bash(cp \"app/\\(dashboard\\)/gestao/_components/ClassificarChamadoDialog.tsx\" /tmp/dialog_before.tsx)"
+    ]
+  }
+}

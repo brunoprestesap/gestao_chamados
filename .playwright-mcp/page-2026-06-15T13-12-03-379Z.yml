@@ -1,0 +1,25 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "Barra lateral de navegação" [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e18]:
+            - paragraph [ref=e19]: Sigma
+            - paragraph [ref=e20]: Gestão de Chamados
+          - button "Recolher barra lateral" [expanded] [ref=e22]:
+            - img
+        - navigation [ref=e26]
+        - generic [ref=e28]:
+          - generic [ref=e29]: "?"
+          - generic [ref=e30]:
+            - paragraph [ref=e31]: Carregando...
+            - paragraph [ref=e32]: —
+          - button "Sair" [ref=e34]:
+            - img
+    - main [ref=e35]:
+      - button "Notificações" [ref=e38]:
+        - img
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e95] [cursor=pointer]:
+    - img [ref=e96]
