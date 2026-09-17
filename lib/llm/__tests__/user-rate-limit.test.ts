@@ -71,4 +71,23 @@ describe('LlmUserRateLimit', () => {
     vi.advanceTimersByTime(1);
     expect(limit.shouldRecordRejection(MARIA)).toBe(true);
   });
+
+  it('a varredura acima de 5.000 usuários mantém quem ainda está na janela e libera quem saiu (AC-8, AC-10)', () => {
+    accept(JOAO, 20);
+    expect(limit.shouldRecordRejection(JOAO)).toBe(true);
+    accept(MARIA, 1);
+    vi.advanceTimersByTime(40_000);
+    accept(MARIA, 19);
+    expect(limit.shouldRecordRejection(MARIA)).toBe(true);
+
+    // Aos 65s só a primeira chamada da Maria saiu da janela; o usuário 5.000 dispara a varredura.
+    vi.advanceTimersByTime(25_000);
+    for (let i = 0; i < 5_000; i += 1) limit.tryAcquire(`usuario-${i}`);
+
+    expect(limit.tryAcquire(MARIA)).toBe(true);
+    expect(limit.tryAcquire(MARIA)).toBe(false);
+    expect(limit.shouldRecordRejection(MARIA)).toBe(false);
+    accept(JOAO, 20);
+    expect(limit.shouldRecordRejection(JOAO)).toBe(true);
+  });
 });

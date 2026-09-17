@@ -203,6 +203,38 @@ describe('proteção da GPU compartilhada contra o servidor falso', () => {
       expect(stub.completionRequests()).toHaveLength(1);
     });
 
+    it.each([
+      [401, 'auth_error'],
+      [500, 'unavailable'],
+      [400, 'bad_request'],
+    ])(
+      'streaming: %i antes do primeiro pedaço resolve a abertura com %s, sem nova tentativa (AC-2, AC-4)',
+      async (status, reason) => {
+        stub.enqueue({ type: 'status', status }, OK);
+
+        const stream = await streamLlmObject(input());
+
+        expect(stream).toMatchObject({ ok: false, reason, meta: { attempts: 1 } });
+        expect(stub.completionRequests()).toHaveLength(1);
+        await vi.waitFor(() =>
+          expect(records().at(-1)).toMatchObject({
+            mode: 'stream_object',
+            failureReason: reason,
+            firstChunkMs: null,
+          }),
+        );
+      },
+    );
+
+    it('streaming: 503 nas duas tentativas da raia interativa resolve a abertura com unavailable (AC-2, AC-4)', async () => {
+      stub.enqueue({ type: 'status', status: 503 }, { type: 'status', status: 503 }, OK);
+
+      const stream = await streamLlmObject(input());
+
+      expect(stream).toMatchObject({ ok: false, reason: 'unavailable', meta: { attempts: 2 } });
+      expect(stub.completionRequests()).toHaveLength(2);
+    });
+
     it('a nova tentativa fica dentro do mesmo prazo e vira timeout quando ele acaba', async () => {
       stub.enqueue({ type: 'status', status: 503, delayMs: 250 }, { type: 'hang' });
       const startedAt = Date.now();
@@ -211,6 +243,56 @@ describe('proteção da GPU compartilhada contra o servidor falso', () => {
 
       expect(result).toMatchObject({ ok: false, reason: 'timeout', meta: { attempts: 2 } });
       expect(Date.now() - startedAt).toBeLessThan(700);
+    });
+
+    describe('espera entre tentativas do lote', () => {
+      const fns = [
+        ['generateLlmObject', generateLlmObject],
+        ['streamLlmObject', streamLlmObject],
+      ] as const;
+
+      it.each(fns)(
+        '%s cancelado durante a espera devolve cancelled na hora, sem nova tentativa (AC-4, AC-5)',
+        async (_, fn) => {
+          overrideLlmTimings({ batch: { retryDelaysMs: [600, 600] } });
+          stub.enqueue({ type: 'status', status: 503 }, OK);
+          const controller = new AbortController();
+
+          const pending = fn(input({ lane: 'batch', userId: null, signal: controller.signal }));
+          await stub.waitForCompletions(1);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          const abortedAt = Date.now();
+          controller.abort();
+          const result = await pending;
+
+          expect(result).toMatchObject({ ok: false, reason: 'cancelled', meta: { attempts: 1 } });
+          expect(Date.now() - abortedAt).toBeLessThan(200);
+          await vi.waitFor(() =>
+            expect(records().at(-1)).toMatchObject({ status: 'cancelled', attempts: 1 }),
+          );
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          expect(stub.completionRequests()).toHaveLength(1);
+          expect(llmLimiter.activeCalls).toBe(0);
+        },
+      );
+
+      it.each(fns)(
+        '%s com o prazo acabando durante a espera vira timeout, sem nova tentativa (AC-3, AC-4)',
+        async (_, fn) => {
+          overrideLlmTimings({
+            batch: { generateMs: 250, firstChunkMs: 250, retryDelaysMs: [1_000, 1_000] },
+          });
+          stub.enqueue({ type: 'status', status: 503 }, OK);
+          const startedAt = Date.now();
+
+          const result = await fn(input({ lane: 'batch', userId: null }));
+
+          expect(result).toMatchObject({ ok: false, reason: 'timeout', meta: { attempts: 1 } });
+          expect(Date.now() - startedAt).toBeLessThan(600);
+          expect(stub.completionRequests()).toHaveLength(1);
+          expect(llmLimiter.activeCalls).toBe(0);
+        },
+      );
     });
   });
 

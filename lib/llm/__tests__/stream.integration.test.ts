@@ -7,11 +7,13 @@ vi.mock('@/models/LlmCall', () => ({ LlmCallModel: { create: vi.fn().mockResolve
 import { type LlmStub, startLlmStub } from '@/e2e/fixtures/llm-stub';
 import { generateLlmObject, type LlmTaskInput, streamLlmObject } from '@/lib/llm';
 import { overrideLlmTimings } from '@/lib/llm/config';
+import { llmLimiter } from '@/lib/llm/limiter';
 import { LlmCallModel } from '@/models/LlmCall';
 
 import {
   resetLlmRuntimeState,
   restoreLlmDefaults,
+  setLlmEnv,
   TEST_API_KEY,
   TEST_MODEL,
   useStubEnv,
@@ -371,5 +373,63 @@ describe('streamLlmObject e prazos contra o servidor falso', () => {
       expect(stub.requests).toHaveLength(0);
       expect(await lastRecord()).toMatchObject({ status: 'cancelled', attempts: 0, queueMs: 0 });
     });
+  });
+
+  it('IA desligada devolve disabled sem tráfego e sem registro (AC-9)', async () => {
+    setLlmEnv({
+      LLM_BASE_URL: stub.baseUrl,
+      LLM_API_KEY: TEST_API_KEY,
+      LLM_MODEL: TEST_MODEL,
+      LLM_ENABLED: 'false',
+    });
+
+    const stream = await streamLlmObject(input());
+
+    expect(stream).toEqual({ ok: false, reason: 'disabled', meta: null });
+    expect(stub.requests).toHaveLength(0);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  describe('erro inesperado: nenhuma função lança (AC-3)', () => {
+    const fns = [
+      ['generateLlmObject', generateLlmObject],
+      ['streamLlmObject', streamLlmObject],
+    ] as const;
+
+    it.each(fns)(
+      '%s com system ausente em tempo de execução devolve unavailable sem tráfego',
+      async (name, fn) => {
+        const relato = 'A lâmpada da sala 204 queimou';
+
+        const result = await fn(input({ system: undefined as unknown as string }));
+
+        expect(result).toEqual({ ok: false, reason: 'unavailable', meta: null });
+        expect(stub.requests).toHaveLength(0);
+        expect(llmLimiter.activeCalls).toBe(0);
+        expect(console.error).toHaveBeenCalledWith(
+          `[llm] erro inesperado em ${name}:`,
+          expect.any(String),
+        );
+        expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(relato);
+      },
+    );
+
+    it.each(fns)(
+      '%s com schema que lança na validação resolve falha e libera a vaga',
+      async (_, fn) => {
+        stub.setFallback({ type: 'json', content: '{"servico":"iluminacao","local":"sala 204"}' });
+        const schemaQueLanca = schema.refine(() => {
+          throw new RangeError('data inválida');
+        });
+
+        const opened = await fn(input({ schema: schemaQueLanca }));
+        const result = 'final' in opened ? await opened.final : opened;
+
+        expect(result.ok).toBe(false);
+        expect(llmLimiter.activeCalls).toBe(0);
+        expect(await lastRecord()).toMatchObject({ status: 'failed' });
+      },
+    );
   });
 });
