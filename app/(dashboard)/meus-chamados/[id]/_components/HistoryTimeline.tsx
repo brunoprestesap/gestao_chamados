@@ -57,7 +57,9 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
 
         // Busca nomes dos usuários (em paralelo). Entrada sem usuário é da IA
         // ou do sistema: mostra o rótulo próprio, sem ir buscar ninguém.
-        const userIds = [...new Set(items.map((h) => h.userId).filter((id): id is string => Boolean(id)))];
+        const userIds = [
+          ...new Set(items.map((h) => h.userId).filter((id): id is string => Boolean(id))),
+        ];
         const usersMap: Record<string, string> = {};
 
         await Promise.all(

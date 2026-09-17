@@ -51,72 +51,72 @@ Raciocínio e opções: veja [rationale.md](rationale.md).
 
 **Módulo** (`lib/conversas/`, todo arquivo com `import 'server-only'`):
 
-| Arquivo               | Responsabilidade                                                                                                       |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `config.ts`           | Constantes: 30 dias de rascunho, 2.000 caracteres, 30 mensagens, 5 rascunhos, 2 minutos de reserva, 300 itens por fonte |
-| `types.ts`            | Tipos de entrada e saída e a união de motivos de falha                                                                 |
-| `conversa-store.ts`   | `criarConversa`, `enviarMensagem`, `lerConversa`, `listarRascunhos`, `descartarRascunho`, reserva e reparo             |
-| `abertura.ts`         | `abrirChamadoDaConversa` (os seis passos do AC-3, todos repetíveis sem efeito duplo)                                    |
-| `decisoes.ts`         | `registrarDecisao`, `resolverDecisao`, `lerDecisoes` e a derivação de `situacao` e de `Chamado.iaSituacao`             |
-| `linha-do-tempo.ts`   | `lerLinhaDoTempo`, a leitura combinada com a regra de visibilidade                                                     |
-| `index.ts`            | Único ponto de entrada das funcionalidades                                                                             |
-| `shared/conversas/`   | Schemas Zod compartilhados: tipos de mensagem e `payload` por tipo, valor da decisão, motivos de falha                 |
+| Arquivo                       | Responsabilidade                                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `config.ts`                   | Constantes: 30 dias de rascunho, 2.000 caracteres, 30 mensagens, 5 rascunhos, 2 minutos de reserva, 300 itens por fonte      |
+| `types.ts`                    | Tipos de entrada e saída e a união de motivos de falha                                                                       |
+| `conversa-store.ts`           | `criarConversa`, `enviarMensagem`, `lerConversa`, `listarRascunhos`, `descartarRascunho`, reserva e reparo                   |
+| `abertura.ts`                 | `abrirChamadoDaConversa` (os seis passos do AC-3, todos repetíveis sem efeito duplo)                                         |
+| `decisoes.ts`                 | `registrarDecisao`, `resolverDecisao`, `lerDecisoes` e a derivação de `situacao` e de `Chamado.iaSituacao`                   |
+| `linha-do-tempo.ts`           | `lerLinhaDoTempo`, a leitura combinada com a regra de visibilidade                                                           |
+| `index.ts`                    | Único ponto de entrada das funcionalidades                                                                                   |
+| `shared/conversas/`           | Schemas Zod compartilhados: tipos de mensagem e `payload` por tipo, valor da decisão, motivos de falha                       |
 | `lib/chamados/comentarios.ts` | Núcleo do comentário extraído de `addCommentAction` (comentário, histórico, notificação e socket), usado pelos dois caminhos |
 
 **Data model sketch**
 
 `Conversa` (coleção `conversas`, `timestamps: true`):
 
-| Campo              | Tipo                 | Obrigatório        | Observação                                                          |
-| ------------------ | -------------------- | ------------------ | ------------------------------------------------------------------- |
-| `_id`              | ObjectId             | sim                | chave primária                                                      |
-| `solicitanteId`    | ObjectId, ref `User` | sim                | dono, vem da sessão verificada                                      |
-| `chamadoId`        | ObjectId, ref `Chamado` | não, `null`     | gravado uma única vez, no vínculo                                   |
-| `chamadoIdReservado` | ObjectId           | não, `null`        | id gerado na reserva e reusado em toda repetição da confirmação     |
-| `vinculandoEm`     | Date                 | não, `null`        | marca a reserva em andamento                                        |
-| `previa`           | String até 120       | não, `''`          | começo da primeira mensagem do solicitante, para a lista lateral    |
-| `mensagensCount`   | Number               | sim, 0             | incrementado na mesma gravação que aplica o teto de 30              |
-| `ultimaMensagemEm` | Date                 | sim                | ordena a lista lateral                                              |
-| `expiresAt`        | Date                 | não, `null`        | `ultimaMensagemEm` mais 30 dias enquanto é rascunho                 |
-| `createdAt`, `updatedAt` | Date           | sim                |                                                                     |
+| Campo                    | Tipo                    | Obrigatório | Observação                                                       |
+| ------------------------ | ----------------------- | ----------- | ---------------------------------------------------------------- |
+| `_id`                    | ObjectId                | sim         | chave primária                                                   |
+| `solicitanteId`          | ObjectId, ref `User`    | sim         | dono, vem da sessão verificada                                   |
+| `chamadoId`              | ObjectId, ref `Chamado` | não, `null` | gravado uma única vez, no vínculo                                |
+| `chamadoIdReservado`     | ObjectId                | não, `null` | id gerado na reserva e reusado em toda repetição da confirmação  |
+| `vinculandoEm`           | Date                    | não, `null` | marca a reserva em andamento                                     |
+| `previa`                 | String até 120          | não, `''`   | começo da primeira mensagem do solicitante, para a lista lateral |
+| `mensagensCount`         | Number                  | sim, 0      | incrementado na mesma gravação que aplica o teto de 30           |
+| `ultimaMensagemEm`       | Date                    | sim         | ordena a lista lateral                                           |
+| `expiresAt`              | Date                    | não, `null` | `ultimaMensagemEm` mais 30 dias enquanto é rascunho              |
+| `createdAt`, `updatedAt` | Date                    | sim         |                                                                  |
 
 Índices: `{ solicitanteId: 1, chamadoId: 1, ultimaMensagemEm: -1 }`; `{ expiresAt: 1 }` com `expireAfterSeconds: 0`; `{ chamadoId: 1 }` único parcial (`partialFilterExpression: { chamadoId: { $type: 'objectId' } }`).
 
 `ConversaMensagem` (coleção `conversamensagens`, `timestamps: { createdAt: true, updatedAt: false }`):
 
-| Campo        | Tipo                                   | Obrigatório               | Observação                                                      |
-| ------------ | -------------------------------------- | ------------------------- | --------------------------------------------------------------- |
-| `conversaId` | ObjectId, ref `Conversa`               | sim                       |                                                                 |
-| `autor`      | enum `solicitante`, `ia`, `sistema`    | sim                       |                                                                 |
-| `userId`     | ObjectId, ref `User`                   | só com autor `solicitante` | `null` nos outros autores                                       |
-| `tipo`       | String, enum de `shared/conversas/`    | sim                       | a fundação traz `texto`; a funcionalidade 12 acrescenta outros  |
-| `texto`      | String de 1 a 2.000                    | sim                       | também é o texto lido por leitor de tela                        |
-| `payload`    | Mixed                                  | não, `null`               | validado pelo schema Zod do `tipo` antes de gravar              |
-| `llmCallId`  | ObjectId, ref `LlmCall`                | não, `null`               | quando a mensagem veio de uma chamada ao modelo                 |
-| `expiresAt`  | Date                                   | não, `null`               | acompanha a conversa                                            |
-| `createdAt`  | Date                                   | sim                       |                                                                 |
+| Campo        | Tipo                                | Obrigatório                | Observação                                                     |
+| ------------ | ----------------------------------- | -------------------------- | -------------------------------------------------------------- |
+| `conversaId` | ObjectId, ref `Conversa`            | sim                        |                                                                |
+| `autor`      | enum `solicitante`, `ia`, `sistema` | sim                        |                                                                |
+| `userId`     | ObjectId, ref `User`                | só com autor `solicitante` | `null` nos outros autores                                      |
+| `tipo`       | String, enum de `shared/conversas/` | sim                        | a fundação traz `texto`; a funcionalidade 12 acrescenta outros |
+| `texto`      | String de 1 a 2.000                 | sim                        | também é o texto lido por leitor de tela                       |
+| `payload`    | Mixed                               | não, `null`                | validado pelo schema Zod do `tipo` antes de gravar             |
+| `llmCallId`  | ObjectId, ref `LlmCall`             | não, `null`                | quando a mensagem veio de uma chamada ao modelo                |
+| `expiresAt`  | Date                                | não, `null`                | acompanha a conversa                                           |
+| `createdAt`  | Date                                | sim                        |                                                                |
 
 Índices: `{ conversaId: 1, createdAt: 1, _id: 1 }`; `{ expiresAt: 1 }` com `expireAfterSeconds: 0`.
 
 `DecisaoIa` (coleção `decisoesia`, `timestamps: true`):
 
-| Campo                    | Tipo                                                | Obrigatório         | Observação                                                          |
-| ------------------------ | --------------------------------------------------- | ------------------- | ------------------------------------------------------------------- |
-| `chamadoId`              | ObjectId, ref `Chamado`                             | sim                 | único junto com `campo`                                             |
-| `conversaId`             | ObjectId, ref `Conversa`                            | não, `null`         | vazio quando a decisão veio fora de uma conversa                    |
-| `campo`                  | enum `servico`, `prioridade`, `tecnico`             | sim                 |                                                                     |
-| `decididoPor`            | enum `ia`, `regra`                                  | sim                 |                                                                     |
-| `efeito`                 | enum `sugestao`, `aplicado`                         | sim                 | `sugestao` espera a triagem; `aplicado` já valeu sem humano         |
-| `valorIa`                | subdoc `ValorDecisao`                               | sim                 | nunca muda depois de gravado                                        |
-| `valorFinal`             | subdoc `ValorDecisao`                               | sim                 | começa igual ao `valorIa`                                           |
-| `confianca`              | Number de 0 a 1                                     | só com `ia`         | `null` com `regra`                                                  |
-| `motivo`                 | String de 1 a 200                                   | sim                 | uma frase                                                           |
-| `modelo`, `promptVersion`, `task` | String                                     | só com `ia`         | vêm de `LlmResult.meta`                                             |
-| `llmCallId`              | ObjectId, ref `LlmCall`                             | só com `ia`         | o `LlmCall` expira em 365 dias, o elo pode ficar sem destino        |
-| `correcoes[]`            | lista até 20 (`$slice: -20`)                        | não, `[]`           | `anterior`, `novo` (`ValorDecisao`), `userId`, `origem` (`solicitante` ou `gestao`), `motivo` até 500, `em` |
-| `revisadaEm`             | Date                                                | não, `null`         | último veredito da gestão                                           |
-| `revisadaPorUserId`      | ObjectId, ref `User`                                | não, `null`         |                                                                     |
-| `situacao`               | enum `sem_revisao`, `confirmada`, `corrigida`       | sim                 | derivada na mesma gravação que muda `valorFinal` ou `revisadaEm`    |
+| Campo                             | Tipo                                          | Obrigatório | Observação                                                                                                  |
+| --------------------------------- | --------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `chamadoId`                       | ObjectId, ref `Chamado`                       | sim         | único junto com `campo`                                                                                     |
+| `conversaId`                      | ObjectId, ref `Conversa`                      | não, `null` | vazio quando a decisão veio fora de uma conversa                                                            |
+| `campo`                           | enum `servico`, `prioridade`, `tecnico`       | sim         |                                                                                                             |
+| `decididoPor`                     | enum `ia`, `regra`                            | sim         |                                                                                                             |
+| `efeito`                          | enum `sugestao`, `aplicado`                   | sim         | `sugestao` espera a triagem; `aplicado` já valeu sem humano                                                 |
+| `valorIa`                         | subdoc `ValorDecisao`                         | sim         | nunca muda depois de gravado                                                                                |
+| `valorFinal`                      | subdoc `ValorDecisao`                         | sim         | começa igual ao `valorIa`                                                                                   |
+| `confianca`                       | Number de 0 a 1                               | só com `ia` | `null` com `regra`                                                                                          |
+| `motivo`                          | String de 1 a 200                             | sim         | uma frase                                                                                                   |
+| `modelo`, `promptVersion`, `task` | String                                        | só com `ia` | vêm de `LlmResult.meta`                                                                                     |
+| `llmCallId`                       | ObjectId, ref `LlmCall`                       | só com `ia` | o `LlmCall` expira em 365 dias, o elo pode ficar sem destino                                                |
+| `correcoes[]`                     | lista até 20 (`$slice: -20`)                  | não, `[]`   | `anterior`, `novo` (`ValorDecisao`), `userId`, `origem` (`solicitante` ou `gestao`), `motivo` até 500, `em` |
+| `revisadaEm`                      | Date                                          | não, `null` | último veredito da gestão                                                                                   |
+| `revisadaPorUserId`               | ObjectId, ref `User`                          | não, `null` |                                                                                                             |
+| `situacao`                        | enum `sem_revisao`, `confirmada`, `corrigida` | sim         | derivada na mesma gravação que muda `valorFinal` ou `revisadaEm`                                            |
 
 `ValorDecisao` (subdocumento sem `_id`, campos preenchidos conforme o `campo`): `catalogServiceId`, `subtypeId`, `tipoServico`, `prioridade`, `tecnicoId` e `rotulo` (String até 160, o nome exibido no momento da gravação).
 
@@ -124,11 +124,11 @@ Raciocínio e opções: veja [rationale.md](rationale.md).
 
 Mudanças em coleções existentes:
 
-| Coleção          | Mudança                                                                                                                                                                   |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Chamado`        | `conversaId` (ObjectId, `null`, índice único parcial), `canalAbertura` (enum `formulario`, `chat`, padrão `formulario`), `iaSituacao` (enum `sem_ia`, `sugerida`, `decidida`, `revisada`, padrão `null`) e índice `{ iaSituacao: 1, status: 1, createdAt: -1 }` parcial |
+| Coleção          | Mudança                                                                                                                                                                                                                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Chamado`        | `conversaId` (ObjectId, `null`, índice único parcial), `canalAbertura` (enum `formulario`, `chat`, padrão `formulario`), `iaSituacao` (enum `sem_ia`, `sugerida`, `decidida`, `revisada`, padrão `null`) e índice `{ iaSituacao: 1, status: 1, createdAt: -1 }` parcial                                               |
 | `ChamadoHistory` | `userId` passa a opcional com obrigatoriedade condicional no próprio schema (`required` por função: exigido quando `actorType` é `usuario`), `actorType` (enum `usuario`, `ia`, `sistema`, padrão `usuario`), `decisaoIaId` (ObjectId, `null`), ações novas `decisao_ia` e `correcao_ia` em `CHAMADO_HISTORY_ACTIONS` |
-| `lib/llm`        | `LlmMeta.callId`, com o mesmo valor no `_id` do `LlmCall`                                                                                                                 |
+| `lib/llm`        | `LlmMeta.callId`, com o mesmo valor no `_id` do `LlmCall`                                                                                                                                                                                                                                                             |
 
 Relações: `User` 1:N `Conversa` · `Conversa` 1:N `ConversaMensagem` · `Conversa` 0..1 : 0..1 `Chamado` (id nos dois lados, único nos dois) · `Chamado` 1:N `DecisaoIa`, no máximo uma por campo · `DecisaoIa` N:0..1 `LlmCall` · `ChamadoHistory` N:0..1 `DecisaoIa`.
 
@@ -142,55 +142,55 @@ Migração: os três modelos novos e os campos novos nos dois existentes entram 
 
 **API surface** (funções de servidor; esta fundação não cria rota HTTP. `viewer` é sempre `{ userId, role }` da sessão verificada):
 
-| Função                     | Entradas principais                                                                                              | Saídas                                          | Auth                              | Erros principais                                                        |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------- |
-| `criarConversa`            | `viewer`                                                                                                         | `conversaId`                                    | sessão                            | `limite_rascunhos`                                                      |
-| `enviarMensagem`           | `viewer`, `conversaId`, `autor`, `tipo`, `texto`; `payload`, `llmCallId` (opcionais)                             | `destino` (`conversa` ou `comentario`), `id`    | dono; `ia` e `sistema` só servidor | `nao_encontrada`, `sem_permissao`, `limite_mensagens`, `invalida`       |
-| `lerConversa`              | `viewer`, `conversaId`                                                                                           | conversa, mensagens, situação                   | dono; ligada: gestão e técnico    | `nao_encontrada`, `sem_permissao`                                       |
-| `listarRascunhos`          | `viewer`                                                                                                         | rascunhos do dono com `previa`, data e marca `confirmando` | dono                   | nenhum                                                                  |
-| `descartarRascunho`        | `viewer`, `conversaId`                                                                                           | `{ ok: true }`                                  | dono                              | `nao_encontrada`, `sem_permissao`, `confirmacao_em_andamento`           |
-| `abrirChamadoDaConversa`   | `viewer`, `conversaId`, `dadosChamado` (sem `_id`, sem número), `decisoes[]`                                     | `chamadoId`, `ticketNumber`, `jaExistia`        | dono                              | `nao_encontrada`, `sem_permissao`, `confirmacao_em_andamento`, `invalida`, `erro` |
-| `registrarDecisao`         | `chamadoId`, `campo`, `decididoPor`, `efeito`, `valorIa`, `motivo`; `conversaId`, `confianca`, `meta` (opcionais) | `decisaoId`                                     | só código de servidor             | `ja_existe`, `invalida`                                                 |
-| `resolverDecisao`          | `chamadoId`, `campo`, `valor`, `viewer`, `origem`; `motivo` (opcional)                                           | `situacao`, `houveCorrecao`                     | Preposto ou Admin                 | `nao_encontrada`, `sem_permissao`, `invalida`                           |
-| `lerDecisoes`              | `viewer`, `chamadoId`                                                                                            | decisões com confiança, motivo e correções      | Preposto ou Admin                 | `sem_permissao`                                                         |
-| `lerLinhaDoTempo`          | `viewer`, `chamadoId`                                                                                            | itens em ordem, `truncado`                      | solicitante, gestão, técnico      | `nao_encontrada`, `sem_permissao`                                       |
+| Função                   | Entradas principais                                                                                               | Saídas                                                     | Auth                               | Erros principais                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------- |
+| `criarConversa`          | `viewer`                                                                                                          | `conversaId`                                               | sessão                             | `limite_rascunhos`                                                                |
+| `enviarMensagem`         | `viewer`, `conversaId`, `autor`, `tipo`, `texto`; `payload`, `llmCallId` (opcionais)                              | `destino` (`conversa` ou `comentario`), `id`               | dono; `ia` e `sistema` só servidor | `nao_encontrada`, `sem_permissao`, `limite_mensagens`, `invalida`                 |
+| `lerConversa`            | `viewer`, `conversaId`                                                                                            | conversa, mensagens, situação                              | dono; ligada: gestão e técnico     | `nao_encontrada`, `sem_permissao`                                                 |
+| `listarRascunhos`        | `viewer`                                                                                                          | rascunhos do dono com `previa`, data e marca `confirmando` | dono                               | nenhum                                                                            |
+| `descartarRascunho`      | `viewer`, `conversaId`                                                                                            | `{ ok: true }`                                             | dono                               | `nao_encontrada`, `sem_permissao`, `confirmacao_em_andamento`                     |
+| `abrirChamadoDaConversa` | `viewer`, `conversaId`, `dadosChamado` (sem `_id`, sem número), `decisoes[]`                                      | `chamadoId`, `ticketNumber`, `jaExistia`                   | dono                               | `nao_encontrada`, `sem_permissao`, `confirmacao_em_andamento`, `invalida`, `erro` |
+| `registrarDecisao`       | `chamadoId`, `campo`, `decididoPor`, `efeito`, `valorIa`, `motivo`; `conversaId`, `confianca`, `meta` (opcionais) | `decisaoId`                                                | só código de servidor              | `ja_existe`, `invalida`                                                           |
+| `resolverDecisao`        | `chamadoId`, `campo`, `valor`, `viewer`, `origem`; `motivo` (opcional)                                            | `situacao`, `houveCorrecao`                                | Preposto ou Admin                  | `nao_encontrada`, `sem_permissao`, `invalida`                                     |
+| `lerDecisoes`            | `viewer`, `chamadoId`                                                                                             | decisões com confiança, motivo e correções                 | Preposto ou Admin                  | `sem_permissao`                                                                   |
+| `lerLinhaDoTempo`        | `viewer`, `chamadoId`                                                                                             | itens em ordem, `truncado`                                 | solicitante, gestão, técnico       | `nao_encontrada`, `sem_permissao`                                                 |
 
 - Motivos de falha da união: `nao_encontrada`, `sem_permissao`, `limite_rascunhos`, `limite_mensagens`, `confirmacao_em_andamento`, `ja_existe`, `invalida` e `erro` (exceção inesperada, sempre registrada em log e nunca repassada como exceção).
 - `listarRascunhos` inclui a conversa com reserva em andamento, marcada como `confirmando`, e roda o reparo do AC-5 no caminho, para uma reserva travada não sumir da vista do dono.
 
 **Value sourcing**
 
-| Ação                     | Valor produzido ou exibido                | Origem                                                                                                                       |
-| ------------------------ | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `criarConversa`          | `solicitanteId`                           | `viewer.userId`, da sessão verificada, nunca do corpo                                                                        |
-| idem                     | `ultimaMensagemEm` inicial                | o próprio `createdAt` da conversa, antes de existir mensagem                                                                 |
-| idem                     | `expiresAt`                               | derivado: `ultimaMensagemEm` mais `CONVERSA_RASCUNHO_DIAS` (30), constante de `lib/conversas/config.ts`                       |
-| `enviarMensagem`         | `previa`                                  | derivado: primeiros 120 caracteres da primeira mensagem de autor `solicitante`                                               |
-| idem                     | `mensagensCount`, teto de 30              | contador do próprio documento, incrementado na mesma condição da gravação                                                    |
-| idem                     | `payload` aceito                          | schema Zod do `tipo` em `shared/conversas/`; a fundação registra `texto` com `payload` nulo                                  |
-| idem                     | `llmCallId`                               | `meta.callId` do `LlmResult` que gerou a mensagem                                                                            |
-| `abrirChamadoDaConversa` | `chamadoIdReservado`                      | `ObjectId` novo, gerado na reserva e guardado; toda repetição reusa o mesmo                                                   |
-| idem                     | `ticket_number`                           | `generateTicketNumber()` de `lib/chamado-utils.ts`, o mesmo do formulário; ele não é atômico, então chave duplicada gera outro número, até 3 tentativas |
-| idem                     | `jaExistia`                               | derivado: verdadeiro quando o chamado do id reservado já existia, seja por erro de chave duplicada no passo 3, seja por repetição depois de falha |
-| idem                     | `canalAbertura`                           | fixo `chat` nesta função                                                                                                     |
-| idem                     | `iaSituacao`                              | derivado das decisões: nenhuma decisão é `sem_ia`; alguma `aplicado` é `decidida`; só `sugestao` é `sugerida`                |
-| idem                     | demais campos do chamado                  | `dadosChamado`, montado pela funcionalidade 12 (unidade do perfil, local do texto, catálogo escolhido)                        |
-| `registrarDecisao`       | `valorIa.rotulo`                          | leitura no banco na hora: nome do serviço do catálogo, rótulo da prioridade ou nome do técnico; nunca texto vindo do modelo   |
-| idem                     | `confianca`, `motivo`                     | saída do modelo validada pelo schema Zod da tarefa, na funcionalidade que chamou (12, 15 ou 16)                              |
-| idem                     | `modelo`, `promptVersion`, `task`, `llmCallId` | `LlmResult.meta` de `lib/llm`                                                                                            |
-| idem                     | `efeito`                                  | parâmetro de quem chama: `sugestao` na fatia 1, `aplicado` quando a IA age sozinha (funcionalidades 15 e 16)                 |
-| `resolverDecisao`        | `valor` humano                            | os campos já validados da ação da gestão: `catalogServiceId` e `finalPriority` de `classificarChamadoAction`, `assignedToUserId` de atribuir e reatribuir |
-| idem                     | `origem`                                  | `gestao` nos ganchos; `solicitante` só na abertura, quando o valor confirmado difere do proposto                             |
-| idem                     | `motivo` da correção                      | campo de justificativa da própria ação (`classificationNotes`, `reassignmentNotes`), vazio quando a ação não pede            |
-| idem                     | `situacao`                                | derivada: `valorFinal` diferente de `valorIa` é `corrigida`; igual com `revisadaEm` é `confirmada`; igual sem revisão é `sem_revisao` |
-| `lerLinhaDoTempo`        | itens e ordem                             | três consultas (mensagens, comentários, histórico) unidas em memória e ordenadas por `createdAt` e depois `_id`              |
-| idem                     | corte de 300 por fonte                    | cada consulta ordena do mais recente para o mais antigo, corta em 300 e é reordenada para exibição; `truncado` sai verdadeiro quando alguma fonte bateu no teto |
-| idem                     | visibilidade                              | `viewer.role` e a comparação de `viewer.userId` com `solicitanteId` e `assignedToUserId` do chamado                          |
-| idem                     | texto de um evento de histórico           | `action` e `observacoes` da própria entrada; a fundação entrega o dado cru, a funcionalidade 13 escreve a frase da tela      |
-| histórico da IA          | `observacoes` de `decisao_ia`             | montado do `campo` e do `valorIa.rotulo`, sem confiança e sem motivo                                                          |
-| idem                     | `observacoes` de `correcao_ia`            | montado do `campo` e dos dois rótulos, o `anterior` e o `novo` da correção, sem confiança e sem motivo                        |
-| ganchos da gestão        | decidir se há veredito a dar              | consulta de existência por `chamadoId` antes de chamar `resolverDecisao`; sem decisão, o gancho sai em silêncio               |
-| status na VPS            | criação dos índices                       | `autoIndex` do Mongoose ao subir o `next-app`, conferido no verify                                                           |
+| Ação                     | Valor produzido ou exibido                     | Origem                                                                                                                                                          |
+| ------------------------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `criarConversa`          | `solicitanteId`                                | `viewer.userId`, da sessão verificada, nunca do corpo                                                                                                           |
+| idem                     | `ultimaMensagemEm` inicial                     | o próprio `createdAt` da conversa, antes de existir mensagem                                                                                                    |
+| idem                     | `expiresAt`                                    | derivado: `ultimaMensagemEm` mais `CONVERSA_RASCUNHO_DIAS` (30), constante de `lib/conversas/config.ts`                                                         |
+| `enviarMensagem`         | `previa`                                       | derivado: primeiros 120 caracteres da primeira mensagem de autor `solicitante`                                                                                  |
+| idem                     | `mensagensCount`, teto de 30                   | contador do próprio documento, incrementado na mesma condição da gravação                                                                                       |
+| idem                     | `payload` aceito                               | schema Zod do `tipo` em `shared/conversas/`; a fundação registra `texto` com `payload` nulo                                                                     |
+| idem                     | `llmCallId`                                    | `meta.callId` do `LlmResult` que gerou a mensagem                                                                                                               |
+| `abrirChamadoDaConversa` | `chamadoIdReservado`                           | `ObjectId` novo, gerado na reserva e guardado; toda repetição reusa o mesmo                                                                                     |
+| idem                     | `ticket_number`                                | `generateTicketNumber()` de `lib/chamado-utils.ts`, o mesmo do formulário; ele não é atômico, então chave duplicada gera outro número, até 3 tentativas         |
+| idem                     | `jaExistia`                                    | derivado: verdadeiro quando o chamado do id reservado já existia, seja por erro de chave duplicada no passo 3, seja por repetição depois de falha               |
+| idem                     | `canalAbertura`                                | fixo `chat` nesta função                                                                                                                                        |
+| idem                     | `iaSituacao`                                   | derivado das decisões: nenhuma decisão é `sem_ia`; alguma `aplicado` é `decidida`; só `sugestao` é `sugerida`                                                   |
+| idem                     | demais campos do chamado                       | `dadosChamado`, montado pela funcionalidade 12 (unidade do perfil, local do texto, catálogo escolhido)                                                          |
+| `registrarDecisao`       | `valorIa.rotulo`                               | leitura no banco na hora: nome do serviço do catálogo, rótulo da prioridade ou nome do técnico; nunca texto vindo do modelo                                     |
+| idem                     | `confianca`, `motivo`                          | saída do modelo validada pelo schema Zod da tarefa, na funcionalidade que chamou (12, 15 ou 16)                                                                 |
+| idem                     | `modelo`, `promptVersion`, `task`, `llmCallId` | `LlmResult.meta` de `lib/llm`                                                                                                                                   |
+| idem                     | `efeito`                                       | parâmetro de quem chama: `sugestao` na fatia 1, `aplicado` quando a IA age sozinha (funcionalidades 15 e 16)                                                    |
+| `resolverDecisao`        | `valor` humano                                 | os campos já validados da ação da gestão: `catalogServiceId` e `finalPriority` de `classificarChamadoAction`, `assignedToUserId` de atribuir e reatribuir       |
+| idem                     | `origem`                                       | `gestao` nos ganchos; `solicitante` só na abertura, quando o valor confirmado difere do proposto                                                                |
+| idem                     | `motivo` da correção                           | campo de justificativa da própria ação (`classificationNotes`, `reassignmentNotes`), vazio quando a ação não pede                                               |
+| idem                     | `situacao`                                     | derivada: `valorFinal` diferente de `valorIa` é `corrigida`; igual com `revisadaEm` é `confirmada`; igual sem revisão é `sem_revisao`                           |
+| `lerLinhaDoTempo`        | itens e ordem                                  | três consultas (mensagens, comentários, histórico) unidas em memória e ordenadas por `createdAt` e depois `_id`                                                 |
+| idem                     | corte de 300 por fonte                         | cada consulta ordena do mais recente para o mais antigo, corta em 300 e é reordenada para exibição; `truncado` sai verdadeiro quando alguma fonte bateu no teto |
+| idem                     | visibilidade                                   | `viewer.role` e a comparação de `viewer.userId` com `solicitanteId` e `assignedToUserId` do chamado                                                             |
+| idem                     | texto de um evento de histórico                | `action` e `observacoes` da própria entrada; a fundação entrega o dado cru, a funcionalidade 13 escreve a frase da tela                                         |
+| histórico da IA          | `observacoes` de `decisao_ia`                  | montado do `campo` e do `valorIa.rotulo`, sem confiança e sem motivo                                                                                            |
+| idem                     | `observacoes` de `correcao_ia`                 | montado do `campo` e dos dois rótulos, o `anterior` e o `novo` da correção, sem confiança e sem motivo                                                          |
+| ganchos da gestão        | decidir se há veredito a dar                   | consulta de existência por `chamadoId` antes de chamar `resolverDecisao`; sem decisão, o gancho sai em silêncio                                                 |
+| status na VPS            | criação dos índices                            | `autoIndex` do Mongoose ao subir o `next-app`, conferido no verify                                                                                              |
 
 **Key invariants**
 
