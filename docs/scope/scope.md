@@ -21,7 +21,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 7   | SLA, expediente e pausas                           | Contexto   | existing |
 | 8   | Notificações em tempo real                         | Contexto   | existing |
 | 9   | Integração com a IA local                          | Foundation | done     |
-| 10  | Conversa e decisões da IA no banco                 | Foundation | planned  |
+| 10  | Conversa e decisões da IA no banco                 | Foundation | done     |
 | 11  | Tela de chat de chamados                           | Slice 1    | planned  |
 | 12  | Abertura do chamado pela IA                        | Slice 1    | planned  |
 | 13  | Andamento e conversa com o técnico                 | Slice 2    | planned  |
@@ -88,12 +88,20 @@ spec [0001](../specs/0001-integracao-ia-local/index.md) · code in `lib/llm/`, `
 - [x] Verify it: `/check verify integração com a IA local`
 - [x] Test it: `/test integração com a IA local`
 
-### 10. Conversa e decisões da IA no banco · needs a decision
+### 10. Conversa e decisões da IA no banco · done
 
 Onde a conversa vive antes e depois de o chamado existir, como ela se liga aos comentários e ao histórico, e como cada decisão da IA fica registrada para auditoria e métricas.
 **Done when:** uma conversa existe antes do chamado e passa a pertencer a ele na criação; cada decisão da IA guarda o que foi decidido, a confiança, o motivo em uma frase e a versão do modelo; uma correção humana posterior fica ligada à decisão original.
+spec [0002](../specs/0002-conversa-decisoes-ia/index.md) · code in `lib/conversas/`, `models/Conversa.ts`, `models/ConversaMensagem.ts`, `models/DecisaoIa.ts`, `shared/conversas/`, `lib/chamados/comentarios.ts`
 
-- [ ] Design it (spec): `/architect conversa e decisões da IA no banco`
+- [x] Design it (spec): `/architect conversa e decisões da IA no banco`
+- [x] Build it: `/develop conversa e decisões da IA no banco`
+  - [x] Fio fino do rascunho ao chamado (`meta.callId` na IA, três modelos novos, campos novos no chamado e no histórico, `lib/conversas/`, teste contra Mongo em container) · AC-1, AC-3, AC-6, AC-11, AC-15, AC-16
+  - [x] Expiração do rascunho, limites, clique duplo e reparo do vínculo · AC-1, AC-2, AC-4, AC-5, AC-16
+  - [x] Decisões, vereditos e correções ligadas às ações da gestão · AC-7, AC-8, AC-9, AC-10, AC-16
+  - [x] Leitura combinada, visibilidade por perfil e caminho do comentário · AC-11, AC-12, AC-13, AC-14
+- [x] Verify it: `/check verify conversa e decisões da IA no banco`
+- [x] Test it: `/test conversa e decisões da IA no banco`
 
 ## Slice 1: Relatar e abrir pelo chat
 
@@ -187,6 +195,9 @@ Fora desta passada, guardado para o plano continuar honesto.
 
 - **IA tira dúvidas sobre o chamado**: responder perguntas como "quando vai ser atendido?" com os dados do chamado · needs a decision
 - **`cache_salt` do vLLM**: proteger o cache de prefixo da GPU se ela passar a ser compartilhada com sistemas de fora do tribunal · from spec 0001
+- **Número de chamado sem corrida**: `generateTicketNumber()` lê o maior número existente e incrementa, sem lock; o chat aumenta as aberturas simultâneas · from spec 0002
+- **Histórico do catálogo atualizado**: `updateTicketCatalogAction` grava a ação `catalogo_atualizado`, que não existe no enum do histórico, e falha depois de já ter alterado o chamado · from spec 0002
+- **Testes de banco no CI**: decidir se o CI passa a subir um MongoDB de serviço para rodar os testes que dependem de índice e TTL · from spec 0002
 
 ## Legend
 

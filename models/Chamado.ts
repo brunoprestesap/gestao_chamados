@@ -7,6 +7,7 @@ import {
   TIPO_SERVICO_OPTIONS,
 } from '@/shared/chamados/new-ticket.schemas';
 import { PAUSE_REASONS } from '@/shared/chamados/pause-reason.constants';
+import { CANAIS_ABERTURA, IA_SITUACOES } from '@/shared/conversas/conversa.constants';
 
 const ChamadoSchema = new Schema(
   {
@@ -156,6 +157,13 @@ const ChamadoSchema = new Schema(
       computedAt: { type: Date, required: false },
       configVersion: { type: String, required: false, trim: true },
     },
+    // Abertura por conversa e decisões da IA (spec 0002)
+    /** A conversa que virou este chamado. Um chamado pertence a uma única conversa. */
+    conversaId: { type: Schema.Types.ObjectId, ref: 'Conversa', default: null },
+    /** Documento antigo lê `formulario` pelo padrão; `lean()` e `aggregate` tratam o ausente. */
+    canalAbertura: { type: String, enum: CANAIS_ABERTURA, default: 'formulario' },
+    /** Quanto a IA pesou aqui. `null` em chamado aberto antes da IA existir. */
+    iaSituacao: { type: String, enum: [...IA_SITUACOES, null], default: null },
   },
   { timestamps: true },
 );
@@ -174,6 +182,16 @@ ChamadoSchema.index({ status: 1, updatedAt: -1 });
 ChamadoSchema.index({ unitId: 1, tipoServico: 1, subtypeId: 1, status: 1, concludedAt: -1 });
 // Relatório IMR: filtra { status: 'encerrado', closedAt: { $gte, $lte } } por janela de tempo
 ChamadoSchema.index({ status: 1, closedAt: 1 }, { sparse: true });
+// Um chamado pertence a uma única conversa. O parcial deixa vários `null` conviverem.
+ChamadoSchema.index(
+  { conversaId: 1 },
+  { unique: true, partialFilterExpression: { conversaId: { $type: 'objectId' } } },
+);
+// Triagem e painel da IA: só os chamados que passaram por ela
+ChamadoSchema.index(
+  { iaSituacao: 1, status: 1, createdAt: -1 },
+  { partialFilterExpression: { iaSituacao: { $type: 'string' } } },
+);
 
 export type MaterialObservationDoc = {
   _id?: Types.ObjectId;

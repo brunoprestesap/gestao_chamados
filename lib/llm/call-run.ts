@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { Types } from 'mongoose';
+
 import { recordLlmCall } from '@/lib/llm/call-log';
 import {
   type BreakerAdmission,
@@ -51,6 +53,8 @@ export function breakerSignalFor(outcome: RunOutcome): BreakerSignal {
 
 export class LlmCallRun {
   readonly startedAt = Date.now();
+  /** `_id` do `LlmCall`, gerado antes de qualquer tráfego e devolvido em `meta.callId`. */
+  readonly callId = new Types.ObjectId().toString();
   readonly lane: LlmLane;
   readonly controller = new AbortController();
   attempts = 0;
@@ -159,6 +163,7 @@ export class LlmCallRun {
       model: this.model,
       attempts: this.attempts,
       latencyMs: this.elapsedMs(),
+      callId: this.callId,
     };
   }
 
@@ -184,6 +189,7 @@ export class LlmCallRun {
 
     if (options.record !== false) {
       void recordLlmCall({
+        callId: this.callId,
         task: this.input.task,
         promptVersion: this.input.promptVersion,
         model: this.model,

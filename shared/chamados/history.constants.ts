@@ -21,9 +21,25 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'cotacao_aprovada',
   'cotacao_recusada',
   'reabertura',
+  'decisao_ia',
+  'correcao_ia',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
+
+/**
+ * Quem praticou a ação. `ia` e `sistema` não têm usuário; só `usuario` exige
+ * `userId`, e o schema do `ChamadoHistory` cobra isso por função (spec 0002).
+ */
+export const CHAMADO_HISTORY_ACTOR_TYPES = ['usuario', 'ia', 'sistema'] as const;
+export type ChamadoHistoryActorType = (typeof CHAMADO_HISTORY_ACTOR_TYPES)[number];
+
+/** Nome mostrado quando a entrada não tem usuário. */
+export const CHAMADO_HISTORY_ACTOR_LABELS: Record<ChamadoHistoryActorType, string | null> = {
+  usuario: null,
+  ia: 'IA',
+  sistema: 'Sistema',
+};
 
 export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string> = {
   abertura: 'Abertura do Chamado',
@@ -48,4 +64,6 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   cotacao_aprovada: 'Cotação Aprovada',
   cotacao_recusada: 'Cotação Recusada',
   reabertura: 'Reabertura do Chamado',
+  decisao_ia: 'Decisão da IA',
+  correcao_ia: 'Correção de Decisão da IA',
 };

@@ -6,12 +6,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { formatDateTime } from '@/lib/utils';
 import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
-import { CHAMADO_HISTORY_ACTION_LABELS } from '@/shared/chamados/history.constants';
+import {
+  CHAMADO_HISTORY_ACTION_LABELS,
+  CHAMADO_HISTORY_ACTOR_LABELS,
+} from '@/shared/chamados/history.constants';
 
 type HistoryItemDTO = {
   _id: string;
   chamadoId: string;
-  userId: string;
+  /** `null` nas entradas da IA e do sistema (spec 0002, AC-11). */
+  userId: string | null;
+  actorType?: 'usuario' | 'ia' | 'sistema';
   action: string;
   statusAnterior: string | null;
   statusNovo: string | null;
@@ -50,8 +55,9 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
         if (signal?.aborted) return;
         setHistory(items);
 
-        // Busca nomes dos usuários (em paralelo)
-        const userIds = [...new Set(items.map((h) => h.userId))];
+        // Busca nomes dos usuários (em paralelo). Entrada sem usuário é da IA
+        // ou do sistema: mostra o rótulo próprio, sem ir buscar ninguém.
+        const userIds = [...new Set(items.map((h) => h.userId).filter((id): id is string => Boolean(id)))];
         const usersMap: Record<string, string> = {};
 
         await Promise.all(
@@ -107,7 +113,9 @@ export function HistoryTimeline({ chamadoId, refreshTrigger }: Props) {
     <div className="space-y-4">
       {history.map((item, index) => {
         const isLast = index === history.length - 1;
-        const userName = users[item.userId] || 'Carregando...';
+        const userName = item.userId
+          ? (users[item.userId] ?? 'Carregando...')
+          : (CHAMADO_HISTORY_ACTOR_LABELS[item.actorType ?? 'usuario'] ?? 'Sistema');
 
         return (
           <div key={item._id} className="relative flex gap-4">

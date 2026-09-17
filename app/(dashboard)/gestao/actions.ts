@@ -3,6 +3,7 @@
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
+import { aplicarVeredito } from '@/lib/conversas/decisoes';
 import { canManage, requireManager, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
@@ -162,6 +163,18 @@ export async function classificarChamadoAction(
       statusAnterior: 'aberto',
       statusNovo: 'validado',
       observacoes,
+    });
+
+    // A triagem é o veredito da gestão sobre o que a IA propôs (spec 0002).
+    // Chamado de formulário não tem decisão e o gancho sai em silêncio.
+    await aplicarVeredito({
+      viewer: { userId: session.userId, role: session.role },
+      chamadoId,
+      vereditos: [
+        { campo: 'servico', valor: { catalogServiceId, subtypeId } },
+        { campo: 'prioridade', valor: { prioridade: finalPriority } },
+      ],
+      motivo: classificationNotes,
     });
 
     revalidatePath('/gestao');
@@ -727,6 +740,13 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
     );
     await emitToRoom(`user:${technicianIdStr}`, 'ticket:assigned', ticketAssignedPayload);
 
+    // Veredito da gestão sobre o técnico que a IA sugeriu (spec 0002).
+    await aplicarVeredito({
+      viewer: { userId: session.userId, role: session.role },
+      chamadoId: ticketId,
+      vereditos: [{ campo: 'tecnico', valor: { tecnicoId: technicianIdStr } }],
+    });
+
     revalidatePath('/gestao');
     revalidatePath(`/meus-chamados/${ticketId}`);
 
@@ -886,6 +906,14 @@ export async function reassignTicketAction(
       statusAnterior: 'em atendimento',
       statusNovo: 'em atendimento',
       observacoes: obsParts.join(' '),
+    });
+
+    // Trocar de técnico é uma correção da decisão da IA (spec 0002).
+    await aplicarVeredito({
+      viewer: { userId: session.userId, role: session.role },
+      chamadoId: ticketId,
+      vereditos: [{ campo: 'tecnico', valor: { tecnicoId: String(newTech._id) } }],
+      motivo: notes,
     });
 
     revalidatePath('/gestao');

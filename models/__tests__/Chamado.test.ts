@@ -1,0 +1,134 @@
+import { Types } from 'mongoose';
+import { describe, expect, it } from 'vitest';
+
+import { ChamadoModel } from '@/models/Chamado';
+import { CANAIS_ABERTURA, IA_SITUACOES } from '@/shared/conversas/conversa.constants';
+
+/**
+ * O que a spec 0002 acrescentou ao chamado: de onde ele foi aberto, a conversa
+ * que virou ele, e quanto a IA pesou na classificação.
+ *
+ * Só estes campos e índices são testados aqui. O resto do model é anterior e
+ * tem a cobertura dele nas ações que o usam.
+ */
+
+type Indice = [Record<string, unknown>, Record<string, unknown>];
+
+const indices = () => ChamadoModel.schema.indexes() as unknown as Indice[];
+
+function indicePor(campos: string[]): Indice | undefined {
+  return indices().find(([chaves]) => Object.keys(chaves).join(',') === campos.join(','));
+}
+
+/** Valida um campo só, para não esbarrar nos obrigatórios antigos do chamado. */
+function erroNoCampo(campo: string, valor: unknown) {
+  const doc = new ChamadoModel({ [campo]: valor });
+  return doc.validateSync([campo]);
+}
+
+// ── campos novos · AC-3 ──────────────────────────────────────────
+
+describe('ChamadoModel · abertura por conversa (AC-3)', () => {
+  it('nasce sem conversa ligada', () => {
+    // Assert: chamado do formulário nunca tem conversa
+    expect(new ChamadoModel({}).conversaId).toBeNull();
+  });
+
+  it('aceita a conversa que virou o chamado', () => {
+    // Arrange
+    const conversaId = new Types.ObjectId();
+
+    // Act
+    const doc = new ChamadoModel({ conversaId });
+
+    // Assert
+    expect(String(doc.conversaId)).toBe(String(conversaId));
+  });
+
+  it('usa formulário como canal padrão, que é o do chamado antigo', () => {
+    // Assert: documento gravado antes da spec 0002 lê este padrão
+    expect(new ChamadoModel({}).canalAbertura).toBe('formulario');
+  });
+
+  it.each([...CANAIS_ABERTURA])('aceita o canal de abertura %s', (canalAbertura) => {
+    expect(erroNoCampo('canalAbertura', canalAbertura)).toBeUndefined();
+  });
+
+  it('recusa canal de abertura fora dos dois conhecidos', () => {
+    // Act
+    const erro = erroNoCampo('canalAbertura', 'email');
+
+    // Assert
+    expect(Object.keys(erro?.errors ?? {})).toContain('canalAbertura');
+  });
+
+  it('o enum do canal vem das constantes de shared', () => {
+    // Arrange
+    const caminho = ChamadoModel.schema.paths.canalAbertura as { enumValues?: string[] };
+
+    // Assert
+    expect(caminho.enumValues).toEqual([...CANAIS_ABERTURA]);
+  });
+});
+
+// ── situação da IA · AC-3, AC-9 ──────────────────────────────────
+
+describe('ChamadoModel · situação da IA (AC-3, AC-9)', () => {
+  it('nasce nula, que é o chamado aberto antes de a IA existir', () => {
+    expect(new ChamadoModel({}).iaSituacao).toBeNull();
+  });
+
+  it.each([...IA_SITUACOES])('aceita a situação %s', (iaSituacao) => {
+    expect(erroNoCampo('iaSituacao', iaSituacao)).toBeUndefined();
+  });
+
+  it('aceita situação nula, para chamado que não passou pela IA', () => {
+    expect(erroNoCampo('iaSituacao', null)).toBeUndefined();
+  });
+
+  it('recusa situação inventada', () => {
+    // Act
+    const erro = erroNoCampo('iaSituacao', 'em_analise');
+
+    // Assert
+    expect(Object.keys(erro?.errors ?? {})).toContain('iaSituacao');
+  });
+
+  it('aceita revisada, que é o estado depois do veredito da gestão (AC-9)', () => {
+    expect(erroNoCampo('iaSituacao', 'revisada')).toBeUndefined();
+  });
+});
+
+// ── índices · AC-4, AC-16 ────────────────────────────────────────
+
+describe('ChamadoModel · índices da spec 0002', () => {
+  it('declara o único parcial de conversaId, que barra o segundo chamado (AC-4)', () => {
+    // Act
+    const unico = indicePor(['conversaId']);
+
+    // Assert: é este índice que faz o clique duplo virar jaExistia em vez
+    // de criar dois chamados
+    expect(unico?.[1]).toMatchObject({
+      unique: true,
+      partialFilterExpression: { conversaId: { $type: 'objectId' } },
+    });
+  });
+
+  it('declara o índice da triagem, restrito a quem passou pela IA', () => {
+    // Act
+    const triagem = indicePor(['iaSituacao', 'status', 'createdAt']);
+
+    // Assert
+    expect(triagem?.[0]).toEqual({ iaSituacao: 1, status: 1, createdAt: -1 });
+    expect(triagem?.[1]).toMatchObject({
+      partialFilterExpression: { iaSituacao: { $type: 'string' } },
+    });
+  });
+
+  it('mantém os índices antigos do chamado', () => {
+    // Assert: a spec 0002 acrescenta índice, não troca os que já serviam
+    // às listas e ao relatório
+    expect(indicePor(['status', 'updatedAt'])).toBeDefined();
+    expect(indicePor(['status', 'closedAt'])).toBeDefined();
+  });
+});

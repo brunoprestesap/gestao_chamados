@@ -14,6 +14,8 @@ import type {
 import { LlmCallModel } from '@/models/LlmCall';
 
 export type LlmCallRecord = {
+  /** Vira o `_id` do documento; o mesmo valor sai em `meta.callId`. */
+  callId: string;
   task: string;
   promptVersion: string;
   model: string;
@@ -41,10 +43,12 @@ export type LlmCallRecord = {
  * resultado entregue à funcionalidade.
  */
 export async function recordLlmCall(record: LlmCallRecord): Promise<void> {
+  const { callId, ...fields } = record;
   try {
     await dbConnect();
     await LlmCallModel.create({
-      ...record,
+      ...fields,
+      _id: new Types.ObjectId(callId),
       userId:
         record.userId && Types.ObjectId.isValid(record.userId)
           ? new Types.ObjectId(record.userId)
