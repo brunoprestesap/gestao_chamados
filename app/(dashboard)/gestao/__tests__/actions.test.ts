@@ -16,6 +16,11 @@ vi.mock('@/lib/dal', () => ({
 
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 vi.mock('@/lib/realtime-emit', () => ({ emitToRoom: vi.fn().mockResolvedValue(true) }));
+// O gancho das decisões da IA tem os testes dele em `lib/conversas/__tests__`,
+// contra o Mongo de verdade. Aqui ele só não pode atrapalhar a ação de negócio.
+vi.mock('@/lib/conversas/decisoes', () => ({
+  aplicarVeredito: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock('@/lib/expediente-config', () => ({
   getBusinessCalendarConfig: vi.fn().mockResolvedValue({

@@ -9,7 +9,9 @@ import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 function normalizeHistoryItem(h: {
   _id: unknown;
   chamadoId: unknown;
-  userId: unknown;
+  userId?: unknown;
+  actorType?: string | null;
+  decisaoIaId?: unknown;
   action: string;
   statusAnterior?: string | null;
   statusNovo?: string | null;
@@ -20,7 +22,10 @@ function normalizeHistoryItem(h: {
   return {
     _id: String(h._id),
     chamadoId: String(h.chamadoId),
-    userId: String(h.userId),
+    // Entrada da IA ou do sistema não tem usuário (spec 0002, AC-11).
+    userId: h.userId ? String(h.userId) : null,
+    actorType: h.actorType ?? 'usuario',
+    decisaoIaId: h.decisaoIaId ? String(h.decisaoIaId) : null,
     action: h.action,
     statusAnterior: h.statusAnterior ?? null,
     statusNovo: h.statusNovo ?? null,

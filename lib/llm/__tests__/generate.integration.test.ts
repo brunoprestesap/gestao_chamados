@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
@@ -114,6 +115,34 @@ describe('generateLlmObject contra o servidor falso', () => {
       { role: 'system', content: 'Classifique o relato.' },
       { role: 'user', content: RELATO },
     ]);
+  });
+
+  it('devolve em meta.callId o mesmo ObjectId gravado como _id do LlmCall (AC-15)', async () => {
+    stub.enqueue({ type: 'json', content: '{"servico":"iluminacao","local":"sala 204"}' });
+
+    const result = await generateLlmObject(input({ ref: { type: 'conversa', id: 'abc123' } }));
+
+    expect(result.ok).toBe(true);
+    const callId = result.ok ? result.meta.callId : '';
+    expect(Types.ObjectId.isValid(callId)).toBe(true);
+
+    await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    const doc = create.mock.calls[0][0] as unknown as Record<string, unknown>;
+    expect(String(doc._id)).toBe(callId);
+  });
+
+  it('a falha também traz meta.callId, com o mesmo _id do LlmCall (AC-15)', async () => {
+    stub.enqueue({ type: 'json', content: '{"servico":123}' });
+
+    const result = await generateLlmObject(input());
+
+    expect(result).toMatchObject({ ok: false, reason: 'invalid_output' });
+    const callId = result.ok ? '' : (result.meta?.callId ?? '');
+    expect(Types.ObjectId.isValid(callId)).toBe(true);
+
+    await vi.waitFor(() => expect(create).toHaveBeenCalled());
+    const doc = create.mock.calls.at(-1)![0] as unknown as Record<string, unknown>;
+    expect(String(doc._id)).toBe(callId);
   });
 
   it('grava um LlmCall de sucesso com tokens e sem nenhum texto (AC-10)', async () => {

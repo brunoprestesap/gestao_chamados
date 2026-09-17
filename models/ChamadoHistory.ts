@@ -1,7 +1,10 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
 import { CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
-import { CHAMADO_HISTORY_ACTIONS } from '@/shared/chamados/history.constants';
+import {
+  CHAMADO_HISTORY_ACTIONS,
+  CHAMADO_HISTORY_ACTOR_TYPES,
+} from '@/shared/chamados/history.constants';
 
 const ChamadoHistorySchema = new Schema(
   {
@@ -11,10 +14,29 @@ const ChamadoHistorySchema = new Schema(
       required: true,
       index: true,
     },
+    /**
+     * Ausente nas entradas da IA e do sistema. O `required` por função mantém a
+     * garantia antiga onde ela vale: ação de gente continua exigindo usuário.
+     */
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      default: null,
+      required: function (this: { actorType?: string }) {
+        return (this.actorType ?? 'usuario') === 'usuario';
+      },
+    },
+    /** Quem praticou a ação. Documento antigo lê `usuario` pelo padrão. */
+    actorType: {
+      type: String,
+      enum: CHAMADO_HISTORY_ACTOR_TYPES,
+      default: 'usuario',
+    },
+    /** Liga a entrada à decisão da IA que ela registra ou corrige. */
+    decisaoIaId: {
+      type: Schema.Types.ObjectId,
+      ref: 'DecisaoIa',
+      default: null,
     },
     action: {
       type: String,
@@ -49,7 +71,8 @@ ChamadoHistorySchema.index({ createdAt: -1 });
 
 export type ChamadoHistory = InferSchemaType<typeof ChamadoHistorySchema> & {
   chamadoId: Types.ObjectId;
-  userId: Types.ObjectId;
+  /** `null` nas entradas de autor `ia` ou `sistema`. Todo leitor trata o nulo. */
+  userId: Types.ObjectId | null;
 };
 
 export type ChamadoHistoryDoc = ChamadoHistory & {

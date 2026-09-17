@@ -4,13 +4,13 @@ import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
+import { criarComentario } from '@/lib/chamados/comentarios';
 import { canManage, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { AttachmentModel } from '@/models/Attachment';
 import { ChamadoModel } from '@/models/Chamado';
-import { ChamadoCommentModel } from '@/models/ChamadoComment';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
@@ -272,116 +272,16 @@ export async function addCommentAction(
     const { chamadoId, content, visibility } = parsed.data;
     await dbConnect();
 
-    const chamado = await ChamadoModel.findById(chamadoId)
-      .select('solicitanteId assignedToUserId ticket_number titulo')
-      .lean();
-    if (!chamado) {
-      return { ok: false, error: 'Chamado não encontrado.' };
-    }
-
-    const isManager = canManage(session.role);
-    const isSolicitante = String(chamado.solicitanteId) === session.userId;
-    const isAssignedTech =
-      chamado.assignedToUserId && String(chamado.assignedToUserId) === session.userId;
-
-    if (!isSolicitante && !isAssignedTech && !isManager) {
-      return { ok: false, error: 'Você não tem permissão para comentar neste chamado.' };
-    }
-
-    // Solicitante puro (sem ser também gestor ou técnico atribuído) sempre cria público
-    const isPureRequester = isSolicitante && !isManager && !isAssignedTech;
-    const finalVisibility = isPureRequester ? 'publico' : visibility;
-
-    const userId = new Types.ObjectId(session.userId);
-
-    await ChamadoCommentModel.create({
-      chamadoId: new Types.ObjectId(chamadoId),
-      userId,
+    // O núcleo (comentário, histórico, notificação e socket) é compartilhado com
+    // a mensagem enviada pela conversa depois da abertura (spec 0002, AC-13).
+    const criado = await criarComentario({
+      chamadoId,
+      autorUserId: session.userId,
+      autorRole: session.role,
       content,
-      visibility: finalVisibility,
+      visibility,
     });
-
-    // Registra no histórico
-    const preview = content.length > 100 ? content.slice(0, 100) + '…' : content;
-    await ChamadoHistoryModel.create({
-      chamadoId: new Types.ObjectId(chamadoId),
-      userId,
-      action: 'comentario',
-      observacoes: preview,
-    });
-
-    // Notificação via Socket.IO (fire-and-forget, em paralelo)
-    const user = await UserModel.findById(session.userId).select('name').lean();
-    const now = new Date().toISOString();
-    const payload = {
-      ticketId: chamadoId,
-      ticketNumber: chamado.ticket_number ?? undefined,
-      title: chamado.titulo ?? undefined,
-      commentBy: { id: session.userId, name: user?.name ?? undefined },
-      visibility: finalVisibility as 'publico' | 'interno',
-      at: now,
-    };
-
-    const notifyTitle = chamado.ticket_number
-      ? `Novo comentário no chamado #${chamado.ticket_number}`
-      : 'Novo comentário no chamado';
-
-    const emitPromises: Promise<unknown>[] = [];
-    const notificationRecipients: Types.ObjectId[] = [];
-
-    // Notificar solicitante (se não for o autor e se o comentário for público)
-    const solicitanteId = chamado.solicitanteId ? String(chamado.solicitanteId) : null;
-    if (finalVisibility === 'publico' && solicitanteId && solicitanteId !== session.userId) {
-      emitPromises.push(emitToRoom(`user:${solicitanteId}`, 'ticket:comment_added', payload));
-      notificationRecipients.push(new Types.ObjectId(solicitanteId));
-    }
-
-    // Notificar técnico atribuído (se existir e não for o autor)
-    const assignedId = chamado.assignedToUserId ? String(chamado.assignedToUserId) : null;
-    if (assignedId && assignedId !== session.userId) {
-      emitPromises.push(emitToRoom(`user:${assignedId}`, 'ticket:comment_added', payload));
-      notificationRecipients.push(new Types.ObjectId(assignedId));
-    }
-
-    // Notificar gestores para comentários públicos (se o autor não for gestor)
-    if (finalVisibility === 'publico' && !isManager) {
-      emitPromises.push(emitToRoom('managers', 'ticket:comment_added', payload));
-      // Persistir notificações para gestores
-      const managers = await UserModel.find({
-        role: { $in: ['Preposto', 'Admin'] },
-        isActive: true,
-      })
-        .select('_id')
-        .lean();
-      for (const m of managers) {
-        if (String(m._id) !== session.userId) {
-          notificationRecipients.push(m._id as Types.ObjectId);
-        }
-      }
-    }
-
-    // Socket emit em paralelo (fire-and-forget)
-    await Promise.allSettled(emitPromises);
-
-    // Persistir notificações no MongoDB como fallback
-    if (notificationRecipients.length > 0) {
-      const uniqueIds = [...new Set(notificationRecipients.map(String))];
-      await Promise.allSettled(
-        uniqueIds.map((recipientId) =>
-          NotificationModel.create({
-            userId: new Types.ObjectId(recipientId),
-            type: 'ticket:comment_added',
-            title: notifyTitle,
-            body: preview,
-            data: payload,
-            readAt: null,
-          }),
-        ),
-      );
-      for (const recipientId of uniqueIds) {
-        sendNotificationEmail(recipientId, 'ticket:comment_added', payload).catch(() => {});
-      }
-    }
+    if (!criado.ok) return criado;
 
     revalidatePath(`/meus-chamados/${chamadoId}`);
     revalidatePath(`/chamados-atribuidos/${chamadoId}`);

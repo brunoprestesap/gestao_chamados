@@ -85,6 +85,12 @@ export type LlmMeta = {
   model: string;
   attempts: number;
   latencyMs: number;
+  /**
+   * `_id` do `LlmCall` desta chamada, gerado antes de qualquer tráfego.
+   * Quem grava uma decisão da IA guarda este valor em `llmCallId` e reencontra
+   * a amostragem por ele, enquanto o registro existir (365 dias).
+   */
+  callId: string;
 };
 
 export type LlmFailure = {
