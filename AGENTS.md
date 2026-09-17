@@ -19,6 +19,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Design System**: paleta indigo/blue com sidebar escura, cards `rounded-2xl`, efeitos glass (backdrop-blur) e micro-interações (hover lift + scale)
 - **PM2** para produção (`ecosystem.config.cjs`)
 
+## Build approach
+
+**Tracer Bullet** (fatias verticais: cada fatia funciona de ponta a ponta antes de a próxima engrossar o fio). Fonte: `docs/scope/scope.md`.
+
 ## Comandos
 
 ```bash
@@ -38,7 +42,7 @@ npm run test:e2e         # Playwright (E2E)
 pm2 start ecosystem.config.cjs  # Produção (Next + Socket)
 ```
 
-Testes configurados: **Vitest** (unitários, ~1182 testes em `__tests__/` e `*.test.ts`) e **Playwright** (E2E em `e2e/`).
+Testes configurados: **Vitest** (unitários, ~1400 testes em `__tests__/` e `*.test.ts`) e **Playwright** (E2E em `e2e/`).
 
 ## Lint & Formatação
 
@@ -48,6 +52,7 @@ Testes configurados: **Vitest** (unitários, ~1182 testes em `__tests__/` e `*.t
 - `simple-import-sort`: imports e exports ordenados alfabeticamente
 - `eqeqeq`: sempre `===` (exceto null checks)
 - `@typescript-eslint/no-explicit-any`: warning (permitido mas sinalizado)
+- `no-restricted-imports`: `generateText`, `streamText`, `generateObject` e `streamObject` de `ai` só podem ser importados dentro de `lib/llm/`
 - Prettier para formatação
 - Path alias: `@/*` mapeia para raiz do projeto
 
@@ -148,6 +153,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **Notification** — Notificações persistentes (fallback do Socket.IO)
 - **Unit** — Unidades/departamentos
 - **Holiday/BusinessCalendar** — Feriados e horário de expediente
+- **LlmCall**: registro de cada chamada ao modelo de IA (sem texto de prompt nem de resposta), expira em 365 dias
 
 ### Relatório IMR (Índice de Medição de Resultados)
 
@@ -162,6 +168,15 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Componentes de seção reutilizáveis em `app/(dashboard)/relatorios/imr/_components/imr-sections.tsx`
 - Componente de abas (client) em `app/(dashboard)/relatorios/imr/_components/imr-tipo-servico-tabs.tsx`
 - Tipos públicos exportados: `ImrResult`, `ImrResumoGeral`, `ImrResultPorTipo`, `ImrSlaCumprimento`, `ImrSlaPorPrioridade`, `ImrAvaliacao`, `ImrPenalidade`
+
+### IA local (`lib/llm`)
+
+- Modelo Qwen3 servido por vLLM na rede interna, acessado pelo AI SDK (`ai` e `@ai-sdk/openai-compatible`, com versão exata, sem `^`). Spec: `docs/specs/0001-integracao-ia-local/`
+- Toda funcionalidade de IA chama só `generateLlmObject` ou `streamLlmObject` de `@/lib/llm`, sempre com schema Zod; nunca o AI SDK direto (o ESLint barra fora de `lib/llm/`)
+- Nenhuma função lança exceção: `ok: false` significa seguir sem IA (sem as variáveis `LLM_*`, ou com `LLM_ENABLED=false`, devolve `disabled`)
+- Só no servidor e no runtime Node.js (todo arquivo importa `server-only`); nunca existe `NEXT_PUBLIC_LLM_*`
+- Limitador de vagas, disjuntor e limite por usuário ficam em memória: valem enquanto o Next roda em uma única instância
+- Raias, prazos, amostragem, registro `LlmCall` e testes: `lib/llm/AGENTS.md`
 
 ### Validação
 
@@ -216,6 +231,13 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `LDAP_TLS_REJECT_UNAUTHORIZED` — `false` para certificados auto-assinados/CA interna
 - `LDAP_DEBUG` — `true` para logs detalhados de autenticação
 
+### IA local (opcional: `/.env.local` ou `.env` na VPS)
+
+- `LLM_BASE_URL` (com `/v1` no fim), `LLM_API_KEY` e `LLM_MODEL`: sem qualquer uma das três, a IA fica desligada e o app segue sem ela
+- `LLM_ENABLED`: `false` desliga a IA sem apagar as outras variáveis
+- `LLM_MAX_CONCURRENCY`: chamadas simultâneas ao vLLM, de 1 a 16 (padrão 4), combinadas com a equipe da GPU
+- `LLM_DEBUG`: `true` loga o texto enviado e recebido em `[LLM:debug]`; só para diagnóstico (LGPD)
+
 ### Socket Server (`socket-server/.env`)
 
 - `SOCKET_PORT`, `SOCKET_CORS_ORIGIN`, `APP_URL`
@@ -246,6 +268,8 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Alterar fluxo de login   | `app/(auth)/login/actions.ts` (Server Action), `app/(auth)/login/page.tsx` (formulário), `auth.ts` (authorize)                                                                                                                                                                          |
 | Debug autenticação       | `LDAP_DEBUG=true` no `.env`, logs via `docker logs severino-next-app-1 -f`                                                                                                                                                                                                              |
 | Chamados recorrentes     | `models/RecurringTicket.ts`, `shared/chamados/recurring-ticket.schemas.ts`, `lib/recurring-job.ts`, `lib/recurring-utils.ts`, `app/(dashboard)/gestao/recurring/`, `app/api/cron/recurring-tickets/route.ts`                                                                            |
+| Funcionalidade de IA     | `lib/llm/index.ts` (`generateLlmObject`, `streamLlmObject`), `lib/llm/AGENTS.md`, `docs/specs/0001-integracao-ia-local/`                                                                                                                                                                |
+| Configurar IA local      | `scripts/update-llm-env.sh` (VPS), `docker-compose.yml`, `.env.production.example`, `GET /api/llm/status` (só Admin)                                                                                                                                                                    |
 
 ## CI/CD
 
@@ -268,6 +292,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - **Seed**: `docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js`
 - **Re-semear**: limpar collections antes (seed usa `insertMany` ordered, para no primeiro duplicado)
 - **Variáveis**: `.env` na raiz (não versionado) — `AUTH_SECRET`, `SOCKET_INTERNAL_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `SOCKET_CORS_ORIGIN`, `AUTH_URL`
+- **IA local**: `sudo bash /opt/severino/scripts/update-llm-env.sh` grava as `LLM_*` no `.env`, recria o `next-app` e confere o vLLM de dentro do container (`docker compose restart` não recarrega o `.env`)
 
 ### PM2 (alternativa sem Docker)
 
@@ -291,3 +316,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - Testes E2E em `e2e/` na raiz
 - Mocks de banco em `tests/mocks/`
 - Fixtures Playwright em `e2e/fixtures/`
+
+## Context files
+
+- [lib/llm/AGENTS.md](lib/llm/AGENTS.md): integração com a IA local (vLLM), contrato das funções, proteções da GPU, registro `LlmCall` e testes
