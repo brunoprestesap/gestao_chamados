@@ -24,6 +24,13 @@ services:
       LDAP_USER_SEARCH_FILTER: ${LDAP_USER_SEARCH_FILTER:-}
       LDAP_TLS_REJECT_UNAUTHORIZED: ${LDAP_TLS_REJECT_UNAUTHORIZED:-true}
       LDAP_DEBUG: ${LDAP_DEBUG:-false}
+      # IA local (spec 0001). Sem as três primeiras, a IA fica desligada.
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_ENABLED: ${LLM_ENABLED:-true}
+      LLM_MAX_CONCURRENCY: ${LLM_MAX_CONCURRENCY:-4}
+      LLM_DEBUG: ${LLM_DEBUG:-false}
       CRON_SECRET: ${CRON_SECRET}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
