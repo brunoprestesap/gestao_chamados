@@ -48,6 +48,7 @@ Before scoping, find the governing spec: the feature dir `docs/specs/NNNN-<featu
 The spec carries the contract: `## Requirements` with IDed acceptance criteria (`AC-1`, `AC-2`, …) plus the surfaces it specs (pages, routes, tables, migrations). Load the checklist:
 
 1. Prefer the per feature `verify.md` beside the spec (`docs/specs/NNNN-<feature>/verify.md`) if present; `/develop` emits it as concrete, already resolved verify steps tagged with the `AC-N` each exercises:
+
    ```markdown
    # Verify: <feature> · spec NNNN
 
@@ -63,6 +64,7 @@ The spec carries the contract: `## Requirements` with IDed acceptance criteria (
 
    - AC-1 … · AC-2 … · …
    ```
+
 2. Else fall back to the spec's `## Requirements` directly, and turn each `AC-N` into an observable check yourself.
 
 You now hold the `AC-N` list to confirm and the specced surface list to confirm exists. Carry both into Steps 1 to 4; the per AC verdict comes in Step 4b, reported in Step 5. Spec conformance decides what to check and what "met" means; the feature/refactor modes are how you drive the app to check it.

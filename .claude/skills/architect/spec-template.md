@@ -191,7 +191,8 @@ Do not repeat the pros/cons list, explain the reasoning. 1 to 3 paragraphs.>
 ## Follow-up
 
 - [ ] <Action item or open question>
-      <!-- Omit section if there are no follow-up actions. -->
+
+<!-- Omit section if there are no follow-up actions. -->
 
 ## References
 

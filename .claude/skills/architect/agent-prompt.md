@@ -1,6 +1,6 @@
 # Spec Writing Guide (main thread)
 
-You, the main thread, read and follow this when you write the spec after the design conversation. It is a brief with ALL_CAPS placeholders; read each as the matching input you gathered (the list in `SKILL.md`, _Write the spec_). You write it all yourself; the only subagents read the codebase (`scout`) or fetch the web (`researcher`) on the cheapest model.
+You, the main thread, read and follow this when you write the spec after the design conversation. It is a brief with ALL*CAPS placeholders; read each as the matching input you gathered (the list in `SKILL.md`, \_Write the spec*). You write it all yourself; the only subagents read the codebase (`scout`) or fetch the web (`researcher`) on the cheapest model.
 
 ---
 
