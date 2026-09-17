@@ -11,9 +11,9 @@ Amostragem revisada (Marco 5, 2026-09-17, 13h, `LLM_MAX_CONCURRENCY=4`): valores
 - [x] Logado como Admin, abrir `GET /api/llm/status` → 200 com exatamente `configured`, `enabled`, `reachable`, `modelServed`, `circuit`, `activeCalls`, `queuedCalls`, `latencyMs`; `reachable` e `modelServed` `true`; o corpo não tem o endereço nem a chave → AC-12
 - [x] Sem sessão, `GET /api/llm/status` → 401 JSON (sem redirecionar) → AC-12
 - [x] Logado como Preposto, Solicitante ou Técnico, `GET /api/llm/status` → 403 JSON → AC-12
-- [ ] Na VPS, com as variáveis `LLM_*` no `.env` e o `next-app` recriado, abrir `/api/llm/status` como Admin → `reachable: true` e `modelServed: true` de dentro do container → AC-9, AC-12
+- [x] Na VPS, com as variáveis `LLM_*` no `.env` e o `next-app` recriado, abrir `/api/llm/status` como Admin → `reachable: true` e `modelServed: true` de dentro do container → AC-9, AC-12
 - [ ] Na VPS, `LLM_ENABLED=false` e recriar o `next-app` → o status mostra `enabled: false`, `reachable: null`, e o app sobe normal → AC-9
-- [ ] Na VPS, confirmar que a rede Docker `sigma` não usa faixa que cubra `172.18.5.240` (`docker network inspect` do projeto): se usar, o container não alcança o vLLM → AC-9, AC-12
+- [x] Na VPS, confirmar que a rede Docker `sigma` não usa faixa que cubra `172.18.5.240` (`docker network inspect` do projeto): se usar, o container não alcança o vLLM → AC-9, AC-12
 - [ ] Na VPS, `docker logs` do `next-app` depois de chamadas de IA → linhas `[llm] {...}` com `task`, `status`, `reason`, `attempts`, `latencyMs` e nenhum texto de relato nem a chave → AC-11
 
 ## Commands

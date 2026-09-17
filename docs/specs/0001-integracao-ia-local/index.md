@@ -291,7 +291,7 @@ Tracer Bullet: o primeiro marco atravessa todas as camadas contra o vLLM real (c
 15. [x] Criar `app/api/llm/status/route.ts` com `getLlmStatus()` (guarda no handler, consulta a `/models` com prazo de 5s, sem endereço nem chave na resposta) e os testes de 401, 403 e 200. Satisfaz **AC-12**.
 16. [x] Implementar `LLM_DEBUG` (`[LLM:debug]`) e um teste que captura os logs sem debug e confirma que não há texto de relato nem chave. Satisfaz **AC-11**.
 17. [x] Adicionar ao `eslint.config.mjs` a regra `no-restricted-imports` para `generateText`, `streamText`, `generateObject` e `streamObject` de `ai` fora de `lib/llm/**`, e o teste que confirma que o único ponto interno de chamada usa a instância do provedor `vllm` (nenhuma função exportada aceita modelo). Satisfaz **AC-13**.
-18. Documentar as variáveis `LLM_*` em `.env.example` e repassar essas variáveis ao `next-app` no `docker-compose.yml`. Na VPS, com as variáveis no `.env`, confirmar por `/api/llm/status` que `reachable` e `modelServed` são `true` de dentro do container. Satisfaz **AC-9**, **AC-11**, **AC-12**.
+18. [x] Documentar as variáveis `LLM_*` em `.env.example` e repassar essas variáveis ao `next-app` no `docker-compose.yml`. Na VPS, com as variáveis no `.env`, confirmar por `/api/llm/status` que `reachable` e `modelServed` são `true` de dentro do container. Satisfaz **AC-9**, **AC-11**, **AC-12**.
 
 **Marco 5: amostragem revisada** (pode rodar antes da tarefa 18)
 

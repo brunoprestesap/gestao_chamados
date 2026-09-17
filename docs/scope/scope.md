@@ -79,11 +79,11 @@ Acesso do servidor ao modelo Qwen no vLLM da rede interna, com respostas estrutu
 spec [0001](../specs/0001-integracao-ia-local/index.md) · code in `lib/llm/`, `models/LlmCall.ts`, `app/api/llm/status/`
 
 - [x] Design it (spec): `/architect integração com a IA local`
-- [ ] Build it: `/develop integração com a IA local`
+- [x] Build it: `/develop integração com a IA local`
   - [x] Fio fino ponta a ponta contra o vLLM real (config, provedor, `LlmCall`, `generateLlmObject`, servidor falso, teste de fumaça) · AC-1, AC-5, AC-9, AC-10, AC-13
   - [x] Streaming, prazos e cancelamento · AC-2, AC-3, AC-5, AC-10
   - [x] Proteção da GPU compartilhada (vagas, novas tentativas, disjuntor, limite por usuário) · AC-4, AC-6, AC-7, AC-8, AC-10
-  - [ ] Operação e guarda (rota de status, debug, ESLint, variáveis na VPS) · AC-9, AC-11, AC-12, AC-13
+  - [x] Operação e guarda (rota de status, debug, ESLint, variáveis na VPS) · AC-9, AC-11, AC-12, AC-13
   - [x] Amostragem revisada (valores do card do Qwen3 em todo pedido, medição de velocidade com carga, comparação de repetição contra o vLLM real, `finishReason` e `sampling` no registro) · AC-10, AC-14, AC-15, AC-16
 - [ ] Verify it: `/check verify integração com a IA local`
 - [ ] Test it: `/test integração com a IA local`
