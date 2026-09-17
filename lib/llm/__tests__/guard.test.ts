@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { ESLint } from 'eslint';
@@ -90,8 +90,16 @@ describe('guarda de lib/llm', () => {
     for (const file of sourceFiles(LLM_DIR)) {
       expect(readFileSync(file, 'utf8'), path.basename(file)).toMatch(/^import 'server-only';/m);
     }
-    const envExample = readFileSync(path.join(ROOT, '.env.example'), 'utf8');
-    expect(envExample).not.toMatch(/^\s*#?\s*NEXT_PUBLIC_LLM_\w*\s*[=:]/m);
+    // `.env.production.example` e o `docker-compose.yml` são versionados; o `.env.example`
+    // está no .gitignore e só existe na máquina de quem desenvolve.
+    const configFiles = ['.env.production.example', 'docker-compose.yml', '.env.example']
+      .map((name) => path.join(ROOT, name))
+      .filter((file, index) => index < 2 || existsSync(file));
+    for (const file of configFiles) {
+      const content = readFileSync(file, 'utf8');
+      expect(content, path.basename(file)).toMatch(/LLM_BASE_URL/);
+      expect(content, path.basename(file)).not.toMatch(/NEXT_PUBLIC_LLM_\w*\s*[=:]/);
+    }
     expect(
       sourceFiles(LLM_DIR).some((f) => readFileSync(f, 'utf8').includes('NEXT_PUBLIC_LLM')),
     ).toBe(false);
