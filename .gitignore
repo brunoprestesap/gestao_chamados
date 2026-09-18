@@ -60,3 +60,6 @@ socket-server/dist/
 
 # uploads (runtime, não versionar)
 /data/uploads/
+
+# saída do Playwright MCP (execuções de verificação, não versionar)
+.playwright-mcp/
