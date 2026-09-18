@@ -8,6 +8,7 @@ import {
   FileText,
   Gauge,
   LayoutDashboard,
+  MessagesSquare,
   Repeat,
   Settings,
   Ticket,
@@ -43,6 +44,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Painel de Gestão',
     href: '/dashboard',
     icon: LayoutDashboard,
+    group: 'Principal',
+  },
+  {
+    label: 'Conversas',
+    href: '/conversas',
+    icon: MessagesSquare,
     group: 'Principal',
   },
   {

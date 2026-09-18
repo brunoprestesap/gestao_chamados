@@ -170,6 +170,13 @@ const ChamadoSchema = new Schema(
 
 ChamadoSchema.index({ ticket_number: 1 }, { unique: true });
 ChamadoSchema.index({ solicitanteId: 1, status: 1, createdAt: -1 });
+// Lateral de `/conversas`: os chamados do solicitante por data de mudança. A
+// situação no meio do índice acima impede que ele sirva a esta ordenação.
+//
+// O `_id` entra porque a lateral pagina por cursor composto (`updatedAt` mais
+// `_id`) e ordena pelos dois. Sem ele o Mongo lê todos os chamados do
+// solicitante e ordena em memória, mesmo usando o índice para filtrar.
+ChamadoSchema.index({ solicitanteId: 1, updatedAt: -1, _id: -1 });
 ChamadoSchema.index({ ticket_number: 'text', titulo: 'text', descricao: 'text' });
 ChamadoSchema.index({ unitId: 1, status: 1 });
 ChamadoSchema.index({ tipoServico: 1, status: 1 });

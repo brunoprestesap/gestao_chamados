@@ -132,3 +132,30 @@ describe('ChamadoModel · índices da spec 0002', () => {
     expect(indicePor(['status', 'closedAt'])).toBeDefined();
   });
 });
+
+// ── índice da lateral de /conversas · spec 0003, AC-2 ────────────
+
+describe('ChamadoModel · índice da lateral de conversas (spec 0003)', () => {
+  it('inclui o `_id` que a ordenação da lateral precisa', () => {
+    // Act
+    const lateral = indicePor(['solicitanteId', 'updatedAt', '_id']);
+
+    // Assert: a lateral pagina por cursor composto e ordena por
+    // `{ updatedAt: -1, _id: -1 }`. Sem o `_id` no índice o Mongo filtra por
+    // ele mas ordena em memória, lendo todos os chamados do solicitante.
+    expect(lateral?.[0]).toEqual({ solicitanteId: 1, updatedAt: -1, _id: -1 });
+  });
+
+  it('não deixa para trás a versão de dois campos, que não cobria a ordenação', () => {
+    // Assert: dois índices com o mesmo prefixo só custariam escrita
+    expect(indicePor(['solicitanteId', 'updatedAt'])).toBeUndefined();
+  });
+
+  it('a ordem das chaves acompanha a ordenação da consulta', () => {
+    // Act
+    const lateral = indicePor(['solicitanteId', 'updatedAt', '_id']);
+
+    // Assert: `updatedAt` e `_id` descendentes, na mesma direção do `sort`
+    expect(Object.values(lateral?.[0] ?? {})).toEqual([1, -1, -1]);
+  });
+});
