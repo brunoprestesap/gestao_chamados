@@ -60,3 +60,10 @@ socket-server/dist/
 
 # uploads (runtime, não versionar)
 /data/uploads/
+
+# saída do Playwright MCP (execuções de verificação, não versionar)
+.playwright-mcp/
+
+# Skills instaladas pelo `npx skills`: os arquivos ficam em .agents/skills/ e
+# o .claude/skills/<nome> e so um atalho com caminho absoluto desta maquina
+.claude/skills/vitest

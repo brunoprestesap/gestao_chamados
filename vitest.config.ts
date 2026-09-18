@@ -34,7 +34,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'vmForks',
-    include: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
+    // O `.tsx` entra pelos testes de componente. O ambiente de DOM fica por
+    // arquivo, num comentário `@vitest-environment jsdom` no topo dele, para
+    // o resto da suíte continuar rodando em Node, que é mais rápido.
+    include: ['**/__tests__/**/*.test.ts?(x)', '**/*.test.ts?(x)'],
     exclude: ['node_modules', '.next', 'socket-server', 'e2e'],
     coverage: {
       provider: 'v8',

@@ -178,6 +178,14 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Limitador de vagas, disjuntor e limite por usuário ficam em memória: valem enquanto o Next roda em uma única instância
 - Raias, prazos, amostragem, registro `LlmCall` e testes: `lib/llm/AGENTS.md`
 
+### Tela de conversas (`/conversas`)
+
+- Rota de servidor: a lateral (rascunhos em cima, chamados embaixo) é montada no layout e já vem pronta na primeira pintura, sem estado de carregamento
+- O envio de mensagem não é Server Action: vai por `POST /api/conversas/mensagens` (conversa nova) ou `POST /api/conversas/[id]/mensagens` (conversa que continua), que respondem em NDJSON, um quadro JSON por linha
+- Os quadros (`inicio`, `parcial`, `fim`, `reserva`) e o schema deles vivem em `shared/conversas/quadro.schemas.ts`
+- Falha da IA nunca quebra a tela: vira mensagem de autor `sistema` com texto fixo do Sigma, nunca texto do modelo
+- Detalhes da tela e das rotas: `app/(dashboard)/conversas/AGENTS.md`. Detalhes do assistente: `lib/assistente/AGENTS.md`. Spec: `docs/specs/0003-tela-chat-chamados/`
+
 ### Validação
 
 - Schemas Zod em `shared/<domain>/*.schemas.ts` (co-localizados por domínio)
@@ -270,6 +278,8 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Chamados recorrentes     | `models/RecurringTicket.ts`, `shared/chamados/recurring-ticket.schemas.ts`, `lib/recurring-job.ts`, `lib/recurring-utils.ts`, `app/(dashboard)/gestao/recurring/`, `app/api/cron/recurring-tickets/route.ts`                                                                            |
 | Funcionalidade de IA     | `lib/llm/index.ts` (`generateLlmObject`, `streamLlmObject`), `lib/llm/AGENTS.md`, `docs/specs/0001-integracao-ia-local/`                                                                                                                                                                |
 | Configurar IA local      | `scripts/update-llm-env.sh` (VPS), `docker-compose.yml`, `.env.production.example`, `GET /api/llm/status` (só Admin)                                                                                                                                                                    |
+| Tela de conversas (chat) | `app/(dashboard)/conversas/` (tela e lateral), `app/api/conversas/` (envio em NDJSON), `lib/assistente/` (prompt e reserva), `shared/conversas/quadro.schemas.ts` (quadros)                                                                                                             |
+| Novo quadro de resposta  | `shared/conversas/quadro.schemas.ts`, `app/api/conversas/_lib/fluxo.ts`, `app/(dashboard)/conversas/_components/useEnvio.ts`                                                                                                                                                            |
 
 ## CI/CD
 
@@ -306,17 +316,25 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 ## Testes
 
 - **Unitários**: Vitest (preferido para Next.js 16) ou Jest
+- **Componentes**: Vitest com `@testing-library/react` e `@testing-library/user-event`; o arquivo é `*.test.tsx` e abre com `// @vitest-environment jsdom`, porque o ambiente padrão da suíte é Node
 - **E2E**: Playwright
 - Padrão: Arrange-Act-Assert
 - Cobertura mínima: 80%
 
 ## Convenções
 
-- Testes unitários em `__tests__/` ou `*.test.ts` ao lado dos arquivos
+- Testes unitários em `__tests__/` ou `*.test.ts` ao lado dos arquivos (`*.test.tsx` quando o teste monta componente)
 - Testes E2E em `e2e/` na raiz
 - Mocks de banco em `tests/mocks/`
 - Fixtures Playwright em `e2e/fixtures/`
 
+## Agent skills
+
+- [vitest](.agents/skills/vitest/): `antfu/skills`, o runner de teste do projeto (API compatível com Jest, mocks, cobertura, filtro de teste e o ambiente jsdom)
+- MCP servers: nenhum para as ferramentas de teste (`@testing-library/*`, `jsdom`); são de desenvolvimento local e não têm servidor público. Busca feita em 18/09/2026, não vale repetir.
+
 ## Context files
 
 - [lib/llm/AGENTS.md](lib/llm/AGENTS.md): integração com a IA local (vLLM), contrato das funções, proteções da GPU, registro `LlmCall` e testes
+- [app/(dashboard)/conversas/AGENTS.md](<app/(dashboard)/conversas/AGENTS.md>): a tela de conversas e as rotas de envio em NDJSON, com os quadros, o descarte e as regras de acessibilidade
+- [lib/assistente/AGENTS.md](lib/assistente/AGENTS.md): o assistente do acolhimento, o prompt, o schema da resposta e as mensagens de reserva quando a IA falha

@@ -22,7 +22,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 8   | Notificações em tempo real                         | Contexto   | existing |
 | 9   | Integração com a IA local                          | Foundation | done     |
 | 10  | Conversa e decisões da IA no banco                 | Foundation | done     |
-| 11  | Tela de chat de chamados                           | Slice 1    | planned  |
+| 11  | Tela de chat de chamados                           | Slice 1    | done     |
 | 12  | Abertura do chamado pela IA                        | Slice 1    | planned  |
 | 13  | Andamento e conversa com o técnico                 | Slice 2    | planned  |
 | 14  | Calibração da trava de confiança                   | Slice 3    | planned  |
@@ -105,12 +105,22 @@ spec [0002](../specs/0002-conversa-decisoes-ia/index.md) · code in `lib/convers
 
 ## Slice 1: Relatar e abrir pelo chat
 
-### 11. Tela de chat de chamados · needs a decision
+### 11. Tela de chat de chamados · done
 
-Tela no estilo dos assistentes conhecidos: os chamados do usuário na lateral como conversas, a conversa aberta no centro e a caixa de mensagem embaixo. Vira a entrada principal de Meus Chamados, com link para o formulário tradicional.
+Tela no estilo dos assistentes conhecidos: os chamados do usuário na lateral como conversas, a conversa aberta no centro e a caixa de mensagem embaixo. Entra como rota própria (`/conversas`), ao lado de Meus Chamados, que continua intacta, com link para o formulário tradicional.
 **Done when:** o usuário vê seus chamados como conversas na lateral, começa uma nova e envia o relato; percebe quando a IA está respondendo; a tela funciona no celular e só com teclado, e novas mensagens são anunciadas ao leitor de tela (WCAG 2.1 AA); o link para o formulário fica visível.
+spec [0003](../specs/0003-tela-chat-chamados/index.md) · code in `app/(dashboard)/conversas/`, `app/api/conversas/`, `lib/assistente/`, `shared/conversas/quadro.schemas.ts`
 
-- [ ] Design it (spec): `/architect tela de chat de chamados`
+- [x] Design it (spec): `/architect tela de chat de chamados`
+- [x] Build it: `/develop tela de chat de chamados`
+  - [x] Fio fino ponta a ponta: índice novo em `Chamado`, item na sidebar, `/conversas` no servidor com a lateral, tela de boas vindas, rota que cria o rascunho e transmite a resposta do assistente · AC-1, AC-3, AC-5, AC-6
+  - [x] Conversa que continua: `/conversas/[id]`, mensagens seguintes, envio otimista com `Tentar de novo`, contadores, frases de erro, descartar rascunho · AC-4, AC-9, AC-12
+  - [x] Falha da IA como parte do desenho: mensagem de sistema, quadro de reserva, resposta boa que não grava, link do formulário · AC-7, AC-5b
+  - [x] Chamado em modo leitura pela linha do tempo, com cabeçalho e rodapé próprios · AC-10
+  - [x] Lateral completa e tempo real: dois blocos, carregar mais com cursor composto, recarga por evento do navegador · AC-2, AC-13
+  - [x] Celular e acessibilidade: duas telas com voltar, foco, região ao vivo, alvos de toque e contraste · AC-8, AC-11
+- [x] Verify it: `/check verify tela de chat de chamados`
+- [x] Test it: `/test tela de chat de chamados`
 
 ### 12. Abertura do chamado pela IA · needs a decision
 
@@ -198,6 +208,9 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Número de chamado sem corrida**: `generateTicketNumber()` lê o maior número existente e incrementa, sem lock; o chat aumenta as aberturas simultâneas · from spec 0002
 - **Histórico do catálogo atualizado**: `updateTicketCatalogAction` grava a ação `catalogo_atualizado`, que não existe no enum do histórico, e falha depois de já ter alterado o chamado · from spec 0002
 - **Testes de banco no CI**: decidir se o CI passa a subir um MongoDB de serviço para rodar os testes que dependem de índice e TTL · from spec 0002
+- **Formulário a um clique pela conversa**: fazer `/meus-chamados` aceitar um parâmetro que já abre o diálogo do formulário, para o link da lateral não exigir um clique a mais · from spec 0003
+- **Unificar as duas entradas**: definir o sinal (por exemplo, percentual de aberturas pelo chat) que encerra a convivência entre `/conversas` e a tabela de `/meus-chamados`, para a decisão não ficar aberta para sempre · from spec 0003
+- **Evento próprio de conversa no socket**: hoje a tela de conversas recarrega pelo evento genérico de notificação, e aviso de SLA também dispara recarga; um evento próprio resolve se o desperdício incomodar · from spec 0003
 
 ## Legend
 
