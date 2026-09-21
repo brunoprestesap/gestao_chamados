@@ -1,0 +1,59 @@
+# Verify: Abertura do chamado pela IA · spec 0004 · updated 2026-09-21
+
+_Steps derived from spec 0004 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
+
+## UI / manual
+
+- [x] Entrar como `solicitante`, abrir `/conversas`, mandar "A lâmpada da sala 204, no 2º andar, queimou" → a resposta chega aos poucos e, quando a IA julga completo, aparece o cartão `Resumo do chamado` com o serviço do catálogo, a unidade do perfil com o andar e o local "sala 204" → AC-1, AC-4, AC-5, AC-6. **Verificado em 21/09/2026** contra o vLLM real: chamado `#CHM-2026-00664`, serviço `TROCA DE LÂMPADAS` (Elétrica · Manutenção Predial), unidade `NUTEC - NÚCLEO DE TECNOLOGIA · 1º ANDAR` pré-preenchida.
+- [x] No cartão do passo anterior, conferir que não aparece confiança, motivo nem prioridade, e que o texto diz que a conversa vira a descrição → AC-5. Conferido também na linha de `/gestao`, no diálogo `Classificar` e no `/meus-chamados/<id>` (Prioridade Final sempre "—").
+- [ ] Trocar a unidade na lista (só unidades ativas, com andar) e editar o local, depois `Confirmar e abrir chamado` → a mesma rota vira modo leitura, a lateral troca o rascunho pelo chamado, o título é `<nome do serviço> — <local>` e a última mensagem é o aviso verde "Chamado #… aberto" sem link do formulário → AC-6, AC-10, AC-11. **Parcial**: local editado (`Sala 204, corredor leste`) propagou para título/descrição, modo leitura, aviso verde e revalidação todos confirmados; troca de unidade **não** exercida — só 1 unidade ativa nesta base de dev.
+- [x] No modo leitura do passo anterior, conferir a marca `Aberto pelo chat · serviço sugerido pela IA` no cabeçalho e, no histórico, uma entrada de abertura e uma `decisao_ia` de serviço, sem nenhuma entrada de prioridade → AC-10, AC-15
+- [ ] Entrar como `preposto`, abrir `/gestao` → a linha do chamado mostra a marca do chat (cortada com reticências, texto inteiro ao passar o mouse); abrir `Classificar` → a marca aparece no cabeçalho do diálogo e nada mostra a prioridade sugerida → AC-15. **Parcial**: marca confirmada nos dois lugares (e o Serviço Catalogado do diálogo já veio pré-selecionado com a sugestão); truncamento com reticências/hover não conferido.
+- [ ] Abrir `/meus-chamados/<id>` do chamado → marca `Aberto pelo chat · serviço sugerido pela IA` abaixo do título; um chamado aberto pelo formulário não mostra marca → AC-15. **Parcial**: marca confirmada para os dois chamados abertos pelo chat nesta sessão; não conferi um chamado aberto pelo formulário para provar a ausência da marca.
+- [x] Entrar como `tecnico` com um chamado do chat atribuído → a tela do técnico não mostra marca → AC-15. Classifiquei e atribuí `#CHM-2026-00664` a `Técnico 01 E2E`; nem o card do dashboard nem `/chamados-atribuidos/<id>` mostram marca.
+- [ ] Usuário sem unidade no perfil manda um relato completo → a IA pergunta onde é, o cartão chega com a unidade vazia e obrigatória, e confirmar sem escolher mostra "Escolha a unidade" ligado ao campo → AC-2, AC-6. **Bloqueado**: nenhum usuário Solicitante sem unidade disponível nesta base sem mutar um fixture de E2E.
+- [ ] Relatar problema em outro prédio ("a lâmpada da garagem do anexo queimou") com unidade no perfil → o cartão não pré preenche a unidade do perfil → AC-6. **Bloqueado** pelo mesmo motivo (só 1 unidade cadastrada).
+- [x] Depois da primeira mensagem, com a IA ainda sem cartão, tocar `Revisar e abrir` → aparece o cartão (modo `ia` se a proposta tem serviço, `manual` se não tem) e o foco continua no botão; tocar de novo sem mudar nada → nenhum cartão novo nasce → AC-7, AC-18. **Parcial**: modo `ia` confirmado (a IA ainda só tinha feito uma pergunta, sem `completo: true`, e `Revisar e abrir` montou o cartão com `REPARO DE AR-CONDICIONADO SPLIT` mesmo assim); a idempotência de tocar duas vezes sem mudar nada não foi testada.
+- [ ] Mandar outra mensagem que muda o local → nasce um cartão novo e o anterior fica esmaecido com a marca `Substituído` em texto e sem botão → AC-4, AC-12. **Não exercido** nesta sessão.
+- [ ] Com dois cartões na tela, abrir a mesma conversa noutra aba, gerar um cartão novo lá e tentar confirmar o antigo na primeira → frase "Este resumo não vale mais…" como alerta, nenhum chamado criado → AC-10, AC-12. **Não exercido**.
+- [ ] Enquanto a resposta do assistente chega, o botão `Confirmar e abrir chamado` fica desabilitado e diz por quê → AC-12. **Não exercido** diretamente (o botão "Enviar mensagem" foi visto desabilitado durante streaming, mas não testei clicar em "Confirmar" nesse instante).
+- [x] Com `LLM_ENABLED=false`, mandar um relato → aparece a mensagem de reserva (relato salvo, resumo abre mesmo assim, formulário como alternativa) e logo depois o cartão manual; escolher o tipo, a unidade e o local e confirmar → o chamado nasce com `tipoServico` escolhido, sem serviço do catálogo, e o detalhe mostra "A definir na triagem" → AC-8, AC-9. **Verificado em 21/09/2026** reiniciando o `next dev` com `LLM_ENABLED=false`: chamado `#CHM-2026-00665`, badge `Aberto pelo chat` (sem "serviço sugerido pela IA"), detalhe mostra `Elevador · A definir na triagem`.
+- [ ] Classificar como Preposto o chamado do passo anterior → o diálogo mostra "Serviço: A definir na triagem" e só salva com subtipo e serviço escolhidos → AC-9. **Não exercido**.
+- [x] Conversa com 30 mensagens → a caixa some e aparece o aviso com `Revisar e abrir` como ação principal e `Abrir por formulário` como alternativa; o chamado nasce pelo cartão → AC-13. Observado ao vivo num rascunho já no teto (fixture de 18/09); o texto e os botões batem com a spec. O teto não foi atingido enviando mensagens nesta sessão.
+- [ ] Com leitor de tela (NVDA): quando a resposta termina com cartão novo, a região ao vivo lê uma vez só a resposta seguida de "Resumo do chamado pronto para confirmar."; pelo `Revisar e abrir`, só essa frase; todo campo do cartão tem rótulo lido e o erro é anunciado junto → AC-18. **Bloqueado**: sem NVDA neste ambiente. Conferi programaticamente o conteúdo da região `status`: cartão novo → resposta completa + frase; via `Revisar e abrir` → só a frase. Bate com o texto esperado.
+- [ ] No celular (390 de largura), o cartão cabe sem rolagem horizontal e todo alvo tem 44 pixels → AC-18. **Parcial**: sem rolagem horizontal confirmado por screenshot a 390px; os 44 pixels não foram medidos.
+- [ ] Os quatro perfis (Admin, Preposto, Solicitante, Técnico) conseguem abrir chamado pelo chat, sempre em nome de quem está logado → AC-17. **Parcial**: só `Solicitante` abriu chamado pelo chat nesta sessão (2 chamados); Admin, Preposto e Técnico não testados como autores de abertura.
+
+## Origem dos valores (uma verificação por linha da tabela)
+
+- [ ] Desativar um serviço no catálogo e mandar um relato que caberia nele → a IA não o escolhe (o catálogo é lido a cada chamada) → Value sourcing: catálogo no prompt
+- [ ] Desativar a unidade do perfil do usuário → o prompt diz que não há unidade e o cartão pede a unidade → Value sourcing: unidade do perfil
+- [ ] Segunda mensagem da mesma conversa → no registro `LlmCall`, o prompt leva a proposta atual (código e local) → Value sourcing: proposta atual no prompt
+- [ ] Conversa com mensagens de sistema e cartões → nada disso vai no histórico enviado ao modelo → Value sourcing: histórico enviado
+- [ ] `propostaIa.origemMensagemId` no Mongo é o `_id` da mensagem do solicitante da última volta boa → Value sourcing: `origemMensagemId`
+- [ ] `propostaIa.servico` tem os ids do `ServiceCatalog` cujo `code` a IA devolveu, e `tipoServico` sai do nome do tipo → Value sourcing: `propostaIa.servico`
+- [ ] Forçar motivo vazio (servidor falso) → a decisão grava "O modelo não explicou." → Value sourcing: confiança e motivo
+- [ ] `propostaIa.llmCallId`, `modelo`, `promptVersion` e `task` batem com o `LlmCall` da mesma volta → Value sourcing: `meta`
+- [ ] Proposta completa sem local → nenhum cartão nasce sozinho → Value sourcing: decidir se grava cartão
+- [ ] Renomear o serviço no catálogo depois do cartão e tocar `Revisar e abrir` → o cartão novo mostra o nome novo → Value sourcing: rótulo do serviço e do subtipo
+- [ ] Lista de unidades do cartão = unidades ativas, em ordem de nome → Value sourcing: lista de unidades
+- [ ] Cartão sem serviço, sem unidade e sem local → `faltando` = tipo, unidade, local → Value sourcing: `faltando[]`
+- [ ] Título do chamado: nome do serviço no modo `ia`, tipo no modo `manual`, sempre com " — local" → Value sourcing: `titulo`
+- [ ] Descrição do chamado = só as mensagens do solicitante, na ordem, com linha em branco entre elas → Value sourcing: `descricao`
+- [ ] Mandar no corpo da ação `catalogServiceId` ou `prioridade` → recusado como dados inválidos → Value sourcing: decisões lidas da proposta
+- [ ] `grauUrgencia` Normal, natureza Padrão, telefone vazio no chamado do chat → Value sourcing: campos fixos
+- [ ] Notificação `ticket:new` para cada Preposto e Admin ativo, uma vez só mesmo com clique duplo → Value sourcing: destinatários da notificação
+- [ ] Lista de `/gestao` com dez chamados faz uma consulta só a `DecisaoIa` → Value sourcing: `serviço sugerido pela IA`
+
+## Commands
+
+- [x] `npm run typecheck` → sem erro → todas. **21/09/2026**: `tsc --noEmit` limpo.
+- [x] `npm run lint` → sem erro → todas. **21/09/2026**: 0 erros, 49 avisos pré-existentes (nenhum nos arquivos desta spec).
+- [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npm test` → tudo passa, inclusive `lib/assistente/__tests__/abertura-chat.db.test.ts` e `lib/conversas/__tests__/proposta.db.test.ts` → AC-1 a AC-17. **Corrigido em 21/09/2026**: a falha era uma corrida em `abertura-chat.db.test.ts` (`LlmCallModel.findOne({})` rodando antes de `recordLlmCall()`, que é fire and forget, terminar de gravar). Ajustado o teste para esperar com `vi.waitFor(...)`, igual ao resto do repo. Suíte completa rodada duas vezes depois da correção: 2193 passaram, 9 pulados, 0 falhas em ambas.
+- [x] `LLM_SMOKE=1 npx vitest run lib/assistente/__tests__/abertura.smoke.test.ts` → 8 ou mais acertos em 10 e o relato fora de manutenção com código nulo → AC-19. **Resultado em 18/09/2026, 20h35, fora do pico:** 10 de 10 acertos, latência entre 3,9 e 4,4 segundos por resposta, `finishReason: stop` em todas; relato fora de manutenção com código nulo e `completo: false`. `PROMPT_VERSION` 1, catálogo do seed. (Não rerodado em 21/09; resultado herdado.)
+- [ ] Na VPS, `docker logs severino-next-app-1 --tail 200 | grep "\[llm\]"` depois de algumas conversas → linhas da tarefa `conversa.abertura` com `task`, `status`, `reason`, `finishReason`, `attempts` e `latencyMs`, sem texto de relato nem chave (herdado da 9) → AC-16. **Bloqueado**: a fatia ainda não foi implantada na VPS (todas as mudanças estão sem commit no branch `main` local em 21/09/2026).
+- [ ] Na VPS, `docker logs severino-next-app-1 --tail 200 | grep "\[assistente\]\|\[abertura\]"` → só ids, código válido ou não, completo, destino do cartão e duração; nenhuma frase de relato, resposta ou local → AC-16. **Bloqueado** pelo mesmo motivo (sem deploy ainda).
+
+## Acceptance-criteria coverage
+
+- AC-1 · passo 1 da UI, teste `responder.test.ts`, fumaça · AC-2 · passos sem unidade e histórico longo (`responder.test.ts`) · AC-3 · origem dos valores, `abertura-chat.db.test.ts` (fora de ordem) · AC-4 · cartão novo, mantido e substituído · AC-5 · cartão sem confiança, teste "nada vaza" · AC-6 · unidade do perfil, sem unidade, outro prédio · AC-7 · `Revisar e abrir` · AC-8 · IA desligada · AC-9 · cartão manual e classificação · AC-10 · confirmação e dados · AC-11 · modo leitura, notificação, clique duplo · AC-12 · substituído, desatualizado, botão desabilitado · AC-13 · teto de 30 · AC-14 · `prompt-schema.test.ts` · AC-15 · marca em três telas, técnico sem marca · AC-16 · logs na VPS · AC-17 · quatro perfis, corpo estrito · AC-18 · leitor de tela, celular · AC-19 · fumaça
