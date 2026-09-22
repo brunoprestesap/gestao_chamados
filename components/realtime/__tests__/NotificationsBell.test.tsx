@@ -19,10 +19,7 @@ import { NotificationsBell } from '../NotificationsBell';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue({ ok: true, json: async () => [] }),
-  );
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
 });
 
 describe('NotificationsBell · alvo de toque (AC-18)', () => {

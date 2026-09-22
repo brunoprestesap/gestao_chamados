@@ -18,10 +18,7 @@ import { MobileHeader } from '../mobile-header';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue({ ok: true, json: async () => [] }),
-  );
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
 });
 
 describe('MobileHeader · alvo de toque (AC-18)', () => {
