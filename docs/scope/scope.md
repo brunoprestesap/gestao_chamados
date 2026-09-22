@@ -221,7 +221,6 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Evento próprio de conversa no socket**: hoje a tela de conversas recarrega pelo evento genérico de notificação, e aviso de SLA também dispara recarga; um evento próprio resolve se o desperdício incomodar · from spec 0003
 - **Cache de prefixo do vLLM**: confirmar com a equipe da GPU se o vLLM roda com cache de prefixo ligado, porque o catálogo vai no prompt de toda mensagem do chat e o custo cai muito com ele · from spec 0004
 - **Telefone de contato no chamado do chat**: o chat não pede dado pessoal, então o chamado nasce sem telefone; decidir como pedir se os técnicos sentirem falta · from spec 0004
-- **Logs `[llm]`/`[assistente]` na VPS**: o `/check verify` da 0004 provou tudo o que dava para provar localmente; falta conferir com `docker logs` do `next-app` que as chamadas reais de produção geram as linhas esperadas, sem texto de relato nem chave, depois que esta fatia for implantada · from spec 0004
 - **Leitor de tela de verdade no AC-18**: o `/check verify` da 0004 conferiu a região ao vivo programaticamente (o texto que ela recebe bate com o esperado), mas sem NVDA ou outro leitor de tela instalado nesta máquina para ouvir o anúncio de verdade; rodar quando houver um leitor de tela disponível · from spec 0004
 
 ## Legend
