@@ -58,8 +58,8 @@ describe('CONVERSA_AUTORES (AC-1)', () => {
 });
 
 describe('CONVERSA_MENSAGEM_TIPOS (AC-1)', () => {
-  it('a fundação traz só o tipo texto', () => {
-    expect([...CONVERSA_MENSAGEM_TIPOS]).toEqual(['texto']);
+  it('traz o texto da fundação e o cartão resumo da spec 0004', () => {
+    expect([...CONVERSA_MENSAGEM_TIPOS]).toEqual(['texto', 'cartao']);
   });
 });
 

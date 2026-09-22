@@ -6,11 +6,12 @@ import { ChamadoCommentModel } from '@/models/ChamadoComment';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { ConversaModel } from '@/models/Conversa';
 import { ConversaMensagemModel } from '@/models/ConversaMensagem';
-import type { ConversaAutor } from '@/shared/conversas/conversa.constants';
+import type { ConversaAutor, ConversaMensagemTipo } from '@/shared/conversas/conversa.constants';
 import { objectIdSchema } from '@/shared/conversas/conversa.schemas';
 
 import { LINHA_DO_TEMPO_MAX } from './config';
 import { registrarErro } from './conversa-store';
+import { decisoesOcultas } from './decisoes';
 import type { Falha, ItemLinhaDoTempo, LinhaDoTempo, Viewer } from './types';
 
 /**
@@ -50,7 +51,7 @@ export async function lerLinhaDoTempo(viewer: Viewer, chamadoId: string): Promis
       ? Boolean(await ConversaModel.exists({ _id: conversaId }))
       : false;
 
-    const [mensagens, comentarios, historico] = await Promise.all([
+    const [mensagens, comentarios, historicoCompleto, ocultas] = await Promise.all([
       conversaExiste
         ? ConversaMensagemModel.find({ conversaId })
             .sort({ createdAt: -1, _id: -1 })
@@ -65,12 +66,19 @@ export async function lerLinhaDoTempo(viewer: Viewer, chamadoId: string): Promis
         .sort({ createdAt: -1, _id: -1 })
         .limit(LINHA_DO_TEMPO_MAX)
         .lean(),
+      decisoesOcultas(chamadoId),
     ]);
+
+    // A prioridade sugerida pela IA não aparece para ninguém nesta fatia
+    // (spec 0004, AC-15): sai toda entrada ligada a ela.
+    const historico = historicoCompleto.filter(
+      (h) => !h.decisaoIaId || !ocultas.has(String(h.decisaoIaId)),
+    );
 
     const truncado =
       mensagens.length === LINHA_DO_TEMPO_MAX ||
       comentarios.length === LINHA_DO_TEMPO_MAX ||
-      historico.length === LINHA_DO_TEMPO_MAX;
+      historicoCompleto.length === LINHA_DO_TEMPO_MAX;
 
     const itens: ItemLinhaDoTempo[] = [
       ...mensagens.map(
@@ -82,7 +90,7 @@ export async function lerLinhaDoTempo(viewer: Viewer, chamadoId: string): Promis
             id: String(m._id),
             autor: m.autor as ConversaAutor,
             userId: m.userId ? String(m.userId) : null,
-            tipo: m.tipo as 'texto',
+            tipo: m.tipo as ConversaMensagemTipo,
             texto: m.texto,
             payload: m.payload ?? null,
             llmCallId: m.llmCallId ? String(m.llmCallId) : null,

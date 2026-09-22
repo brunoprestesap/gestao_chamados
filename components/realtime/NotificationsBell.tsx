@@ -209,7 +209,7 @@ export function NotificationsBell() {
       <Button
         variant="ghost"
         size="icon"
-        className="relative h-9 w-9 rounded-xl text-foreground/70"
+        className="relative h-11 w-11 rounded-xl text-foreground/70"
         aria-label="Notificações"
       >
         <Bell className="h-5 w-5" />
@@ -223,7 +223,7 @@ export function NotificationsBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-xl text-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          className="relative h-11 w-11 rounded-xl text-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
           aria-label={unreadCount > 0 ? `Notificações — ${unreadCount} não lidas` : 'Notificações'}
         >
           <Bell className="h-5 w-5" />

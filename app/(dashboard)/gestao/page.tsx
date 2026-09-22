@@ -37,6 +37,7 @@ import {
   STATUS_BADGE,
   STATUS_ICONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
+import { MarcaAberturaChat } from '@/components/chamado/MarcaAberturaChat';
 import { StatusMultiSelect } from '@/components/StatusMultiSelect';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -795,6 +796,12 @@ export default function GestaoPage() {
                       <span className="block truncate font-medium text-foreground transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
                         {row.titulo}
                       </span>
+                      <MarcaAberturaChat
+                        canalAbertura={row.canalAbertura}
+                        servicoSugeridoIa={row.servicoSugeridoIa}
+                        compacta
+                        className="mt-1"
+                      />
                     </TableCell>
                     <TableCell className="px-4 py-3.5">
                       <StatusBadge status={row.status} />
@@ -869,6 +876,10 @@ export default function GestaoPage() {
                         <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">
                           {row.titulo}
                         </h3>
+                        <MarcaAberturaChat
+                          canalAbertura={row.canalAbertura}
+                          servicoSugeridoIa={row.servicoSugeridoIa}
+                        />
 
                         {/* Row 3: metadata */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

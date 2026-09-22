@@ -23,11 +23,65 @@ function leitura(over: Partial<LeituraChamado> = {}): LeituraChamado {
     titulo: 'Lâmpada queimada no corredor',
     situacao: 'Em atendimento',
     abertoEm: new Date('2026-09-17T11:40:00.000Z').toISOString(),
+    marca: null,
     itens: [],
     truncado: false,
     ...over,
   };
 }
+
+// ── aviso de chamado aberto · spec 0004, AC-11 ───────────────────
+
+describe('PainelChamado · aviso de chamado aberto', () => {
+  it('mostra o aviso como sucesso, sem o link do formulário', () => {
+    // Arrange
+    const em = new Date('2026-09-17T11:41:00.000Z').toISOString();
+
+    // Act
+    render(
+      <PainelChamado
+        leitura={leitura({
+          itens: [
+            {
+              fonte: 'mensagem',
+              id: 'm1',
+              em,
+              autor: 'sistema',
+              texto: 'Chamado #CHM-2026-00412 aberto.',
+              chamadoAberto: true,
+            },
+          ],
+        })}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText('Chamado #CHM-2026-00412 aberto.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /abrir por formulário/i })).not.toBeInTheDocument();
+  });
+});
+
+// ── marca do chat · spec 0004, AC-15 ─────────────────────────────
+
+describe('PainelChamado · marca do chat', () => {
+  it('mostra a marca em texto no cabeçalho', () => {
+    // Act
+    render(
+      <PainelChamado leitura={leitura({ marca: 'Aberto pelo chat · serviço sugerido pela IA' })} />,
+    );
+
+    // Assert
+    expect(screen.getByText('Aberto pelo chat · serviço sugerido pela IA')).toBeInTheDocument();
+  });
+
+  it('chamado do formulário não tem marca', () => {
+    // Act
+    render(<PainelChamado leitura={leitura()} />);
+
+    // Assert
+    expect(screen.queryByText(/aberto pelo chat/i)).not.toBeInTheDocument();
+  });
+});
 
 // ── cabeçalho · AC-10 ────────────────────────────────────────────
 

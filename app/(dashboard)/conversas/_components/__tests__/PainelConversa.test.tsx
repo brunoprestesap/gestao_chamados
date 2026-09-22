@@ -39,6 +39,7 @@ function conversa(over: Partial<ConversaNaTela> = {}): ConversaNaTela {
     situacao: 'rascunho',
     previa: 'O ar da sala 302 está pingando',
     mensagensCount: 2,
+    cartaoAtualId: null,
     mensagens: [
       {
         id: 'm1',

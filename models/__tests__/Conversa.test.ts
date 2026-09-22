@@ -34,7 +34,7 @@ describe('ConversaModel', () => {
     expect(ConversaModel.collection.collectionName).toBe('conversas');
   });
 
-  it('tem exatamente os campos do modelo de dados da spec 0002', () => {
+  it('tem exatamente os campos do modelo de dados das specs 0002 e 0004', () => {
     // Arrange / Act
     const campos = Object.keys(ConversaModel.schema.paths)
       .filter((campo) => campo !== '__v')
@@ -50,6 +50,7 @@ describe('ConversaModel', () => {
         'expiresAt',
         'mensagensCount',
         'previa',
+        'propostaIa',
         'solicitanteId',
         'ultimaMensagemEm',
         'updatedAt',

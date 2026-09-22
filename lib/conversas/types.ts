@@ -51,6 +51,11 @@ export type ConversaLida = {
   ultimaMensagemEm: Date;
   expiresAt: Date | null;
   createdAt: Date;
+  /**
+   * O cartão resumo que vale agora (spec 0004). Só o ponteiro: a proposta da
+   * IA, com confiança e motivo, nunca sai por aqui.
+   */
+  cartaoAtualId: string | null;
 };
 
 export type RascunhoListado = {

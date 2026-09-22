@@ -8,10 +8,12 @@ export const CONVERSA_AUTORES = ['solicitante', 'ia', 'sistema'] as const;
 export type ConversaAutor = (typeof CONVERSA_AUTORES)[number];
 
 /**
- * Tipos de mensagem. A fundação traz só `texto`; a tela de chat acrescenta os
- * dela aqui, junto com o schema Zod do `payload` em `conversa.schemas.ts`.
+ * Tipos de mensagem, cada um com o schema Zod do `payload` em
+ * `conversa.schemas.ts`. `cartao` é o resumo do chamado para o solicitante
+ * confirmar (spec 0004): não conta no teto de mensagens e só `lib/conversas`
+ * o grava.
  */
-export const CONVERSA_MENSAGEM_TIPOS = ['texto'] as const;
+export const CONVERSA_MENSAGEM_TIPOS = ['texto', 'cartao'] as const;
 export type ConversaMensagemTipo = (typeof CONVERSA_MENSAGEM_TIPOS)[number];
 
 /** Situação derivada da conversa, calculada na leitura a partir dos campos gravados. */
@@ -49,6 +51,17 @@ export type CanalAbertura = (typeof CANAIS_ABERTURA)[number];
 /** Quanto a IA pesou neste chamado, e se a gestão já deu o veredito. */
 export const IA_SITUACOES = ['sem_ia', 'sugerida', 'decidida', 'revisada'] as const;
 export type IaSituacao = (typeof IA_SITUACOES)[number];
+
+/**
+ * Modo do cartão resumo (spec 0004). `ia` traz o serviço que a IA escolheu no
+ * catálogo; `manual` pede o tipo de serviço, quando não há serviço válido.
+ */
+export const CARTAO_MODOS = ['ia', 'manual'] as const;
+export type CartaoModo = (typeof CARTAO_MODOS)[number];
+
+/** O que o cartão exige preencher antes de confirmar. */
+export const CARTAO_FALTANDO = ['tipo', 'unidade', 'local'] as const;
+export type CartaoFaltando = (typeof CARTAO_FALTANDO)[number];
 
 /**
  * Motivos de falha de `lib/conversas`. Nenhuma função lança exceção: todas

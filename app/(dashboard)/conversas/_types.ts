@@ -1,4 +1,9 @@
-import type { ConversaAutor, ConversaSituacao } from '@/shared/conversas/conversa.constants';
+import type {
+  ConversaAutor,
+  ConversaMensagemTipo,
+  ConversaSituacao,
+} from '@/shared/conversas/conversa.constants';
+import type { CartaoPayload } from '@/shared/conversas/conversa.schemas';
 
 /**
  * O modelo de leitura da tela de conversas (spec 0003). É montado no servidor e
@@ -34,9 +39,13 @@ export type CursorLateral = { em: string; id: string };
 export type MensagemNaTela = {
   id: string;
   autor: ConversaAutor;
+  /** Ausente vale `texto`. */
+  tipo?: ConversaMensagemTipo;
   texto: string;
   /** ISO de `ConversaMensagem.createdAt`. */
   em: string;
+  /** Só em `tipo: 'cartao'`: o resumo do chamado, já validado pelo schema (spec 0004). */
+  cartao?: CartaoPayload | null;
 };
 
 export type ConversaNaTela = {
@@ -45,11 +54,26 @@ export type ConversaNaTela = {
   previa: string;
   mensagensCount: number;
   mensagens: MensagemNaTela[];
+  /** O único cartão com ação; os outros aparecem como `Substituído` (spec 0004, AC-12). */
+  cartaoAtualId: string | null;
 };
+
+/** Uma unidade ativa, para a troca de unidade no cartão (spec 0004, AC-6). */
+export type UnidadeNaTela = { id: string; nome: string; andar: string };
 
 /** Um item da linha do tempo do chamado em modo leitura. */
 export type ItemLeitura =
-  | { fonte: 'mensagem'; id: string; em: string; autor: ConversaAutor; texto: string }
+  | {
+      fonte: 'mensagem';
+      id: string;
+      em: string;
+      autor: ConversaAutor;
+      /** Ausente vale `texto`. Cartão em modo leitura aparece como resumo, sem ação. */
+      tipo?: ConversaMensagemTipo;
+      texto: string;
+      /** A mensagem do Sigma de chamado aberto (spec 0004): sucesso, não falha. */
+      chamadoAberto?: boolean;
+    }
   | {
       fonte: 'comentario';
       id: string;
@@ -68,6 +92,8 @@ export type LeituraChamado = {
   situacao: string;
   /** ISO de `Chamado.createdAt`. */
   abertoEm: string;
+  /** `Aberto pelo chat`, com ou sem `serviço sugerido pela IA`; nulo no formulário (spec 0004). */
+  marca: string | null;
   itens: ItemLeitura[];
   /** Verdadeiro quando alguma fonte bateu no teto e foi cortada. */
   truncado: boolean;

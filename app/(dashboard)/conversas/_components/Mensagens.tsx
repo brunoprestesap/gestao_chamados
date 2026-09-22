@@ -1,6 +1,13 @@
 'use client';
 
-import { AlertTriangle, FileText, Sparkles, TriangleAlert } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
+  Sparkles,
+  TriangleAlert,
+} from 'lucide-react';
 import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
@@ -11,9 +18,10 @@ import type { MensagemNaTela } from '../_types';
 import { chaveDoDia, hora, iso, rotuloDoDia } from './tempo';
 
 /**
- * As mensagens da conversa (spec 0003). Três formas: a bolha do solicitante, a
- * bolha do assistente e o cartão do sistema, que é o aviso do Sigma quando a
- * IA não respondeu e por isso sempre oferece o formulário.
+ * As mensagens da conversa (specs 0003 e 0004). Quatro formas: a bolha do
+ * solicitante, a bolha do assistente, o aviso do sistema, que é o que o Sigma
+ * diz quando a IA não respondeu e por isso sempre oferece o formulário, e o
+ * cartão resumo do chamado, que quem usa a lista desenha.
  */
 
 function Separador({ children }: { children: React.ReactNode }) {
@@ -185,7 +193,73 @@ export function RegiaoAoVivo({ texto }: { texto: string }) {
   );
 }
 
-function Mensagem({ mensagem }: { mensagem: MensagemNaTela }) {
+/**
+ * O aviso do Sigma de que o chamado nasceu (spec 0004, AC-11). É sucesso, não
+ * falha: sem o triângulo e sem o link do formulário do aviso de reserva.
+ */
+export function AvisoChamadoAberto({ texto, em }: { texto: string; em?: string }) {
+  return (
+    <div className="flex w-full max-w-[36rem] gap-3 self-center rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-800 dark:bg-emerald-950/30">
+      <span
+        aria-hidden="true"
+        className="grid size-8 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+      >
+        <CheckCircle2 className="size-4" />
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-sm leading-relaxed text-emerald-900 dark:text-emerald-100">{texto}</p>
+        {em ? (
+          <time dateTime={iso(em)} className="text-xs text-emerald-800/80 dark:text-emerald-200/80">
+            {hora(em)} · sistema
+          </time>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * O cartão resumo depois que o chamado nasceu, no modo leitura: sem ação, só
+ * a frase do Sigma com o que foi resumido.
+ */
+export function CartaoLido({ texto, em }: { texto: string; em?: string }) {
+  return (
+    <div className="flex w-full max-w-[36rem] gap-3 self-center rounded-2xl border border-border/60 bg-muted/40 p-4">
+      <span
+        aria-hidden="true"
+        className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"
+      >
+        <ClipboardCheck className="size-4" />
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-sm leading-relaxed break-words text-foreground">{texto}</p>
+        {em ? (
+          <time dateTime={iso(em)} className="text-xs text-muted-foreground">
+            {hora(em)}
+          </time>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** Desenha o cartão resumo de uma mensagem de tipo `cartao`. */
+export type RenderCartao = (mensagem: MensagemNaTela) => React.ReactNode;
+
+function Mensagem({
+  mensagem,
+  renderCartao,
+}: {
+  mensagem: MensagemNaTela;
+  renderCartao?: RenderCartao;
+}) {
+  if (mensagem.tipo === 'cartao') {
+    return renderCartao ? (
+      renderCartao(mensagem)
+    ) : (
+      <CartaoLido texto={mensagem.texto} em={mensagem.em} />
+    );
+  }
   const autor: ConversaAutor = mensagem.autor;
   if (autor === 'solicitante') return <BolhaSolicitante texto={mensagem.texto} em={mensagem.em} />;
   if (autor === 'sistema') return <CartaoSistema texto={mensagem.texto} em={mensagem.em} />;
@@ -198,7 +272,13 @@ export function viraDia(em: string, anterior: { em: string } | undefined): boole
 }
 
 /** As mensagens em ordem, com um separador a cada virada de dia. */
-export function ListaMensagens({ mensagens }: { mensagens: MensagemNaTela[] }) {
+export function ListaMensagens({
+  mensagens,
+  renderCartao,
+}: {
+  mensagens: MensagemNaTela[];
+  renderCartao?: RenderCartao;
+}) {
   return (
     <>
       {mensagens.map((mensagem, indice) => (
@@ -206,7 +286,7 @@ export function ListaMensagens({ mensagens }: { mensagens: MensagemNaTela[] }) {
           {viraDia(mensagem.em, mensagens[indice - 1]) ? (
             <Separador>{rotuloDoDia(mensagem.em)}</Separador>
           ) : null}
-          <Mensagem mensagem={mensagem} />
+          <Mensagem mensagem={mensagem} renderCartao={renderCartao} />
         </div>
       ))}
     </>

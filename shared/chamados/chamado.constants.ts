@@ -25,6 +25,13 @@ export const CHAMADO_STATUS_LABELS: Record<ChamadoStatus, string> = {
 
 /** Prioridade final na classificação */
 export const FINAL_PRIORITY_VALUES = ['BAIXA', 'NORMAL', 'ALTA', 'EMERGENCIAL'] as const;
+
+/**
+ * O que aparece no lugar do serviço quando o chamado nasceu sem ele: só o
+ * chamado aberto pela conversa, sem IA, pode (spec 0004, AC-9). O Preposto
+ * escolhe o serviço na classificação.
+ */
+export const SERVICO_A_DEFINIR = 'A definir na triagem';
 export type FinalPriority = (typeof FINAL_PRIORITY_VALUES)[number];
 
 /** Natureza do atendimento (persistida: solicitada e aprovada) — NUNCA usar solicitada para SLA */

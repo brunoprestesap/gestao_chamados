@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { LLM_FAILURE_REASONS } from '@/lib/llm/types';
 
-import { FORMULARIO_HREF, mensagemDeReserva } from '../mensagens';
+import {
+  afirmaChamadoJaAberto,
+  FORMULARIO_HREF,
+  mensagemDeReserva,
+  respostaSemAfirmarAbertura,
+} from '../mensagens';
 
 /**
  * Os textos fixos do Sigma para quando a IA não responde (spec 0003).
@@ -90,6 +95,56 @@ describe('mensagemDeReserva, por motivo', () => {
     // Assert
     expect(texto).toBeTruthy();
     expect(texto.toLowerCase()).toContain('formulário');
+  });
+});
+
+// ── AC-14: o modelo não manda dizer que o chamado já existe ──────
+
+describe('afirmaChamadoJaAberto', () => {
+  it('pega o modelo dizendo que o chamado já foi ou está aberto', () => {
+    // Act & Assert
+    expect(afirmaChamadoJaAberto('O chamado foi aberto para reparo de vazamento.')).toBe(true);
+    expect(afirmaChamadoJaAberto('O chamado já está aberto, obrigado por reportar.')).toBe(true);
+  });
+
+  it('pega o modelo dizendo que o chamado foi criado, registrado ou tem número', () => {
+    // Act & Assert
+    expect(afirmaChamadoJaAberto('O chamado foi criado com sucesso.')).toBe(true);
+    expect(afirmaChamadoJaAberto('Seu chamado foi registrado.')).toBe(true);
+    expect(afirmaChamadoJaAberto('Já abrimos o seu chamado.')).toBe(true);
+    expect(afirmaChamadoJaAberto('O número do chamado é 12345.')).toBe(true);
+    expect(afirmaChamadoJaAberto('Guarde o protocolo do chamado.')).toBe(true);
+  });
+
+  it('pega um número de chamado inventado, mesmo sem a frase de abertura', () => {
+    // Act & Assert
+    expect(afirmaChamadoJaAberto('Fica registrado como CHM-2026-00671.')).toBe(true);
+  });
+
+  it('deixa passar uma resposta comum, que só confirma o relato ou pergunta algo', () => {
+    // Act & Assert
+    expect(afirmaChamadoJaAberto('Entendi que a lâmpada da sala 302 queimou.')).toBe(false);
+    expect(afirmaChamadoJaAberto('Você pode dizer em que sala é o problema?')).toBe(false);
+    expect(afirmaChamadoJaAberto('Esse é o segundo chamado que você abre este mês.')).toBe(false);
+  });
+});
+
+describe('respostaSemAfirmarAbertura', () => {
+  it('troca a resposta pela frase fixa quando ela afirma que o chamado já existe', () => {
+    // Act
+    const texto = respostaSemAfirmarAbertura('O chamado foi aberto. Obrigado por reportar.');
+
+    // Assert
+    expect(texto).not.toContain('O chamado foi aberto');
+    expect(texto.toLowerCase()).toContain('nenhum chamado foi aberto ainda');
+  });
+
+  it('não mexe numa resposta que não afirma nada sobre o chamado existir', () => {
+    // Arrange
+    const original = 'Entendi que a lâmpada da sala 302 queimou. Pode confirmar o andar?';
+
+    // Act & Assert
+    expect(respostaSemAfirmarAbertura(original)).toBe(original);
   });
 });
 

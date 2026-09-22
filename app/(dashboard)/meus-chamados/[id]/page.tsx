@@ -33,6 +33,7 @@ import { AttachmentGallery } from '@/app/(dashboard)/meus-chamados/[id]/_compone
 import { CancelTicketDialog } from '@/app/(dashboard)/meus-chamados/[id]/_components/CancelTicketDialog';
 import { CommentThread } from '@/app/(dashboard)/meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline';
+import { MarcaAberturaChat } from '@/components/chamado/MarcaAberturaChat';
 import { MaterialObservationsList } from '@/components/chamado/MaterialObservationsList';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { PageHeader } from '@/components/dashboard/header';
@@ -42,7 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { MaterialObservationNormalized } from '@/lib/dto-normalizers';
 import { formatDate, formatDateTime } from '@/lib/utils';
-import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
+import { ATTENDANCE_NATURE_LABELS, SERVICO_A_DEFINIR } from '@/shared/chamados/chamado.constants';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
 /* ─── SLA status helper ─── */
@@ -106,6 +107,10 @@ type ChamadoDetailDTO = {
   telefoneContato: string;
   subtypeId: string | null;
   catalogServiceId: string | null;
+  /** `chat` quando o chamado nasceu da conversa (spec 0004, AC-15). */
+  canalAbertura?: string | null;
+  /** Existe decisão de serviço da IA para este chamado. */
+  servicoSugeridoIa?: boolean;
   finalPriority?: string | null;
   classifiedAt?: string | null;
   rejectionReason?: string | null;
@@ -380,6 +385,11 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                   <CardTitle className="mt-1 wrap-break-word text-xl" title={chamado.titulo}>
                     {chamado.titulo}
                   </CardTitle>
+                  <MarcaAberturaChat
+                    canalAbertura={chamado.canalAbertura}
+                    servicoSugeridoIa={chamado.servicoSugeridoIa}
+                    className="mt-2"
+                  />
                 </div>
                 <Badge
                   variant="outline"
@@ -440,7 +450,11 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
 
               {/* Fields grid */}
               <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-                <InfoField label="Tipo de Serviço">{chamado.tipoServico}</InfoField>
+                <InfoField label="Tipo de Serviço">
+                  {chamado.catalogServiceId
+                    ? chamado.tipoServico
+                    : `${chamado.tipoServico} · ${SERVICO_A_DEFINIR}`}
+                </InfoField>
                 <InfoField label="Local Exato">{chamado.localExato}</InfoField>
                 <InfoField label="Natureza solicitada">
                   {chamado.requestedAttendanceNature

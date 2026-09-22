@@ -29,6 +29,11 @@ vi.mock('@/models/ChamadoHistory', () => ({
   },
 }));
 
+const mockDecisoesOcultas = vi.fn();
+vi.mock('@/lib/conversas', () => ({
+  decisoesOcultas: (...args: unknown[]) => mockDecisoesOcultas(...args),
+}));
+
 import { GET } from '@/app/api/chamados/[id]/history/route';
 
 /**
@@ -86,6 +91,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockVerifySession.mockResolvedValue(sessao(SOLICITANTE_ID, 'Solicitante'));
   mockDbConnect.mockResolvedValue(undefined);
+  mockDecisoesOcultas.mockResolvedValue(new Set());
   chamadoNoBanco(chamadoPadrao);
   mockHistoryFind.mockReturnValue({ sort: mockHistorySort });
   mockHistorySort.mockReturnValue({ lean: mockHistoryLean });
@@ -387,5 +393,43 @@ describe('GET /api/chamados/[id]/history · entrada sem usuário (AC-11)', () =>
       'decisao_ia',
       'abertura',
     ]);
+  });
+});
+
+// ── prioridade sugerida escondida · spec 0004, AC-15 ─────────────
+
+describe('GET /api/chamados/[id]/history · prioridade sugerida', () => {
+  it('tira do histórico toda entrada ligada à decisão de prioridade, até para a gestão', async () => {
+    // Arrange
+    const prioridadeId = new Types.ObjectId();
+    const servicoId = new Types.ObjectId();
+    mockVerifySession.mockResolvedValue(sessao(ESTRANHO_ID, 'Preposto'));
+    mockDecisoesOcultas.mockResolvedValue(new Set([String(prioridadeId)]));
+    mockHistoryLean.mockResolvedValue([
+      linha({
+        action: 'correcao_ia',
+        decisaoIaId: prioridadeId,
+        observacoes: 'prioridade: NORMAL → ALTA',
+      }),
+      linha({ action: 'decisao_ia', decisaoIaId: prioridadeId, observacoes: 'prioridade: NORMAL' }),
+      linha({
+        action: 'decisao_ia',
+        decisaoIaId: servicoId,
+        observacoes: 'serviço: Troca de lâmpada',
+      }),
+      linha({ action: 'abertura' }),
+    ]);
+
+    // Act
+    const res = await GET(...pedido());
+    const corpo = await res.json();
+
+    // Assert
+    expect(mockDecisoesOcultas).toHaveBeenCalledWith(CHAMADO_ID);
+    expect(corpo.items.map((item: { action: string }) => item.action)).toEqual([
+      'decisao_ia',
+      'abertura',
+    ]);
+    expect(JSON.stringify(corpo)).not.toContain('NORMAL');
   });
 });

@@ -399,6 +399,25 @@ export async function resolverDecisao(
 }
 
 /**
+ * Campos cuja decisão nenhuma tela mostra nesta fatia (spec 0004, AC-15). A
+ * prioridade sugerida é gravada para medir o acerto às cegas: nem o histórico
+ * `decisao_ia` nem a `correcao_ia` que revelaria o valor dela aparecem.
+ */
+export const CAMPOS_OCULTOS: readonly DecisaoCampo[] = ['prioridade'];
+
+/**
+ * Os ids das decisões deste chamado que as telas escondem. Quem lê o
+ * histórico tira dele toda entrada ligada a uma destas decisões.
+ */
+export async function decisoesOcultas(chamadoId: string): Promise<Set<string>> {
+  if (!objectIdSchema.safeParse(chamadoId).success) return new Set();
+  const docs = await DecisaoIaModel.find({ chamadoId, campo: { $in: CAMPOS_OCULTOS } })
+    .select('_id')
+    .lean();
+  return new Set(docs.map((doc) => String(doc._id)));
+}
+
+/**
  * Existe alguma decisão para este chamado? Os ganchos da gestão conferem isso
  * antes de qualquer coisa: a maioria dos chamados vem do formulário, não tem
  * decisão nenhuma, e neles o gancho sai em silêncio (AC-9, AC-10).

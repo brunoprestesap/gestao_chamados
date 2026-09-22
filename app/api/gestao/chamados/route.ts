@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { servicoSugeridoPelaIa } from '@/lib/conversas';
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
@@ -37,6 +38,7 @@ const LIST_PROJECTION = {
   pauseDetails: 1,
   materialObservations: 1,
   sla: 1,
+  canalAbertura: 1,
   createdAt: 1,
   updatedAt: 1,
 } as const;
@@ -89,6 +91,8 @@ function normalizeChamado(
     telefoneContato: c.telefoneContato ?? '',
     subtypeId: c.subtypeId ? String(c.subtypeId) : null,
     catalogServiceId: c.catalogServiceId ? String(c.catalogServiceId) : null,
+    // Documento antigo não tem o campo: vale `formulario`, como no model.
+    canalAbertura: (c.canalAbertura as string | null | undefined) ?? 'formulario',
     finalPriority: c.finalPriority ?? null,
     classificationNotes: c.classificationNotes ?? '',
     classifiedByUserId: c.classifiedByUserId ? String(c.classifiedByUserId) : null,
@@ -180,8 +184,18 @@ export async function GET(req: Request) {
 
   const totalPages = Math.ceil(total / limit);
 
+  // A marca `serviço sugerido pela IA` (spec 0004, AC-15): uma consulta só por
+  // página, e só para os chamados do chat, que são os que podem ter decisão.
+  const doChat = items
+    .filter((c) => (c as { canalAbertura?: string }).canalAbertura === 'chat')
+    .map((c) => String(c._id));
+  const sugeridos = await servicoSugeridoPelaIa(doChat);
+
   return NextResponse.json({
-    items: items.map(normalizeChamado),
+    items: items.map((c) => ({
+      ...normalizeChamado(c),
+      servicoSugeridoIa: sugeridos.has(String(c._id)),
+    })),
     pagination: { page, limit, total, totalPages },
   });
 }

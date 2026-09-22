@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
+import { servicoSugeridoPelaIa } from '@/lib/conversas';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
@@ -87,6 +88,8 @@ function normalizeChamado(
     telefoneContato: (c.telefoneContato as string) ?? '',
     subtypeId: c.subtypeId ? String(c.subtypeId) : null,
     catalogServiceId: c.catalogServiceId ? String(c.catalogServiceId) : null,
+    // Documento antigo não tem o campo: vale `formulario`, como no model.
+    canalAbertura: (c.canalAbertura as string | null | undefined) ?? 'formulario',
     finalPriority: (c.finalPriority as string | null) ?? null,
     classifiedAt: (c.classifiedAt as Date | null) ?? null,
     createdAt: c.createdAt,
@@ -128,5 +131,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
   }
 
-  return NextResponse.json({ item: normalizeChamado(chamado) });
+  // A marca `serviço sugerido pela IA` (spec 0004, AC-15): só chamado do chat
+  // pode ter decisão, então o de formulário nem consulta.
+  const doChat = (chamado as { canalAbertura?: string }).canalAbertura === 'chat';
+  const servicoSugeridoIa = doChat ? (await servicoSugeridoPelaIa([id])).has(id) : false;
+
+  return NextResponse.json({ item: { ...normalizeChamado(chamado), servicoSugeridoIa } });
 }

@@ -18,6 +18,8 @@ export {
 } from './conversa-store';
 export {
   aplicarVeredito,
+  CAMPOS_OCULTOS,
+  decisoesOcultas,
   derivarIaSituacao,
   derivarSituacao,
   lerDecisoes,
@@ -27,6 +29,19 @@ export {
   temDecisoes,
 } from './decisoes';
 export { lerLinhaDoTempo } from './linha-do-tempo';
+export {
+  type CartaoLido,
+  gravarCartao,
+  type GravarCartaoParams,
+  gravarProposta,
+  invalidarCartao,
+  lerProposta,
+  type PropostaEntrada,
+  type PropostaLida,
+  type PropostaPrioridade,
+  type PropostaServico,
+  servicoSugeridoPelaIa,
+} from './proposta-store';
 export type {
   AberturaResultado,
   ConversaLida,
