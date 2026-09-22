@@ -7,9 +7,11 @@ vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 
 const mockLerConversa = vi.fn();
 const mockLerLinhaDoTempo = vi.fn();
+const mockServicoSugerido = vi.fn();
 vi.mock('@/lib/conversas', () => ({
   lerConversa: (...a: unknown[]) => mockLerConversa(...a),
   lerLinhaDoTempo: (...a: unknown[]) => mockLerLinhaDoTempo(...a),
+  servicoSugeridoPelaIa: (...a: unknown[]) => mockServicoSugerido(...a),
 }));
 
 const mockChamadoFindById = vi.fn();
@@ -21,6 +23,8 @@ const mockUserFind = vi.fn();
 vi.mock('@/models/user.model', () => ({
   UserModel: { find: (...a: unknown[]) => mockUserFind(...a) },
 }));
+
+import { fraseDeChamadoAberto } from '@/lib/assistente/mensagens';
 
 import { abrirConversa, lerChamadoEmLeitura } from '../leitura';
 
@@ -55,6 +59,59 @@ beforeEach(() => {
     }),
   );
   mockUserFind.mockReturnValue(cadeia([]));
+  mockServicoSugerido.mockResolvedValue(new Set());
+});
+
+// ── marca do chat · spec 0004, AC-15 ─────────────────────────────
+
+describe('lerChamadoEmLeitura · marca da IA', () => {
+  function chamado(extra: Record<string, unknown>) {
+    mockChamadoFindById.mockReturnValue(
+      cadeia({
+        ticket_number: 'CHM-2026-00412',
+        titulo: 'Lâmpada queimada',
+        status: 'aberto',
+        createdAt: new Date('2026-09-17T11:40:00.000Z'),
+        ...extra,
+      }),
+    );
+  }
+
+  it('chamado do chat com serviço sugerido pela IA ganha a marca completa', async () => {
+    // Arrange
+    chamado({ canalAbertura: 'chat' });
+    mockServicoSugerido.mockResolvedValue(new Set([CHAMADO_ID]));
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    expect(r.ok && r.leitura.marca).toBe('Aberto pelo chat · serviço sugerido pela IA');
+    expect(mockServicoSugerido).toHaveBeenCalledWith([CHAMADO_ID]);
+  });
+
+  it('chamado do chat sem decisão de serviço mostra só `Aberto pelo chat`', async () => {
+    // Arrange
+    chamado({ canalAbertura: 'chat' });
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    expect(r.ok && r.leitura.marca).toBe('Aberto pelo chat');
+  });
+
+  it('chamado do formulário não tem marca e nem consulta as decisões', async () => {
+    // Arrange
+    chamado({ canalAbertura: 'formulario' });
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    expect(r.ok && r.leitura.marca).toBeNull();
+    expect(mockServicoSugerido).not.toHaveBeenCalled();
+  });
 });
 
 // ── ordem de resolução · AC-10 ───────────────────────────────────
@@ -375,7 +432,46 @@ describe('lerChamadoEmLeitura', () => {
       id: 'm1',
       em: '2026-09-17T08:38:00.000Z',
       autor: 'ia',
+      tipo: 'texto',
       texto: 'Anotado.',
+      chamadoAberto: false,
     });
+  });
+
+  it('marca o aviso do Sigma de chamado aberto, pela frase fixa com o número (spec 0004)', async () => {
+    // Arrange
+    mockLerLinhaDoTempo.mockResolvedValue({
+      ok: true,
+      truncado: false,
+      itens: [
+        {
+          fonte: 'mensagem',
+          id: 'm1',
+          em: new Date('2026-09-17T08:38:00.000Z'),
+          dados: {
+            autor: 'sistema',
+            tipo: 'texto',
+            userId: null,
+            texto: fraseDeChamadoAberto('CHM-2026-00412'),
+          },
+        },
+        {
+          fonte: 'mensagem',
+          id: 'm2',
+          em: new Date('2026-09-17T08:39:00.000Z'),
+          dados: { autor: 'sistema', tipo: 'texto', userId: null, texto: 'O assistente falhou.' },
+        },
+      ],
+    });
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert: só o aviso de abertura é sucesso; o aviso de reserva continua aviso
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.itens.map((i) => i.fonte === 'mensagem' && i.chamadoAberto)).toEqual([
+      true,
+      false,
+    ]);
   });
 });

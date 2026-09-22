@@ -4,6 +4,8 @@ import { FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 
 import {
+  CARTAO_FALTANDO,
+  CARTAO_MODOS,
   CONVERSA_AUTORES,
   CONVERSA_MENSAGEM_TIPOS,
   type ConversaMensagemTipo,
@@ -22,6 +24,8 @@ export const DECISAO_MOTIVO_MAX = 200;
 export const DECISAO_CORRECAO_MOTIVO_MAX = 500;
 /** Nome exibido do valor decidido, lido do banco no momento da gravação. */
 export const DECISAO_ROTULO_MAX = 160;
+/** Local exato do chamado, no cartão resumo e na confirmação (spec 0004). */
+export const LOCAL_EXATO_MAX = 200;
 
 export const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Identificador inválido');
 
@@ -33,11 +37,45 @@ export const conversaTextoSchema = z
   .max(CONVERSA_TEXTO_MAX, `A mensagem passa de ${CONVERSA_TEXTO_MAX} caracteres`);
 
 /**
+ * O cartão resumo (spec 0004, AC-5). Todo rótulo é lido do banco na montagem,
+ * nunca do texto do modelo. `strictObject` recusa qualquer campo a mais: é o
+ * que garante que confiança, motivo e prioridade nunca saem num cartão.
+ */
+export const cartaoPayloadSchema = z
+  .strictObject({
+    modo: z.enum(CARTAO_MODOS),
+    servico: z
+      .strictObject({
+        catalogServiceId: objectIdSchema,
+        subtypeId: objectIdSchema,
+        tipoServico: z.enum(TIPO_SERVICO_OPTIONS),
+        rotuloServico: z.string().min(1).max(DECISAO_ROTULO_MAX),
+        rotuloSubtipo: z.string().max(DECISAO_ROTULO_MAX),
+      })
+      .nullable(),
+    unidade: z
+      .strictObject({
+        unitId: objectIdSchema,
+        rotulo: z.string().min(1).max(DECISAO_ROTULO_MAX),
+        andar: z.string().max(DECISAO_ROTULO_MAX),
+      })
+      .nullable(),
+    localExato: z.string().max(LOCAL_EXATO_MAX).nullable(),
+    faltando: z.array(z.enum(CARTAO_FALTANDO)),
+  })
+  .refine((cartao) => (cartao.modo === 'manual') === (cartao.servico === null), {
+    message: 'O cartão manual é exatamente o que não tem serviço',
+    path: ['servico'],
+  });
+export type CartaoPayload = z.infer<typeof cartaoPayloadSchema>;
+
+/**
  * `payload` aceito por tipo de mensagem. A mensagem de texto não tem payload.
  * Um tipo novo entra aqui junto com a constante, sem migração no banco.
  */
 export const CONVERSA_PAYLOAD_SCHEMAS: Record<ConversaMensagemTipo, z.ZodType> = {
   texto: z.null(),
+  cartao: cartaoPayloadSchema,
 };
 
 export const enviarMensagemSchema = z.object({

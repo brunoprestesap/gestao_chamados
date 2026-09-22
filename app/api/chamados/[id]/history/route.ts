@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
+import { decisoesOcultas } from '@/lib/conversas';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
@@ -65,9 +66,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   // Busca o histórico do chamado ordenado por data (mais recente primeiro)
-  const history = await ChamadoHistoryModel.find({ chamadoId: new Types.ObjectId(id) })
-    .sort({ createdAt: -1 })
-    .lean();
+  const [history, ocultas] = await Promise.all([
+    ChamadoHistoryModel.find({ chamadoId: new Types.ObjectId(id) })
+      .sort({ createdAt: -1 })
+      .lean(),
+    decisoesOcultas(id),
+  ]);
 
-  return NextResponse.json({ items: history.map(normalizeHistoryItem) });
+  // A prioridade sugerida pela IA não aparece para ninguém nesta fatia, nem
+  // para a gestão (spec 0004, AC-15): sai toda entrada ligada a ela.
+  const visiveis = history.filter((h) => !h.decisaoIaId || !ocultas.has(String(h.decisaoIaId)));
+
+  return NextResponse.json({ items: visiveis.map(normalizeHistoryItem) });
 }

@@ -1,24 +1,13 @@
-export function normalizeTypeName(s: string) {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ');
-}
+import { normalizeTypeName, tipoServicoDoNomeDoTipo } from '@/shared/chamados/tipo-servico';
 
+export { normalizeTypeName };
+
+/** Id do `ServiceType` de cada opção fixa, pela mesma regra da proposta da IA. */
 export function buildTypeIdByTipo(types: { id: string; name: string }[]): Map<string, string> {
   const m = new Map<string, string>();
   for (const t of types) {
-    const n = normalizeTypeName(t.name);
-    if (n.includes('manutencao') && n.includes('predial')) m.set('Manutenção Predial', t.id);
-    if (
-      n.includes('ar-condicionado') ||
-      n.includes('ar condicionado') ||
-      n.includes('arcondicionado')
-    )
-      m.set('Ar-Condicionado', t.id);
-    if (n.includes('elevador')) m.set('Elevador', t.id);
+    const tipo = tipoServicoDoNomeDoTipo(t.name);
+    if (tipo) m.set(tipo, t.id);
   }
   return m;
 }

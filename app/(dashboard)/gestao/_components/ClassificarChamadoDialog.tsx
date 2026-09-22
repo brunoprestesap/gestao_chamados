@@ -17,6 +17,7 @@ import {
 import { classificarChamadoAction, type ClassificarResult } from '@/app/(dashboard)/gestao/actions';
 import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import { buildTypeIdByTipo } from '@/app/(dashboard)/meus-chamados/_components/new-ticket.utils';
+import { MarcaAberturaChat } from '@/components/chamado/MarcaAberturaChat';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -43,7 +44,11 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { RecorrenciaItem } from '@/lib/recorrencia';
-import { FINAL_PRIORITY_VALUES, type FinalPriority } from '@/shared/chamados/chamado.constants';
+import {
+  FINAL_PRIORITY_VALUES,
+  type FinalPriority,
+  SERVICO_A_DEFINIR,
+} from '@/shared/chamados/chamado.constants';
 import {
   type ClassificarChamadoInput,
   ClassificarChamadoSchema,
@@ -307,6 +312,16 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
             {chamado.titulo || 'Sem título'}
           </p>
           <p className="text-muted-foreground text-xs">{headerSubtitle}</p>
+          <MarcaAberturaChat
+            canalAbertura={chamado.canalAbertura}
+            servicoSugeridoIa={chamado.servicoSugeridoIa}
+            className="mt-1"
+          />
+          {!chamado.catalogServiceId ? (
+            <p className="text-muted-foreground pt-1 text-xs">
+              <strong>Serviço:</strong> {SERVICO_A_DEFINIR}. Escolha o subtipo e o serviço abaixo.
+            </p>
+          ) : null}
           <p className="text-muted-foreground pt-1 text-xs">
             <strong>Solicitação do usuário:</strong>{' '}
             {chamado.naturezaAtendimento === 'Urgente'

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { criarComentario } from '@/lib/chamados/comentarios';
+import { notificarNovoChamado } from '@/lib/chamados/novo-chamado';
 import { canManage, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
@@ -112,40 +113,13 @@ export async function createTicketAction(
       observacoes: `Chamado criado: ${titulo}`,
     });
 
-    // Notificação para Preposto e Admin: novo chamado aberto pelo solicitante
-    const solicitanteUser = await UserModel.findById(session.userId).select('name').lean();
-    const ticketNewPayload = {
-      ticketId: String(doc._id),
+    // Notificação para Preposto e Admin: a mesma função da abertura pela conversa
+    await notificarNovoChamado({
+      chamadoId: String(doc._id),
       ticketNumber: doc.ticket_number,
-      title: titulo,
-      openedBy: { id: session.userId, name: solicitanteUser?.name ?? undefined },
-      at: new Date().toISOString(),
-    };
-    const managers = await UserModel.find({
-      role: { $in: ['Preposto', 'Admin'] },
-      isActive: true,
-    })
-      .select('_id')
-      .lean();
-    const notificationTitle = doc.ticket_number
-      ? `Novo chamado #${doc.ticket_number} aberto`
-      : 'Novo chamado aberto';
-    if (managers.length > 0) {
-      await NotificationModel.insertMany(
-        managers.map((manager) => ({
-          userId: manager._id,
-          type: 'ticket:new',
-          title: notificationTitle,
-          body: titulo,
-          data: ticketNewPayload,
-          readAt: null,
-        })),
-      );
-      for (const manager of managers) {
-        sendNotificationEmail(String(manager._id), 'ticket:new', ticketNewPayload).catch(() => {});
-      }
-    }
-    await emitToRoom('managers', 'ticket:new', ticketNewPayload);
+      titulo,
+      solicitanteId: session.userId,
+    });
 
     revalidatePath('/meus-chamados');
     revalidatePath('/gestao');

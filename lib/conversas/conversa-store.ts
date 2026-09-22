@@ -11,6 +11,7 @@ import { ConversaMensagemModel } from '@/models/ConversaMensagem';
 import { DecisaoIaModel } from '@/models/DecisaoIa';
 import type {
   ConversaAutor,
+  ConversaMensagemTipo,
   ConversaSituacao,
   DecisaoCampo,
 } from '@/shared/conversas/conversa.constants';
@@ -60,6 +61,11 @@ type ConversaCrua = {
   ultimaMensagemEm: Date;
   expiresAt: Date | null;
   createdAt: Date;
+  /** Interno do servidor (spec 0004). Daqui só sai o ponteiro do cartão. */
+  propostaIa?: {
+    cartaoMensagemId?: Types.ObjectId | null;
+    origemMensagemId?: Types.ObjectId | null;
+  } | null;
 };
 
 export function situacaoDe(conversa: {
@@ -92,6 +98,9 @@ function paraConversaLida(doc: ConversaCrua): ConversaLida {
     ultimaMensagemEm: doc.ultimaMensagemEm,
     expiresAt: doc.expiresAt ?? null,
     createdAt: doc.createdAt,
+    cartaoAtualId: doc.propostaIa?.cartaoMensagemId
+      ? String(doc.propostaIa.cartaoMensagemId)
+      : null,
   };
 }
 
@@ -260,7 +269,7 @@ export async function lerMensagens(conversaId: string): Promise<MensagemLida[]> 
     id: String(doc._id),
     autor: doc.autor as ConversaAutor,
     userId: doc.userId ? String(doc.userId) : null,
-    tipo: doc.tipo as 'texto',
+    tipo: doc.tipo as ConversaMensagemTipo,
     texto: doc.texto,
     payload: doc.payload ?? null,
     llmCallId: doc.llmCallId ? String(doc.llmCallId) : null,

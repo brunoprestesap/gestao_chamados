@@ -5,13 +5,21 @@ import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 
 import { STATUS_BADGE } from '@/app/(dashboard)/meus-chamados/_constants';
+import { SeloAberturaChat } from '@/components/chamado/MarcaAberturaChat';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { CHAMADO_STATUS_LABELS, type ChamadoStatus } from '@/shared/chamados/chamado.constants';
 
 import { LEITURA_EXPLICACAO } from '../_constants';
 import type { ItemLeitura, LeituraChamado } from '../_types';
-import { BolhaAssistente, BolhaSolicitante, CartaoSistema, viraDia } from './Mensagens';
+import {
+  AvisoChamadoAberto,
+  BolhaAssistente,
+  BolhaSolicitante,
+  CartaoLido,
+  CartaoSistema,
+  viraDia,
+} from './Mensagens';
 import { dataEHora, hora, iso, rotuloDoDia } from './tempo';
 
 /**
@@ -85,6 +93,8 @@ function Item({ item }: { item: ItemLeitura }) {
     );
   }
 
+  if (item.tipo === 'cartao') return <CartaoLido texto={item.texto} em={item.em} />;
+  if (item.chamadoAberto) return <AvisoChamadoAberto texto={item.texto} em={item.em} />;
   if (item.autor === 'solicitante') return <BolhaSolicitante texto={item.texto} em={item.em} />;
   if (item.autor === 'sistema') return <CartaoSistema texto={item.texto} em={item.em} />;
   return <BolhaAssistente texto={item.texto} em={item.em} />;
@@ -133,6 +143,7 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
             {leitura.ticketNumber ? `#${leitura.ticketNumber} · ` : ''}aberto em{' '}
             <time dateTime={iso(leitura.abertoEm)}>{dataEHora(leitura.abertoEm)}</time>
           </p>
+          {leitura.marca ? <SeloAberturaChat texto={leitura.marca} className="mt-1" /> : null}
         </div>
 
         <Link

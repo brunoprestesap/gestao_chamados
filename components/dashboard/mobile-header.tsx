@@ -18,7 +18,7 @@ export function MobileHeader() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 text-foreground/70 hover:text-foreground"
+          className="h-11 w-11 text-foreground/70 hover:text-foreground"
           onClick={() => setOpen(true)}
           aria-label="Abrir menu de navegação"
         >

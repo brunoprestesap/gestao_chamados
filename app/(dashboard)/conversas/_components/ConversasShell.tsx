@@ -6,8 +6,9 @@ import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 import { CONVERSAS_SUBTITULO, CONVERSAS_TITULO } from '../_constants';
-import type { CursorLateral, ItemLateral } from '../_types';
+import type { CursorLateral, ItemLateral, UnidadeNaTela } from '../_types';
 import { ListaLateral } from './ListaLateral';
+import { UnidadesProvider } from './unidades-contexto';
 
 /**
  * O quadro da tela (spec 0003). Duas colunas no computador; no celular, uma
@@ -26,10 +27,19 @@ type Props = {
   chamados: ItemLateral[];
   temMais: boolean;
   cursor: CursorLateral | null;
+  /** Unidades ativas para a troca de unidade no cartão resumo (spec 0004). */
+  unidades?: UnidadeNaTela[];
   children: React.ReactNode;
 };
 
-export function ConversasShell({ rascunhos, chamados, temMais, cursor, children }: Props) {
+export function ConversasShell({
+  rascunhos,
+  chamados,
+  temMais,
+  cursor,
+  unidades = [],
+  children,
+}: Props) {
   const router = useRouter();
   const caminho = usePathname();
   const naLista = caminho === '/conversas';
@@ -67,7 +77,9 @@ export function ConversasShell({ rascunhos, chamados, temMais, cursor, children 
           className={cn('w-full md:w-[19rem]', naLista ? 'flex' : 'hidden md:flex')}
         />
 
-        <div className={cn('min-w-0 flex-1', naLista ? 'hidden md:flex' : 'flex')}>{children}</div>
+        <div className={cn('min-w-0 flex-1', naLista ? 'hidden md:flex' : 'flex')}>
+          <UnidadesProvider unidades={unidades}>{children}</UnidadesProvider>
+        </div>
       </div>
     </div>
   );

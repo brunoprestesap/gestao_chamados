@@ -2,7 +2,8 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
-import { lerConversa, lerLinhaDoTempo, type Viewer } from '@/lib/conversas';
+import { fraseDeChamadoAberto } from '@/lib/assistente/mensagens';
+import { lerConversa, lerLinhaDoTempo, servicoSugeridoPelaIa, type Viewer } from '@/lib/conversas';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { UserModel } from '@/models/user.model';
@@ -14,8 +15,10 @@ import {
   type ChamadoHistoryActorType,
 } from '@/shared/chamados/history.constants';
 import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
+import { type CartaoPayload, cartaoPayloadSchema } from '@/shared/conversas/conversa.schemas';
+import { marcaDeAbertura } from '@/shared/conversas/marca';
 
-import type { ConversaNaTela, ItemLeitura, LeituraChamado } from '../_types';
+import type { ConversaNaTela, ItemLeitura, LeituraChamado, MensagemNaTela } from '../_types';
 
 /**
  * Leitura de uma conversa aberta (spec 0003). Duas formas: o rascunho, que
@@ -30,6 +33,16 @@ export type ConversaAberta =
   | { tipo: 'rascunho'; conversa: ConversaNaTela }
   | { tipo: 'chamado'; leitura: LeituraChamado }
   | { tipo: 'falha'; reason: ConversaFalha };
+
+/**
+ * O cartão como a tela o recebe: o payload passa de novo pelo schema, que é
+ * estrito, então nada além do resumo atravessa para o navegador (spec 0004).
+ */
+function cartaoDaMensagem(tipo: string, payload: unknown): CartaoPayload | null {
+  if (tipo !== 'cartao') return null;
+  const lido = cartaoPayloadSchema.safeParse(payload);
+  return lido.success ? lido.data : null;
+}
 
 /** Nomes de todos os `userId` da tela, em uma consulta só. */
 async function resolverNomes(ids: string[]): Promise<Map<string, string>> {
@@ -83,9 +96,15 @@ export async function lerChamadoEmLeitura(
   if (!linha.ok) return { ok: false, reason: linha.reason };
 
   const chamado = await ChamadoModel.findById(chamadoId)
-    .select('ticket_number titulo status createdAt')
+    .select('ticket_number titulo status createdAt canalAbertura')
     .lean();
   if (!chamado) return { ok: false, reason: 'nao_encontrada' };
+
+  // A marca da IA (spec 0004, AC-15): só chamado do chat pode ter decisão.
+  const doChat = chamado.canalAbertura === 'chat';
+  const servicoSugerido = doChat
+    ? (await servicoSugeridoPelaIa([chamadoId])).has(chamadoId)
+    : false;
 
   const ids = linha.itens.flatMap((item) => {
     if (item.fonte === 'comentario') return [item.dados.userId];
@@ -94,6 +113,12 @@ export async function lerChamadoEmLeitura(
   });
   const nomes = await resolverNomes(ids);
 
+  // A última mensagem do rascunho é o aviso de chamado aberto (spec 0004). Ela
+  // é do Sigma, com texto fixo: comparar com a frase é exato, não adivinhação.
+  const avisoDeAbertura = chamado.ticket_number
+    ? fraseDeChamadoAberto(String(chamado.ticket_number))
+    : null;
+
   const itens: ItemLeitura[] = linha.itens.map((item) => {
     if (item.fonte === 'mensagem') {
       return {
@@ -101,7 +126,9 @@ export async function lerChamadoEmLeitura(
         id: item.id,
         em: item.em.toISOString(),
         autor: item.dados.autor,
+        tipo: item.dados.tipo,
         texto: item.dados.texto,
+        chamadoAberto: item.dados.autor === 'sistema' && item.dados.texto === avisoDeAbertura,
       };
     }
     if (item.fonte === 'comentario') {
@@ -130,6 +157,7 @@ export async function lerChamadoEmLeitura(
       titulo: (chamado.titulo as string | undefined)?.trim() || 'Chamado sem título',
       situacao: CHAMADO_STATUS_LABELS[chamado.status as ChamadoStatus] ?? 'Aberto',
       abertoEm: ((chamado.createdAt as Date | undefined) ?? new Date()).toISOString(),
+      marca: marcaDeAbertura(chamado.canalAbertura, servicoSugerido),
       itens,
       truncado: linha.truncado,
     },
@@ -161,12 +189,22 @@ export async function abrirConversa(viewer: Viewer, id: string): Promise<Convers
         situacao: lida.conversa.situacao,
         previa: lida.conversa.previa,
         mensagensCount: lida.conversa.mensagensCount,
-        mensagens: lida.mensagens.map((mensagem) => ({
-          id: mensagem.id,
-          autor: mensagem.autor,
-          texto: mensagem.texto,
-          em: mensagem.createdAt.toISOString(),
-        })),
+        mensagens: lida.mensagens.flatMap((mensagem): MensagemNaTela[] => {
+          const cartao = cartaoDaMensagem(mensagem.tipo, mensagem.payload);
+          // Cartão com payload fora do schema não tem o que mostrar.
+          if (mensagem.tipo === 'cartao' && !cartao) return [];
+          return [
+            {
+              id: mensagem.id,
+              autor: mensagem.autor,
+              tipo: mensagem.tipo,
+              texto: mensagem.texto,
+              em: mensagem.createdAt.toISOString(),
+              cartao,
+            },
+          ];
+        }),
+        cartaoAtualId: lida.conversa.cartaoAtualId,
       },
     };
   }

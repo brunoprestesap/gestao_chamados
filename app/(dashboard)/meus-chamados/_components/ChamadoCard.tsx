@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { MaterialObservationNormalized } from '@/lib/dto-normalizers';
 import { cn, formatDateShort, formatDateTime } from '@/lib/utils';
-import { ATTENDANCE_NATURE_LABELS } from '@/shared/chamados/chamado.constants';
+import { ATTENDANCE_NATURE_LABELS, SERVICO_A_DEFINIR } from '@/shared/chamados/chamado.constants';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
 /** Status de exibição do SLA (resolução) a partir de dados do DTO */
@@ -141,6 +141,10 @@ export type ChamadoDTO = {
   telefoneContato: string;
   subtypeId: string | null;
   catalogServiceId: string | null;
+  /** `chat` quando o chamado nasceu da conversa (spec 0004, AC-15). */
+  canalAbertura?: string | null;
+  /** Existe decisão de serviço da IA para este chamado. Vem da lista da gestão. */
+  servicoSugeridoIa?: boolean;
   finalPriority?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -328,9 +332,12 @@ export function ChamadoCard({
     const parts = [chamado.tipoServico];
     if (additionalData.subtypeName) {
       parts.push(additionalData.subtypeName);
+    } else if (!chamado.catalogServiceId) {
+      // Chamado do chat sem IA: o serviço sai da triagem (spec 0004, AC-9).
+      parts.push(SERVICO_A_DEFINIR);
     }
     return parts.filter(Boolean).join(' • ');
-  }, [chamado.tipoServico, additionalData.subtypeName]);
+  }, [chamado.tipoServico, chamado.catalogServiceId, additionalData.subtypeName]);
 
   const formattedDate = useMemo(
     () => formatDateTime(chamado.createdAt, tzOpt),

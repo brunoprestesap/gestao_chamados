@@ -1,0 +1,268 @@
+import 'server-only';
+
+import { Types } from 'mongoose';
+
+import { notificarNovoChamado } from '@/lib/chamados/novo-chamado';
+import {
+  abrirChamadoDaConversa,
+  type DecisaoEntrada,
+  enviarMensagem,
+  invalidarCartao,
+  lerMensagens,
+  lerProposta,
+  type PropostaLida,
+  type Viewer,
+} from '@/lib/conversas';
+import { dbConnect } from '@/lib/db';
+import { UnitModel } from '@/models/unit';
+import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
+import type { TipoServico } from '@/shared/chamados/tipo-servico';
+import { confirmarAberturaSchema } from '@/shared/conversas/abertura.schemas';
+import type { CartaoModo, ConversaFalha } from '@/shared/conversas/conversa.constants';
+
+import { lerServicoAtivo, type ServicoAtivo } from './catalogo';
+import { fraseDeChamadoAberto } from './mensagens';
+
+/**
+ * A confirmação do cartão resumo: o chamado nasce (spec 0004, AC-10 e AC-11).
+ *
+ * Nunca chama o modelo. Do navegador vêm só a conversa, o cartão, a unidade,
+ * o local e, no modo manual, o tipo; serviço, prioridade, confiança, motivo e
+ * `meta` são lidos de `propostaIa` no banco (AC-17). A costura sem transação,
+ * o reparo e a proteção contra clique duplo são de `abrirChamadoDaConversa`
+ * (spec 0002).
+ */
+
+export type ConfirmacaoFalha = ConversaFalha | 'cartao_desatualizado' | 'dados_invalidos';
+
+export type ConfirmacaoResultado =
+  | { ok: true; chamadoId: string; ticketNumber: string; jaExistia: boolean }
+  | { ok: false; reason: ConfirmacaoFalha };
+
+const falha = (reason: ConfirmacaoFalha): ConfirmacaoResultado => ({ ok: false, reason });
+
+/**
+ * O título do chamado aberto pela conversa: `<rótulo> — <local>`. O formulário
+ * usa sempre o tipo; a conversa usa o nome do serviço no modo `ia`, porque ele
+ * existe e diz mais, e o tipo no modo `manual`.
+ */
+export function montarTituloChat({
+  rotulo,
+  localExato,
+}: {
+  rotulo: string;
+  localExato: string;
+}): string {
+  return `${rotulo.trim()} — ${localExato.trim()}`;
+}
+
+/** Todo o texto do solicitante, na ordem, separado por uma linha em branco. */
+export function montarDescricao(
+  mensagens: { autor: string; tipo: string; texto: string }[],
+): string {
+  return mensagens
+    .filter((m) => m.autor === 'solicitante' && m.tipo === 'texto')
+    .map((m) => m.texto.trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+/** As decisões da confirmação, lidas só da proposta guardada (AC-10). */
+export function decisoesDaProposta(
+  proposta: PropostaLida,
+  servico: ServicoAtivo | null,
+): DecisaoEntrada[] {
+  if (!proposta.llmCallId || !proposta.modelo || !proposta.promptVersion || !proposta.task) {
+    return [];
+  }
+  const meta = {
+    model: proposta.modelo,
+    promptVersion: proposta.promptVersion,
+    task: proposta.task,
+    callId: proposta.llmCallId,
+  };
+
+  const decisoes: DecisaoEntrada[] = [];
+  if (servico && proposta.servico) {
+    decisoes.push({
+      campo: 'servico',
+      decididoPor: 'ia',
+      efeito: 'sugestao',
+      valor: {
+        catalogServiceId: proposta.servico.catalogServiceId,
+        subtypeId: proposta.servico.subtypeId,
+        tipoServico: proposta.servico.tipoServico,
+      },
+      confianca: proposta.servico.confianca,
+      motivo: proposta.servico.motivo,
+      meta,
+    });
+  }
+  if (proposta.prioridade) {
+    decisoes.push({
+      campo: 'prioridade',
+      decididoPor: 'ia',
+      efeito: 'sugestao',
+      valor: { prioridade: proposta.prioridade.prioridade },
+      confianca: proposta.prioridade.confianca,
+      motivo: proposta.prioridade.motivo,
+      meta,
+    });
+  }
+  return decisoes;
+}
+
+function registrar(dados: Record<string, unknown>): void {
+  // Nenhum texto de relato, de resposta ou de local entra em log (AC-16).
+  console.warn('[abertura]', JSON.stringify(dados));
+}
+
+export async function confirmarAbertura(
+  viewer: Viewer,
+  entrada: unknown,
+): Promise<ConfirmacaoResultado> {
+  const parsed = confirmarAberturaSchema.safeParse(entrada);
+  if (!parsed.success) return falha('dados_invalidos');
+  const { conversaId, cartaoId, unitId, localExato, tipoServico } = parsed.data;
+
+  try {
+    await dbConnect();
+
+    const lida = await lerProposta(viewer, conversaId);
+    if (!lida.ok) {
+      // Conversa de outra pessoa sai igual a conversa inexistente (AC-17).
+      return falha(lida.reason === 'erro' ? 'erro' : 'nao_encontrada');
+    }
+
+    // Só o cartão apontado pela proposta tem ação (AC-12).
+    const proposta = lida.proposta;
+    if (!proposta || proposta.cartaoMensagemId !== cartaoId) {
+      return falha('cartao_desatualizado');
+    }
+
+    // Clique duplo: a conversa já virou chamado com este mesmo cartão. A
+    // abertura devolve o chamado que existe, sem gravar nem notificar nada.
+    if (lida.situacao === 'vinculada') {
+      const existente = await abrirChamadoDaConversa({ viewer, conversaId, dadosChamado: {} });
+      if (!existente.ok) return falha(traduzir(existente.reason));
+      registrar({ conversaId, chamadoId: existente.chamadoId, modo: null, jaExistia: true });
+      return {
+        ok: true,
+        chamadoId: existente.chamadoId,
+        ticketNumber: existente.ticketNumber,
+        jaExistia: true,
+      };
+    }
+
+    // Ponteiro sem mensagem conta como cartão desatualizado.
+    const cartao = lida.cartaoAtual;
+    if (!cartao) {
+      await invalidarCartao(viewer, conversaId, cartaoId);
+      return falha('cartao_desatualizado');
+    }
+
+    const modo: CartaoModo = cartao.payload.modo;
+    let servico: ServicoAtivo | null = null;
+    let tipo: TipoServico;
+
+    if (modo === 'ia') {
+      const doCartao = cartao.payload.servico;
+      // O serviço do cartão tem que ser o da proposta e continuar ativo; senão
+      // o cartão deixa de valer e `Revisar e abrir` monta outro.
+      servico =
+        doCartao && proposta.servico?.catalogServiceId === doCartao.catalogServiceId
+          ? await lerServicoAtivo(doCartao.catalogServiceId, doCartao.subtypeId)
+          : null;
+      if (!servico) {
+        await invalidarCartao(viewer, conversaId, cartaoId);
+        return falha('cartao_desatualizado');
+      }
+      tipo = servico.tipoServico;
+    } else {
+      if (!tipoServico) return falha('dados_invalidos');
+      tipo = tipoServico;
+    }
+
+    const unidade = await UnitModel.findOne({ _id: unitId, isActive: true }).select('_id').lean();
+    if (!unidade) return falha('dados_invalidos');
+
+    const descricao = montarDescricao(await lerMensagens(conversaId));
+    const titulo = montarTituloChat({
+      rotulo: servico ? servico.rotuloServico : tipo,
+      localExato,
+    });
+
+    const aberto = await abrirChamadoDaConversa({
+      viewer,
+      conversaId,
+      dadosChamado: {
+        titulo,
+        descricao,
+        status: 'aberto',
+        solicitanteId: new Types.ObjectId(viewer.userId),
+        unitId: new Types.ObjectId(unitId),
+        localExato,
+        tipoServico: tipo,
+        grauUrgencia: 'Normal',
+        naturezaAtendimento: 'Padrão',
+        requestedAttendanceNature: toAttendanceNature('Padrão'),
+        // O chat não pede dado pessoal, então o chamado nasce sem telefone.
+        telefoneContato: '',
+        catalogServiceId: servico ? new Types.ObjectId(servico.catalogServiceId) : null,
+        subtypeId: servico ? new Types.ObjectId(servico.subtypeId) : null,
+      },
+      decisoes: decisoesDaProposta(proposta, servico),
+    });
+    if (!aberto.ok) return falha(traduzir(aberto.reason));
+
+    if (!aberto.jaExistia) {
+      const aviso = await enviarMensagem({
+        viewer,
+        conversaId,
+        autor: 'sistema',
+        tipo: 'texto',
+        texto: fraseDeChamadoAberto(aberto.ticketNumber),
+      });
+      if (!aviso.ok) {
+        registrar({ conversaId, chamadoId: aberto.chamadoId, aviso: aviso.reason });
+      }
+
+      // A gestão fica sabendo como no formulário. Falha aqui não desfaz o chamado.
+      await notificarNovoChamado({
+        chamadoId: aberto.chamadoId,
+        ticketNumber: aberto.ticketNumber,
+        titulo,
+        solicitanteId: viewer.userId,
+      }).catch((err) => {
+        console.error(
+          '[abertura]',
+          JSON.stringify({
+            conversaId,
+            chamadoId: aberto.chamadoId,
+            notificacao: err instanceof Error ? err.message : 'unknown',
+          }),
+        );
+      });
+    }
+
+    registrar({ conversaId, chamadoId: aberto.chamadoId, modo, jaExistia: aberto.jaExistia });
+
+    return {
+      ok: true,
+      chamadoId: aberto.chamadoId,
+      ticketNumber: aberto.ticketNumber,
+      jaExistia: aberto.jaExistia,
+    };
+  } catch (err) {
+    console.error(
+      '[abertura]',
+      JSON.stringify({ conversaId, error: err instanceof Error ? err.message : 'unknown' }),
+    );
+    return falha('erro');
+  }
+}
+
+/** `sem_permissao` sai como `nao_encontrada`, como nas rotas da spec 0003. */
+function traduzir(reason: ConversaFalha): ConfirmacaoFalha {
+  return reason === 'sem_permissao' ? 'nao_encontrada' : reason;
+}

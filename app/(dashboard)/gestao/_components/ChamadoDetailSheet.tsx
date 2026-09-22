@@ -44,6 +44,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateTime } from '@/lib/utils';
+import { SERVICO_A_DEFINIR } from '@/shared/chamados/chamado.constants';
 import { PAUSE_REASON_LABELS, type PauseReason } from '@/shared/chamados/pause-reason.constants';
 
 import type { ChamadoDTO } from '../../meus-chamados/_components/ChamadoCard';
@@ -256,6 +257,8 @@ export function ChamadoDetailSheet({
     if (!chamado) return '';
     const parts = [chamado.tipoServico];
     if (subtypeName) parts.push(subtypeName);
+    // Chamado do chat sem IA: o serviço sai da triagem (spec 0004, AC-9).
+    else if (!chamado.catalogServiceId) parts.push(SERVICO_A_DEFINIR);
     return parts.filter(Boolean).join(' › ');
   }, [chamado, subtypeName]);
 

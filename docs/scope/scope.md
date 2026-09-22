@@ -23,7 +23,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 9   | Integração com a IA local                          | Foundation | done     |
 | 10  | Conversa e decisões da IA no banco                 | Foundation | done     |
 | 11  | Tela de chat de chamados                           | Slice 1    | done     |
-| 12  | Abertura do chamado pela IA                        | Slice 1    | planned  |
+| 12  | Abertura do chamado pela IA                        | Slice 1    | done     |
 | 13  | Andamento e conversa com o técnico                 | Slice 2    | planned  |
 | 14  | Calibração da trava de confiança                   | Slice 3    | planned  |
 | 15  | Prioridade e SLA automáticos                       | Slice 3    | planned  |
@@ -122,13 +122,21 @@ spec [0003](../specs/0003-tela-chat-chamados/index.md) · code in `app/(dashboar
 - [x] Verify it: `/check verify tela de chat de chamados`
 - [x] Test it: `/test tela de chat de chamados`
 
-### 12. Abertura do chamado pela IA · needs a decision
+### 12. Abertura do chamado pela IA · done
 
 A IA lê o relato, escolhe o serviço no catálogo, preenche unidade e andar pelo perfil, tira o local exato do texto, pergunta só o que faltar e mostra um cartão resumo para o usuário confirmar. Nesta fatia o chamado ainda nasce `aberto` para a triagem do Preposto, já com a sugestão da IA.
 **Done when:** um relato em texto livre vira chamado confirmado com serviço, unidade e local exato sem o usuário abrir o catálogo; quem não tem unidade no perfil, ou relata problema em outro lugar, recebe uma pergunta; com a IA fora do ar ou lenta, o chamado abre mesmo assim com o texto como descrição; o chamado mostra que foi classificado pela IA e o histórico registra a sugestão.
 **Herda da 9:** no verify desta funcionalidade, conferir na VPS com `docker logs` do `next-app` que as chamadas reais geram linhas `[llm]` com `task`, `status`, `reason`, `finishReason`, `attempts` e `latencyMs`, sem texto de relato nem chave (passo movido do verify da spec 0001, AC-11).
+spec [0004](../specs/0004-abertura-chamado-ia/index.md) · code in `lib/assistente/`, `lib/conversas/proposta-store.ts`, `app/(dashboard)/conversas/`, `components/chamado/MarcaAberturaChat.tsx`
 
-- [ ] Design it (spec): `/architect abertura do chamado pela IA`
+- [x] Design it (spec): `/architect abertura do chamado pela IA`
+- [x] Build it: `/develop abertura do chamado pela IA`
+  - [x] Fio fino do relato ao chamado com sugestão (tarefa `conversa.abertura` com catálogo no prompt, `propostaIa`, tipo `cartao` e quadro novo, confirmação por `abrirChamadoDaConversa`, notificação extraída, modo leitura) · AC-1, AC-2, AC-3, AC-4, AC-5, AC-10, AC-11, AC-13, AC-14
+  - [x] Unidade, local, `Revisar e abrir` e cartão que muda (unidade do perfil ou obrigatória, edição no cartão, botão, cartão substituído, `cartao_desatualizado`, respostas fora de ordem) · AC-3, AC-4, AC-6, AC-7, AC-10, AC-12, AC-13, AC-17
+  - [x] Sem IA, o chamado abre mesmo assim (serviço opcional só no chat, cartão manual, cartão depois da reserva, tetos de entrada) · AC-2, AC-7, AC-8, AC-9
+  - [x] Marca da IA, desenho, acessibilidade e medição (marca em três telas, pranchetas no artefato da 0003, região ao vivo, logs, teste de fumaça) · AC-5, AC-15, AC-16, AC-18, AC-19
+- [x] Verify it: `/check verify abertura do chamado pela IA`
+- [x] Test it: `/test abertura do chamado pela IA`
 
 ## Slice 2: Acompanhar pelo chat
 
@@ -211,6 +219,10 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Formulário a um clique pela conversa**: fazer `/meus-chamados` aceitar um parâmetro que já abre o diálogo do formulário, para o link da lateral não exigir um clique a mais · from spec 0003
 - **Unificar as duas entradas**: definir o sinal (por exemplo, percentual de aberturas pelo chat) que encerra a convivência entre `/conversas` e a tabela de `/meus-chamados`, para a decisão não ficar aberta para sempre · from spec 0003
 - **Evento próprio de conversa no socket**: hoje a tela de conversas recarrega pelo evento genérico de notificação, e aviso de SLA também dispara recarga; um evento próprio resolve se o desperdício incomodar · from spec 0003
+- **Cache de prefixo do vLLM**: confirmar com a equipe da GPU se o vLLM roda com cache de prefixo ligado, porque o catálogo vai no prompt de toda mensagem do chat e o custo cai muito com ele · from spec 0004
+- **Telefone de contato no chamado do chat**: o chat não pede dado pessoal, então o chamado nasce sem telefone; decidir como pedir se os técnicos sentirem falta · from spec 0004
+- **Logs `[llm]`/`[assistente]` na VPS**: o `/check verify` da 0004 provou tudo o que dava para provar localmente; falta conferir com `docker logs` do `next-app` que as chamadas reais de produção geram as linhas esperadas, sem texto de relato nem chave, depois que esta fatia for implantada · from spec 0004
+- **Leitor de tela de verdade no AC-18**: o `/check verify` da 0004 conferiu a região ao vivo programaticamente (o texto que ela recebe bate com o esperado), mas sem NVDA ou outro leitor de tela instalado nesta máquina para ouvir o anúncio de verdade; rodar quando houver um leitor de tela disponível · from spec 0004
 
 ## Legend
 

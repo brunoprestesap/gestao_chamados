@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { CONVERSA_FALHAS } from './conversa.constants';
-import { objectIdSchema } from './conversa.schemas';
+import { cartaoPayloadSchema, objectIdSchema } from './conversa.schemas';
 
 /**
  * Contrato de rede da resposta do assistente (spec 0003). As rotas de POST
@@ -12,7 +12,7 @@ import { objectIdSchema } from './conversa.schemas';
 /** Como a linha é separada no fluxo. Uma linha vazia é ignorada pelo leitor. */
 export const QUADRO_SEPARADOR = '\n';
 
-export const QUADRO_TIPOS = ['inicio', 'parcial', 'fim', 'reserva'] as const;
+export const QUADRO_TIPOS = ['inicio', 'parcial', 'fim', 'reserva', 'cartao'] as const;
 export type QuadroTipo = (typeof QUADRO_TIPOS)[number];
 
 /**
@@ -54,17 +54,37 @@ export const quadroReservaSchema = z.object({
   motivo: z.string(),
 });
 
+/**
+ * O cartão resumo mudou (spec 0004, AC-4). Vem depois de `fim` ou `reserva`.
+ * Com `cartao` preenchido, é o cartão novo, já gravado como `mensagemId`; com
+ * `cartao: null`, o cartão `substituiId` deixou de valer e não há outro.
+ * Cliente antigo não entende este quadro, e `lerQuadro` o ignora sem quebrar.
+ */
+export const quadroCartaoSchema = z
+  .strictObject({
+    tipo: z.literal('cartao'),
+    mensagemId: objectIdSchema.nullable(),
+    cartao: cartaoPayloadSchema.nullable(),
+    substituiId: objectIdSchema.nullable(),
+  })
+  .refine((quadro) => (quadro.cartao === null) === (quadro.mensagemId === null), {
+    message: 'Cartão novo sempre vem com o id da mensagem gravada',
+    path: ['mensagemId'],
+  });
+
 export const quadroRespostaSchema = z.discriminatedUnion('tipo', [
   quadroInicioSchema,
   quadroParcialSchema,
   quadroFimSchema,
   quadroReservaSchema,
+  quadroCartaoSchema,
 ]);
 
 export type QuadroInicio = z.infer<typeof quadroInicioSchema>;
 export type QuadroParcial = z.infer<typeof quadroParcialSchema>;
 export type QuadroFim = z.infer<typeof quadroFimSchema>;
 export type QuadroReserva = z.infer<typeof quadroReservaSchema>;
+export type QuadroCartao = z.infer<typeof quadroCartaoSchema>;
 export type QuadroResposta = z.infer<typeof quadroRespostaSchema>;
 
 /** Uma linha do fluxo, do jeito que a rota escreve. */

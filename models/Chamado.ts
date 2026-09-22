@@ -9,6 +9,11 @@ import {
 import { PAUSE_REASONS } from '@/shared/chamados/pause-reason.constants';
 import { CANAIS_ABERTURA, IA_SITUACOES } from '@/shared/conversas/conversa.constants';
 
+/** Só o chamado da conversa pode nascer sem serviço do catálogo. */
+function exigeServicoDoCatalogo(this: { canalAbertura?: string }): boolean {
+  return this.canalAbertura !== 'chat';
+}
+
 const ChamadoSchema = new Schema(
   {
     ticket_number: { type: String, required: true, trim: true },
@@ -61,15 +66,18 @@ const ChamadoSchema = new Schema(
       default: 'Normal',
     },
     telefoneContato: { type: String, default: '', trim: true },
+    // Obrigatórios, salvo no chamado aberto pela conversa (spec 0004, AC-9): sem
+    // IA, ou sem serviço que a IA acertou, ele nasce só com o tipo, e o
+    // Preposto escolhe o serviço na classificação, que continua exigindo os dois.
     subtypeId: {
       type: Schema.Types.ObjectId,
       ref: 'ServiceSubType',
-      required: [true, 'Selecione o subtipo de serviço'],
+      required: [exigeServicoDoCatalogo, 'Selecione o subtipo de serviço'],
     },
     catalogServiceId: {
       type: Schema.Types.ObjectId,
       ref: 'ServiceCatalog',
-      required: [true, 'Selecione o serviço do catálogo'],
+      required: [exigeServicoDoCatalogo, 'Selecione o serviço do catálogo'],
     },
     // Classificação (Preposto/Admin)
     finalPriority: {

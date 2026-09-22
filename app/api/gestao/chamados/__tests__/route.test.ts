@@ -35,6 +35,11 @@ vi.mock('@/models/Chamado', () => ({
   },
 }));
 
+const mockServicoSugerido = vi.fn();
+vi.mock('@/lib/conversas', () => ({
+  servicoSugeridoPelaIa: (...args: unknown[]) => mockServicoSugerido(...args),
+}));
+
 // Import after mocks
 import { GET } from '@/app/api/gestao/chamados/route';
 
@@ -82,6 +87,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockCountDocuments.mockResolvedValue(0);
   mockLean.mockResolvedValue([]);
+  mockServicoSugerido.mockResolvedValue(new Set());
 });
 
 describe('GET /api/gestao/chamados — pagination', () => {
@@ -246,6 +252,48 @@ describe('GET /api/gestao/chamados — validation errors', () => {
 
     const findFilter = mockFind.mock.calls[0][0];
     expect(findFilter).not.toHaveProperty('status');
+  });
+});
+
+describe('GET /api/gestao/chamados — marca do chat (spec 0004, AC-15)', () => {
+  it('consulta as decisões uma vez por página, só com os chamados do chat', async () => {
+    // Arrange
+    const doChat = makeChamado({ _id: '1'.repeat(24), canalAbertura: 'chat' });
+    const semIa = makeChamado({ _id: '2'.repeat(24), canalAbertura: 'chat' });
+    const doFormulario = makeChamado({ _id: '3'.repeat(24) });
+    mockCountDocuments.mockResolvedValue(3);
+    mockLean.mockResolvedValue([doChat, semIa, doFormulario]);
+    mockServicoSugerido.mockResolvedValue(new Set(['1'.repeat(24)]));
+
+    // Act
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    // Assert
+    expect(mockServicoSugerido).toHaveBeenCalledTimes(1);
+    expect(mockServicoSugerido).toHaveBeenCalledWith(['1'.repeat(24), '2'.repeat(24)]);
+    expect(
+      body.items.map((i: { canalAbertura: string; servicoSugeridoIa: boolean }) => [
+        i.canalAbertura,
+        i.servicoSugeridoIa,
+      ]),
+    ).toEqual([
+      ['chat', true],
+      ['chat', false],
+      ['formulario', false],
+    ]);
+  });
+
+  it('pede o canal de abertura na projeção', async () => {
+    // Arrange
+    mockCountDocuments.mockResolvedValue(0);
+    mockLean.mockResolvedValue([]);
+
+    // Act
+    await GET(makeRequest());
+
+    // Assert
+    expect(mockFind.mock.calls[0][1]).toHaveProperty('canalAbertura', 1);
   });
 });
 

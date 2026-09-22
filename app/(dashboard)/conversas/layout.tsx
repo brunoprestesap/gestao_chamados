@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/dal';
 
 import { ConversasShell } from './_components/ConversasShell';
 import { montarLateral } from './_lib/lateral';
+import { lerUnidadesAtivas } from './_lib/unidades';
 
 /**
  * A lateral é montada no servidor e vale para as duas rotas, então a primeira
@@ -21,7 +22,10 @@ export const metadata: Metadata = {
 
 export default async function ConversasLayout({ children }: { children: React.ReactNode }) {
   const sessao = await requireSession();
-  const lateral = await montarLateral({ userId: sessao.userId, role: sessao.role });
+  const [lateral, unidades] = await Promise.all([
+    montarLateral({ userId: sessao.userId, role: sessao.role }),
+    lerUnidadesAtivas(),
+  ]);
 
   return (
     <ConversasShell
@@ -29,6 +33,7 @@ export default async function ConversasLayout({ children }: { children: React.Re
       chamados={lateral.chamados}
       temMais={lateral.temMais}
       cursor={lateral.cursor}
+      unidades={unidades}
     >
       {children}
     </ConversasShell>

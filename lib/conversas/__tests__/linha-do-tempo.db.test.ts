@@ -72,6 +72,19 @@ rodar('linha do tempo e visibilidade, contra o Mongo', () => {
     catalogServiceId,
   });
 
+  const decisaoServico = (): DecisaoEntrada => ({
+    campo: 'servico',
+    decididoPor: 'ia',
+    efeito: 'sugestao',
+    valor: {
+      catalogServiceId: String(catalogServiceId),
+      subtypeId: String(subtypeId),
+      tipoServico: 'Manutenção Predial',
+    } as never,
+    motivo: 'Lâmpada queimada é troca de lâmpada.',
+    confianca: 0.81,
+  });
+
   const decisaoPrioridade = (): DecisaoEntrada => ({
     campo: 'prioridade',
     decididoPor: 'ia',
@@ -163,7 +176,7 @@ rodar('linha do tempo e visibilidade, contra o Mongo', () => {
       viewer,
       conversaId: criada.conversaId,
       dadosChamado: dadosChamado(),
-      decisoes: [decisaoPrioridade()],
+      decisoes: [decisaoServico(), decisaoPrioridade()],
     });
     if (!aberto.ok) throw new Error('não abriu');
     return { conversaId: criada.conversaId, chamadoId: aberto.chamadoId };
@@ -194,8 +207,10 @@ rodar('linha do tempo e visibilidade, contra o Mongo', () => {
     if (!doPreposto.ok) return;
 
     expect(doPreposto.truncado).toBe(false);
-    // 2 mensagens + 2 comentários + 3 de histórico (abertura, decisao_ia, correcao_ia)
-    expect(doPreposto.itens).toHaveLength(7);
+    // 2 mensagens + 2 comentários + 2 de histórico (abertura e a decisao_ia do
+    // serviço). A decisão de prioridade e a correção dela ficam escondidas de
+    // todos, até da gestão (spec 0004, AC-15).
+    expect(doPreposto.itens).toHaveLength(6);
     expect(doPreposto.itens.filter((i) => i.fonte === 'mensagem')).toHaveLength(2);
     expect(doPreposto.itens.filter((i) => i.fonte === 'comentario')).toHaveLength(2);
 
@@ -207,7 +222,7 @@ rodar('linha do tempo e visibilidade, contra o Mongo', () => {
     const doSolicitante = await lerLinhaDoTempo(viewer, chamadoId);
     expect(doSolicitante.ok).toBe(true);
     if (!doSolicitante.ok) return;
-    expect(doSolicitante.itens).toHaveLength(6);
+    expect(doSolicitante.itens).toHaveLength(5);
     expect(
       doSolicitante.itens.filter(
         (i) => i.fonte === 'comentario' && i.dados.visibility === 'interno',
@@ -219,9 +234,12 @@ rodar('linha do tempo e visibilidade, contra o Mongo', () => {
       const daIa = linha.itens.filter(
         (i) => i.fonte === 'historico' && ['decisao_ia', 'correcao_ia'].includes(i.dados.action),
       );
-      expect(daIa).toHaveLength(2);
+      expect(daIa).toHaveLength(1);
       for (const item of daIa) {
         if (item.fonte !== 'historico') continue;
+        expect(item.dados.observacoes).toContain('Troca de lâmpada');
+        expect(item.dados.observacoes).not.toContain('0.81');
+        expect(item.dados.observacoes).not.toContain('prioridade');
         expect(item.dados.observacoes).not.toContain('0.73');
         expect(item.dados.observacoes).not.toContain('Sem risco à segurança');
         expect(item.dados.observacoes).not.toContain('Sala de audiência');

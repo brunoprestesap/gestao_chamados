@@ -1,3 +1,4 @@
+import type { ConfirmacaoFalha, RevisarFalha } from '@/lib/assistente';
 import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
 
 /**
@@ -14,7 +15,7 @@ export const FORMULARIO_HREF = '/meus-chamados';
 export const FORMULARIO_ROTULO = 'Abrir por formulário';
 
 export const BOAS_VINDAS_TEXTO =
-  'Conte o que está acontecendo com suas palavras. Eu confirmo o que entendi e pergunto só o que faltar.';
+  'Conte o que está acontecendo com suas palavras. Eu confirmo o que entendi, pergunto só o que faltar e monto o resumo do chamado para você confirmar.';
 
 export const EXEMPLOS_TITULO = 'Exemplos para começar';
 
@@ -42,7 +43,7 @@ export const NAO_SALVA_AVISO =
   'Esta resposta não ficou salva e não vai aparecer quando você recarregar a página.';
 
 export const LIMITE_MENSAGENS_AVISO =
-  'Esta conversa chegou ao limite de mensagens. Para seguir com o pedido, abra o chamado pelo formulário.';
+  'Esta conversa chegou ao limite de mensagens. Revise o resumo e abra o chamado por aqui mesmo.';
 
 export const LISTA_VAZIA_TITULO = 'Nenhuma conversa ainda';
 export const LISTA_VAZIA_TEXTO =
@@ -64,6 +65,51 @@ export const FALHA_FRASES: Record<ConversaFalha, string> = {
   invalida: 'Escreva a mensagem antes de enviar. O limite é de 2.000 caracteres.',
   erro: 'Não deu para salvar agora. Tente de novo em instantes.',
 };
+
+// ---------------------------------------------------------------------------
+// Cartão resumo e confirmação (spec 0004)
+// ---------------------------------------------------------------------------
+
+export const REVISAR_ROTULO = 'Revisar e abrir';
+export const REVISAR_DICA = 'Monta o resumo do chamado com o que a conversa já tem.';
+
+export const CARTAO_TITULO = 'Resumo do chamado';
+export const CARTAO_SELO_IA = 'Sugerido pelo assistente';
+export const CARTAO_SELO_MANUAL = 'Complete para abrir';
+export const CARTAO_SUBSTITUIDO = 'Substituído';
+export const CARTAO_DESCRICAO_AVISO = 'O texto desta conversa vira a descrição do chamado.';
+export const CARTAO_SERVICO_DICA = 'Para trocar o serviço, conte na conversa o que mudou.';
+export const CARTAO_CONFIRMAR = 'Confirmar e abrir chamado';
+export const CARTAO_CONFIRMANDO = 'Abrindo o chamado…';
+export const CARTAO_ESPERE_RESPOSTA = 'Espere o assistente terminar de responder para confirmar.';
+
+/** O que a região ao vivo diz quando um cartão novo chega (AC-18). */
+export const CARTAO_PRONTO_ANUNCIO = 'Resumo do chamado pronto para confirmar.';
+
+export const CARTAO_ERRO_TIPO = 'Escolha o tipo de serviço';
+export const CARTAO_ERRO_UNIDADE = 'Escolha a unidade';
+export const CARTAO_ERRO_LOCAL = 'Informe o local exato';
+export const CARTAO_ERRO_LOCAL_LONGO = 'O local passa de 200 caracteres';
+
+/**
+ * Uma frase por motivo de falha da confirmação e do `Revisar e abrir`.
+ * Nenhum motivo aparece cru na tela.
+ */
+export const CONFIRMACAO_FRASES: Record<ConfirmacaoFalha | RevisarFalha, string> = {
+  ...FALHA_FRASES,
+  cartao_desatualizado:
+    'Este resumo não vale mais, porque a conversa mudou depois dele. Use o resumo mais recente ou toque em Revisar e abrir.',
+  dados_invalidos: 'Confira o tipo de serviço, a unidade e o local antes de confirmar.',
+  confirmacao_em_andamento:
+    'Este chamado está sendo aberto neste instante. Espere alguns segundos.',
+  invalida: 'Não deu para abrir o chamado com estes dados. Revise o resumo e tente de novo.',
+  erro: 'Não deu para abrir o chamado agora. Tente de novo em instantes.',
+};
+
+export function fraseDaConfirmacao(motivo: string | null | undefined): string {
+  if (!motivo) return FALHA_REDE;
+  return CONFIRMACAO_FRASES[motivo as ConfirmacaoFalha] ?? FALHA_REDE;
+}
 
 /** Rede fora, servidor mudo: a mensagem nem chegou a ser recebida. */
 export const FALHA_REDE = 'Não deu para falar com o Sigma. Verifique a conexão e tente de novo.';

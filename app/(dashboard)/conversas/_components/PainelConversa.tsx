@@ -14,9 +14,13 @@ import {
   COMPOSER_PLACEHOLDER_SEGUINTE,
   EXEMPLOS,
   EXEMPLOS_TITULO,
+  FALHA_REDE,
+  fraseDaConfirmacao,
   RASCUNHO_EXPLICACAO,
 } from '../_constants';
-import type { ConversaNaTela } from '../_types';
+import type { ConversaNaTela, MensagemNaTela } from '../_types';
+import { revisarAberturaAction } from '../actions';
+import { CartaoResumo } from './CartaoResumo';
 import { Composer } from './Composer';
 import { DescartarRascunho } from './DescartarRascunho';
 import {
@@ -75,10 +79,79 @@ export function PainelConversa({ conversa, primeiroNome, mensagensMax }: Props) 
     doServidor: conversa?.mensagens ?? [],
     contagemInicial: conversa?.mensagensCount ?? 0,
     mensagensMax,
+    cartaoAtualDoServidor: conversa?.cartaoAtualId ?? null,
     aoConcluir,
   });
 
   const vazia = envio.mensagens.length === 0 && !envio.pendente;
+
+  // ---- Cartão resumo e `Revisar e abrir` (spec 0004) ----
+  const [revisando, setRevisando] = useState(false);
+  const [erroRevisar, setErroRevisar] = useState<string | null>(null);
+
+  // O botão aparece depois da primeira mensagem gravada do solicitante,
+  // enquanto a conversa é rascunho (AC-7).
+  const temRelato = envio.mensagens.some((mensagem) => mensagem.autor === 'solicitante');
+  const podeRevisar = !confirmando && envio.conversaId !== null && temRelato;
+
+  const revisar = useCallback(async () => {
+    const alvo = envio.conversaId;
+    if (!alvo || revisando) return;
+    setRevisando(true);
+    setErroRevisar(null);
+    try {
+      const resultado = await revisarAberturaAction(alvo);
+      if (!resultado.ok) {
+        setErroRevisar(fraseDaConfirmacao(resultado.reason));
+        return;
+      }
+      envio.aplicarCartaoRevisado(resultado);
+      // O mesmo cartão pode ter voltado: a tela rola até ele, sem mover o foco.
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`cartao-${resultado.mensagemId}`)
+          ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    } catch {
+      setErroRevisar(FALHA_REDE);
+    } finally {
+      setRevisando(false);
+    }
+  }, [envio, revisando]);
+
+  // O chamado nasceu: a mesma rota passa ao modo leitura, e a lateral troca o
+  // rascunho pelo chamado (AC-11).
+  const aoConfirmar = useCallback(() => {
+    if (novaConversa && envio.conversaId) router.replace(`/conversas/${envio.conversaId}`);
+    router.refresh();
+  }, [envio.conversaId, novaConversa, router]);
+
+  const aoDesatualizar = useCallback(() => router.refresh(), [router]);
+
+  const desenharCartao = useCallback(
+    (mensagem: MensagemNaTela) =>
+      mensagem.cartao ? (
+        <CartaoResumo
+          key={mensagem.id}
+          mensagemId={mensagem.id}
+          conversaId={envio.conversaId}
+          cartao={mensagem.cartao}
+          atual={!confirmando && mensagem.id === envio.cartaoAtualId}
+          aguardandoResposta={envio.enviando}
+          em={mensagem.em}
+          onConfirmado={aoConfirmar}
+          onDesatualizado={aoDesatualizar}
+        />
+      ) : null,
+    [
+      aoConfirmar,
+      aoDesatualizar,
+      confirmando,
+      envio.cartaoAtualId,
+      envio.conversaId,
+      envio.enviando,
+    ],
+  );
 
   // Abrir uma conversa leva o foco para o título dela: no celular é o que
   // orienta quem acabou de vir da lista (AC-11).
@@ -90,6 +163,10 @@ export function PainelConversa({ conversa, primeiroNome, mensagensMax }: Props) 
   useEffect(() => {
     fim.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
   }, [envio.mensagens.length, envio.parcial, envio.pendente]);
+
+  const revisarNoComposer = podeRevisar
+    ? { onRevisar: () => void revisar(), revisando, erro: erroRevisar }
+    : null;
 
   function usarExemplo(exemplo: string) {
     setTexto(exemplo);
@@ -171,7 +248,7 @@ export function PainelConversa({ conversa, primeiroNome, mensagensMax }: Props) 
           </div>
         ) : (
           <>
-            <ListaMensagens mensagens={envio.mensagens} />
+            <ListaMensagens mensagens={envio.mensagens} renderCartao={desenharCartao} />
 
             {envio.parcial !== null ? <BolhaAssistente texto={envio.parcial} emConstrucao /> : null}
 
@@ -221,6 +298,7 @@ export function PainelConversa({ conversa, primeiroNome, mensagensMax }: Props) 
           mensagensMax={mensagensMax}
           noLimite={envio.noLimite}
           onEnviar={envio.enviar}
+          revisar={revisarNoComposer}
         />
       )}
     </section>
