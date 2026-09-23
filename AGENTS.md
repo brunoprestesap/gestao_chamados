@@ -144,7 +144,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 
 ### Modelos Mongoose
 
-- **Chamado** — Ticket com ciclo completo + campos SLA (`responseDueAt`, `resolutionDueAt`)
+- **Chamado** — Ticket com ciclo completo + campos SLA (`responseDueAt`, `resolutionDueAt`); `canalAbertura` (`formulario` ou `chat`) e `catalogServiceId`/`subtypeId` só são obrigatórios fora do `chat` — o chat pode abrir sem serviço do catálogo, e a classificação do Preposto exige escolhê-lo depois
 - **User** — Roles, especialidades (técnicos via `specialties` → `ServiceSubType`), `maxAssignedTickets` (default 5), `passwordHash` opcional (permite usuários LDAP-only)
 - **ChamadoHistory** — Auditoria de todas as ações
 - **SlaConfig** — Configuração SLA por prioridade
@@ -182,10 +182,11 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 
 - Rota de servidor: a lateral (rascunhos em cima, chamados embaixo) é montada no layout e já vem pronta na primeira pintura, sem estado de carregamento
 - O envio de mensagem não é Server Action: vai por `POST /api/conversas/mensagens` (conversa nova) ou `POST /api/conversas/[id]/mensagens` (conversa que continua), que respondem em NDJSON, um quadro JSON por linha
-- Os quadros (`inicio`, `parcial`, `fim`, `reserva`) e o schema deles vivem em `shared/conversas/quadro.schemas.ts`
+- Os quadros (`inicio`, `parcial`, `fim`, `reserva`, `cartao`) e o schema deles vivem em `shared/conversas/quadro.schemas.ts`
 - Falha da IA nunca quebra a tela: vira mensagem de autor `sistema` com texto fixo do Sigma, nunca texto do modelo
+- Desde a spec 0004, a própria conversa abre o chamado: a cada mensagem a IA extrai serviço, prioridade (escondida) e local, e quando a proposta está completa o servidor grava sozinho um cartão resumo (`ConversaMensagem` tipo `cartao`); `Revisar e abrir` monta o cartão sem chamar o modelo, e confirmar chama `abrirChamadoDaConversa` com `canalAbertura: 'chat'`. Sem IA (ou sem serviço reconhecido), o cartão vira modo manual (só tipo, unidade e local) e o chamado abre do mesmo jeito
 - Desde a spec 0005, a mesma tela acompanha o chamado até o fim, para os quatro perfis (solicitante, técnico, Preposto, Admin): comentário vai por `POST /api/conversas/chamado/[chamadoId]/comentarios` (JSON simples, sem NDJSON), e classificação/atribuição/pausa/execução/encerramento chegam ao vivo pelo Socket.IO
-- Detalhes da tela e das rotas: `app/(dashboard)/conversas/AGENTS.md`. Detalhes do assistente: `lib/assistente/AGENTS.md`. Specs: `docs/specs/0003-tela-chat-chamados/`, `docs/specs/0005-andamento-conversa-tecnico/`
+- Detalhes da tela e das rotas: `app/(dashboard)/conversas/AGENTS.md`. Detalhes do assistente e da abertura pela IA: `lib/assistente/AGENTS.md`. Specs: `docs/specs/0003-tela-chat-chamados/`, `docs/specs/0004-abertura-chamado-ia/`, `docs/specs/0005-andamento-conversa-tecnico/`
 
 ### Validação
 
@@ -279,13 +280,15 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Chamados recorrentes             | `models/RecurringTicket.ts`, `shared/chamados/recurring-ticket.schemas.ts`, `lib/recurring-job.ts`, `lib/recurring-utils.ts`, `app/(dashboard)/gestao/recurring/`, `app/api/cron/recurring-tickets/route.ts`                                                                            |
 | Funcionalidade de IA             | `lib/llm/index.ts` (`generateLlmObject`, `streamLlmObject`), `lib/llm/AGENTS.md`, `docs/specs/0001-integracao-ia-local/`                                                                                                                                                                |
 | Configurar IA local              | `scripts/update-llm-env.sh` (VPS), `docker-compose.yml`, `.env.production.example`, `GET /api/llm/status` (só Admin)                                                                                                                                                                    |
-| Tela de conversas (chat)         | `app/(dashboard)/conversas/` (tela e lateral), `app/api/conversas/` (envio em NDJSON e o comentário em JSON simples), `lib/assistente/` (prompt e reserva), `shared/conversas/quadro.schemas.ts` (quadros)                                                                              |
+| Tela de conversas (chat)         | `app/(dashboard)/conversas/` (tela e lateral), `app/api/conversas/` (envio em NDJSON e o comentário em JSON simples), `lib/assistente/` (prompt, proposta, cartão e abertura), `shared/conversas/quadro.schemas.ts` (quadros)                                                           |
 | Novo quadro de resposta          | `shared/conversas/quadro.schemas.ts`, `app/api/conversas/_lib/fluxo.ts`, `app/(dashboard)/conversas/_components/useEnvio.ts`                                                                                                                                                            |
+| Abertura de chamado pelo chat    | `lib/assistente/cartao.ts` (monta o cartão), `lib/assistente/confirmar.ts` (`confirmarAbertura`, `montarTituloChat`), `app/(dashboard)/conversas/actions.ts` (`revisarAberturaAction`, `confirmarAberturaAction`), `app/(dashboard)/conversas/_components/CartaoResumo.tsx`, `docs/specs/0004-abertura-chamado-ia/`                    |
 | Andamento do chamado na conversa | `lib/conversas/linha-do-tempo.ts` (`podeComentarInterno`, `souSolicitante`), `lib/chamados/comentarios.ts`, `app/api/conversas/chamado/[chamadoId]/comentarios/route.ts`, `components/realtime/RealtimeProvider.tsx`, `docs/specs/0005-andamento-conversa-tecnico/`                     |
 
 ## CI/CD
 
 - **CI** (GitHub Actions): lint + build (Next.js e socket-server) em todo push/PR na `main` (`.github/workflows/ci.yml`)
+- **CI** também roda, como jobs separados: testes unitários (Vitest, com cobertura) e testes E2E (Playwright, com Mongo e seed no runner)
 - **CD** (GitHub Actions): deploy automático na VPS via **self-hosted runner** após CI passar (`.github/workflows/deploy.yml`)
 - **Self-hosted runner**: instalado na VPS em `/opt/actions-runner`, roda como usuário `github-runner` com acesso ao Docker
 - **Fluxo**: push na `main` → CI (GitHub) → Deploy (VPS) → `git pull` + `docker compose up -d --build`
@@ -338,5 +341,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 ## Context files
 
 - [lib/llm/AGENTS.md](lib/llm/AGENTS.md): integração com a IA local (vLLM), contrato das funções, proteções da GPU, registro `LlmCall` e testes
-- [app/(dashboard)/conversas/AGENTS.md](<app/(dashboard)/conversas/AGENTS.md>): a tela de conversas e as rotas de envio em NDJSON, com os quadros, o descarte e as regras de acessibilidade
-- [lib/assistente/AGENTS.md](lib/assistente/AGENTS.md): o assistente do acolhimento, o prompt, o schema da resposta e as mensagens de reserva quando a IA falha
+- [app/(dashboard)/conversas/AGENTS.md](<app/(dashboard)/conversas/AGENTS.md>): a tela de conversas, as rotas de envio em NDJSON com os quadros (inclusive `cartao`), o descarte, a abertura de chamado pelo chat e as regras de acessibilidade
+- [lib/assistente/AGENTS.md](lib/assistente/AGENTS.md): o assistente da conversa — prompt, extração de serviço/prioridade/local, o cartão resumo e a abertura do chamado sem chamar o modelo
+- [app/(dashboard)/gestao/AGENTS.md](<app/(dashboard)/gestao/AGENTS.md>): a tela do Preposto/Admin — classificação, atribuição por especialidade, encerramento, reabertura, recusa e aprovação de cotação
+- [app/(dashboard)/chamados-atribuidos/AGENTS.md](<app/(dashboard)/chamados-atribuidos/AGENTS.md>): a tela do técnico — execução, pausa, observação de material e envio de cotação
