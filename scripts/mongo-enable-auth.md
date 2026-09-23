@@ -31,10 +31,21 @@ echo "Senha gerada (guarde): ${MONGO_PW}"
 # URI usada pelo next-app passa a incluir credenciais + authSource=admin
 echo "MONGODB_URI=mongodb://sigma_app:${MONGO_PW}@mongodb:27017/manutencao?authSource=admin" >> /opt/severino/.env
 chmod 600 /opt/severino/.env
+# o CD roda como github-runner e precisa ler o .env — manter o dono correto
+chown github-runner:github-runner /opt/severino/.env*
 ```
 
-> O `docker-compose.yml` fixa `MONGODB_URI` no `environment` do `next-app`.
-> Para usar o valor do `.env`, troque a linha por `MONGODB_URI: ${MONGODB_URI}`.
+## 2.1. Validar a URI nova com auth ainda desligada
+
+```bash
+cd /opt/severino
+docker compose up -d next-app   # só recria o next-app, mongodb continua sem --auth
+docker logs severino-next-app-1 --tail 30   # sem erro de conexão/auth
+```
+
+Confirme a aplicação funcionando (login, listagem de chamados) antes do próximo
+passo — se algo der errado aqui, é só reverter a linha `MONGODB_URI` do `.env`
+e rodar `docker compose up -d next-app` de novo, sem qualquer impacto no Mongo.
 
 ## 3. Ligar `--auth` no container
 

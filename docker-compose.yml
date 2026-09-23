@@ -7,7 +7,9 @@ services:
         NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://sigma.ap.trf1.gov.br}
     environment:
       NODE_ENV: production
-      MONGODB_URI: mongodb://mongodb:27017/manutencao
+      # Sem credenciais no .env -> conecta sem auth (compat. com Mongo sem --auth).
+      # Para ligar auth no Mongo, ver scripts/mongo-enable-auth.md. [auditoria 2026-05-25]
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/manutencao}
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-session}
       # Definir AUTH_COOKIE_SECURE=true APÓS habilitar TLS (ver nginx/default.tls.conf).
