@@ -62,4 +62,29 @@ test.describe('Restrição de acesso por role', () => {
     await page.goto('/chamados-atribuidos');
     await expect(page).toHaveURL(/\/dashboard/);
   });
+
+  // spec 0006 (calibração da trava de confiança), AC-8: só o Admin acessa.
+  test('Solicitante não acessa /configuracoes/ia-confianca — redireciona', async ({ page }) => {
+    await login(page, 'solicitante');
+    await page.goto('/configuracoes/ia-confianca');
+    await expect(page).toHaveURL(/\/dashboard/);
+  });
+
+  test('Técnico não acessa /configuracoes/ia-confianca — redireciona', async ({ page }) => {
+    await login(page, 'tecnico');
+    await page.goto('/configuracoes/ia-confianca');
+    await expect(page).toHaveURL(/\/dashboard/);
+  });
+
+  test('Preposto não acessa /configuracoes/ia-confianca — redireciona', async ({ page }) => {
+    await login(page, 'preposto');
+    await page.goto('/configuracoes/ia-confianca');
+    await expect(page).toHaveURL(/\/dashboard/);
+  });
+
+  test('Admin acessa /configuracoes/ia-confianca com sucesso', async ({ page }) => {
+    await login(page, 'admin');
+    await page.goto('/configuracoes/ia-confianca');
+    await expect(page).toHaveURL(/\/configuracoes\/ia-confianca/);
+  });
 });

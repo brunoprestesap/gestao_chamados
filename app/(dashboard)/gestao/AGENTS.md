@@ -1,0 +1,31 @@
+# AGENTS.md — Gestão de chamados
+
+## Overview
+
+A tela do Preposto e do Admin: classifica o chamado aberto, atribui a um técnico, acompanha, encerra, reabre, recusa na triagem, e aprova ou recusa cotação de terceiros. É a única tela onde o gestor pausa um chamado (o técnico pausa pela dele, em `chamados-atribuidos`).
+
+## Key files
+
+| Arquivo                                                                                                                        | Owns                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `actions.ts`                                                                                                                   | `classificarChamadoAction`, `updateTicketCatalogAction`, `closeTicketAction`, `reopenTicketAction`, `assignTicketAction`, `reassignTicketAction`, `rejectTicketAction` |
+| `page.tsx`                                                                                                                     | A lista + o painel de detalhe (`ChamadoDetailSheet`) que abre ao clicar num chamado                                                                                    |
+| `_components/ClassificarChamadoDialog.tsx`                                                                                     | Subtipo, serviço do catálogo, natureza, prioridade final; dispara o snapshot de SLA                                                                                    |
+| `_components/AtribuirChamadoDialog.tsx`                                                                                        | Lista técnicos elegíveis pela especialidade (subtipo), com carga atual e sobrecarga                                                                                    |
+| `_components/CotacaoApprovalCard.tsx`                                                                                          | Aprova/recusa cotação enviada pelo fluxo de pausa (chama `approveCotacaoAction`/`rejectCotacaoAction` de `chamados-atribuidos/cotacao.actions.ts`)                     |
+| `_components/EncerrarChamadoDialog.tsx`, `ReabrirChamadoDialog.tsx`, `RecusarChamadoDialog.tsx`, `ReatribuirChamadoDialog.tsx` | Um diálogo por ação, mesmo padrão dos outros                                                                                                                           |
+| `recurring/`                                                                                                                   | Chamados recorrentes (agendamento de manutenção preventiva), área própria dentro de gestão                                                                             |
+
+## Conventions
+
+- Toda action segue o padrão descrito no `AGENTS.md` raiz (`requireManager` → `dbConnect` → Zod → Mongoose → `ChamadoHistoryModel` → `emitToRoom` → `revalidatePath`).
+- **A pausa com motivo de cotação é exclusiva desta tela.** O diálogo de pausa é o mesmo `PauseTicketDialog` que `chamados-atribuidos/[id]` usa, mas o motivo "Falta de Peça (Aguardando Aprovação do Cliente)" só aparece no dropdown quando `userRole === 'Preposto'` (`visibleReasons` dentro do componente). Um técnico nunca vê essa opção; só o Preposto abre `/gestao`, pausa com esse motivo e é levado ao `SubmitCotacaoDialog` (que também mora em `chamados-atribuidos/[id]/_components/`, reaproveitado aqui).
+- **Atribuição por especialidade, com fallback.** `assignTicketAction` busca o `subtypeId` do serviço catalogado do chamado, filtra técnicos com essa especialidade em `specialties` e carga abaixo de `maxAssignedTickets` (padrão 5); sem técnico preferido disponível, cai em `findBestTechnician` (fallback automático).
+
+## Gotchas
+
+- **`ACTIVE_STATUSES` está duplicado, não centralizado.** `['validado', 'em atendimento']` aparece hand-rolled em pelo menos 5 lugares: `gestao/actions.ts`, `app/(dashboard)/dashboard/actions.ts`, `app/api/gestao/chamados/[id]/eligible-technicians/route.ts`, `eligible-technicians-reassign/route.ts`, e a lateral por perfil de `/conversas` usa um conjunto parecido mas não igual (`CHAMADO_STATUS_ATIVOS_TECNICO` em `shared/chamados/chamado.constants.ts`, spec 0005). Um status novo de "ativo" (ex.: uma nova pausa) exige revisar todos esses pontos à mão; não há uma fonte única ainda.
+- **Corrida conhecida na contagem de carga do técnico.** `assignTicketAction` conta `ChamadoModel.countDocuments` e depois faz `findOneAndUpdate` separado; os dois não são atômicos (Mongo de produção roda standalone, sem transação). Duas atribuições concorrentes ao mesmo técnico podem estourar `maxAssignedTickets` em 1. Documentado como dívida técnica no próprio código (comentário em `assignTicketAction`), corrigir exigiria transação ou um contador denormalizado no `User`.
+- **A cotação atravessa duas áreas.** `submitCotacaoAction` (o técnico ou o Preposto envia) e `approveCotacaoAction`/`rejectCotacaoAction` (só o Preposto aprova) vivem em `chamados-atribuidos/cotacao.actions.ts`, não aqui, mesmo a aprovação acontecendo nesta tela via `CotacaoApprovalCard`.
+
+_Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

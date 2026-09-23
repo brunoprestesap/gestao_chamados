@@ -25,7 +25,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 11  | Tela de chat de chamados                           | Slice 1    | done     |
 | 12  | Abertura do chamado pela IA                        | Slice 1    | done     |
 | 13  | Andamento e conversa com o técnico                 | Slice 2    | done     |
-| 14  | Calibração da trava de confiança                   | Slice 3    | planned  |
+| 14  | Calibração da trava de confiança                   | Slice 3    | done     |
 | 15  | Prioridade e SLA automáticos                       | Slice 3    | planned  |
 | 16  | Atribuição automática ao técnico                   | Slice 3    | planned  |
 | 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned  |
@@ -157,12 +157,18 @@ spec [0005](../specs/0005-andamento-conversa-tecnico/index.md) · code in `app/(
 
 ## Slice 3: IA decide prioridade e técnico
 
-### 14. Calibração da trava de confiança · needs a decision
+### 14. Calibração da trava de confiança · done
 
 Como a liberação é para todos de uma vez, a IA é medida contra chamados que os Prepostos já classificaram antes de decidir sozinha, e o limite de confiança sai dessa medição.
 **Done when:** o acerto da IA em serviço e prioridade é medido sobre chamados históricos; o limite de confiança é definido a partir disso e o Admin pode ajustá-lo; o Admin desliga a autonomia sem deploy e tudo volta para a triagem manual.
+spec [0006](../specs/0006-calibracao-trava-confianca/index.md) · code in `lib/ia-confianca/`, `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`
 
-- [ ] Design it (spec): `/architect calibração da trava de confiança`
+- [x] Design it (spec): `/architect calibração da trava de confiança`
+- [x] Build it: `/develop calibração da trava de confiança`
+  - [x] Configuração de ponta a ponta: `IaAutonomiaConfig`, `lib/ia-confianca/calibragem.ts` lendo o veredito já gravado em `DecisaoIa.situacao`, tela e formulário salvando · AC-1, AC-5, AC-6, AC-8, AC-9, AC-10
+  - [x] Relatório completo: tabela de cortes de confiança, sugestão automática respeitando a meta e a amostra mínima, aviso de viés no serviço, conferência de que nada mais lê a config ainda · AC-2, AC-3, AC-4, AC-7, AC-11
+- [x] Verify it: `/check verify calibração da trava de confiança`
+- [x] Test it: `/test calibração da trava de confiança`
 
 ### 15. Prioridade e SLA automáticos · needs a decision · GA
 
@@ -232,6 +238,8 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Leitor de tela de verdade no AC-18**: o `/check verify` da 0004 conferiu a região ao vivo programaticamente (o texto que ela recebe bate com o esperado), mas sem NVDA ou outro leitor de tela instalado nesta máquina para ouvir o anúncio de verdade; rodar quando houver um leitor de tela disponível · from spec 0004
 - **Cotação, observação de material e pausa por terceiros na conversa**: hoje ficam fora do sinal ao vivo de `/conversas`; considerar se a gestão sentir falta · from spec 0005
 - **Aviso de reatribuição de técnico**: `reatribuicao_tecnico` não emite nenhum evento hoje; se o solicitante precisar saber quando o técnico muda, cobrir numa fatia futura · from spec 0005
+- **Viés de concordância no acerto de serviço**: o Preposto vê a sugestão de serviço pré preenchida na classificação, então o número medido mede concordância, não um julgamento independente; considerar esconder a sugestão também na classificação se o viés atrapalhar a calibração · from spec 0006
+- **Reprocessamento retroativo pra calibração**: se o volume de chamados pelo chat crescer devagar, considerar rodar a IA contra chamados antigos do formulário pra engordar a amostra de acurácia, custeando as chamadas extras ao vLLM · from spec 0006
 
 ## Legend
 
