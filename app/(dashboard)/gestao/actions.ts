@@ -165,6 +165,17 @@ export async function classificarChamadoAction(
       observacoes,
     });
 
+    // Aviso ao vivo para o solicitante, se estiver com a conversa aberta (spec 0005, AC-1).
+    const classifiedByUser = await UserModel.findById(session.userId).select('name').lean();
+    await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:classified', {
+      ticketId: String(doc._id),
+      ticketNumber: doc.ticket_number,
+      title: doc.titulo,
+      classifiedBy: { id: session.userId, name: classifiedByUser?.name ?? undefined },
+      finalPriority,
+      at: now.toISOString(),
+    });
+
     // A triagem é o veredito da gestão sobre o que a IA propôs (spec 0002).
     // Chamado de formulário não tem decisão e o gancho sai em silêncio.
     await aplicarVeredito({
@@ -739,6 +750,14 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
       () => {},
     );
     await emitToRoom(`user:${technicianIdStr}`, 'ticket:assigned', ticketAssignedPayload);
+    // O solicitante recebe o mesmo aviso, para ver a atribuição ao vivo na
+    // própria conversa (spec 0005, AC-2). O cliente decide texto e link pelo
+    // `userId` recebido, comparado a `assignedTo.id`.
+    await emitToRoom(
+      `user:${String(updateResult.solicitanteId)}`,
+      'ticket:assigned',
+      ticketAssignedPayload,
+    );
 
     // Veredito da gestão sobre o técnico que a IA sugeriu (spec 0002).
     await aplicarVeredito({

@@ -159,3 +159,30 @@ describe('ChamadoModel · índice da lateral de conversas (spec 0003)', () => {
     expect(Object.values(lateral?.[0] ?? {})).toEqual([1, -1, -1]);
   });
 });
+
+// ── índice da lateral do técnico em /conversas · spec 0005, AC-8 ─
+
+describe('ChamadoModel · índice da lateral do técnico (spec 0005)', () => {
+  it('inclui o `_id`, pelo mesmo motivo do índice do solicitante', () => {
+    // Act
+    const lateral = indicePor(['assignedToUserId', 'updatedAt', '_id']);
+
+    // Assert: sem o `_id` o Mongo lê todos os chamados do técnico e ordena em
+    // memória, mesmo usando o índice só para filtrar
+    expect(lateral?.[0]).toEqual({ assignedToUserId: 1, updatedAt: -1, _id: -1 });
+  });
+
+  it('não substitui o índice antigo de assignedToUserId, usado para carga', () => {
+    // Assert: `{ assignedToUserId, status }` ainda serve a contagem de carga
+    // do técnico em outras telas; os dois índices convivem
+    expect(indicePor(['assignedToUserId', 'status'])).toBeDefined();
+  });
+
+  it('a ordem das chaves acompanha a ordenação da consulta', () => {
+    // Act
+    const lateral = indicePor(['assignedToUserId', 'updatedAt', '_id']);
+
+    // Assert
+    expect(Object.values(lateral?.[0] ?? {})).toEqual([1, -1, -1]);
+  });
+});

@@ -12,6 +12,16 @@ export interface TicketAssignedPayload {
   at: string;
 }
 
+/** Payload quando a gestão classifica um chamado aberto (notificação para o Solicitante). */
+export interface TicketClassifiedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  classifiedBy: { id: string; name?: string };
+  finalPriority: string;
+  at: string;
+}
+
 /** Payload quando um solicitante abre um novo chamado (notificação para Preposto/Admin). */
 export interface TicketNewPayload {
   ticketId: string;
@@ -182,6 +192,7 @@ export interface TicketQuoteRejectedPayload {
 
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
+  'ticket:classified': (payload: TicketClassifiedPayload) => void;
   'ticket:new': (payload: TicketNewPayload) => void;
   'ticket:execution_registered': (payload: TicketExecutionRegisteredPayload) => void;
   'ticket:closed': (payload: TicketClosedPayload) => void;

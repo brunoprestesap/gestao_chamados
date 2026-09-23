@@ -662,7 +662,7 @@ describe('addCommentAction — notificações', () => {
     expect(emitCalls).toContain('managers');
   });
 
-  it('não deve emitir para sala managers quando comentário é interno', async () => {
+  it('emite para sala managers mesmo quando comentário é interno (spec 0005)', async () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_TECNICO);
     mockChamadoFindById.mockReturnValue(makeFindByIdChain(makeChamadoDoc()));
@@ -675,12 +675,12 @@ describe('addCommentAction — notificações', () => {
     // Act
     await addCommentAction(input);
 
-    // Assert
+    // Assert: a gestão também enxerga comentário interno, a leitura já filtra por papel
     const emitCalls = mockEmitToRoom.mock.calls.map((c) => c[0]);
-    expect(emitCalls).not.toContain('managers');
+    expect(emitCalls).toContain('managers');
   });
 
-  it('não deve emitir para sala managers quando autor já é gestor', async () => {
+  it('emite para sala managers mesmo quando autor já é gestor (spec 0005)', async () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
     mockChamadoFindById.mockReturnValue(
@@ -695,9 +695,9 @@ describe('addCommentAction — notificações', () => {
     // Act
     await addCommentAction(input);
 
-    // Assert
+    // Assert: outro gestor com o mesmo chamado aberto também precisa ver
     const emitCalls = mockEmitToRoom.mock.calls.map((c) => c[0]);
-    expect(emitCalls).not.toContain('managers');
+    expect(emitCalls).toContain('managers');
   });
 
   it('deve persistir notificação no MongoDB para cada destinatário', async () => {

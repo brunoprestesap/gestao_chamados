@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { CONVERSA_FALHAS } from '@/shared/conversas/conversa.constants';
 
-import { EXEMPLOS, FALHA_FRASES, FALHA_REDE, fraseDaFalha } from '../_constants';
+import {
+  COMENTARIO_FRASES,
+  EXEMPLOS,
+  FALHA_FRASES,
+  FALHA_REDE,
+  fraseDaFalha,
+  fraseDoComentario,
+} from '../_constants';
 
 /**
  * O texto fixo da tela (spec 0003). O que importa aqui é uma promessa só:
@@ -59,6 +66,38 @@ describe('fraseDaFalha', () => {
     // Assert
     expect(frase).toContain('5');
     expect(frase.toLowerCase()).toMatch(/descarte|termine/);
+  });
+});
+
+// ── a frase da rota de comentário · spec 0005 ────────────────────
+
+describe('fraseDoComentario', () => {
+  it('tem frase própria para todo motivo que a rota devolve', () => {
+    // Act & Assert
+    for (const motivo of Object.keys(COMENTARIO_FRASES)) {
+      expect(fraseDoComentario(motivo)).toBe(
+        COMENTARIO_FRASES[motivo as keyof typeof COMENTARIO_FRASES],
+      );
+    }
+  });
+
+  it('cai na frase de rede quando não veio motivo nenhum', () => {
+    // Act & Assert
+    expect(fraseDoComentario(null)).toBe(FALHA_REDE);
+    expect(fraseDoComentario(undefined)).toBe(FALHA_REDE);
+    expect(fraseDoComentario('')).toBe(FALHA_REDE);
+  });
+
+  it('cai na frase de rede num motivo que a rota nunca manda', () => {
+    // Act & Assert: melhor uma frase genérica do que texto técnico vazando
+    expect(fraseDoComentario('motivo_que_nao_existe')).toBe(FALHA_REDE);
+  });
+
+  it('nunca devolve o motivo cru', () => {
+    // Act & Assert
+    for (const motivo of Object.keys(COMENTARIO_FRASES)) {
+      expect(fraseDoComentario(motivo)).not.toBe(motivo);
+    }
   });
 });
 

@@ -371,4 +371,39 @@ rodar('linha do tempo e visibilidade, contra o Mongo', () => {
     ).toEqual({ ok: false, reason: 'sem_permissao' });
     expect((await lerLinhaDoTempo(tecnico, aberto.chamadoId)).ok).toBe(true);
   });
+
+  it('podeComentarInterno e souSolicitante saem certos para cada papel (spec 0005)', async () => {
+    await semear();
+    const { chamadoId } = await chamadoPronto();
+    await ChamadoModel.updateOne({ _id: chamadoId }, { $set: { assignedToUserId: tecnicoId } });
+
+    const daGestao = await lerLinhaDoTempo(preposto, chamadoId);
+    expect(daGestao.ok).toBe(true);
+    if (daGestao.ok) {
+      expect(daGestao.podeComentarInterno).toBe(true);
+      expect(daGestao.souSolicitante).toBe(false);
+    }
+
+    const doTecnicoAtribuido = await lerLinhaDoTempo(tecnico, chamadoId);
+    expect(doTecnicoAtribuido.ok).toBe(true);
+    if (doTecnicoAtribuido.ok) {
+      expect(doTecnicoAtribuido.podeComentarInterno).toBe(true);
+      expect(doTecnicoAtribuido.souSolicitante).toBe(false);
+    }
+
+    const doSolicitante = await lerLinhaDoTempo(viewer, chamadoId);
+    expect(doSolicitante.ok).toBe(true);
+    if (doSolicitante.ok) {
+      // O solicitante puro não escolhe interno e não avalia por outra pessoa.
+      expect(doSolicitante.podeComentarInterno).toBe(false);
+      expect(doSolicitante.souSolicitante).toBe(true);
+    }
+
+    // Um técnico que existe mas não é o atribuído a este chamado nem lê.
+    const outroTecnico: Viewer = { userId: String(outroTecnicoId), role: 'Técnico' };
+    expect(await lerLinhaDoTempo(outroTecnico, chamadoId)).toEqual({
+      ok: false,
+      reason: 'sem_permissao',
+    });
+  });
 });

@@ -294,7 +294,7 @@ describe('criarComentario · visibilidade', () => {
     expect(destinatarios()).not.toContain(SOLICITANTE_ID);
   });
 
-  it('não emite para a sala da gestão em comentário interno', async () => {
+  it('emite para a sala da gestão mesmo em comentário interno', async () => {
     // Arrange
     const interno = params({
       autorUserId: TECNICO_ID,
@@ -305,8 +305,8 @@ describe('criarComentario · visibilidade', () => {
     // Act
     await criarComentario(interno);
 
-    // Assert
-    expect(salasAvisadas()).not.toContain('managers');
+    // Assert: a gestão também enxerga comentário interno (spec 0005)
+    expect(salasAvisadas()).toContain('managers');
   });
 
   it('avisa o técnico atribuído mesmo em comentário interno', async () => {
@@ -322,6 +322,21 @@ describe('criarComentario · visibilidade', () => {
 
     // Assert
     expect(salasAvisadas()).toContain(`user:${TECNICO_ID}`);
+  });
+
+  it('emite para a sala da gestão mesmo quando é a própria gestão comentando em interno', async () => {
+    // Arrange: a combinação que faltava, autor gestor e visibilidade interna
+    const internoDoGestor = params({
+      autorUserId: GESTOR_ID,
+      autorRole: 'Preposto',
+      visibility: 'interno',
+    });
+
+    // Act
+    await criarComentario(internoDoGestor);
+
+    // Assert: a emissão para `managers` é incondicional (spec 0005)
+    expect(salasAvisadas()).toContain('managers');
   });
 });
 
@@ -357,15 +372,15 @@ describe('criarComentario · avisos', () => {
     expect(salasAvisadas()).not.toContain(`user:${TECNICO_ID}`);
   });
 
-  it('não emite para a sala da gestão quando quem comenta é da gestão', async () => {
+  it('emite para a sala da gestão mesmo quando quem comenta é da gestão', async () => {
     // Arrange
     const daGestao = params({ autorUserId: GESTOR_ID, autorRole: 'Admin' });
 
     // Act
     await criarComentario(daGestao);
 
-    // Assert: gestor já está na sala, o aviso só voltaria para ele
-    expect(salasAvisadas()).not.toContain('managers');
+    // Assert: outro gestor com o mesmo chamado aberto também precisa ver (spec 0005)
+    expect(salasAvisadas()).toContain('managers');
   });
 
   it('grava notificação para cada gestor ativo, menos o autor', async () => {

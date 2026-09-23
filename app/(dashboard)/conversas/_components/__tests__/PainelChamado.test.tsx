@@ -2,7 +2,12 @@
 import '@testing-library/jest-dom/vitest';
 
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock('@/app/(dashboard)/meus-chamados/actions', () => ({
+  submitTicketEvaluationAction: vi.fn(),
+}));
 
 import type { LeituraChamado } from '../../_types';
 import { PainelChamado } from '../PainelChamado';
@@ -22,10 +27,15 @@ function leitura(over: Partial<LeituraChamado> = {}): LeituraChamado {
     ticketNumber: 'CHM-2026-00412',
     titulo: 'Lâmpada queimada no corredor',
     situacao: 'Em atendimento',
+    statusChave: 'em atendimento',
     abertoEm: new Date('2026-09-17T11:40:00.000Z').toISOString(),
     marca: null,
     itens: [],
     truncado: false,
+    podeComentarInterno: false,
+    assignedToUserId: null,
+    avaliacaoRating: null,
+    souSolicitante: true,
     ...over,
   };
 }
@@ -138,27 +148,34 @@ describe('PainelChamado · cabeçalho', () => {
 
 // ── modo leitura · AC-10 ─────────────────────────────────────────
 
+describe('PainelChamado · caixa de comentário', () => {
+  it('tem a caixa de escrever um comentário (spec 0005, AC-5)', () => {
+    // Act
+    render(<PainelChamado leitura={leitura()} />);
+
+    // Assert
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /enviar comentário/i })).toBeInTheDocument();
+  });
+
+  it('não mostra o alternador público/interno para quem não pode comentário interno', () => {
+    // Act
+    render(<PainelChamado leitura={leitura({ podeComentarInterno: false })} />);
+
+    // Assert
+    expect(screen.queryByRole('button', { name: /^(público|interno)$/i })).not.toBeInTheDocument();
+  });
+
+  it('mostra o alternador público/interno para quem pode (spec 0005, AC-7)', () => {
+    // Act
+    render(<PainelChamado leitura={leitura({ podeComentarInterno: true })} />);
+
+    // Assert
+    expect(screen.getByRole('button', { name: /^público$/i })).toBeInTheDocument();
+  });
+});
+
 describe('PainelChamado · modo leitura', () => {
-  it('não tem caixa de envio nenhuma', () => {
-    // Act
-    render(<PainelChamado leitura={leitura()} />);
-
-    // Assert
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-  });
-
-  it('explica que para falar com quem atende se usa os comentários', () => {
-    // Act
-    render(<PainelChamado leitura={leitura()} />);
-
-    // Assert
-    expect(screen.getByText(/modo leitura/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ir para os comentários/i })).toHaveAttribute(
-      'href',
-      `/meus-chamados/${CHAMADO_ID}`,
-    );
-  });
-
   it('avisa quando a conversa é longa e só a parte recente aparece', () => {
     // Act
     render(<PainelChamado leitura={leitura({ truncado: true })} />);

@@ -190,6 +190,10 @@ ChamadoSchema.index({ unitId: 1, status: 1 });
 ChamadoSchema.index({ tipoServico: 1, status: 1 });
 ChamadoSchema.index({ naturezaAtendimento: 1 });
 ChamadoSchema.index({ assignedToUserId: 1, status: 1 });
+// Lateral de `/conversas` do técnico: os chamados atribuídos a ele por data de
+// mudança. O índice acima ({ assignedToUserId: 1, status: 1 }) não serve para
+// paginar por data, pelo mesmo motivo do índice do solicitante logo acima.
+ChamadoSchema.index({ assignedToUserId: 1, updatedAt: -1, _id: -1 });
 ChamadoSchema.index({ status: 1, 'sla.resolutionDueAt': 1 }, { sparse: true });
 ChamadoSchema.index({ 'sla.computedAt': 1 }, { sparse: true });
 ChamadoSchema.index({ status: 1, updatedAt: -1 });

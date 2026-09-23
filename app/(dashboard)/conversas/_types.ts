@@ -90,6 +90,8 @@ export type LeituraChamado = {
   titulo: string;
   /** Rótulo da situação, já traduzido. */
   situacao: string;
+  /** `Chamado.status` cru, no mesmo padrão que `ItemLateral.statusChave` (spec 0005). */
+  statusChave: string;
   /** ISO de `Chamado.createdAt`. */
   abertoEm: string;
   /** `Aberto pelo chat`, com ou sem `serviço sugerido pela IA`; nulo no formulário (spec 0004). */
@@ -97,4 +99,12 @@ export type LeituraChamado = {
   itens: ItemLeitura[];
   /** Verdadeiro quando alguma fonte bateu no teto e foi cortada. */
   truncado: boolean;
+  /** Gestão ou técnico atribuído: quem vê o alternador público/interno (spec 0005). */
+  podeComentarInterno: boolean;
+  /** Nulo quando o chamado ainda não tem técnico atribuído (spec 0005). */
+  assignedToUserId: string | null;
+  /** Nulo quando o chamado ainda não foi avaliado (spec 0005). */
+  avaliacaoRating: number | null;
+  /** Só o solicitante dono vê o convite para avaliar (spec 0005, AC-10). */
+  souSolicitante: boolean;
 };

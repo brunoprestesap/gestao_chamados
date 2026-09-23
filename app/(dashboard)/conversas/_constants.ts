@@ -36,8 +36,27 @@ export const RESPONDENDO_TEXTO = 'O assistente está respondendo';
 export const RASCUNHO_APOIO = 'Ainda não virou chamado';
 export const RASCUNHO_EXPLICACAO = 'Guardado por 30 dias. Ainda não é um chamado.';
 
-export const LEITURA_EXPLICACAO =
-  'Esta conversa está em modo leitura. Para falar com quem está atendendo, use os comentários na página do chamado.';
+// ---------------------------------------------------------------------------
+// Caixa de comentário do chamado (spec 0005)
+// ---------------------------------------------------------------------------
+
+export const COMENTARIO_PLACEHOLDER = 'Escreva uma mensagem sobre este chamado';
+export const COMENTARIO_DICA = 'Enter envia. Shift e Enter quebram a linha.';
+export const COMENTARIO_PUBLICO_ROTULO = 'Público';
+export const COMENTARIO_INTERNO_ROTULO = 'Interno';
+export const COMENTARIO_ALTERNAR_DICA = 'Comentário interno: só a gestão e o técnico veem.';
+
+/** Uma frase por motivo de falha da rota de comentário. Nenhum motivo cru na tela. */
+export const COMENTARIO_FRASES: Record<'invalida' | 'nao_encontrada' | 'erro', string> = {
+  invalida: 'Escreva o comentário antes de enviar. O limite é de 5.000 caracteres.',
+  nao_encontrada: 'Não foi possível enviar. Recarregue a página e tente de novo.',
+  erro: 'Não deu para enviar agora. Tente de novo em instantes.',
+};
+
+export function fraseDoComentario(motivo: string | null | undefined): string {
+  if (!motivo) return FALHA_REDE;
+  return COMENTARIO_FRASES[motivo as keyof typeof COMENTARIO_FRASES] ?? FALHA_REDE;
+}
 
 export const NAO_SALVA_AVISO =
   'Esta resposta não ficou salva e não vai aparecer quando você recarregar a página.';

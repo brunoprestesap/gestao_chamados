@@ -15,7 +15,8 @@ vi.mock('@/lib/dal', () => ({
 }));
 
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
-vi.mock('@/lib/realtime-emit', () => ({ emitToRoom: vi.fn().mockResolvedValue(true) }));
+const mockEmitToRoom = vi.fn().mockResolvedValue(true);
+vi.mock('@/lib/realtime-emit', () => ({ emitToRoom: (...a: unknown[]) => mockEmitToRoom(...a) }));
 // O gancho das decisões da IA tem os testes dele em `lib/conversas/__tests__`,
 // contra o Mongo de verdade. Aqui ele só não pode atrapalhar a ação de negócio.
 vi.mock('@/lib/conversas/decisoes', () => ({
@@ -149,7 +150,11 @@ describe('classificarChamadoAction', () => {
   });
 
   it('classifica com sucesso e cria histórico', async () => {
-    mockChamadoFindById.mockResolvedValue({ _id: VALID_ID, status: 'aberto' });
+    mockChamadoFindById.mockResolvedValue({
+      _id: VALID_ID,
+      status: 'aberto',
+      solicitanteId: new Types.ObjectId(),
+    });
     mockSlaFindOne.mockReturnValue({
       lean: () =>
         Promise.resolve({
@@ -160,6 +165,9 @@ describe('classificarChamadoAction', () => {
         }),
     });
     mockChamadoUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockUserFindById.mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve({ name: 'Admin' }) }),
+    });
 
     const result = await classificarChamadoAction(validInput);
     expect(result).toEqual({ ok: true });
@@ -176,10 +184,14 @@ describe('classificarChamadoAction', () => {
     expect(setFields['sla.configVersion']).toBe('v1');
   });
 
-  it('define subtypeId e catalogServiceId na classificação', async () => {
+  it('emite ticket:classified para a sala do solicitante (spec 0005, AC-1)', async () => {
+    const solicitanteId = new Types.ObjectId();
     mockChamadoFindById.mockResolvedValue({
       _id: VALID_ID,
       status: 'aberto',
+      solicitanteId,
+      ticket_number: 'CHM-2026-00001',
+      titulo: 'Lâmpada queimada',
     });
     mockSlaFindOne.mockReturnValue({
       lean: () =>
@@ -191,6 +203,42 @@ describe('classificarChamadoAction', () => {
         }),
     });
     mockChamadoUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockUserFindById.mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve({ name: 'Preposto E2E' }) }),
+    });
+
+    const result = await classificarChamadoAction(validInput);
+    expect(result).toEqual({ ok: true });
+
+    const chamado = mockEmitToRoom.mock.calls.find((c) => c[1] === 'ticket:classified');
+    expect(chamado).toBeDefined();
+    expect(chamado?.[0]).toBe(`user:${String(solicitanteId)}`);
+    expect(chamado?.[2]).toMatchObject({
+      ticketId: VALID_ID,
+      ticketNumber: 'CHM-2026-00001',
+      finalPriority: 'NORMAL',
+    });
+  });
+
+  it('define subtypeId e catalogServiceId na classificação', async () => {
+    mockChamadoFindById.mockResolvedValue({
+      _id: VALID_ID,
+      status: 'aberto',
+      solicitanteId: new Types.ObjectId(),
+    });
+    mockSlaFindOne.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          responseTargetMinutes: 120,
+          resolutionTargetMinutes: 480,
+          businessHoursOnly: true,
+          version: 'v1',
+        }),
+    });
+    mockChamadoUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockUserFindById.mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve({ name: 'Admin' }) }),
+    });
 
     const result = await classificarChamadoAction(validInput);
     expect(result).toEqual({ ok: true });
@@ -341,11 +389,13 @@ describe('assignTicketAction', () => {
       });
 
     mockChamadoCountDocuments.mockResolvedValue(2); // abaixo do limite
+    const solicitanteId = new Types.ObjectId();
     mockChamadoFindOneAndUpdate.mockResolvedValue({
       _id: VALID_ID,
       ticket_number: 'T-001',
       titulo: 'Teste',
       status: 'em atendimento',
+      solicitanteId,
     });
 
     const result = await assignTicketAction(validInput);
@@ -356,6 +406,18 @@ describe('assignTicketAction', () => {
     }
     expect(mockHistoryCreate).toHaveBeenCalledOnce();
     expect(mockNotificationCreate).toHaveBeenCalledOnce();
+
+    // spec 0005, AC-2: o solicitante recebe o mesmo aviso, numa sala própria.
+    const paraTecnico = mockEmitToRoom.mock.calls.find(
+      (c) => c[0] === `user:${VALID_TECH_ID}` && c[1] === 'ticket:assigned',
+    );
+    const paraSolicitante = mockEmitToRoom.mock.calls.find(
+      (c) => c[0] === `user:${String(solicitanteId)}` && c[1] === 'ticket:assigned',
+    );
+    expect(paraTecnico).toBeDefined();
+    expect(paraSolicitante).toBeDefined();
+    // O mesmo payload vai para os dois: o cliente decide o texto pelo `userId`.
+    expect(paraSolicitante?.[2]).toEqual(paraTecnico?.[2]);
   });
 
   it('faz fallback quando técnico preferido está sobrecarregado', async () => {

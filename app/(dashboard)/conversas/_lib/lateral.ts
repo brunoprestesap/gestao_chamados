@@ -5,7 +5,12 @@ import { Types } from 'mongoose';
 import { listarRascunhos, type Viewer } from '@/lib/conversas';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
-import { CHAMADO_STATUS_LABELS, type ChamadoStatus } from '@/shared/chamados/chamado.constants';
+import {
+  CHAMADO_STATUS_ATIVOS_TECNICO,
+  CHAMADO_STATUS_LABELS,
+  CHAMADO_STATUS_NAO_FINALIZADOS,
+  type ChamadoStatus,
+} from '@/shared/chamados/chamado.constants';
 
 import { RASCUNHO_APOIO } from '../_constants';
 import type { CursorLateral, ItemLateral } from '../_types';
@@ -78,15 +83,34 @@ function chamadoParaItem(chamado: ChamadoDaLateral): ItemLateral {
 }
 
 /**
- * Os chamados do solicitante, do mais recente para o mais antigo, com cursor
- * composto de `updatedAt` mais `_id`: data igual nunca repete nem esconde
- * chamado. Usa o índice `{ solicitanteId: 1, updatedAt: -1 }`.
+ * O filtro base por papel (spec 0005, AC-8): o solicitante vê só os próprios
+ * chamados, como sempre; o técnico vê os que estão atribuídos a ele e ainda
+ * ativos; a gestão vê os que ainda não foram encerrados nem cancelados.
+ */
+function filtroPorPapel(viewer: Viewer): Record<string, unknown> {
+  if (viewer.role === 'Técnico') {
+    return {
+      assignedToUserId: new Types.ObjectId(viewer.userId),
+      status: { $in: CHAMADO_STATUS_ATIVOS_TECNICO },
+    };
+  }
+  if (viewer.role === 'Admin' || viewer.role === 'Preposto') {
+    return { status: { $in: CHAMADO_STATUS_NAO_FINALIZADOS } };
+  }
+  return { solicitanteId: new Types.ObjectId(viewer.userId) };
+}
+
+/**
+ * Os chamados do papel de quem vê, do mais recente para o mais antigo, com
+ * cursor composto de `updatedAt` mais `_id`: data igual nunca repete nem
+ * esconde chamado. Usa o índice `{ solicitanteId: 1, updatedAt: -1, _id: -1 }`
+ * (solicitante) ou `{ assignedToUserId: 1, updatedAt: -1, _id: -1 }` (técnico).
  */
 export async function lerChamadosDaLateral(
   viewer: Viewer,
   antesDe?: CursorLateral | null,
 ): Promise<{ itens: ItemLateral[]; temMais: boolean }> {
-  const filtro: Record<string, unknown> = { solicitanteId: new Types.ObjectId(viewer.userId) };
+  const filtro: Record<string, unknown> = filtroPorPapel(viewer);
 
   if (antesDe) {
     const em = new Date(antesDe.em);

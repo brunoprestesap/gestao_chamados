@@ -101,6 +101,26 @@ describe('emitToRoom', () => {
     expect(result).toBe(false);
   });
 
+  it('aceita o evento novo ticket:classified (spec 0005)', async () => {
+    process.env.SOCKET_INTERNAL_SECRET = 'test-secret';
+    process.env.SOCKET_EMIT_URL = 'http://localhost:3001/emit';
+
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const emitToRoom = await loadModule();
+    const result = await emitToRoom('user:1', 'ticket:classified', {
+      ticketId: '42',
+      classifiedBy: { id: '1', name: 'Preposto' },
+      finalPriority: 'NORMAL',
+      at: '2024-01-01T00:00:00Z',
+    });
+
+    expect(result).toBe(true);
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.event).toBe('ticket:classified');
+  });
+
   it('envia body correto com room, event e payload', async () => {
     process.env.SOCKET_INTERNAL_SECRET = 'test-secret';
     process.env.SOCKET_EMIT_URL = 'http://localhost:3001/emit';
