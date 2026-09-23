@@ -6,17 +6,17 @@ Desde a spec 0005, a tela é dos quatro perfis (solicitante, técnico, Preposto,
 
 ## Como a tela se divide
 
-| Arquivo                | O que faz                                                                                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `layout.tsx`           | Monta a lateral no servidor e envolve as duas rotas no `ConversasShell`                                                                             |
-| `page.tsx`             | Boas vindas da conversa nova. Não grava nada: a conversa nasce no envio                                                                             |
-| `[id]/page.tsx`        | Resolve o `id` como conversa primeiro e como chamado depois                                                                                         |
-| `_lib/lateral.ts`      | A lateral: rascunhos por `listarRascunhos`, chamados por cursor composto, com o filtro variando por papel desde a spec 0005 (`filtroPorPapel`)      |
-| `_lib/leitura.ts`      | O chamado em modo leitura/acompanhamento, pela `lerLinhaDoTempo` de `lib/conversas`; também monta `statusChave`, `podeComentarInterno`, `souSolicitante` e `avaliacaoRating` (spec 0005)  |
-| `_components/`         | `ConversasShell` (quadro e tempo real), `ListaLateral`, `PainelConversa`, `PainelChamado`, `ComentarioComposer` (caixa de comentário, spec 0005), `Mensagens`, `Composer`, `DescartarRascunho`, `useEnvio` |
-| `_constants.ts`        | Todo o texto fixo da tela, inclusive uma frase por motivo de falha de `lib/conversas` e uma por motivo da rota de comentário (`COMENTARIO_FRASES`)  |
-| `_types.ts`            | O modelo de leitura que atravessa para o cliente: só valor simples, datas em ISO                                                                    |
-| `actions.ts`           | As duas Server Actions: `Carregar mais` e descartar rascunho                                                                                        |
+| Arquivo                | O que faz                                                                                                                                                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layout.tsx`           | Monta a lateral no servidor e envolve as duas rotas no `ConversasShell`                                                                                                                                               |
+| `page.tsx`             | Boas vindas da conversa nova. Não grava nada: a conversa nasce no envio                                                                                                                                               |
+| `[id]/page.tsx`        | Resolve o `id` como conversa primeiro e como chamado depois                                                                                                                                                           |
+| `_lib/lateral.ts`      | A lateral: rascunhos por `listarRascunhos`, chamados por cursor composto, com o filtro variando por papel desde a spec 0005 (`filtroPorPapel`)                                                                        |
+| `_lib/leitura.ts`      | O chamado em modo leitura/acompanhamento, pela `lerLinhaDoTempo` de `lib/conversas`; também monta `statusChave`, `podeComentarInterno`, `souSolicitante` e `avaliacaoRating` (spec 0005)                              |
+| `_components/`         | `ConversasShell` (quadro e tempo real), `ListaLateral`, `PainelConversa`, `PainelChamado`, `ComentarioComposer` (caixa de comentário, spec 0005), `Mensagens`, `Composer`, `DescartarRascunho`, `useEnvio`            |
+| `_constants.ts`        | Todo o texto fixo da tela, inclusive uma frase por motivo de falha de `lib/conversas` e uma por motivo da rota de comentário (`COMENTARIO_FRASES`)                                                                    |
+| `_types.ts`            | O modelo de leitura que atravessa para o cliente: só valor simples, datas em ISO                                                                                                                                      |
+| `actions.ts`           | As duas Server Actions: `Carregar mais` e descartar rascunho                                                                                                                                                          |
 | `../../api/conversas/` | `mensagens/route.ts` (conversa nova), `[id]/mensagens/route.ts` (continua), `_lib/fluxo.ts` (o que as duas compartilham), `chamado/[chamadoId]/comentarios/route.ts` (comentário no chamado, JSON simples, spec 0005) |
 
 ## Regras que valem aqui

@@ -96,7 +96,9 @@ export async function lerChamadoEmLeitura(
   if (!linha.ok) return { ok: false, reason: linha.reason };
 
   const chamado = await ChamadoModel.findById(chamadoId)
-    .select('ticket_number titulo status createdAt canalAbertura assignedToUserId evaluation.rating')
+    .select(
+      'ticket_number titulo status createdAt canalAbertura assignedToUserId evaluation.rating',
+    )
     .lean();
   if (!chamado) return { ok: false, reason: 'nao_encontrada' };
 

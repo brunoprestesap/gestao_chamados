@@ -112,7 +112,9 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
 
   // Encerrado, ainda não avaliado e só para o solicitante dono (spec 0005, AC-10).
   const podeAvaliar =
-    leitura.souSolicitante && leitura.statusChave === 'encerrado' && leitura.avaliacaoRating == null;
+    leitura.souSolicitante &&
+    leitura.statusChave === 'encerrado' &&
+    leitura.avaliacaoRating == null;
   const jaAvaliado = leitura.statusChave === 'encerrado' && leitura.avaliacaoRating != null;
 
   return (
@@ -210,7 +212,10 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
         </div>
       ) : null}
 
-      <ComentarioComposer chamadoId={leitura.chamadoId} podeComentarInterno={leitura.podeComentarInterno} />
+      <ComentarioComposer
+        chamadoId={leitura.chamadoId}
+        podeComentarInterno={leitura.podeComentarInterno}
+      />
 
       <AvaliarChamadoDialog
         open={avaliarAberto}
