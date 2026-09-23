@@ -6,13 +6,13 @@ A tela do técnico: os chamados atribuídos a ele, e as ações do atendimento (
 
 ## Key files
 
-| Arquivo                                            | Owns                                                                                     |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `actions.ts`                                        | `registerExecutionAction`, `pauseTicketAction`, `resumeTicketAction`, `addMaterialObservationAction`, `pauseForRequesterAction`, `resumeFromRequesterAction` |
-| `cotacao.actions.ts`                                | `submitCotacaoAction` (compartilhada com `/gestao`), `approveCotacaoAction`, `rejectCotacaoAction` (usadas só por `/gestao`) |
-| `[id]/page.tsx`                                     | O painel do chamado, com `canPause`/`canRegisterExecution`/`canResume` derivados só do `status` do chamado, não do papel de quem vê |
-| `[id]/_components/PauseTicketDialog.tsx`            | O diálogo de pausa; motivo de cotação some do dropdown a menos que `userRole === 'Preposto'` (ver `AGENTS.md` de `gestao`) |
-| `[id]/_components/SubmitCotacaoDialog.tsx`          | Valor estimado, material/serviço, prazo; reaproveitado por `/gestao` quando o Preposto escolhe o motivo de cotação |
+| Arquivo                                    | Owns                                                                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `actions.ts`                               | `registerExecutionAction`, `pauseTicketAction`, `resumeTicketAction`, `addMaterialObservationAction`, `pauseForRequesterAction`, `resumeFromRequesterAction` |
+| `cotacao.actions.ts`                       | `submitCotacaoAction` (compartilhada com `/gestao`), `approveCotacaoAction`, `rejectCotacaoAction` (usadas só por `/gestao`)                                 |
+| `[id]/page.tsx`                            | O painel do chamado, com `canPause`/`canRegisterExecution`/`canResume` derivados só do `status` do chamado, não do papel de quem vê                          |
+| `[id]/_components/PauseTicketDialog.tsx`   | O diálogo de pausa; motivo de cotação some do dropdown a menos que `userRole === 'Preposto'` (ver `AGENTS.md` de `gestao`)                                   |
+| `[id]/_components/SubmitCotacaoDialog.tsx` | Valor estimado, material/serviço, prazo; reaproveitado por `/gestao` quando o Preposto escolhe o motivo de cotação                                           |
 
 ## Conventions
 

@@ -4,16 +4,16 @@ A tela `/configuracoes/ia-confianca` (Admin), que mede se a sugestão da IA (ser
 
 ## Arquivos
 
-| Arquivo | O que faz |
-| --- | --- |
-| `config.ts` | `lerConfig()`/`salvarConfig()`: o documento único (`chave: 'global'`), upsert com os padrões de fábrica na primeira leitura |
-| `calibragem.ts` | `medirCalibragem()`: lê `DecisaoIa` direto e calcula, na hora, a tabela de cortes de confiança, a sugestão automática e o total elegível por campo |
-| `../../models/IaAutonomiaConfig.ts` | O model Mongoose do documento único (`servico`, `prioridade`, `autonomiaAtiva`, `updatedByUserId`) |
-| `../../shared/ia-confianca/ia-confianca.schemas.ts` | `IA_CONFIANCA_CAMPOS`, `salvarIaAutonomiaConfigSchema` (Zod) |
-| `../../app/(dashboard)/configuracoes/ia-confianca/page.tsx` | Server Component: `requireAdmin()`, chama `lerConfig()` + `medirCalibragem()` |
-| `../../app/(dashboard)/configuracoes/ia-confianca/actions.ts` | `salvarIaAutonomiaConfigAction` (`requireAdmin()` dentro do `try`, mesmo padrão de `gestao/actions.ts`) |
-| `../../app/(dashboard)/configuracoes/ia-confianca/_components/RelatorioCampoCard.tsx` | Tabela de cortes por campo, traço quando a linha não tem decisão, aviso de viés só em `servico` |
-| `../../app/(dashboard)/configuracoes/ia-confianca/_components/IaConfiancaForm.tsx` | Formulário único (os dois campos + o interruptor), botão "Usar sugestão" |
+| Arquivo                                                                               | O que faz                                                                                                                                          |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.ts`                                                                           | `lerConfig()`/`salvarConfig()`: o documento único (`chave: 'global'`), upsert com os padrões de fábrica na primeira leitura                        |
+| `calibragem.ts`                                                                       | `medirCalibragem()`: lê `DecisaoIa` direto e calcula, na hora, a tabela de cortes de confiança, a sugestão automática e o total elegível por campo |
+| `../../models/IaAutonomiaConfig.ts`                                                   | O model Mongoose do documento único (`servico`, `prioridade`, `autonomiaAtiva`, `updatedByUserId`)                                                 |
+| `../../shared/ia-confianca/ia-confianca.schemas.ts`                                   | `IA_CONFIANCA_CAMPOS`, `salvarIaAutonomiaConfigSchema` (Zod)                                                                                       |
+| `../../app/(dashboard)/configuracoes/ia-confianca/page.tsx`                           | Server Component: `requireAdmin()`, chama `lerConfig()` + `medirCalibragem()`                                                                      |
+| `../../app/(dashboard)/configuracoes/ia-confianca/actions.ts`                         | `salvarIaAutonomiaConfigAction` (`requireAdmin()` dentro do `try`, mesmo padrão de `gestao/actions.ts`)                                            |
+| `../../app/(dashboard)/configuracoes/ia-confianca/_components/RelatorioCampoCard.tsx` | Tabela de cortes por campo, traço quando a linha não tem decisão, aviso de viés só em `servico`                                                    |
+| `../../app/(dashboard)/configuracoes/ia-confianca/_components/IaConfiancaForm.tsx`    | Formulário único (os dois campos + o interruptor), botão "Usar sugestão"                                                                           |
 
 ## Regras que valem aqui
 

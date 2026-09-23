@@ -25,7 +25,10 @@ vi.mock('next/navigation', () => ({
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
 vi.mock('sonner', () => ({
-  toast: { success: (...a: unknown[]) => mockToastSuccess(...a), error: (...a: unknown[]) => mockToastError(...a) },
+  toast: {
+    success: (...a: unknown[]) => mockToastSuccess(...a),
+    error: (...a: unknown[]) => mockToastError(...a),
+  },
 }));
 
 const mockSalvar = vi.fn();
@@ -74,9 +77,7 @@ describe('IaConfiancaForm · seções', () => {
 
   it('só mostra "Usar sugestão" pro campo que tem sugestão', () => {
     // Act
-    render(
-      <IaConfiancaForm config={CONFIG_BASE} sugestoes={{ servico: 0.9, prioridade: null }} />,
-    );
+    render(<IaConfiancaForm config={CONFIG_BASE} sugestoes={{ servico: 0.9, prioridade: null }} />);
 
     // Assert
     expect(screen.getAllByRole('button', { name: /usar sugestão/i })).toHaveLength(1);
@@ -89,9 +90,7 @@ describe('IaConfiancaForm · aceitar a sugestão', () => {
   it('preenche o limite do campo com o valor sugerido', async () => {
     // Arrange
     const user = userEvent.setup();
-    render(
-      <IaConfiancaForm config={CONFIG_BASE} sugestoes={{ servico: 0.9, prioridade: null }} />,
-    );
+    render(<IaConfiancaForm config={CONFIG_BASE} sugestoes={{ servico: 0.9, prioridade: null }} />);
 
     // Act
     await user.click(screen.getByRole('button', { name: /usar sugestão/i }));
@@ -186,9 +185,7 @@ describe('IaConfiancaForm · gravação', () => {
 
     // Assert
     expect(mockSalvar).toHaveBeenCalledTimes(1);
-    expect(mockSalvar).toHaveBeenCalledWith(
-      expect.objectContaining({ autonomiaAtiva: true }),
-    );
+    expect(mockSalvar).toHaveBeenCalledWith(expect.objectContaining({ autonomiaAtiva: true }));
   });
 
   it('ao salvar com sucesso, avisa e atualiza a página', async () => {

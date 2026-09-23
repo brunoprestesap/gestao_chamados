@@ -6,15 +6,15 @@ A tela do Preposto e do Admin: classifica o chamado aberto, atribui a um técnic
 
 ## Key files
 
-| Arquivo                                        | Owns                                                                                            |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `actions.ts`                                    | `classificarChamadoAction`, `updateTicketCatalogAction`, `closeTicketAction`, `reopenTicketAction`, `assignTicketAction`, `reassignTicketAction`, `rejectTicketAction` |
-| `page.tsx`                                      | A lista + o painel de detalhe (`ChamadoDetailSheet`) que abre ao clicar num chamado              |
-| `_components/ClassificarChamadoDialog.tsx`      | Subtipo, serviço do catálogo, natureza, prioridade final; dispara o snapshot de SLA               |
-| `_components/AtribuirChamadoDialog.tsx`         | Lista técnicos elegíveis pela especialidade (subtipo), com carga atual e sobrecarga              |
-| `_components/CotacaoApprovalCard.tsx`           | Aprova/recusa cotação enviada pelo fluxo de pausa (chama `approveCotacaoAction`/`rejectCotacaoAction` de `chamados-atribuidos/cotacao.actions.ts`) |
-| `_components/EncerrarChamadoDialog.tsx`, `ReabrirChamadoDialog.tsx`, `RecusarChamadoDialog.tsx`, `ReatribuirChamadoDialog.tsx` | Um diálogo por ação, mesmo padrão dos outros |
-| `recurring/`                                    | Chamados recorrentes (agendamento de manutenção preventiva), área própria dentro de gestão        |
+| Arquivo                                                                                                                        | Owns                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `actions.ts`                                                                                                                   | `classificarChamadoAction`, `updateTicketCatalogAction`, `closeTicketAction`, `reopenTicketAction`, `assignTicketAction`, `reassignTicketAction`, `rejectTicketAction` |
+| `page.tsx`                                                                                                                     | A lista + o painel de detalhe (`ChamadoDetailSheet`) que abre ao clicar num chamado                                                                                    |
+| `_components/ClassificarChamadoDialog.tsx`                                                                                     | Subtipo, serviço do catálogo, natureza, prioridade final; dispara o snapshot de SLA                                                                                    |
+| `_components/AtribuirChamadoDialog.tsx`                                                                                        | Lista técnicos elegíveis pela especialidade (subtipo), com carga atual e sobrecarga                                                                                    |
+| `_components/CotacaoApprovalCard.tsx`                                                                                          | Aprova/recusa cotação enviada pelo fluxo de pausa (chama `approveCotacaoAction`/`rejectCotacaoAction` de `chamados-atribuidos/cotacao.actions.ts`)                     |
+| `_components/EncerrarChamadoDialog.tsx`, `ReabrirChamadoDialog.tsx`, `RecusarChamadoDialog.tsx`, `ReatribuirChamadoDialog.tsx` | Um diálogo por ação, mesmo padrão dos outros                                                                                                                           |
+| `recurring/`                                                                                                                   | Chamados recorrentes (agendamento de manutenção preventiva), área própria dentro de gestão                                                                             |
 
 ## Conventions
 

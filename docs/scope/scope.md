@@ -25,7 +25,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 11  | Tela de chat de chamados                           | Slice 1    | done     |
 | 12  | Abertura do chamado pela IA                        | Slice 1    | done     |
 | 13  | Andamento e conversa com o técnico                 | Slice 2    | done     |
-| 14  | Calibração da trava de confiança                   | Slice 3    | done |
+| 14  | Calibração da trava de confiança                   | Slice 3    | done     |
 | 15  | Prioridade e SLA automáticos                       | Slice 3    | planned  |
 | 16  | Atribuição automática ao técnico                   | Slice 3    | planned  |
 | 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned  |
