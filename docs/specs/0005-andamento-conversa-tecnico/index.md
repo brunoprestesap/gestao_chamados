@@ -150,7 +150,6 @@ Leitura e escrita seguem exatamente as regras que já existem, agora exercidas p
 - [ ] Recusa na triagem e reabertura já emitem para a sala do solicitante, mas ficaram fora do conjunto combinado nesta fatia (só as seis mudanças de status); considerar incluir junto de uma futura funcionalidade 17 (revisão das decisões da IA), que já mexe em recusa e correção.
 - [ ] O desenho pixel a pixel do alternador público/interno dentro da caixa de envio da conversa (visualmente diferente da caixa do solicitante, ou só um controle a mais) fica para `/develop` decidir.
 - [ ] Se o volume de comentário público crescer muito, considerar aumentar o agrupamento de 800 milissegundos (`AGRUPAR_MS` em `ConversasShell.tsx`) para os eventos silenciosos (`ticket:classified`, `ticket:comment_added`), hoje pensado para um conjunto menor de eventos.
-- [ ] O `/check verify` de 2026-09-23 não conseguiu exercitar ao vivo o caso "pausa por cotação não aparece" do AC-3: não achou, no tempo disponível, um caminho de UI que dispare esse fluxo (o motivo de pausa que abre a cotação não apareceu para o técnico, e o Preposto não acessa o painel de `/chamados-atribuidos/[id]`). A comparação de texto exato no manipulador do `RealtimeProvider` está confirmada só por leitura de código. Achar o gatilho real da cotação e exercitar esse passo em `verify.md`.
 
 ## Rationale
 
