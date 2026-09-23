@@ -47,6 +47,33 @@ describe('NAV_ITEMS · Conversas', () => {
   });
 });
 
+// ── o item "Calibração da IA" · spec 0006, AC-1 ───────────────────
+
+const calibracaoIa = () => NAV_ITEMS.find((item) => item.href === '/configuracoes/ia-confianca');
+
+describe('NAV_ITEMS · Calibração da IA', () => {
+  it('existe e aponta para a rota da tela', () => {
+    // Assert
+    expect(calibracaoIa()).toBeDefined();
+  });
+
+  it('fica no grupo Admin', () => {
+    // Assert
+    expect(calibracaoIa()?.group).toBe('Admin');
+  });
+
+  it('só o Admin vê o item', () => {
+    // Assert
+    expect(calibracaoIa()?.allowedRoles).toEqual(['Admin']);
+  });
+
+  it('tem rótulo e ícone, que é o que a sidebar desenha', () => {
+    // Assert
+    expect(calibracaoIa()?.label).toBe('Calibração da IA');
+    expect(calibracaoIa()?.icon).toBeTruthy();
+  });
+});
+
 // ── o menu como um todo continua íntegro ─────────────────────────
 
 describe('NAV_ITEMS', () => {

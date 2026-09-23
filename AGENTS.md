@@ -284,6 +284,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Novo quadro de resposta          | `shared/conversas/quadro.schemas.ts`, `app/api/conversas/_lib/fluxo.ts`, `app/(dashboard)/conversas/_components/useEnvio.ts`                                                                                                                                                                                        |
 | Abertura de chamado pelo chat    | `lib/assistente/cartao.ts` (monta o cartão), `lib/assistente/confirmar.ts` (`confirmarAbertura`, `montarTituloChat`), `app/(dashboard)/conversas/actions.ts` (`revisarAberturaAction`, `confirmarAberturaAction`), `app/(dashboard)/conversas/_components/CartaoResumo.tsx`, `docs/specs/0004-abertura-chamado-ia/` |
 | Andamento do chamado na conversa | `lib/conversas/linha-do-tempo.ts` (`podeComentarInterno`, `souSolicitante`), `lib/chamados/comentarios.ts`, `app/api/conversas/chamado/[chamadoId]/comentarios/route.ts`, `components/realtime/RealtimeProvider.tsx`, `docs/specs/0005-andamento-conversa-tecnico/`                                                 |
+| Calibração da confiança da IA    | `lib/ia-confianca/AGENTS.md`, `lib/ia-confianca/calibragem.ts` (relatório), `lib/ia-confianca/config.ts` (documento único), `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`, `docs/specs/0006-calibracao-trava-confianca/`                                                              |
 
 ## CI/CD
 
@@ -345,3 +346,4 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - [lib/assistente/AGENTS.md](lib/assistente/AGENTS.md): o assistente da conversa — prompt, extração de serviço/prioridade/local, o cartão resumo e a abertura do chamado sem chamar o modelo
 - [app/(dashboard)/gestao/AGENTS.md](<app/(dashboard)/gestao/AGENTS.md>): a tela do Preposto/Admin — classificação, atribuição por especialidade, encerramento, reabertura, recusa e aprovação de cotação
 - [app/(dashboard)/chamados-atribuidos/AGENTS.md](<app/(dashboard)/chamados-atribuidos/AGENTS.md>): a tela do técnico — execução, pausa, observação de material e envio de cotação
+- [lib/ia-confianca/AGENTS.md](lib/ia-confianca/AGENTS.md): a tela de calibração da confiança da IA (Admin) — medição de acurácia contra `DecisaoIa`, sugestão de corte e o documento único de configuração
