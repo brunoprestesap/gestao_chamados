@@ -4,19 +4,19 @@ O assistente que responde na tela `/conversas` e abre o chamado a partir dela. S
 
 ## Arquivos
 
-| Arquivo        | O que faz                                                                                                                                     |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.ts`     | Único ponto de entrada. Quem chama usa só `responderNaConversa`, `revisarAbertura` e `confirmarAbertura`                                        |
-| `responder.ts` | Grava a mensagem do solicitante, chama a tarefa `conversa.abertura`, transmite a resposta em quadros e grava proposta/cartão                    |
-| `prompt.ts`    | `ABERTURA_TASK = 'conversa.abertura'`, `PROMPT_VERSION` e `montarSistema({ catalogo, perfil, proposta })`                                        |
-| `schema.ts`    | `respostaAberturaSchema`: a extração (serviço, prioridade, local, `completo`) antes da `resposta` final, até 600 caracteres                      |
-| `catalogo.ts`  | `lerCatalogoParaPrompt()`: as linhas do catálogo ativo para o prompt e o mapa de `code` para ids                                                 |
-| `proposta.ts`  | Valida a extração contra o catálogo e monta a `PropostaIa`; compara o conteúdo visível de duas propostas                                        |
-| `cartao.ts`    | `montarCartao(proposta, perfil)` e `revisarAbertura(viewer, conversaId)`, sem chamar o modelo                                                    |
-| `confirmar.ts` | `confirmarAbertura(viewer, entrada)`: conferências, `abrirChamadoDaConversa`, decisões, mensagem final e notificação; `montarTituloChat`          |
-| `perfil.ts`    | `lerPerfil(userId)`: a unidade ativa de quem relata, ou `SEM_PERFIL`                                                                             |
-| `config.ts`    | Tetos que mudam com deploy: `CATALOGO_PROMPT_MAX_CARACTERES`, `CATALOGO_DESCRICAO_MAX`, `ENTRADA_MAX_CARACTERES`, `MOTIVO_VAZIO`                 |
-| `mensagens.ts` | Frases fixas do Sigma: reserva, chamado aberto e as frases do cartão                                                                             |
+| Arquivo        | O que faz                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`     | Único ponto de entrada. Quem chama usa só `responderNaConversa`, `revisarAbertura` e `confirmarAbertura`                                 |
+| `responder.ts` | Grava a mensagem do solicitante, chama a tarefa `conversa.abertura`, transmite a resposta em quadros e grava proposta/cartão             |
+| `prompt.ts`    | `ABERTURA_TASK = 'conversa.abertura'`, `PROMPT_VERSION` e `montarSistema({ catalogo, perfil, proposta })`                                |
+| `schema.ts`    | `respostaAberturaSchema`: a extração (serviço, prioridade, local, `completo`) antes da `resposta` final, até 600 caracteres              |
+| `catalogo.ts`  | `lerCatalogoParaPrompt()`: as linhas do catálogo ativo para o prompt e o mapa de `code` para ids                                         |
+| `proposta.ts`  | Valida a extração contra o catálogo e monta a `PropostaIa`; compara o conteúdo visível de duas propostas                                 |
+| `cartao.ts`    | `montarCartao(proposta, perfil)` e `revisarAbertura(viewer, conversaId)`, sem chamar o modelo                                            |
+| `confirmar.ts` | `confirmarAbertura(viewer, entrada)`: conferências, `abrirChamadoDaConversa`, decisões, mensagem final e notificação; `montarTituloChat` |
+| `perfil.ts`    | `lerPerfil(userId)`: a unidade ativa de quem relata, ou `SEM_PERFIL`                                                                     |
+| `config.ts`    | Tetos que mudam com deploy: `CATALOGO_PROMPT_MAX_CARACTERES`, `CATALOGO_DESCRICAO_MAX`, `ENTRADA_MAX_CARACTERES`, `MOTIVO_VAZIO`         |
+| `mensagens.ts` | Frases fixas do Sigma: reserva, chamado aberto e as frases do cartão                                                                     |
 
 ## Regras que valem aqui
 
