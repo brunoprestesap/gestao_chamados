@@ -96,7 +96,7 @@ export async function lerChamadoEmLeitura(
   if (!linha.ok) return { ok: false, reason: linha.reason };
 
   const chamado = await ChamadoModel.findById(chamadoId)
-    .select('ticket_number titulo status createdAt canalAbertura')
+    .select('ticket_number titulo status createdAt canalAbertura assignedToUserId evaluation.rating')
     .lean();
   if (!chamado) return { ok: false, reason: 'nao_encontrada' };
 
@@ -156,10 +156,15 @@ export async function lerChamadoEmLeitura(
       ticketNumber: (chamado.ticket_number as string | undefined) ?? '',
       titulo: (chamado.titulo as string | undefined)?.trim() || 'Chamado sem título',
       situacao: CHAMADO_STATUS_LABELS[chamado.status as ChamadoStatus] ?? 'Aberto',
+      statusChave: String(chamado.status ?? 'aberto'),
       abertoEm: ((chamado.createdAt as Date | undefined) ?? new Date()).toISOString(),
       marca: marcaDeAbertura(chamado.canalAbertura, servicoSugerido),
       itens,
       truncado: linha.truncado,
+      podeComentarInterno: linha.podeComentarInterno,
+      assignedToUserId: chamado.assignedToUserId ? String(chamado.assignedToUserId) : null,
+      avaliacaoRating: chamado.evaluation?.rating ?? null,
+      souSolicitante: linha.souSolicitante,
     },
   };
 }

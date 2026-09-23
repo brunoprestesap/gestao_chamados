@@ -19,6 +19,7 @@ import { verifyHandshakeSession } from './auth.js';
 /** Eventos conhecidos (espelham shared/socket.ts do projeto principal). */
 type ServerToClientEvents = {
   'ticket:assigned': (payload: unknown) => void;
+  'ticket:classified': (payload: unknown) => void;
   'ticket:new': (payload: unknown) => void;
   'ticket:execution_registered': (payload: unknown) => void;
   'ticket:closed': (payload: unknown) => void;
@@ -45,6 +46,7 @@ interface SocketData {
 
 const ALLOWED_EVENTS = new Set<string>([
   'ticket:assigned',
+  'ticket:classified',
   'ticket:new',
   'ticket:execution_registered',
   'ticket:closed',

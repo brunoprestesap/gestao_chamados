@@ -110,20 +110,21 @@ export async function criarComentario(
     notificationRecipients.push(new Types.ObjectId(assignedId));
   }
 
-  // Notificar gestores para comentários públicos (se o autor não for gestor)
-  if (finalVisibility === 'publico' && !isManager) {
-    emitPromises.push(emitToRoom('managers', 'ticket:comment_added', payload));
-    // Persistir notificações para gestores
-    const managers = await UserModel.find({
-      role: { $in: ['Preposto', 'Admin'] },
-      isActive: true,
-    })
-      .select('_id')
-      .lean();
-    for (const m of managers) {
-      if (String(m._id) !== params.autorUserId) {
-        notificationRecipients.push(m._id as Types.ObjectId);
-      }
+  // Notificar gestores, sempre, independente de quem escreveu e da
+  // visibilidade: a leitura (`lerLinhaDoTempo`) já decide quem enxerga
+  // comentário interno pelo papel de quem lê (spec 0005). Sem isso, um
+  // comentário público de um gestor nunca avisava outro gestor olhando o
+  // mesmo chamado.
+  emitPromises.push(emitToRoom('managers', 'ticket:comment_added', payload));
+  const managers = await UserModel.find({
+    role: { $in: ['Preposto', 'Admin'] },
+    isActive: true,
+  })
+    .select('_id')
+    .lean();
+  for (const m of managers) {
+    if (String(m._id) !== params.autorUserId) {
+      notificationRecipients.push(m._id as Types.ObjectId);
     }
   }
 

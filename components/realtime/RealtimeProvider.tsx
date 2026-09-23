@@ -6,6 +6,7 @@ import { io, type Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 
 import { playNotificationSound } from '@/lib/notification-sound';
+import { PAUSE_REASON_LABELS } from '@/shared/chamados/pause-reason.constants';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -15,6 +16,7 @@ import type {
   TicketClosedPayload,
   TicketExecutionRegisteredPayload,
   TicketNewPayload,
+  TicketPausedPayload,
 } from '@/shared/socket';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -24,6 +26,11 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3001'
 /** Rota do chamado para o técnico: chamados atribuídos a ele. */
 function getAssignedTicketUrl(payload: TicketAssignedPayload): string {
   return `/chamados-atribuidos/${payload.ticketId}`;
+}
+
+/** Rota para o solicitante: a própria conversa, que `abrirConversa` resolve pelo id do chamado. */
+function getAssignedTicketUrlSolicitante(payload: TicketAssignedPayload): string {
+  return `/conversas/${payload.ticketId}`;
 }
 
 /** Rota para Preposto/Admin: gestão (lista de chamados para classificar/atribuir). */
@@ -46,10 +53,21 @@ function emitNotificationEvent() {
   window.dispatchEvent(new CustomEvent('notification:new'));
 }
 
-export function RealtimeProvider({ children }: { children: React.ReactNode }) {
+export function RealtimeProvider({
+  userId,
+  children,
+}: {
+  userId: string;
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const routerRef = useRef(router);
   const socketRef = useRef<TypedSocket | null>(null);
+  const userIdRef = useRef(userId);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   useEffect(() => {
     routerRef.current = router;
@@ -91,16 +109,44 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       playNotificationSound();
       const numero = payload.ticketNumber ? `#${payload.ticketNumber}` : '';
       const tituloChamado = (payload.title ?? '').trim();
-      const atribuidoPor = payload.assignedBy?.name ?? 'Preposto';
-      const url = getAssignedTicketUrl(payload);
+      const souOTecnico = payload.assignedTo?.id === userIdRef.current;
 
-      toast.success(`Novo chamado ${numero} atribuído a você`, {
+      if (souOTecnico) {
+        const atribuidoPor = payload.assignedBy?.name ?? 'Preposto';
+        const url = getAssignedTicketUrl(payload);
+
+        toast.success(`Novo chamado ${numero} atribuído a você`, {
+          description: (
+            <div className="mt-1 flex flex-col gap-0.5 text-left">
+              {tituloChamado && (
+                <p className="line-clamp-2 text-sm font-medium text-foreground">{tituloChamado}</p>
+              )}
+              <p className="text-xs text-muted-foreground">Atribuído por: {atribuidoPor}</p>
+            </div>
+          ),
+          duration: 6000,
+          action: {
+            label: 'Abrir',
+            onClick: () => {
+              routerRef.current.push(url);
+            },
+          },
+        });
+        emitNotificationEvent();
+        return;
+      }
+
+      // Solicitante: mesmo evento, texto e link próprios (spec 0005, AC-2).
+      const tecnico = payload.assignedTo?.name ?? 'Um técnico';
+      const url = getAssignedTicketUrlSolicitante(payload);
+
+      toast.success(`Técnico atribuído ao chamado ${numero}`, {
         description: (
           <div className="mt-1 flex flex-col gap-0.5 text-left">
             {tituloChamado && (
               <p className="line-clamp-2 text-sm font-medium text-foreground">{tituloChamado}</p>
             )}
-            <p className="text-xs text-muted-foreground">Atribuído por: {atribuidoPor}</p>
+            <p className="text-xs text-muted-foreground">Técnico responsável: {tecnico}</p>
           </div>
         ),
         duration: 6000,
@@ -111,6 +157,23 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           },
         },
       });
+      emitNotificationEvent();
+    });
+
+    socket.on('ticket:classified', () => {
+      // Silencioso: só atualiza a conversa aberta, sem som nem toast (spec 0005, AC-1).
+      emitNotificationEvent();
+    });
+
+    socket.on('ticket:comment_added', () => {
+      // Silencioso: só atualiza a conversa aberta, sem som nem toast (spec 0005, AC-5).
+      emitNotificationEvent();
+    });
+
+    socket.on('ticket:paused', (payload: TicketPausedPayload) => {
+      // Só a pausa por aguardando solicitante atualiza a conversa; a pausa por
+      // cotação usa o mesmo evento e fica fora desta fatia (spec 0005, AC-3).
+      if (payload.reason !== PAUSE_REASON_LABELS.aguardando_solicitante) return;
       emitNotificationEvent();
     });
 

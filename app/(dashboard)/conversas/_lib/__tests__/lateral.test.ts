@@ -33,17 +33,26 @@ const mockFind = vi.fn((filtro: unknown) => {
 });
 vi.mock('@/models/Chamado', () => ({ ChamadoModel: { find: (f: unknown) => mockFind(f) } }));
 
+import {
+  CHAMADO_STATUS_ATIVOS_TECNICO,
+  CHAMADO_STATUS_NAO_FINALIZADOS,
+} from '@/shared/chamados/chamado.constants';
+
 import { CHAMADOS_POR_PAGINA, cursorDe, lerChamadosDaLateral, montarLateral } from '../lateral';
 
 /**
  * A lateral de `/conversas` (spec 0003): rascunhos em cima, chamados embaixo,
- * com o endereço de cada linha já calculado no servidor.
+ * com o endereço de cada linha já calculado no servidor. A partir da spec
+ * 0005, o filtro dos chamados muda por papel de quem vê.
  *
  * covers: AC-2 (dois blocos, paginação por cursor composto, linha de apoio),
- * AC-10 (o endereço é o da conversa quando ela existe)
+ * AC-8 (lateral por papel), AC-10 (o endereço é o da conversa quando ela existe)
  */
 
 const VIEWER = { userId: '6aad5286df6f201a25eda111', role: 'Solicitante' as const };
+const VIEWER_TECNICO = { userId: '6aad5286df6f201a25eda222', role: 'Técnico' as const };
+const VIEWER_PREPOSTO = { userId: '6aad5286df6f201a25eda333', role: 'Preposto' as const };
+const VIEWER_ADMIN = { userId: '6aad5286df6f201a25eda444', role: 'Admin' as const };
 
 function chamado(over: Record<string, unknown> = {}) {
   return {
@@ -106,6 +115,61 @@ describe('lerChamadosDaLateral · consulta', () => {
 
     // Assert
     expect(consulta.filtro).not.toHaveProperty('$or');
+  });
+});
+
+// ── o filtro por papel · spec 0005, AC-8 ──────────────────────────
+
+describe('lerChamadosDaLateral · filtro por papel', () => {
+  it('solicitante: filtra só pelos próprios chamados, sem status', async () => {
+    // Act
+    await lerChamadosDaLateral(VIEWER);
+
+    // Assert
+    expect(consulta.filtro).toMatchObject({
+      solicitanteId: expect.objectContaining({ toString: expect.any(Function) }),
+    });
+    expect((consulta.filtro as Record<string, unknown>).status).toBeUndefined();
+  });
+
+  it('técnico: filtra pelo atribuído a ele, só nos status ativos do técnico', async () => {
+    // Act
+    await lerChamadosDaLateral(VIEWER_TECNICO);
+
+    // Assert
+    const filtro = consulta.filtro as Record<string, unknown>;
+    expect(String(filtro.assignedToUserId)).toBe(VIEWER_TECNICO.userId);
+    expect(filtro.status).toEqual({ $in: CHAMADO_STATUS_ATIVOS_TECNICO });
+    expect(filtro.solicitanteId).toBeUndefined();
+  });
+
+  it('preposto: filtra pelos status ainda não finalizados, sem travar por dono', async () => {
+    // Act
+    await lerChamadosDaLateral(VIEWER_PREPOSTO);
+
+    // Assert
+    const filtro = consulta.filtro as Record<string, unknown>;
+    expect(filtro.status).toEqual({ $in: CHAMADO_STATUS_NAO_FINALIZADOS });
+    expect(filtro.solicitanteId).toBeUndefined();
+    expect(filtro.assignedToUserId).toBeUndefined();
+  });
+
+  it('admin: mesmo filtro da gestão, status ainda não finalizados', async () => {
+    // Act
+    await lerChamadosDaLateral(VIEWER_ADMIN);
+
+    // Assert
+    expect((consulta.filtro as Record<string, unknown>).status).toEqual({
+      $in: CHAMADO_STATUS_NAO_FINALIZADOS,
+    });
+  });
+
+  it('o filtro de status nunca inclui encerrado nem cancelado, para gestão nem técnico', () => {
+    // Assert: o próprio conjunto de status ativos já garante isso
+    expect(CHAMADO_STATUS_NAO_FINALIZADOS).not.toContain('encerrado');
+    expect(CHAMADO_STATUS_NAO_FINALIZADOS).not.toContain('cancelado');
+    expect(CHAMADO_STATUS_ATIVOS_TECNICO).not.toContain('encerrado');
+    expect(CHAMADO_STATUS_ATIVOS_TECNICO).not.toContain('cancelado');
   });
 });
 

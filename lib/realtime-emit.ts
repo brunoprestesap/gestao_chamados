@@ -9,6 +9,7 @@ import type {
   SlaWarningPayload,
   TicketAssignedPayload,
   TicketAttachmentAddedPayload,
+  TicketClassifiedPayload,
   TicketClosedPayload,
   TicketCommentAddedPayload,
   TicketExecutionRegisteredPayload,
@@ -30,6 +31,7 @@ const EMIT_TIMEOUT_MS = 1200;
 
 export type AllowedEmitEvents =
   | 'ticket:assigned'
+  | 'ticket:classified'
   | 'ticket:new'
   | 'ticket:execution_registered'
   | 'ticket:closed'
@@ -57,6 +59,7 @@ export async function emitToRoom(
   event: AllowedEmitEvents,
   payload:
     | TicketAssignedPayload
+    | TicketClassifiedPayload
     | TicketAttachmentAddedPayload
     | TicketCommentAddedPayload
     | TicketNewPayload

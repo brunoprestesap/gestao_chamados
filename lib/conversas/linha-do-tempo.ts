@@ -135,7 +135,7 @@ export async function lerLinhaDoTempo(viewer: Viewer, chamadoId: string): Promis
       return diff !== 0 ? diff : a.id.localeCompare(b.id);
     });
 
-    return { ok: true, itens, truncado };
+    return { ok: true, itens, truncado, podeComentarInterno: veInterno, souSolicitante: solicitante };
   } catch (err) {
     registrarErro('lerLinhaDoTempo', { chamadoId }, err);
     return falha('erro');

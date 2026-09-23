@@ -24,7 +24,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 10  | Conversa e decisões da IA no banco                 | Foundation | done     |
 | 11  | Tela de chat de chamados                           | Slice 1    | done     |
 | 12  | Abertura do chamado pela IA                        | Slice 1    | done     |
-| 13  | Andamento e conversa com o técnico                 | Slice 2    | planned  |
+| 13  | Andamento e conversa com o técnico                 | Slice 2    | done     |
 | 14  | Calibração da trava de confiança                   | Slice 3    | planned  |
 | 15  | Prioridade e SLA automáticos                       | Slice 3    | planned  |
 | 16  | Atribuição automática ao técnico                   | Slice 3    | planned  |
@@ -140,12 +140,20 @@ spec [0004](../specs/0004-abertura-chamado-ia/index.md) · code in `lib/assisten
 
 ## Slice 2: Acompanhar pelo chat
 
-### 13. Andamento e conversa com o técnico · needs a decision
+### 13. Andamento e conversa com o técnico · done
 
-A mesma conversa acompanha o chamado até o fim: cada mudança aparece como mensagem em tempo real, e o que o usuário escreve vira comentário que o técnico vê.
-**Done when:** classificação, atribuição, início, pausa, conclusão e encerramento aparecem na conversa sem recarregar a página; mensagens do usuário depois da abertura chegam ao técnico como comentário, e as respostas voltam para a conversa; a avaliação de 1 a 5 pode ser feita pela conversa quando o chamado fecha.
+A mesma conversa acompanha o chamado até o fim: cada mudança aparece como mensagem em tempo real, e o que o usuário escreve vira comentário que o técnico vê. A spec ampliou o alcance para os quatro perfis (solicitante, técnico, Preposto, Admin) escreverem pela mesma tela `/conversas/[id]`, não só o solicitante.
+**Done when:** classificação, atribuição, início, pausa, conclusão e encerramento aparecem na conversa sem recarregar a página; mensagens de qualquer um dos quatro perfis viram comentário do chamado e aparecem ao vivo para quem mais estiver na mesma conversa; a avaliação de 1 a 5 pode ser feita pela conversa quando o chamado fecha.
+spec [0005](../specs/0005-andamento-conversa-tecnico/index.md) · code in `app/(dashboard)/conversas/`, `app/api/conversas/chamado/`, `components/realtime/RealtimeProvider.tsx`, `lib/chamados/comentarios.ts`, `lib/conversas/linha-do-tempo.ts`, `app/(dashboard)/gestao/actions.ts`
 
-- [ ] Design it (spec): `/architect andamento e conversa com o técnico`
+- [x] Design it (spec): `/architect andamento e conversa com o técnico`
+- [x] Build it: `/develop andamento e conversa com o técnico`
+  - [x] Sinal ao vivo das seis mudanças de status (emissão de classificação, segundo destinatário da atribuição, manipuladores novos no `RealtimeProvider`) · AC-1, AC-2, AC-3, AC-4, AC-5
+  - [x] Escrever pela conversa (rota de comentário nova, caixa de envio do solicitante, do técnico e da gestão) · AC-5, AC-6, AC-7, AC-9
+  - [x] Lateral por perfil e avaliação na conversa · AC-8, AC-10
+  - [x] Conferência de permissão ponta a ponta para os quatro perfis · AC-11
+- [x] Verify it: `/check verify andamento e conversa com o técnico`
+- [x] Test it: `/test andamento e conversa com o técnico`
 
 ## Slice 3: IA decide prioridade e técnico
 
@@ -222,6 +230,8 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Cache de prefixo do vLLM**: confirmar com a equipe da GPU se o vLLM roda com cache de prefixo ligado, porque o catálogo vai no prompt de toda mensagem do chat e o custo cai muito com ele · from spec 0004
 - **Telefone de contato no chamado do chat**: o chat não pede dado pessoal, então o chamado nasce sem telefone; decidir como pedir se os técnicos sentirem falta · from spec 0004
 - **Leitor de tela de verdade no AC-18**: o `/check verify` da 0004 conferiu a região ao vivo programaticamente (o texto que ela recebe bate com o esperado), mas sem NVDA ou outro leitor de tela instalado nesta máquina para ouvir o anúncio de verdade; rodar quando houver um leitor de tela disponível · from spec 0004
+- **Cotação, observação de material e pausa por terceiros na conversa**: hoje ficam fora do sinal ao vivo de `/conversas`; considerar se a gestão sentir falta · from spec 0005
+- **Aviso de reatribuição de técnico**: `reatribuicao_tecnico` não emite nenhum evento hoje; se o solicitante precisar saber quando o técnico muda, cobrir numa fatia futura · from spec 0005
 
 ## Legend
 

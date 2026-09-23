@@ -1,17 +1,19 @@
 'use client';
 
-import { ArrowLeft, ArrowUpRight, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Star } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
+import { AvaliarChamadoDialog } from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
 import { STATUS_BADGE } from '@/app/(dashboard)/meus-chamados/_constants';
 import { SeloAberturaChat } from '@/components/chamado/MarcaAberturaChat';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { CHAMADO_STATUS_LABELS, type ChamadoStatus } from '@/shared/chamados/chamado.constants';
+import type { ChamadoStatus } from '@/shared/chamados/chamado.constants';
 
-import { LEITURA_EXPLICACAO } from '../_constants';
 import type { ItemLeitura, LeituraChamado } from '../_types';
+import { ComentarioComposer } from './ComentarioComposer';
 import {
   AvisoChamadoAberto,
   BolhaAssistente,
@@ -23,15 +25,12 @@ import {
 import { dataEHora, hora, iso, rotuloDoDia } from './tempo';
 
 /**
- * O chamado aberto em modo leitura (spec 0003, AC-10): mensagens, comentários e
- * histórico em ordem, sem caixa de envio. Chamado aberto pelo formulário, sem
- * conversa ligada, abre exatamente igual, só sem as mensagens.
+ * O chamado acompanhado pela conversa (spec 0003, AC-10; spec 0005): mensagens,
+ * comentários e histórico em ordem, com a caixa de comentário e, quando o
+ * chamado está encerrado e ainda não avaliado, o convite para avaliar.
+ * Chamado aberto pelo formulário, sem conversa ligada, abre exatamente igual,
+ * só sem as mensagens.
  */
-
-function chaveDoStatus(rotulo: string): ChamadoStatus | null {
-  const par = Object.entries(CHAMADO_STATUS_LABELS).find(([, valor]) => valor === rotulo);
-  return (par?.[0] as ChamadoStatus | undefined) ?? null;
-}
 
 function Marco({ texto, em }: { texto: string; em: string }) {
   return (
@@ -101,13 +100,20 @@ function Item({ item }: { item: ItemLeitura }) {
 }
 
 export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
+  const router = useRouter();
   const titulo = useRef<HTMLHeadingElement>(null);
   const detalhe = `/meus-chamados/${leitura.chamadoId}`;
-  const status = chaveDoStatus(leitura.situacao);
+  const status = leitura.statusChave as ChamadoStatus;
+  const [avaliarAberto, setAvaliarAberto] = useState(false);
 
   useEffect(() => {
     titulo.current?.focus();
   }, []);
+
+  // Encerrado, ainda não avaliado e só para o solicitante dono (spec 0005, AC-10).
+  const podeAvaliar =
+    leitura.souSolicitante && leitura.statusChave === 'encerrado' && leitura.avaliacaoRating == null;
+  const jaAvaliado = leitura.statusChave === 'encerrado' && leitura.avaliacaoRating != null;
 
   return (
     <section
@@ -132,10 +138,7 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
             >
               {leitura.titulo}
             </h2>
-            <Badge
-              variant="outline"
-              className={cn('shrink-0', status ? STATUS_BADGE[status] : undefined)}
-            >
+            <Badge variant="outline" className={cn('shrink-0', STATUS_BADGE[status])}>
               {leitura.situacao}
             </Badge>
           </div>
@@ -183,21 +186,43 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
         )}
       </div>
 
-      <footer className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/40 px-4 py-4 sm:flex-row sm:items-center md:px-5">
-        <span
-          aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-xl bg-secondary text-muted-foreground"
-        >
-          <Lock className="size-4" />
-        </span>
-        <p className="flex-1 text-xs leading-relaxed text-muted-foreground">{LEITURA_EXPLICACAO}</p>
-        <Link
-          href={detalhe}
-          className="inline-flex h-11 shrink-0 items-center rounded-xl bg-primary/10 px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          Ir para os comentários
-        </Link>
-      </footer>
+      {podeAvaliar ? (
+        <div className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 shrink-0 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 md:mx-5">
+          <p className="leading-relaxed">Este chamado foi encerrado. Avalie o atendimento.</p>
+          <button
+            type="button"
+            onClick={() => setAvaliarAberto(true)}
+            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-amber-700 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <Star aria-hidden="true" className="size-4" />
+            Avaliar atendimento
+          </button>
+        </div>
+      ) : null}
+
+      {jaAvaliado ? (
+        <div className="mx-4 mb-3 flex shrink-0 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/50 px-4 py-2.5 text-sm font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200 md:mx-5">
+          <Star
+            aria-hidden="true"
+            className="size-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400"
+          />
+          Atendimento avaliado · {leitura.avaliacaoRating}/5
+        </div>
+      ) : null}
+
+      <ComentarioComposer chamadoId={leitura.chamadoId} podeComentarInterno={leitura.podeComentarInterno} />
+
+      <AvaliarChamadoDialog
+        open={avaliarAberto}
+        onOpenChange={setAvaliarAberto}
+        chamado={{
+          _id: leitura.chamadoId,
+          ticket_number: leitura.ticketNumber,
+          titulo: leitura.titulo,
+          assignedToUserId: leitura.assignedToUserId,
+        }}
+        onSuccess={() => router.refresh()}
+      />
     </section>
   );
 }

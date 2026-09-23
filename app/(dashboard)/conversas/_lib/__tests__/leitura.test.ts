@@ -438,6 +438,31 @@ describe('lerChamadoEmLeitura', () => {
     });
   });
 
+  it('seleciona assignedToUserId e evaluation.rating do chamado, para o botão de avaliação', async () => {
+    // Arrange
+    let selectArg: unknown;
+    mockChamadoFindById.mockReturnValue({
+      select: (arg: unknown) => {
+        selectArg = arg;
+        return {
+          lean: async () => ({
+            ticket_number: 'CHM-2026-00412',
+            titulo: 'Lâmpada queimada',
+            status: 'encerrado',
+            createdAt: new Date('2026-09-17T11:40:00.000Z'),
+          }),
+        };
+      },
+    });
+
+    // Act
+    await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert: sem esses dois campos o botão de avaliação não sabe se mostrar
+    expect(String(selectArg)).toContain('assignedToUserId');
+    expect(String(selectArg)).toContain('evaluation.rating');
+  });
+
   it('marca o aviso do Sigma de chamado aberto, pela frase fixa com o número (spec 0004)', async () => {
     // Arrange
     mockLerLinhaDoTempo.mockResolvedValue({
@@ -473,5 +498,115 @@ describe('lerChamadoEmLeitura', () => {
       true,
       false,
     ]);
+  });
+});
+
+// ── campos novos para o acompanhamento na conversa · spec 0005 ───
+
+describe('lerChamadoEmLeitura · campos novos (spec 0005)', () => {
+  it('statusChave traz o status cru do chamado, não o rótulo traduzido', async () => {
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.statusChave).toBe('em atendimento');
+    expect(r.leitura.situacao).toBe('Em atendimento');
+  });
+
+  it('statusChave cai em "aberto" quando o chamado não tem status gravado', async () => {
+    // Arrange
+    mockChamadoFindById.mockReturnValue(
+      cadeia({
+        ticket_number: 'CHM-2026-00412',
+        titulo: 'Lâmpada queimada',
+        createdAt: new Date('2026-09-17T11:40:00.000Z'),
+      }),
+    );
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.statusChave).toBe('aberto');
+  });
+
+  it('repassa podeComentarInterno e souSolicitante direto da linha do tempo', async () => {
+    // Arrange
+    mockLerLinhaDoTempo.mockResolvedValue({
+      ok: true,
+      itens: [],
+      truncado: false,
+      podeComentarInterno: true,
+      souSolicitante: false,
+    });
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert: quem calcula isso é `lerLinhaDoTempo`, a leitura só repassa
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.podeComentarInterno).toBe(true);
+    expect(r.leitura.souSolicitante).toBe(false);
+  });
+
+  it('assignedToUserId vem nulo quando o chamado ainda não tem técnico', async () => {
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.assignedToUserId).toBeNull();
+  });
+
+  it('assignedToUserId traz o id do técnico como texto, quando há um atribuído', async () => {
+    // Arrange
+    const tecnicoId = new Types.ObjectId();
+    mockChamadoFindById.mockReturnValue(
+      cadeia({
+        ticket_number: 'CHM-2026-00412',
+        titulo: 'Lâmpada queimada',
+        status: 'em atendimento',
+        createdAt: new Date('2026-09-17T11:40:00.000Z'),
+        assignedToUserId: tecnicoId,
+      }),
+    );
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.assignedToUserId).toBe(String(tecnicoId));
+  });
+
+  it('avaliacaoRating vem nulo quando o chamado ainda não foi avaliado', async () => {
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.avaliacaoRating).toBeNull();
+  });
+
+  it('avaliacaoRating traz a nota já dada, para o botão sumir e a nota aparecer', async () => {
+    // Arrange
+    mockChamadoFindById.mockReturnValue(
+      cadeia({
+        ticket_number: 'CHM-2026-00412',
+        titulo: 'Lâmpada queimada',
+        status: 'encerrado',
+        createdAt: new Date('2026-09-17T11:40:00.000Z'),
+        evaluation: { rating: 5 },
+      }),
+    );
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.avaliacaoRating).toBe(5);
   });
 });

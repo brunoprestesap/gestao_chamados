@@ -11,6 +11,24 @@ export const CHAMADO_STATUSES = [
 ] as const;
 export type ChamadoStatus = (typeof CHAMADO_STATUSES)[number];
 
+/** Status que não fecham o chamado: fora deles só `encerrado` e `cancelado`. */
+export const CHAMADO_STATUS_NAO_FINALIZADOS: readonly ChamadoStatus[] = CHAMADO_STATUSES.filter(
+  (status) => status !== 'encerrado' && status !== 'cancelado',
+);
+
+/**
+ * Status que mantêm um chamado na lateral do técnico em `/conversas`
+ * (spec 0005): os mesmos que já valem para carga de atendimento, mais a
+ * pausa por aguardando solicitante e o concluído, que ainda pedem
+ * acompanhamento do técnico.
+ */
+export const CHAMADO_STATUS_ATIVOS_TECNICO: readonly ChamadoStatus[] = [
+  'validado',
+  'em atendimento',
+  'aguardando_solicitante',
+  'concluído',
+];
+
 export const CHAMADO_STATUS_LABELS: Record<ChamadoStatus, string> = {
   aberto: 'Aberto',
   validado: 'Validado',

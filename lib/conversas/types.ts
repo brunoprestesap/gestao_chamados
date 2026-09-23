@@ -152,6 +152,10 @@ export type LinhaDoTempo = Resultado<{
   itens: ItemLinhaDoTempo[];
   /** Verdadeiro quando alguma fonte bateu no teto e foi cortada. */
   truncado: boolean;
+  /** Gestão ou técnico atribuído: quem pode escolher comentário interno (spec 0005). */
+  podeComentarInterno: boolean;
+  /** Só o solicitante dono avalia o atendimento (spec 0005, AC-10). */
+  souSolicitante: boolean;
 }>;
 
 export type { IaSituacao };

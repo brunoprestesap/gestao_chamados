@@ -119,7 +119,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **Fire-and-forget**: falhas no socket não quebram lógica de negócio
 - Socket-server valida sessão via callback para `GET /api/session/verify` (stateless)
 - Rooms: `user:<userId>` (individual) e `managers` (Preposto + Admin)
-- Eventos permitidos: `ticket:assigned`, `ticket:new`, `ticket:execution_registered`, `ticket:closed`
+- Eventos permitidos: `ticket:assigned`, `ticket:new`, `ticket:execution_registered`, `ticket:closed`, `ticket:classified`
 - Comunicação interna autenticada por header `x-internal-secret` (`SOCKET_INTERNAL_SECRET`)
 - Fallback para MongoDB (model Notification) se socket offline
 
@@ -184,7 +184,8 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - O envio de mensagem não é Server Action: vai por `POST /api/conversas/mensagens` (conversa nova) ou `POST /api/conversas/[id]/mensagens` (conversa que continua), que respondem em NDJSON, um quadro JSON por linha
 - Os quadros (`inicio`, `parcial`, `fim`, `reserva`) e o schema deles vivem em `shared/conversas/quadro.schemas.ts`
 - Falha da IA nunca quebra a tela: vira mensagem de autor `sistema` com texto fixo do Sigma, nunca texto do modelo
-- Detalhes da tela e das rotas: `app/(dashboard)/conversas/AGENTS.md`. Detalhes do assistente: `lib/assistente/AGENTS.md`. Spec: `docs/specs/0003-tela-chat-chamados/`
+- Desde a spec 0005, a mesma tela acompanha o chamado até o fim, para os quatro perfis (solicitante, técnico, Preposto, Admin): comentário vai por `POST /api/conversas/chamado/[chamadoId]/comentarios` (JSON simples, sem NDJSON), e classificação/atribuição/pausa/execução/encerramento chegam ao vivo pelo Socket.IO
+- Detalhes da tela e das rotas: `app/(dashboard)/conversas/AGENTS.md`. Detalhes do assistente: `lib/assistente/AGENTS.md`. Specs: `docs/specs/0003-tela-chat-chamados/`, `docs/specs/0005-andamento-conversa-tecnico/`
 
 ### Validação
 
@@ -278,8 +279,9 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Chamados recorrentes     | `models/RecurringTicket.ts`, `shared/chamados/recurring-ticket.schemas.ts`, `lib/recurring-job.ts`, `lib/recurring-utils.ts`, `app/(dashboard)/gestao/recurring/`, `app/api/cron/recurring-tickets/route.ts`                                                                            |
 | Funcionalidade de IA     | `lib/llm/index.ts` (`generateLlmObject`, `streamLlmObject`), `lib/llm/AGENTS.md`, `docs/specs/0001-integracao-ia-local/`                                                                                                                                                                |
 | Configurar IA local      | `scripts/update-llm-env.sh` (VPS), `docker-compose.yml`, `.env.production.example`, `GET /api/llm/status` (só Admin)                                                                                                                                                                    |
-| Tela de conversas (chat) | `app/(dashboard)/conversas/` (tela e lateral), `app/api/conversas/` (envio em NDJSON), `lib/assistente/` (prompt e reserva), `shared/conversas/quadro.schemas.ts` (quadros)                                                                                                             |
+| Tela de conversas (chat) | `app/(dashboard)/conversas/` (tela e lateral), `app/api/conversas/` (envio em NDJSON e o comentário em JSON simples), `lib/assistente/` (prompt e reserva), `shared/conversas/quadro.schemas.ts` (quadros)                                                                             |
 | Novo quadro de resposta  | `shared/conversas/quadro.schemas.ts`, `app/api/conversas/_lib/fluxo.ts`, `app/(dashboard)/conversas/_components/useEnvio.ts`                                                                                                                                                            |
+| Andamento do chamado na conversa | `lib/conversas/linha-do-tempo.ts` (`podeComentarInterno`, `souSolicitante`), `lib/chamados/comentarios.ts`, `app/api/conversas/chamado/[chamadoId]/comentarios/route.ts`, `components/realtime/RealtimeProvider.tsx`, `docs/specs/0005-andamento-conversa-tecnico/`                    |
 
 ## CI/CD
 
