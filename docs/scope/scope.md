@@ -10,29 +10,29 @@ _São recomendações para manter a construção organizada, não obrigações. 
 
 ## At a glance
 
-| #   | Feature                                            | Phase      | Status      |
-| --- | -------------------------------------------------- | ---------- | ----------- |
-| 1   | Autenticação LDAP e perfis                         | Contexto   | existing    |
-| 2   | Unidades e usuários                                | Contexto   | existing    |
-| 3   | Catálogo de serviços                               | Contexto   | existing    |
-| 4   | Abertura de chamado por formulário                 | Contexto   | existing    |
-| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto   | existing    |
-| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto   | existing    |
-| 7   | SLA, expediente e pausas                           | Contexto   | existing    |
-| 8   | Notificações em tempo real                         | Contexto   | existing    |
-| 9   | Integração com a IA local                          | Foundation | done        |
-| 10  | Conversa e decisões da IA no banco                 | Foundation | done        |
-| 11  | Tela de chat de chamados                           | Slice 1    | done        |
-| 12  | Abertura do chamado pela IA                        | Slice 1    | done        |
-| 13  | Andamento e conversa com o técnico                 | Slice 2    | done        |
-| 14  | Calibração da trava de confiança                   | Slice 3    | done        |
-| 15  | Prioridade e SLA automáticos                       | Slice 3    | in-progress |
-| 16  | Atribuição automática ao técnico                   | Slice 3    | planned     |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned     |
-| 18  | Painel de acurácia da IA                           | Slice 3    | planned     |
-| 19  | Fotos no chat                                      | Slice 4    | planned     |
-| 20  | Aviso de chamado duplicado                         | Slice 4    | planned     |
-| 21  | Entrada por voz                                    | Slice 4    | planned     |
+| #   | Feature                                            | Phase      | Status   |
+| --- | -------------------------------------------------- | ---------- | -------- |
+| 1   | Autenticação LDAP e perfis                         | Contexto   | existing |
+| 2   | Unidades e usuários                                | Contexto   | existing |
+| 3   | Catálogo de serviços                               | Contexto   | existing |
+| 4   | Abertura de chamado por formulário                 | Contexto   | existing |
+| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto   | existing |
+| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto   | existing |
+| 7   | SLA, expediente e pausas                           | Contexto   | existing |
+| 8   | Notificações em tempo real                         | Contexto   | existing |
+| 9   | Integração com a IA local                          | Foundation | done     |
+| 10  | Conversa e decisões da IA no banco                 | Foundation | done     |
+| 11  | Tela de chat de chamados                           | Slice 1    | done     |
+| 12  | Abertura do chamado pela IA                        | Slice 1    | done     |
+| 13  | Andamento e conversa com o técnico                 | Slice 2    | done     |
+| 14  | Calibração da trava de confiança                   | Slice 3    | done     |
+| 15  | Prioridade e SLA automáticos                       | Slice 3    | done     |
+| 16  | Atribuição automática ao técnico                   | Slice 3    | planned  |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned  |
+| 18  | Painel de acurácia da IA                           | Slice 3    | planned  |
+| 19  | Fotos no chat                                      | Slice 4    | planned  |
+| 20  | Aviso de chamado duplicado                         | Slice 4    | planned  |
+| 21  | Entrada por voz                                    | Slice 4    | planned  |
 
 ## Existing (contexto)
 
@@ -170,7 +170,7 @@ spec [0006](../specs/0006-calibracao-trava-confianca/index.md) · code in `lib/i
 - [x] Verify it: `/check verify calibração da trava de confiança`
 - [x] Test it: `/test calibração da trava de confiança`
 
-### 15. Prioridade e SLA automáticos · in-progress · GA
+### 15. Prioridade e SLA automáticos · done · GA
 
 Quando confiante, a IA define a prioridade (BAIXA a EMERGENCIAL), o chamado passa a `validado` e o SLA começa igual à classificação manual. Abaixo do limite, fica na triagem com a sugestão. Mexe em prazo contratual e glosa do IMR, por isso GA.
 **Done when:** chamado confiante vira `validado` com snapshot de SLA idêntico ao da classificação manual; chamado com pouca confiança fica `aberto` com a sugestão já preenchida; pedir urgência no texto sem motivo real não eleva a prioridade sozinho; decisão, motivo e confiança ficam no histórico.
