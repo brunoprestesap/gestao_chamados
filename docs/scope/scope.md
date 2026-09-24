@@ -26,7 +26,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 12  | Abertura do chamado pela IA                        | Slice 1    | done        |
 | 13  | Andamento e conversa com o técnico                 | Slice 2    | done        |
 | 14  | Calibração da trava de confiança                   | Slice 3    | done        |
-| 15  | Prioridade e SLA automáticos                       | Slice 3    | in-progress |
+| 15  | Prioridade e SLA automáticos                       | Slice 3    | done        |
 | 16  | Atribuição automática ao técnico                   | Slice 3    | planned     |
 | 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned     |
 | 18  | Painel de acurácia da IA                           | Slice 3    | planned     |
@@ -170,7 +170,7 @@ spec [0006](../specs/0006-calibracao-trava-confianca/index.md) · code in `lib/i
 - [x] Verify it: `/check verify calibração da trava de confiança`
 - [x] Test it: `/test calibração da trava de confiança`
 
-### 15. Prioridade e SLA automáticos · in-progress · GA
+### 15. Prioridade e SLA automáticos · done · GA
 
 Quando confiante, a IA define a prioridade (BAIXA a EMERGENCIAL), o chamado passa a `validado` e o SLA começa igual à classificação manual. Abaixo do limite, fica na triagem com a sugestão. Mexe em prazo contratual e glosa do IMR, por isso GA.
 **Done when:** chamado confiante vira `validado` com snapshot de SLA idêntico ao da classificação manual; chamado com pouca confiança fica `aberto` com a sugestão já preenchida; pedir urgência no texto sem motivo real não eleva a prioridade sozinho; decisão, motivo e confiança ficam no histórico.
