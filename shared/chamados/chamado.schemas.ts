@@ -76,3 +76,23 @@ export const ClassificarChamadoSchema = z.object({
 });
 
 export type ClassificarChamadoInput = z.infer<typeof ClassificarChamadoSchema>;
+
+/**
+ * Correção mínima da prioridade de um chamado já `validado` (spec 0007,
+ * AC-11): só troca a prioridade final, nunca o serviço catalogado nem a
+ * natureza do atendimento — o formulário de classificação continua sendo o
+ * único lugar que muda esses dois.
+ */
+export const UpdateTicketPrioritySchema = z.object({
+  chamadoId: objectId.min(1, 'ID do chamado é obrigatório'),
+  finalPriority: z.enum(FINAL_PRIORITY_VALUES, {
+    message: 'Selecione a prioridade final',
+  }),
+  classificationNotes: z
+    .string()
+    .optional()
+    .default('')
+    .transform((v) => (v ?? '').trim()),
+});
+
+export type UpdateTicketPriorityInput = z.infer<typeof UpdateTicketPrioritySchema>;

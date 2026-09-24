@@ -251,7 +251,8 @@ describe('constantes da chamada', () => {
 
   it('tem versão de prompt dentro do limite do registro', () => {
     // Assert
-    expect(PROMPT_VERSION).toBe('1');
+    expect(PROMPT_VERSION).toBe('2');
+    expect(PROMPT_VERSION.length).toBeLessThanOrEqual(40);
   });
 
   it('deixa a entrada abaixo do teto de `lib/llm`, com folga', () => {

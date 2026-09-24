@@ -5,8 +5,11 @@ import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
  * por campo (`servico`, `prioridade`), o limite de confiança e a amostra
  * mínima usados na sugestão de corte, mais o interruptor global de autonomia.
  *
- * `limiteConfianca: null` significa autonomia impossível para aquele campo;
- * nesta fatia nada além desta configuração lê `autonomiaAtiva` nem os limites.
+ * `limiteConfianca: null` significa autonomia impossível para aquele campo.
+ * Desde a spec 0007, o portão de confiança da abertura pelo chat
+ * (`lib/assistente/portao.ts`) lê `autonomiaAtiva` e o limite de `prioridade`,
+ * sempre por `lerConfig()`, que só considera a autonomia ligada quando
+ * `promptVersion` é a versão atual do prompt.
  */
 
 /** Chave fixa do documento único; o índice único impede duas cargas concorrentes criarem dois. */
@@ -26,6 +29,9 @@ const IaAutonomiaConfigSchema = new Schema(
     servico: { type: CampoConfigSchema, required: true, default: () => ({}) },
     prioridade: { type: CampoConfigSchema, required: true, default: () => ({}) },
     autonomiaAtiva: { type: Boolean, required: true, default: false },
+    // `PROMPT_VERSION` vigente quando o Admin salvou (spec 0007, AC-17): o
+    // limite só vale para o prompt em que foi calibrado.
+    promptVersion: { type: String, default: null },
     updatedByUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },

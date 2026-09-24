@@ -452,3 +452,30 @@ export async function servicoSugeridoPelaIa(chamadoIds: string[]): Promise<Set<s
     return new Set();
   }
 }
+
+/**
+ * Quais destes chamados nasceram `validado` sozinhos pela IA (spec 0007,
+ * AC-15). O selo marca a origem da validação, não o estado atual dela: nunca
+ * lê `Chamado.iaSituacao`, que vira `'revisada'` numa correção (AC-11) e
+ * desfaria o selo sem motivo. Não restringe por `canalAbertura`: qualquer
+ * chamado pode ter essa decisão.
+ */
+export async function prioridadeValidadaPelaIa(chamadoIds: string[]): Promise<Set<string>> {
+  const validos = [...new Set(chamadoIds)].filter((id) => objectIdSchema.safeParse(id).success);
+  if (validos.length === 0) return new Set();
+
+  try {
+    await dbConnect();
+    const docs = await DecisaoIaModel.find({
+      chamadoId: { $in: validos.map((id) => new Types.ObjectId(id)) },
+      campo: 'prioridade',
+      efeito: 'aplicado',
+    })
+      .select('chamadoId')
+      .lean();
+    return new Set(docs.map((doc) => String(doc.chamadoId)));
+  } catch (err) {
+    registrarErro('prioridadeValidadaPelaIa', { quantos: String(validos.length) }, err);
+    return new Set();
+  }
+}

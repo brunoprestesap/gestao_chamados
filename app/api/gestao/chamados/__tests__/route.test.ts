@@ -36,8 +36,10 @@ vi.mock('@/models/Chamado', () => ({
 }));
 
 const mockServicoSugerido = vi.fn();
+const mockPrioridadeValidada = vi.fn();
 vi.mock('@/lib/conversas', () => ({
   servicoSugeridoPelaIa: (...args: unknown[]) => mockServicoSugerido(...args),
+  prioridadeValidadaPelaIa: (...args: unknown[]) => mockPrioridadeValidada(...args),
 }));
 
 // Import after mocks
@@ -88,6 +90,7 @@ beforeEach(() => {
   mockCountDocuments.mockResolvedValue(0);
   mockLean.mockResolvedValue([]);
   mockServicoSugerido.mockResolvedValue(new Set());
+  mockPrioridadeValidada.mockResolvedValue(new Set());
 });
 
 describe('GET /api/gestao/chamados — pagination', () => {
@@ -294,6 +297,30 @@ describe('GET /api/gestao/chamados — marca do chat (spec 0004, AC-15)', () => 
 
     // Assert
     expect(mockFind.mock.calls[0][1]).toHaveProperty('canalAbertura', 1);
+  });
+});
+
+describe('GET /api/gestao/chamados — selo "validado pela IA" (spec 0007, AC-15)', () => {
+  it('marca validadoPelaIa por chamado, sem restringir ao canal chat', async () => {
+    // Arrange
+    const validado = makeChamado({ _id: '1'.repeat(24), canalAbertura: 'chat' });
+    const naoValidado = makeChamado({ _id: '2'.repeat(24) });
+    mockCountDocuments.mockResolvedValue(2);
+    mockLean.mockResolvedValue([validado, naoValidado]);
+    mockPrioridadeValidada.mockResolvedValue(new Set(['1'.repeat(24)]));
+
+    // Act
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    // Assert
+    expect(mockPrioridadeValidada).toHaveBeenCalledWith(['1'.repeat(24), '2'.repeat(24)]);
+    expect(
+      body.items.map((i: { _id: string; validadoPelaIa: boolean }) => [i._id, i.validadoPelaIa]),
+    ).toEqual([
+      ['1'.repeat(24), true],
+      ['2'.repeat(24), false],
+    ]);
   });
 });
 

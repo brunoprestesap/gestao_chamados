@@ -8,6 +8,8 @@ interface TemplatePayload {
   ticketId?: string;
   ticketNumber?: string;
   title?: string;
+  /** Só em `ticket:new`: o chamado já nasceu `validado` pela IA (spec 0007, AC-13). */
+  jaValidado?: boolean;
 }
 
 type TemplatePayloadByEvent = {
@@ -26,7 +28,10 @@ interface EmailContent {
 const SUBJECT_MAP: Record<string, (p: TemplatePayload) => string> = {
   'ticket:assigned': (p) =>
     `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} atribu\u00eddo a voc\u00ea`,
-  'ticket:new': (p) => `Novo chamado aberto: ${p.ticketNumber ? `#${p.ticketNumber}` : ''}`,
+  'ticket:new': (p) =>
+    p.jaValidado
+      ? `Chamado ${p.ticketNumber ? `#${p.ticketNumber} ` : ''}validado automaticamente`
+      : `Novo chamado aberto: ${p.ticketNumber ? `#${p.ticketNumber}` : ''}`,
   'ticket:execution_registered': (p) =>
     `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} \u2014 servi\u00e7o registrado`,
   'ticket:closed': (p) => `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} encerrado`,
@@ -50,7 +55,9 @@ const BODY_MAP: Record<string, (p: TemplatePayload) => string> = {
   'ticket:assigned': (p) =>
     `Voc\u00ea recebeu um novo chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''}${p.title ? `: ${p.title}` : ''}.`,
   'ticket:new': (p) =>
-    `Um novo chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi aberto${p.title ? `: ${p.title}` : ''}.`,
+    p.jaValidado
+      ? `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi aberto e validado automaticamente pela IA${p.title ? `: ${p.title}` : ''}. A prioridade e o SLA já estão definidos; falta atribuir um técnico.`
+      : `Um novo chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi aberto${p.title ? `: ${p.title}` : ''}.`,
   'ticket:execution_registered': (p) =>
     `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} teve um servi\u00e7o registrado e aguarda encerramento.`,
   'ticket:closed': (p) =>

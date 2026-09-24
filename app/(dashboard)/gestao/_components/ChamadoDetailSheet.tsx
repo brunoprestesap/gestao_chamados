@@ -9,6 +9,7 @@ import {
   Clock,
   ExternalLink,
   FileText,
+  Gauge,
   History,
   Loader2,
   MapPin,
@@ -29,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { MaterialObservationsList } from '@/components/chamado/MaterialObservationsList';
+import { SeloValidadoIa } from '@/components/chamado/SeloValidadoIa';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -143,6 +145,8 @@ interface Props {
   onReatribuir?: (chamado: ChamadoDTO) => void;
   onPausar?: (chamado: ChamadoDTO) => void;
   onRetomar?: (chamado: ChamadoDTO) => void;
+  /** Corrigir a prioridade de um chamado validado, sem técnico atribuído (spec 0007, AC-11). */
+  onCorrigirPrioridade?: (chamado: ChamadoDTO) => void;
   // Ações de Solicitante
   onCancelar?: (chamado: ChamadoDTO) => void;
   onAvaliar?: (chamado: ChamadoDTO) => void;
@@ -166,6 +170,7 @@ export function ChamadoDetailSheet({
   onReatribuir,
   onPausar,
   onRetomar,
+  onCorrigirPrioridade,
   onCancelar,
   onAvaliar,
   onRecusarServico,
@@ -294,6 +299,9 @@ export function ChamadoDetailSheet({
     isManager &&
     (status === 'aguardando_solicitante' || status === 'aguardando_terceiros') &&
     !!onRetomar;
+  // Janela estreita de propósito (spec 0007, AC-12): só validado e sem técnico atribuído.
+  const showCorrigirPrioridade =
+    isManager && status === 'validado' && !chamado.assignedToUserId && !!onCorrigirPrioridade;
 
   // Ações do Solicitante
   const showCancelar = isSolicitante && status === 'aberto' && !!onCancelar;
@@ -310,6 +318,7 @@ export function ChamadoDetailSheet({
     showReabrir ||
     showPausar ||
     showRetomar ||
+    showCorrigirPrioridade ||
     showCancelar ||
     showAvaliar ||
     showRecusarServico;
@@ -348,6 +357,7 @@ export function ChamadoDetailSheet({
                   <StatusIcon className="mr-1 h-3 w-3" aria-hidden="true" />
                   {CHAMADO_STATUS_LABELS[chamado.status]}
                 </Badge>
+                <SeloValidadoIa validadoPelaIa={chamado.validadoPelaIa} className="shrink-0" />
               </div>
 
               {/* Ticket title as visible subtitle */}
@@ -674,6 +684,18 @@ export function ChamadoDetailSheet({
                   >
                     <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                     Atribuir
+                  </Button>
+                )}
+                {showCorrigirPrioridade && onCorrigirPrioridade && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full transition-colors sm:w-auto"
+                    onClick={() => handleAction(onCorrigirPrioridade)}
+                  >
+                    <Gauge className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Corrigir Prioridade
                   </Button>
                 )}
                 {showReatribuir && onReatribuir && (

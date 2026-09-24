@@ -131,12 +131,14 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Flag `businessHoursOnly` determina se cálculo respeita expediente ou roda 24x7
 - Status de exibição: `atrasado` (breach), `proximo_vencimento` (≤20% restante), `no_prazo`
 - Config padrão: America/Belem, 08:00–18:00, Seg–Sex (`lib/expediente-config.ts`)
+- O snapshot sai sempre de `montarSnapshotSla` (`lib/sla-snapshot.ts`, nunca lança): classificação manual, correção de prioridade e abertura automática pelo chat usam a mesma função
 
 ### Ciclo de Vida do Chamado
 
 `aberto` → `validado` → `em_atendimento` → `concluído` → `encerrado` (ou `cancelado`)
 
 - Classificação (Preposto/Admin): define prioridade final, dispara snapshot SLA
+- Desde a spec 0007, o chamado aberto pelo chat pode nascer `validado` sozinho, quando a IA passa no portão de confiança (`lib/assistente/portao.ts`); o Preposto ainda corrige a prioridade enquanto não há técnico (`updateTicketPriorityAction`)
 - Atribuição: vincula técnico, emite `ticket:assigned`
 - Execução: técnico registra atendimento, emite `ticket:execution_registered`
 - Fechamento: emite `ticket:closed`, habilita avaliação pelo solicitante (1–5 + comentário, imutável)
@@ -285,6 +287,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Abertura de chamado pelo chat    | `lib/assistente/cartao.ts` (monta o cartão), `lib/assistente/confirmar.ts` (`confirmarAbertura`, `montarTituloChat`), `app/(dashboard)/conversas/actions.ts` (`revisarAberturaAction`, `confirmarAberturaAction`), `app/(dashboard)/conversas/_components/CartaoResumo.tsx`, `docs/specs/0004-abertura-chamado-ia/` |
 | Andamento do chamado na conversa | `lib/conversas/linha-do-tempo.ts` (`podeComentarInterno`, `souSolicitante`), `lib/chamados/comentarios.ts`, `app/api/conversas/chamado/[chamadoId]/comentarios/route.ts`, `components/realtime/RealtimeProvider.tsx`, `docs/specs/0005-andamento-conversa-tecnico/`                                                 |
 | Calibração da confiança da IA    | `lib/ia-confianca/AGENTS.md`, `lib/ia-confianca/calibragem.ts` (relatório), `lib/ia-confianca/config.ts` (documento único), `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`, `docs/specs/0006-calibracao-trava-confianca/`                                                             |
+| Prioridade e SLA automáticos     | `lib/assistente/portao.ts` (portão de confiança), `lib/assistente/confirmar.ts`, `lib/sla-snapshot.ts` (`montarSnapshotSla`), `app/(dashboard)/gestao/actions.ts` (`updateTicketPriorityAction`), `docs/specs/0007-prioridade-sla-automaticos/`                                                                     |
 
 ## CI/CD
 

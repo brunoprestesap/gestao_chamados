@@ -145,6 +145,8 @@ export type ChamadoDTO = {
   canalAbertura?: string | null;
   /** Existe decisão de serviço da IA para este chamado. Vem da lista da gestão. */
   servicoSugeridoIa?: boolean;
+  /** Nasceu `validado` sozinho pela IA (spec 0007, AC-15). Vem da lista da gestão. */
+  validadoPelaIa?: boolean;
   finalPriority?: string | null;
   createdAt: string;
   updatedAt: string;

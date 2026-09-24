@@ -14,14 +14,20 @@ import {
   type Viewer,
 } from '@/lib/conversas';
 import { dbConnect } from '@/lib/db';
+import { montarSnapshotSla } from '@/lib/sla-snapshot';
 import { UnitModel } from '@/models/unit';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import type { TipoServico } from '@/shared/chamados/tipo-servico';
 import { confirmarAberturaSchema } from '@/shared/conversas/abertura.schemas';
-import type { CartaoModo, ConversaFalha } from '@/shared/conversas/conversa.constants';
+import type {
+  CartaoModo,
+  ConversaFalha,
+  DecisaoEfeito,
+} from '@/shared/conversas/conversa.constants';
 
 import { lerServicoAtivo, type ServicoAtivo } from './catalogo';
 import { fraseDeChamadoAberto } from './mensagens';
+import { confiancaSuficienteParaPrioridade } from './portao';
 
 /**
  * A confirmação do cartão resumo: o chamado nasce (spec 0004, AC-10 e AC-11).
@@ -67,10 +73,18 @@ export function montarDescricao(
     .join('\n\n');
 }
 
-/** As decisões da confirmação, lidas só da proposta guardada (AC-10). */
+/**
+ * As decisões da confirmação, lidas só da proposta guardada (AC-10).
+ *
+ * `efeitoPrioridade` vem do portão de confiança (spec 0007): `'aplicado'`
+ * quando o chamado nasce `validado` sozinho, `'sugestao'` (o padrão) nos
+ * outros casos. O serviço nunca vira `'aplicado'` nesta fatia: o portão exige
+ * o mesmo modo `ia` que já o resolveu, então ele nunca precisou de triagem.
+ */
 export function decisoesDaProposta(
   proposta: PropostaLida,
   servico: ServicoAtivo | null,
+  efeitoPrioridade: DecisaoEfeito = 'sugestao',
 ): DecisaoEntrada[] {
   if (!proposta.llmCallId || !proposta.modelo || !proposta.promptVersion || !proposta.task) {
     return [];
@@ -102,7 +116,7 @@ export function decisoesDaProposta(
     decisoes.push({
       campo: 'prioridade',
       decididoPor: 'ia',
-      efeito: 'sugestao',
+      efeito: efeitoPrioridade,
       valor: { prioridade: proposta.prioridade.prioridade },
       confianca: proposta.prioridade.confianca,
       motivo: proposta.prioridade.motivo,
@@ -192,13 +206,52 @@ export async function confirmarAbertura(
       localExato,
     });
 
+    // O portão de confiança (spec 0007): roda uma única vez, agora. Sem
+    // confiança suficiente, ou sem snapshot de SLA de verdade por trás, o
+    // caminho cai inteiro no comportamento de sempre (`aberto`, sugestão).
+    const now = new Date();
+    let statusChamado: 'aberto' | 'validado' = 'aberto';
+    let efeitoPrioridade: DecisaoEfeito = 'sugestao';
+    let classificacao: Record<string, unknown> = {};
+
+    if (proposta.prioridade) {
+      // Falha ao ler a configuração do portão também cai no caminho de
+      // sempre (espírito do AC-4): nunca impede a abertura.
+      const confiante = await confiancaSuficienteParaPrioridade({
+        modo,
+        confianca: proposta.prioridade.confianca,
+      }).catch((err: unknown) => {
+        registrar({
+          conversaId,
+          aviso: 'portao_indisponivel',
+          erro: err instanceof Error ? err.name : 'desconhecido',
+        });
+        return false;
+      });
+      if (confiante) {
+        const snapshot = await montarSnapshotSla(proposta.prioridade.prioridade, now);
+        if (snapshot.ok) {
+          statusChamado = 'validado';
+          efeitoPrioridade = 'aplicado';
+          classificacao = {
+            finalPriority: proposta.prioridade.prioridade,
+            // A natureza aprovada, como a classificação manual grava (AC-1):
+            // o chat só abre `Padrão`, então a aprovada é a mesma pedida.
+            attendanceNature: toAttendanceNature('Padrão'),
+            classifiedAt: now,
+            sla: snapshot.snapshot,
+          };
+        }
+      }
+    }
+
     const aberto = await abrirChamadoDaConversa({
       viewer,
       conversaId,
       dadosChamado: {
         titulo,
         descricao,
-        status: 'aberto',
+        status: statusChamado,
         solicitanteId: new Types.ObjectId(viewer.userId),
         unitId: new Types.ObjectId(unitId),
         localExato,
@@ -210,8 +263,9 @@ export async function confirmarAbertura(
         telefoneContato: '',
         catalogServiceId: servico ? new Types.ObjectId(servico.catalogServiceId) : null,
         subtypeId: servico ? new Types.ObjectId(servico.subtypeId) : null,
+        ...classificacao,
       },
-      decisoes: decisoesDaProposta(proposta, servico),
+      decisoes: decisoesDaProposta(proposta, servico, efeitoPrioridade),
     });
     if (!aberto.ok) return falha(traduzir(aberto.reason));
 
@@ -221,7 +275,11 @@ export async function confirmarAbertura(
         conversaId,
         autor: 'sistema',
         tipo: 'texto',
-        texto: fraseDeChamadoAberto(aberto.ticketNumber),
+        texto: fraseDeChamadoAberto(aberto.ticketNumber, {
+          validado: statusChamado === 'validado',
+          finalPriority:
+            statusChamado === 'validado' ? (proposta.prioridade?.prioridade ?? null) : null,
+        }),
       });
       if (!aviso.ok) {
         registrar({ conversaId, chamadoId: aberto.chamadoId, aviso: aviso.reason });
@@ -233,6 +291,7 @@ export async function confirmarAbertura(
         ticketNumber: aberto.ticketNumber,
         titulo,
         solicitanteId: viewer.userId,
+        jaValidado: statusChamado === 'validado',
       }).catch((err) => {
         console.error(
           '[abertura]',

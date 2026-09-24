@@ -390,6 +390,35 @@ export async function garantirHistoricoAbertura(chamadoId: string, userId: strin
 }
 
 /**
+ * A entrada de histórico da validação automática (spec 0007, AC-3): o chamado
+ * nasceu direto `validado`, sem passar pela triagem manual. Conferida antes
+ * para não duplicar, mesmo padrão de `garantirHistoricoAbertura`.
+ *
+ * `statusAnterior: 'aberto'` mesmo o documento nunca tendo existido com esse
+ * status: é o mesmo formato que a classificação manual grava (AC-3), e mantém
+ * a narrativa da linha do tempo coerente com a entrada `abertura` (que sempre
+ * grava `statusNovo: 'aberto'`, ver acima) — as duas juntas contam a mesma
+ * história que a triagem manual contaria, só que no mesmo instante.
+ */
+export async function garantirHistoricoClassificacaoIa(
+  chamadoId: string,
+  finalPriority: string,
+): Promise<void> {
+  const existe = await ChamadoHistoryModel.exists({ chamadoId, action: 'classificacao' });
+  if (existe) return;
+
+  await ChamadoHistoryModel.create({
+    chamadoId: new Types.ObjectId(chamadoId),
+    userId: null,
+    actorType: 'ia',
+    action: 'classificacao',
+    statusAnterior: 'aberto',
+    statusNovo: 'validado',
+    observacoes: `Prioridade: ${finalPriority}. Chamado validado automaticamente pela IA, com o SLA já calculado.`,
+  });
+}
+
+/**
  * Completa uma confirmação que parou no meio (AC-5).
  *
  * Roda na leitura da conversa e na lista de rascunhos, então o reparo acontece
@@ -401,14 +430,14 @@ export async function repararSePreciso(conversa: ConversaCrua): Promise<Conversa
   const reservado = conversa.chamadoIdReservado;
   if (conversa.chamadoId || !reservado) return conversa;
 
-  const chamado = await ChamadoModel.findById(reservado).select('_id').lean();
+  const chamado = await ChamadoModel.findById(reservado).select('_id status finalPriority').lean();
 
   if (chamado) {
     // O chamado existe: faltou fechar o histórico e o vínculo.
     await garantirHistoricoAbertura(String(reservado), String(conversa.solicitanteId));
 
     const decisoes = await DecisaoIaModel.find({ chamadoId: reservado })
-      .select('_id campo valorIa decididoPor')
+      .select('_id campo valorIa decididoPor efeito')
       .lean();
     for (const decisao of decisoes) {
       await garantirHistoricoDecisao({
@@ -418,6 +447,16 @@ export async function repararSePreciso(conversa: ConversaCrua): Promise<Conversa
         rotulo: String((decisao.valorIa as { rotulo?: string })?.rotulo ?? ''),
         decididoPor: decisao.decididoPor as 'ia' | 'regra',
       });
+    }
+
+    // Nasceu `validado` pela IA (spec 0007, AC-3) e a confirmação parou antes
+    // da entrada `classificacao`: a próxima confirmação sai cedo por "já virou
+    // chamado", então é aqui que ela precisa ser completada.
+    const validadoPelaIa = decisoes.some(
+      (d) => d.campo === 'prioridade' && d.efeito === 'aplicado',
+    );
+    if (chamado.status === 'validado' && chamado.finalPriority && validadoPelaIa) {
+      await garantirHistoricoClassificacaoIa(String(reservado), String(chamado.finalPriority));
     }
 
     await ConversaModel.updateOne(

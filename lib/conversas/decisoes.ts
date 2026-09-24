@@ -408,10 +408,18 @@ export const CAMPOS_OCULTOS: readonly DecisaoCampo[] = ['prioridade'];
 /**
  * Os ids das decisões deste chamado que as telas escondem. Quem lê o
  * histórico tira dele toda entrada ligada a uma destas decisões.
+ *
+ * Só esconde enquanto a decisão ainda é sugestão (spec 0007, AC-6): uma
+ * decisão de prioridade com `efeito: 'aplicado'` já valeu sem triagem, deixou
+ * de ser sugestão, e passa a aparecer como qualquer outra decisão do chamado.
  */
 export async function decisoesOcultas(chamadoId: string): Promise<Set<string>> {
   if (!objectIdSchema.safeParse(chamadoId).success) return new Set();
-  const docs = await DecisaoIaModel.find({ chamadoId, campo: { $in: CAMPOS_OCULTOS } })
+  const docs = await DecisaoIaModel.find({
+    chamadoId,
+    campo: { $in: CAMPOS_OCULTOS },
+    efeito: 'sugestao',
+  })
     .select('_id')
     .lean();
   return new Set(docs.map((doc) => String(doc._id)));

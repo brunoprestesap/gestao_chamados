@@ -26,7 +26,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 12  | Abertura do chamado pela IA                        | Slice 1    | done     |
 | 13  | Andamento e conversa com o técnico                 | Slice 2    | done     |
 | 14  | Calibração da trava de confiança                   | Slice 3    | done     |
-| 15  | Prioridade e SLA automáticos                       | Slice 3    | planned  |
+| 15  | Prioridade e SLA automáticos                       | Slice 3    | in-progress |
 | 16  | Atribuição automática ao técnico                   | Slice 3    | planned  |
 | 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned  |
 | 18  | Painel de acurácia da IA                           | Slice 3    | planned  |
@@ -170,12 +170,21 @@ spec [0006](../specs/0006-calibracao-trava-confianca/index.md) · code in `lib/i
 - [x] Verify it: `/check verify calibração da trava de confiança`
 - [x] Test it: `/test calibração da trava de confiança`
 
-### 15. Prioridade e SLA automáticos · needs a decision · GA
+### 15. Prioridade e SLA automáticos · in-progress · GA
 
 Quando confiante, a IA define a prioridade (BAIXA a EMERGENCIAL), o chamado passa a `validado` e o SLA começa igual à classificação manual. Abaixo do limite, fica na triagem com a sugestão. Mexe em prazo contratual e glosa do IMR, por isso GA.
 **Done when:** chamado confiante vira `validado` com snapshot de SLA idêntico ao da classificação manual; chamado com pouca confiança fica `aberto` com a sugestão já preenchida; pedir urgência no texto sem motivo real não eleva a prioridade sozinho; decisão, motivo e confiança ficam no histórico.
+spec [0007](../specs/0007-prioridade-sla-automaticos/index.md) · code in `lib/assistente/confirmar.ts`, `lib/assistente/portao.ts`, `lib/sla-snapshot.ts`, `lib/conversas/abertura.ts`, `app/(dashboard)/gestao/actions.ts`, `app/(dashboard)/gestao/_components/CorrigirPrioridadeDialog.tsx`
 
-- [ ] Design it (spec): `/architect prioridade e SLA automáticos`
+- [x] Design it (spec): `/architect prioridade e SLA automáticos`
+- [x] Build it: `/develop prioridade e SLA automáticos`
+  - [x] Fio fino do caminho confiante, ponta a ponta: extrai o cálculo de SLA para reaproveitar, reforça o prompt contra urgência sem motivo, portão de confiança, `confirmarAbertura` decide status/SLA/efeito, histórico e evento de validação automática, migração que desliga `autonomiaAtiva` · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10, AC-16, AC-17
+  - [x] Visibilidade e cópia: aviso de viés também em prioridade, sugestão pré-preenchida na classificação, selo de validado pela IA, texto de notificação e de chat variando por status · AC-8, AC-9, AC-13, AC-14, AC-15
+  - [x] Correção mínima: ação e diálogo para o Preposto trocar a prioridade de um chamado validado ainda não atribuído · AC-11, AC-12
+- [x] Verify it: `/check verify prioridade e SLA automáticos`
+- [x] Test it: `/test prioridade e SLA automáticos`
+- [x] Review it (fresh model): `/check review prioridade e SLA automáticos`
+- [x] Document it: `/document prioridade e SLA automáticos`
 
 ### 16. Atribuição automática ao técnico · needs a decision
 

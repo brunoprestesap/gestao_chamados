@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertTriangle, Clock, Zap } from 'lucide-react';
+import { AlertTriangle, Clock, Sparkles, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -143,6 +143,18 @@ async function fetchRecorrencias(chamadoId: string): Promise<RecorrenciaItem[]> 
   return Array.isArray(data.items) ? data.items : [];
 }
 
+/** A sugestão de prioridade da IA, ainda não revisada (spec 0007, AC-8). */
+async function fetchPrioridadeSugerida(chamadoId: string): Promise<FinalPriority | null> {
+  const res = await fetch(`/api/gestao/chamados/${chamadoId}/decisao-prioridade`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+  const data = (await res.json().catch(() => ({}))) as {
+    sugestao?: { prioridade?: FinalPriority } | null;
+  };
+  return data.sugestao?.prioridade ?? null;
+}
+
 export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,10 +162,14 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
   const [slaConfigs, setSlaConfigs] = useState<SlaConfigItem[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [recorrencias, setRecorrencias] = useState<RecorrenciaItem[]>([]);
+  const [prioridadeSugerida, setPrioridadeSugerida] = useState<FinalPriority | null>(null);
 
   const [subtypes, setSubtypes] = useState<SubtypeOption[]>([]);
   const [catalogServices, setCatalogServices] = useState<CatalogServiceOption[]>([]);
   const typeIdRef = useRef('');
+  // O Preposto já escolheu a prioridade à mão: a sugestão que chega depois
+  // dos fetches não pode trocar essa escolha em silêncio (AC-8).
+  const prioridadeEscolhidaRef = useRef(false);
 
   const defaultValues = useMemo<FormValues>(
     () => ({
@@ -180,6 +196,7 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
       setSubtypes([]);
       setCatalogServices([]);
       setRecorrencias([]);
+      setPrioridadeSugerida(null);
       typeIdRef.current = '';
       return;
     }
@@ -188,18 +205,24 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
       subtypeId: chamado.subtypeId ?? '',
       catalogServiceId: chamado.catalogServiceId ?? '',
     });
+    prioridadeEscolhidaRef.current = false;
     setError(null);
     const load = async () => {
-      const [units, configs, sessionRes, recorrenciasData] = await Promise.all([
+      const [units, configs, sessionRes, recorrenciasData, sugestaoPrioridade] = await Promise.all([
         fetchUnits(),
         fetchSlaConfigs(),
         fetch('/api/session', { cache: 'no-store' }),
         fetchRecorrencias(chamado._id),
+        fetchPrioridadeSugerida(chamado._id),
       ]);
       const u = units.find((x) => x.id === chamado.unitId);
       setUnitName(u?.name ?? null);
       setSlaConfigs(configs);
       setRecorrencias(recorrenciasData);
+      setPrioridadeSugerida(sugestaoPrioridade);
+      if (sugestaoPrioridade && !prioridadeEscolhidaRef.current) {
+        form.setValue('finalPriority', sugestaoPrioridade);
+      }
       const sessionData = await sessionRes.json().catch(() => ({}));
       setIsAdmin(sessionData?.role === 'Admin');
 
@@ -461,14 +484,26 @@ export function ClassificarChamadoDialog({ open, onOpenChange, chamado, onSucces
               name="finalPriority"
               render={({ field }) => (
                 <FormItem className="space-y-1.5 sm:space-y-2">
-                  <FormLabel className="text-sm">
+                  <FormLabel className="flex flex-wrap items-center gap-1.5 text-sm">
                     Prioridade Final <span className="text-destructive">*</span>
+                    {prioridadeSugerida && field.value === prioridadeSugerida && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                        <Sparkles className="h-3 w-3" aria-hidden />
+                        Sugestão da IA
+                      </span>
+                    )}
                   </FormLabel>
                   <FormDescription className="text-xs leading-relaxed sm:max-w-none">
                     Define o nível de prioridade institucional do chamado e determina os prazos de
                     SLA aplicáveis.
                   </FormDescription>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={(valor) => {
+                      prioridadeEscolhidaRef.current = true;
+                      field.onChange(valor);
+                    }}
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger className="w-full min-h-10 sm:min-h-9">
                         <SelectValue placeholder="Selecione" />

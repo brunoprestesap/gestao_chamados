@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { servicoSugeridoPelaIa } from '@/lib/conversas';
+import { prioridadeValidadaPelaIa, servicoSugeridoPelaIa } from '@/lib/conversas';
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
@@ -189,12 +189,19 @@ export async function GET(req: Request) {
   const doChat = items
     .filter((c) => (c as { canalAbertura?: string }).canalAbertura === 'chat')
     .map((c) => String(c._id));
-  const sugeridos = await servicoSugeridoPelaIa(doChat);
+  const todosIds = items.map((c) => String(c._id));
+  const [sugeridos, validadosPelaIa] = await Promise.all([
+    servicoSugeridoPelaIa(doChat),
+    // O selo "Validado automaticamente" (spec 0007, AC-15) não se limita ao
+    // canal chat: a decisão `campo: 'prioridade', efeito: 'aplicado'` decide.
+    prioridadeValidadaPelaIa(todosIds),
+  ]);
 
   return NextResponse.json({
     items: items.map((c) => ({
       ...normalizeChamado(c),
       servicoSugeridoIa: sugeridos.has(String(c._id)),
+      validadoPelaIa: validadosPelaIa.has(String(c._id)),
     })),
     pagination: { page, limit, total, totalPages },
   });

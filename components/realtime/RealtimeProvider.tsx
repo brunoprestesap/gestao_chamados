@@ -184,7 +184,10 @@ export function RealtimeProvider({
       const abertoPor = payload.openedBy?.name ?? 'Solicitante';
       const url = getNewTicketManagementUrl(payload);
 
-      toast.success(`Novo chamado ${numero} aberto`, {
+      const tituloToast = payload.jaValidado
+        ? `Chamado ${numero} validado automaticamente`
+        : `Novo chamado ${numero} aberto`;
+      toast.success(tituloToast, {
         description: (
           <div className="mt-1 flex flex-col gap-0.5 text-left">
             {tituloChamado && (
