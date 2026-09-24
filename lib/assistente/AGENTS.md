@@ -15,6 +15,7 @@ O assistente que responde na tela `/conversas` e abre o chamado a partir dela. S
 | `cartao.ts`    | `montarCartao(proposta, perfil)` e `revisarAbertura(viewer, conversaId)`, sem chamar o modelo                                            |
 | `confirmar.ts` | `confirmarAbertura(viewer, entrada)`: conferências, `abrirChamadoDaConversa`, decisões, mensagem final e notificação; `montarTituloChat` |
 | `perfil.ts`    | `lerPerfil(userId)`: a unidade ativa de quem relata, ou `SEM_PERFIL`                                                                     |
+| `portao.ts`    | `confiancaSuficienteParaPrioridade`: o portão de confiança da spec 0007 (autonomia ligada, limite definido, cartão em modo `ia`)         |
 | `config.ts`    | Tetos que mudam com deploy: `CATALOGO_PROMPT_MAX_CARACTERES`, `CATALOGO_DESCRICAO_MAX`, `ENTRADA_MAX_CARACTERES`, `MOTIVO_VAZIO`         |
 | `mensagens.ts` | Frases fixas do Sigma: reserva, chamado aberto e as frases do cartão                                                                     |
 
@@ -26,10 +27,11 @@ O assistente que responde na tela `/conversas` e abre o chamado a partir dela. S
 - **Texto de reserva é sempre do Sigma, nunca do modelo.** Se o modelo falhou, é exatamente por isso que estamos na reserva. Motivo novo de `LlmFailure` exige frase nova em `mensagens.ts`.
 - **`cancelled` não grava nada.** Quem desistiu foi a pessoa, e uma mensagem de sistema só sujaria a conversa no recarregamento.
 - **Montar cartão e confirmar nunca chamam o modelo.** `revisarAbertura` e `confirmarAbertura` só leem `propostaIa` do banco; o botão `Revisar e abrir` e a confirmação não geram tráfego ao vLLM.
-- **Confiança, motivo e prioridade sugerida nunca saem do servidor.** Ficam em `propostaIa`; nenhum payload de cartão, quadro ou retorno de ação os expõe (spec 0004, AC-5).
+- **Confiança, motivo e prioridade sugerida nunca saem do servidor.** Ficam em `propostaIa`; nenhum payload de cartão, quadro ou retorno de ação os expõe (spec 0004, AC-5). Única exceção, só para Preposto e Admin: `GET /api/gestao/chamados/[id]/decisao-prioridade` devolve a prioridade sugerida para pré preencher a classificação (spec 0007, AC-8); o solicitante nunca a vê.
+- **O portão de confiança nunca impede a abertura (spec 0007).** Confiante, o chamado nasce `validado` com o snapshot de `montarSnapshotSla` (`lib/sla-snapshot.ts`) e a decisão de prioridade com `efeito: 'aplicado'`; falha do portão ou sem config de SLA ativa cai no caminho de sempre (`aberto`, sugestão).
 - **Nenhum log traz texto de relato, resposta ou local.** As linhas `[assistente]` levam só `conversaId`, se o código veio válido, `completo`, o destino do cartão e a duração.
 - **Só servidor.** Todo arquivo importa `server-only`.
-- **`PROMPT_VERSION` muda junto com o texto do prompt.** É ele que amarra um registro de `LlmCall` à redação que o produziu.
+- **`PROMPT_VERSION` muda junto com o texto do prompt.** É ele que amarra um registro de `LlmCall` à redação que o produziu. Subir a versão também desliga a autonomia da IA até o Admin salvar a calibração de novo (`lib/ia-confianca/AGENTS.md`).
 
 ## Abertura do chamado (spec 0004)
 

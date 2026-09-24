@@ -5,6 +5,7 @@ import { LLM_FAILURE_REASONS } from '@/lib/llm/types';
 import {
   afirmaChamadoJaAberto,
   FORMULARIO_HREF,
+  fraseDeChamadoAberto,
   mensagemDeReserva,
   respostaSemAfirmarAbertura,
 } from '../mensagens';
@@ -145,6 +146,40 @@ describe('respostaSemAfirmarAbertura', () => {
 
     // Act & Assert
     expect(respostaSemAfirmarAbertura(original)).toBe(original);
+  });
+});
+
+// ── spec 0007, AC-14: texto variando por status ───────────────────
+
+describe('fraseDeChamadoAberto', () => {
+  it('sem opções (padrão), promete a análise de um Preposto', () => {
+    // Act
+    const texto = fraseDeChamadoAberto('CHM-2026-00001');
+
+    // Assert
+    expect(texto).toContain('#CHM-2026-00001');
+    expect(texto).toContain('Preposto');
+  });
+
+  it('validado sozinho, confirma a prioridade em vez de prometer análise (AC-14)', () => {
+    // Act
+    const texto = fraseDeChamadoAberto('CHM-2026-00001', {
+      validado: true,
+      finalPriority: 'ALTA',
+    });
+
+    // Assert
+    expect(texto).toContain('#CHM-2026-00001');
+    expect(texto).toContain('prioridade alta');
+    expect(texto).not.toContain('Preposto');
+  });
+
+  it('validado sem a prioridade (defensivo), cai no texto de sempre', () => {
+    // Act
+    const texto = fraseDeChamadoAberto('CHM-2026-00001', { validado: true, finalPriority: null });
+
+    // Assert
+    expect(texto).toContain('Preposto');
   });
 });
 

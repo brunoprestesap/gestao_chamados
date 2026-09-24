@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { dbConnect } from '@/lib/db';
+import { emitToRoom } from '@/lib/realtime-emit';
 import { ChamadoModel } from '@/models/Chamado';
 import { ConversaModel } from '@/models/Conversa';
 import { ConversaMensagemModel } from '@/models/ConversaMensagem';
@@ -13,6 +14,7 @@ import { TICKET_NUMBER_TENTATIVAS } from './config';
 import {
   buscarConversa,
   garantirHistoricoAbertura,
+  garantirHistoricoClassificacaoIa,
   registrarErro,
   repararSePreciso,
   reservaAindaMinha,
@@ -142,6 +144,15 @@ export async function abrirChamadoDaConversa(
       });
     }
 
+    // O chamado nasceu `validado` sozinho (spec 0007, AC-1, AC-3): uma
+    // entrada de histórico própria.
+    const finalPriority = params.dadosChamado.finalPriority;
+    const validadoPelaIa =
+      params.dadosChamado.status === 'validado' && typeof finalPriority === 'string';
+    if (validadoPelaIa) {
+      await garantirHistoricoClassificacaoIa(chamadoId, finalPriority);
+    }
+
     // ---- Passo 5: o vínculo, condicional ao mesmo id reservado ----
     await ConversaModel.updateOne(
       { _id: params.conversaId, chamadoIdReservado: chamadoObjectId, chamadoId: null },
@@ -151,6 +162,19 @@ export async function abrirChamadoDaConversa(
       { conversaId: params.conversaId },
       { $set: { expiresAt: null } },
     );
+
+    // O mesmo evento que a classificação manual dispara (AC-5), só depois do
+    // vínculo: um refresh disparado por ele já lê a conversa como vinculada.
+    // Só na primeira vez, nunca numa repetição idempotente.
+    if (validadoPelaIa && !criado.jaExistia) {
+      await emitToRoom(`user:${params.viewer.userId}`, 'ticket:classified', {
+        ticketId: chamadoId,
+        ticketNumber: criado.ticketNumber,
+        classifiedBy: { id: 'ia', name: 'IA' },
+        finalPriority,
+        at: agora.toISOString(),
+      });
+    }
 
     return {
       ok: true,

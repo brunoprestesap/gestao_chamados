@@ -12,10 +12,17 @@ import {
 } from '@/components/ui/table';
 import type { RelatorioCampo } from '@/lib/ia-confianca/calibragem';
 import { DECISAO_CAMPO_LABELS } from '@/shared/conversas/conversa.constants';
+import type { IaConfiancaCampo } from '@/shared/ia-confianca/ia-confianca.schemas';
 
-/** Aviso fixo: só a seção `servico` leva esse texto (AC-11). */
-const AVISO_VIES_SERVICO =
-  'O Preposto vê a sugestão de serviço já preenchida antes de classificar. Este número mede concordância, não um acerto independente.';
+/**
+ * O mesmo aviso fixo de viés de concordância, agora nas duas seções (spec
+ * 0007, AC-9): desde a pré-preenchida de prioridade no formulário de
+ * classificação (AC-8), o Preposto deixou de julgar prioridade às cegas,
+ * igual já acontecia com serviço.
+ */
+function avisoVies(campo: IaConfiancaCampo): string {
+  return `O Preposto vê a sugestão de ${DECISAO_CAMPO_LABELS[campo]} já preenchida antes de classificar. Este número mede concordância, não um acerto independente.`;
+}
 
 function formatarPercentual(valor: number | null): string {
   if (valor === null) return '—';
@@ -36,12 +43,10 @@ export function RelatorioCampoCard({ relatorio }: { relatorio: RelatorioCampo })
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {relatorio.campo === 'servico' && (
-          <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            {AVISO_VIES_SERVICO}
-          </p>
-        )}
+        <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          {avisoVies(relatorio.campo)}
+        </p>
 
         {!relatorio.amostraSuficiente ? (
           <p className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">

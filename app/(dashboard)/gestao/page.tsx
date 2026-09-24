@@ -26,6 +26,7 @@ import { SubmitCotacaoDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/
 import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/AtribuirChamadoDialog';
 import { ChamadoDetailSheet } from '@/app/(dashboard)/gestao/_components/ChamadoDetailSheet';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
+import { CorrigirPrioridadeDialog } from '@/app/(dashboard)/gestao/_components/CorrigirPrioridadeDialog';
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReabrirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReabrirChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
@@ -38,6 +39,7 @@ import {
   STATUS_ICONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
 import { MarcaAberturaChat } from '@/components/chamado/MarcaAberturaChat';
+import { SeloValidadoIa } from '@/components/chamado/SeloValidadoIa';
 import { StatusMultiSelect } from '@/components/StatusMultiSelect';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,7 +63,7 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateShort } from '@/lib/utils';
-import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
+import { CHAMADO_STATUS_LABELS, type FinalPriority } from '@/shared/chamados/chamado.constants';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -380,6 +382,9 @@ export default function GestaoPage() {
   const [atribuirDialogOpen, setAtribuirDialogOpen] = useState(false);
   const [encerrarChamadoId, setEncerrarChamadoId] = useState<string | null>(null);
   const [reabrirChamado, setReabrirChamado] = useState<ChamadoDTO | null>(null);
+  const [corrigirPrioridadeChamado, setCorrigirPrioridadeChamado] = useState<ChamadoDTO | null>(
+    null,
+  );
   const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
   const [pausarChamado, setPausarChamado] = useState<ChamadoDTO | null>(null);
   const [cotacaoChamado, setCotacaoChamado] = useState<ChamadoDTO | null>(null);
@@ -520,6 +525,15 @@ export default function GestaoPage() {
 
   const handleReabrirSuccess = useCallback(() => {
     setReabrirChamado(null);
+    fetchChamados();
+  }, [fetchChamados]);
+
+  const handleCorrigirPrioridade = useCallback((chamado: ChamadoDTO) => {
+    setCorrigirPrioridadeChamado(chamado);
+  }, []);
+
+  const handleCorrigirPrioridadeSuccess = useCallback(() => {
+    setCorrigirPrioridadeChamado(null);
     fetchChamados();
   }, [fetchChamados]);
 
@@ -796,12 +810,17 @@ export default function GestaoPage() {
                       <span className="block truncate font-medium text-foreground transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
                         {row.titulo}
                       </span>
-                      <MarcaAberturaChat
-                        canalAbertura={row.canalAbertura}
-                        servicoSugeridoIa={row.servicoSugeridoIa}
-                        compacta
-                        className="mt-1"
-                      />
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <MarcaAberturaChat
+                          canalAbertura={row.canalAbertura}
+                          servicoSugeridoIa={row.servicoSugeridoIa}
+                          compacta
+                        />
+                        <SeloValidadoIa
+                          validadoPelaIa={row.validadoPelaIa}
+                          className="text-[11px]"
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="px-4 py-3.5">
                       <StatusBadge status={row.status} />
@@ -876,10 +895,13 @@ export default function GestaoPage() {
                         <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">
                           {row.titulo}
                         </h3>
-                        <MarcaAberturaChat
-                          canalAbertura={row.canalAbertura}
-                          servicoSugeridoIa={row.servicoSugeridoIa}
-                        />
+                        <div className="flex flex-wrap items-center gap-1">
+                          <MarcaAberturaChat
+                            canalAbertura={row.canalAbertura}
+                            servicoSugeridoIa={row.servicoSugeridoIa}
+                          />
+                          <SeloValidadoIa validadoPelaIa={row.validadoPelaIa} />
+                        </div>
 
                         {/* Row 3: metadata */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -998,6 +1020,7 @@ export default function GestaoPage() {
         onReatribuir={handleReatribuir}
         onPausar={handlePausar}
         onRetomar={handleRetomar}
+        onCorrigirPrioridade={handleCorrigirPrioridade}
         userRole={userRole}
       />
 
@@ -1042,6 +1065,18 @@ export default function GestaoPage() {
           chamadoId={reabrirChamado._id}
           chamadoStatus={reabrirChamado.status as ChamadoStatus}
           onSuccess={handleReabrirSuccess}
+        />
+      )}
+
+      {corrigirPrioridadeChamado && (
+        <CorrigirPrioridadeDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setCorrigirPrioridadeChamado(null);
+          }}
+          chamadoId={corrigirPrioridadeChamado._id}
+          currentPriority={corrigirPrioridadeChamado.finalPriority as FinalPriority | null}
+          onSuccess={handleCorrigirPrioridadeSuccess}
         />
       )}
 

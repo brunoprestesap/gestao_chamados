@@ -28,6 +28,8 @@ export interface TicketNewPayload {
   ticketNumber?: string;
   title?: string;
   openedBy: { id: string; name?: string };
+  /** Nasceu `validado` sozinho pela IA (spec 0007, AC-13): não precisa de triagem. */
+  jaValidado?: boolean;
   at: string;
 }
 

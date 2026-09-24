@@ -9,11 +9,12 @@ import type { RelatorioCampo } from '@/lib/ia-confianca/calibragem';
 import { RelatorioCampoCard } from '../RelatorioCampoCard';
 
 /**
- * O cartão de relatório por campo (spec 0006).
+ * O cartão de relatório por campo (specs 0006 e 0007).
  *
  * covers: AC-2 (tabela de cortes com contagem e porcentagem), AC-3 (aviso de
  * amostra insuficiente), AC-4 (traço em linha zerada, sugestão do menor
- * corte elegível), AC-11 (aviso de viés só no serviço)
+ * corte elegível), AC-11 (aviso de viés no serviço), spec 0007 AC-9 (mesmo
+ * aviso também na seção prioridade, que deixou de ser medida às cegas)
  */
 
 const AMOSTRA_INSUFICIENTE: RelatorioCampo = {
@@ -108,7 +109,7 @@ describe('RelatorioCampoCard · amostra suficiente', () => {
   });
 });
 
-// ── aviso de viés só no serviço · AC-11 ───────────────────────────
+// ── aviso de viés nas duas seções · AC-11, spec 0007 AC-9 ─────────
 
 describe('RelatorioCampoCard · aviso de viés', () => {
   it('mostra o aviso fixo na seção servico', () => {
@@ -119,11 +120,11 @@ describe('RelatorioCampoCard · aviso de viés', () => {
     expect(screen.getByText(/vê a sugestão de serviço já preenchida/i)).toBeInTheDocument();
   });
 
-  it('nunca mostra o aviso na seção prioridade', () => {
+  it('mostra o mesmo aviso, agora também na seção prioridade (spec 0007, AC-9)', () => {
     // Act
     render(<RelatorioCampoCard relatorio={{ ...AMOSTRA_INSUFICIENTE, campo: 'prioridade' }} />);
 
     // Assert
-    expect(screen.queryByText(/vê a sugestão de serviço já preenchida/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/vê a sugestão de prioridade já preenchida/i)).toBeInTheDocument();
   });
 });

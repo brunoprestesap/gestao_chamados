@@ -36,6 +36,16 @@ vi.mock('../catalogo', () => ({
   lerServicoAtivo: (...args: unknown[]) => mockLerServicoAtivo(...args),
 }));
 
+const mockLerConfig = vi.fn();
+vi.mock('@/lib/ia-confianca/config', () => ({
+  lerConfig: (...args: unknown[]) => mockLerConfig(...args),
+}));
+
+const mockMontarSnapshotSla = vi.fn();
+vi.mock('@/lib/sla-snapshot', () => ({
+  montarSnapshotSla: (...args: unknown[]) => mockMontarSnapshotSla(...args),
+}));
+
 import {
   confirmarAbertura,
   decisoesDaProposta,
@@ -150,6 +160,14 @@ beforeEach(() => {
   mockEnviarMensagem.mockResolvedValue({ ok: true, destino: 'conversa', id: 'x' });
   mockNotificar.mockResolvedValue(undefined);
   mockInvalidarCartao.mockResolvedValue({ ok: true });
+  // Portão de confiança fechado por padrão (spec 0007): os testes existentes
+  // seguem cobrindo o caminho de sempre, `aberto` com sugestão.
+  mockLerConfig.mockResolvedValue({
+    servico: { limiteConfianca: null, amostraMinima: 30 },
+    prioridade: { limiteConfianca: null, amostraMinima: 30 },
+    autonomiaAtiva: false,
+  });
+  mockMontarSnapshotSla.mockResolvedValue({ ok: false, motivo: 'não usado neste caminho' });
 });
 
 // ── funções puras · AC-10 ────────────────────────────────────────
@@ -281,6 +299,7 @@ describe('confirmarAbertura · modo ia', () => {
       ticketNumber: '2026-0412',
       titulo: 'Troca de lâmpada — Sala 302, perto da janela',
       solicitanteId: VIEWER.userId,
+      jaValidado: false,
     });
   });
 
@@ -348,6 +367,132 @@ describe('confirmarAbertura · modo ia', () => {
     expect(linha).toContain('"modo":"ia"');
     expect(linha).toContain('"jaExistia":false');
     expect(avisos.join('\n')).not.toMatch(/Sala 302|lâmpada/);
+  });
+});
+
+// ── portão de confiança · spec 0007, AC-1 a AC-4, AC-13, AC-14 ───
+
+describe('confirmarAbertura · portão de confiança', () => {
+  const SNAPSHOT = {
+    priority: 'NORMAL',
+    responseTargetMinutes: 120,
+    resolutionTargetMinutes: 480,
+    businessHoursOnly: true,
+    responseDueAt: new Date('2026-01-02T12:00:00Z'),
+    resolutionDueAt: new Date('2026-01-03T12:00:00Z'),
+    computedAt: new Date('2026-01-01T12:00:00Z'),
+    configVersion: 'v1',
+  };
+
+  function confianteAtiva() {
+    mockLerConfig.mockResolvedValue({
+      servico: { limiteConfianca: null, amostraMinima: 30 },
+      prioridade: { limiteConfianca: 0.5, amostraMinima: 30 },
+      autonomiaAtiva: true,
+    });
+  }
+
+  it('confiança suficiente e snapshot de SLA ok: nasce validado, decisão aplicada (AC-1, AC-3)', async () => {
+    // Arrange
+    confianteAtiva();
+    mockMontarSnapshotSla.mockResolvedValue({ ok: true, snapshot: SNAPSHOT });
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    const { dadosChamado, decisoes } = mockAbrir.mock.calls[0][0];
+    expect(dadosChamado).toMatchObject({
+      status: 'validado',
+      finalPriority: 'NORMAL',
+      // A natureza aprovada, como a classificação manual grava (AC-1).
+      attendanceNature: 'PADRAO',
+      sla: SNAPSHOT,
+    });
+    expect(dadosChamado.classifiedAt).toBeInstanceOf(Date);
+    const decisaoPrioridade = decisoes.find((d: { campo: string }) => d.campo === 'prioridade');
+    expect(decisaoPrioridade.efeito).toBe('aplicado');
+    const decisaoServico = decisoes.find((d: { campo: string }) => d.campo === 'servico');
+    expect(decisaoServico.efeito).toBe('sugestao');
+  });
+
+  it('confiança suficiente muda o texto ao solicitante e a notificação da gestão (AC-13, AC-14)', async () => {
+    // Arrange
+    confianteAtiva();
+    mockMontarSnapshotSla.mockResolvedValue({ ok: true, snapshot: SNAPSHOT });
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(mockEnviarMensagem.mock.calls[0][0].texto).not.toContain('Preposto');
+    expect(mockEnviarMensagem.mock.calls[0][0].texto).toContain('prioridade normal');
+    expect(mockNotificar).toHaveBeenCalledWith(expect.objectContaining({ jaValidado: true }));
+  });
+
+  it('confiante mas sem SLA config ativa: cai no caminho de sempre, sem aplicar (AC-4)', async () => {
+    // Arrange
+    confianteAtiva();
+    mockMontarSnapshotSla.mockResolvedValue({ ok: false, motivo: 'sem config ativa' });
+
+    // Act
+    const r = await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    const { dadosChamado, decisoes } = mockAbrir.mock.calls[0][0];
+    expect(dadosChamado.status).toBe('aberto');
+    expect(dadosChamado.finalPriority).toBeUndefined();
+    const decisaoPrioridade = decisoes.find((d: { campo: string }) => d.campo === 'prioridade');
+    expect(decisaoPrioridade.efeito).toBe('sugestao');
+  });
+
+  it('falha ao ler a configuração do portão: abre no caminho de sempre, sem erro (AC-4)', async () => {
+    // Arrange
+    mockLerConfig.mockRejectedValue(new Error('Mongo fora do ar'));
+
+    // Act
+    const r = await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    const { dadosChamado, decisoes } = mockAbrir.mock.calls[0][0];
+    expect(dadosChamado.status).toBe('aberto');
+    const decisaoPrioridade = decisoes.find((d: { campo: string }) => d.campo === 'prioridade');
+    expect(decisaoPrioridade.efeito).toBe('sugestao');
+    expect(mockMontarSnapshotSla).not.toHaveBeenCalled();
+    expect(avisos.some((a) => a.includes('portao_indisponivel'))).toBe(true);
+  });
+
+  it('autonomia desligada não valida sozinho, mesmo com confiança alta', async () => {
+    // Arrange
+    mockLerConfig.mockResolvedValue({
+      servico: { limiteConfianca: null, amostraMinima: 30 },
+      prioridade: { limiteConfianca: 0.1, amostraMinima: 30 },
+      autonomiaAtiva: false,
+    });
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(mockMontarSnapshotSla).not.toHaveBeenCalled();
+    const { dadosChamado } = mockAbrir.mock.calls[0][0];
+    expect(dadosChamado.status).toBe('aberto');
+  });
+
+  it('modo manual nunca valida sozinho, mesmo com autonomia ligada', async () => {
+    // Arrange
+    confianteAtiva();
+    mockLerProposta.mockResolvedValue(lida({ cartaoAtual: cartao('manual') }));
+
+    // Act
+    await confirmarAbertura(VIEWER, { ...ENTRADA, tipoServico: 'Manutenção Predial' });
+
+    // Assert
+    expect(mockMontarSnapshotSla).not.toHaveBeenCalled();
+    const { dadosChamado } = mockAbrir.mock.calls[0][0];
+    expect(dadosChamado.status).toBe('aberto');
   });
 });
 

@@ -345,6 +345,91 @@ rodar('expiração, limites e reparo, contra o Mongo', () => {
     expect(await ChamadoHistoryModel.countDocuments({ chamadoId: aberto.chamadoId })).toBe(2);
   });
 
+  it('vínculo interrompido de chamado validado pela IA: o reparo também grava a classificacao (spec 0007, AC-3)', async () => {
+    await semear();
+    const conversaId = await rascunhoCom();
+
+    const aberto = await abrirChamadoDaConversa({
+      viewer,
+      conversaId,
+      dadosChamado: {
+        ...dadosChamado(),
+        status: 'validado',
+        finalPriority: 'NORMAL',
+        classifiedAt: new Date(),
+      },
+      decisoes: [
+        decisaoServico(),
+        {
+          campo: 'prioridade',
+          decididoPor: 'ia',
+          efeito: 'aplicado',
+          valor: { prioridade: 'NORMAL' },
+          motivo: 'Lâmpada sem risco.',
+          confianca: 0.95,
+        },
+      ],
+    });
+    expect(aberto.ok).toBe(true);
+    if (!aberto.ok) return;
+
+    // Simula a queda logo depois do passo 3: sem histórico nenhum e sem vínculo.
+    await ConversaModel.updateOne(
+      { _id: conversaId },
+      { $set: { chamadoId: null, vinculandoEm: new Date() } },
+    );
+    await ChamadoHistoryModel.deleteMany({ chamadoId: aberto.chamadoId });
+
+    const lida = await lerConversa(viewer, conversaId);
+    expect(lida.ok).toBe(true);
+
+    const classificacoes = await ChamadoHistoryModel.find({
+      chamadoId: aberto.chamadoId,
+      action: 'classificacao',
+    }).lean();
+    expect(classificacoes).toHaveLength(1);
+    expect(classificacoes[0].actorType).toBe('ia');
+    expect(classificacoes[0].statusNovo).toBe('validado');
+
+    // Ler de novo não duplica.
+    await lerConversa(viewer, conversaId);
+    expect(
+      await ChamadoHistoryModel.countDocuments({
+        chamadoId: aberto.chamadoId,
+        action: 'classificacao',
+      }),
+    ).toBe(1);
+  });
+
+  it('vínculo interrompido de chamado aberto (sugestão): o reparo não inventa classificacao', async () => {
+    await semear();
+    const conversaId = await rascunhoCom();
+
+    const aberto = await abrirChamadoDaConversa({
+      viewer,
+      conversaId,
+      dadosChamado: dadosChamado(),
+      decisoes: [decisaoServico()],
+    });
+    expect(aberto.ok).toBe(true);
+    if (!aberto.ok) return;
+
+    await ConversaModel.updateOne(
+      { _id: conversaId },
+      { $set: { chamadoId: null, vinculandoEm: new Date() } },
+    );
+    await ChamadoHistoryModel.deleteMany({ chamadoId: aberto.chamadoId });
+
+    await lerConversa(viewer, conversaId);
+
+    expect(
+      await ChamadoHistoryModel.countDocuments({
+        chamadoId: aberto.chamadoId,
+        action: 'classificacao',
+      }),
+    ).toBe(0);
+  });
+
   it('reserva abandonada volta a rascunho, com expiração restaurada e decisões órfãs apagadas (AC-5, AC-2)', async () => {
     await semear();
     const conversaId = await rascunhoCom();

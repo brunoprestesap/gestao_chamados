@@ -36,6 +36,7 @@ export {
   gravarProposta,
   invalidarCartao,
   lerProposta,
+  prioridadeValidadaPelaIa,
   type PropostaEntrada,
   type PropostaLida,
   type PropostaPrioridade,

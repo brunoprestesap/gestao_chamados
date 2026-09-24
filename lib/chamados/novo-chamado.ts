@@ -22,10 +22,12 @@ export type NotificarNovoChamadoParams = {
   ticketNumber: string;
   titulo: string;
   solicitanteId: string;
+  /** Chamado já nasceu `validado` sozinho pela IA (spec 0007, AC-13): não precisa de triagem. */
+  jaValidado?: boolean;
 };
 
 export async function notificarNovoChamado(params: NotificarNovoChamadoParams): Promise<void> {
-  const { chamadoId, ticketNumber, titulo, solicitanteId } = params;
+  const { chamadoId, ticketNumber, titulo, solicitanteId, jaValidado = false } = params;
 
   const solicitante = Types.ObjectId.isValid(solicitanteId)
     ? await UserModel.findById(solicitanteId).select('name').lean()
@@ -36,6 +38,7 @@ export async function notificarNovoChamado(params: NotificarNovoChamadoParams): 
     ticketNumber,
     title: titulo,
     openedBy: { id: solicitanteId, name: solicitante?.name ?? undefined },
+    jaValidado,
     at: new Date().toISOString(),
   };
 
@@ -46,9 +49,13 @@ export async function notificarNovoChamado(params: NotificarNovoChamadoParams): 
     .select('_id')
     .lean();
 
-  const tituloDaNotificacao = ticketNumber
-    ? `Novo chamado #${ticketNumber} aberto`
-    : 'Novo chamado aberto';
+  const tituloDaNotificacao = jaValidado
+    ? ticketNumber
+      ? `Chamado #${ticketNumber} validado automaticamente`
+      : 'Chamado validado automaticamente'
+    : ticketNumber
+      ? `Novo chamado #${ticketNumber} aberto`
+      : 'Novo chamado aberto';
 
   if (gestores.length > 0) {
     await NotificationModel.insertMany(

@@ -414,4 +414,32 @@ rodar('proposta e cartão, contra o Mongo', () => {
     // Assert
     expect([...marcados]).toEqual([String(comServico)]);
   });
+
+  it('diz quais chamados foram validados sozinhos pela IA, só efeito aplicado (spec 0007, AC-15)', async () => {
+    // Arrange
+    const validado = new Types.ObjectId();
+    const sugerido = new Types.ObjectId();
+    const base = {
+      decididoPor: 'ia',
+      motivo: 'm',
+      situacao: 'sem_revisao',
+      valorIa: { rotulo: 'x' },
+      valorFinal: { rotulo: 'x' },
+    };
+    await DecisaoIaModel.create([
+      { ...base, chamadoId: validado, campo: 'prioridade', efeito: 'aplicado' },
+      { ...base, chamadoId: validado, campo: 'servico', efeito: 'sugestao' },
+      { ...base, chamadoId: sugerido, campo: 'prioridade', efeito: 'sugestao' },
+    ] as never);
+
+    // Act
+    const marcados = await store.prioridadeValidadaPelaIa([
+      String(validado),
+      String(sugerido),
+      'nao-e-id',
+    ]);
+
+    // Assert
+    expect([...marcados]).toEqual([String(validado)]);
+  });
 });

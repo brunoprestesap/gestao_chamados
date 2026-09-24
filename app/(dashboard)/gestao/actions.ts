@@ -3,23 +3,18 @@
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
-import { aplicarVeredito } from '@/lib/conversas/decisoes';
+import { aplicarVeredito, resolverDecisao } from '@/lib/conversas/decisoes';
 import { canManage, requireManager, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
-import { getBusinessCalendarConfig } from '@/lib/expediente-config';
-import { getActiveHolidaysForRange } from '@/lib/holidays';
 import { emitToRoom } from '@/lib/realtime-emit';
-import {
-  computeSlaDueDatesFromConfig,
-  evaluateResponseBreach,
-  SLA_CONFIG_VERSION,
-} from '@/lib/sla-utils';
+import { montarSnapshotSla } from '@/lib/sla-snapshot';
+import { evaluateResponseBreach } from '@/lib/sla-utils';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { NotificationModel } from '@/models/Notification';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
-import { SlaConfigModel } from '@/models/SlaConfig';
+import { SlaEscalationModel } from '@/models/SlaEscalation';
 import { UserModel } from '@/models/user.model';
 import {
   type AssignTicketInput,
@@ -33,6 +28,8 @@ import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import {
   type ClassificarChamadoInput,
   ClassificarChamadoSchema,
+  type UpdateTicketPriorityInput,
+  UpdateTicketPrioritySchema,
 } from '@/shared/chamados/chamado.schemas';
 import { type CloseTicketInput, CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
 import { type RejectTicketInput, RejectTicketSchema } from '@/shared/chamados/rejection.schemas';
@@ -42,6 +39,7 @@ import {
 } from '@/shared/chamados/reopen-ticket.schemas';
 
 export type ClassificarResult = { ok: true } | { ok: false; error: string };
+export type UpdateTicketPriorityResult = { ok: true } | { ok: false; error: string };
 export type UpdateTicketCatalogResult = { ok: true } | { ok: false; error: string };
 export type CloseTicketResult = { ok: true } | { ok: false; error: string };
 export type RejectTicketResult = { ok: true } | { ok: false; error: string };
@@ -93,28 +91,11 @@ export async function classificarChamadoAction(
     const now = new Date();
     const userId = new Types.ObjectId(session.userId);
 
-    const slaConfig = await SlaConfigModel.findOne({
-      priority: finalPriority,
-      isActive: true,
-    }).lean();
-    if (!slaConfig) {
-      return {
-        ok: false,
-        error: `Não há configuração de SLA ativa para a prioridade "${finalPriority}". Configure em Configurações SLA (/sla).`,
-      };
+    const snapshot = await montarSnapshotSla(finalPriority, now);
+    if (!snapshot.ok) {
+      return { ok: false, error: snapshot.motivo };
     }
-
-    const calendarConfig = await getBusinessCalendarConfig();
-    const endDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-    const holidays = await getActiveHolidaysForRange(now, endDate, calendarConfig.timezone);
-    const { responseDueAt, resolutionDueAt } = computeSlaDueDatesFromConfig(
-      now,
-      slaConfig.responseTargetMinutes,
-      slaConfig.resolutionTargetMinutes,
-      slaConfig.businessHoursOnly,
-      calendarConfig,
-      holidays,
-    );
+    const { snapshot: sla } = snapshot;
 
     const attendanceNature = toAttendanceNature(naturezaAtendimento);
 
@@ -135,14 +116,14 @@ export async function classificarChamadoAction(
           classificationNotes: classificationNotes ?? '',
           classifiedByUserId: userId,
           classifiedAt: now,
-          'sla.priority': finalPriority,
-          'sla.responseTargetMinutes': slaConfig.responseTargetMinutes,
-          'sla.resolutionTargetMinutes': slaConfig.resolutionTargetMinutes,
-          'sla.businessHoursOnly': slaConfig.businessHoursOnly,
-          'sla.responseDueAt': responseDueAt,
-          'sla.resolutionDueAt': resolutionDueAt,
-          'sla.computedAt': now,
-          'sla.configVersion': slaConfig.version ?? SLA_CONFIG_VERSION,
+          'sla.priority': sla.priority,
+          'sla.responseTargetMinutes': sla.responseTargetMinutes,
+          'sla.resolutionTargetMinutes': sla.resolutionTargetMinutes,
+          'sla.businessHoursOnly': sla.businessHoursOnly,
+          'sla.responseDueAt': sla.responseDueAt,
+          'sla.resolutionDueAt': sla.resolutionDueAt,
+          'sla.computedAt': sla.computedAt,
+          'sla.configVersion': sla.configVersion,
           ...catalogUpdates,
         },
       },
@@ -198,6 +179,179 @@ export async function classificarChamadoAction(
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao classificar chamado. Tente novamente.',
     };
+  }
+}
+
+/**
+ * Corrige a prioridade final de um chamado já `validado` (spec 0007, AC-11),
+ * decidido pela IA ou classificado manualmente. A janela é estreita de
+ * propósito (`validado`, sem técnico atribuído, fatia 17 abre a janela
+ * completa): a checagem e a gravação acontecem numa única operação atômica
+ * no banco, para uma atribuição concorrente nunca deixar a correção aplicar
+ * fora da janela (AC-12). O SLA é recalculado a partir do `classifiedAt` já
+ * gravado, nunca do instante da correção, pela mesma `montarSnapshotSla` que
+ * a classificação usa — o prazo contratual não se move pela correção em si.
+ */
+export async function updateTicketPriorityAction(
+  raw: UpdateTicketPriorityInput,
+): Promise<UpdateTicketPriorityResult> {
+  try {
+    const session = await requireManager();
+    const parsed = UpdateTicketPrioritySchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg =
+        first.finalPriority?.[0] ?? first.chamadoId?.[0] ?? 'Dados inválidos. Verifique os campos.';
+      return { ok: false, error: msg };
+    }
+
+    const { chamadoId, finalPriority, classificationNotes } = parsed.data;
+    await dbConnect();
+
+    // `classifiedAt` nunca muda depois de gravado: lê antes, com segurança,
+    // porque nenhuma correção concorrente altera esse valor (é o âncora do
+    // recálculo, não o alvo da checagem atômica abaixo).
+    const atual = await ChamadoModel.findById(chamadoId);
+    if (!atual) return { ok: false, error: 'Chamado não encontrado.' };
+    if (!atual.classifiedAt) {
+      return { ok: false, error: 'Chamado ainda não foi classificado.' };
+    }
+
+    const snapshot = await montarSnapshotSla(finalPriority, atual.classifiedAt);
+    if (!snapshot.ok) return { ok: false, error: snapshot.motivo };
+    const { snapshot: sla } = snapshot;
+
+    const now = new Date();
+    const userId = new Types.ObjectId(session.userId);
+    // A observação nova é somada às notas no próprio banco, não às lidas
+    // acima: duas correções concorrentes nunca apagam a observação uma da
+    // outra (AC-11). `$literal` porque o texto vem do usuário e poderia
+    // começar com `$`, que o pipeline leria como caminho de campo.
+    const notaCorrecao = classificationNotes ? `Correção: ${classificationNotes}` : null;
+    const notasNoBanco = notaCorrecao
+      ? {
+          classificationNotes: {
+            $cond: [
+              { $gt: [{ $strLenCP: { $ifNull: ['$classificationNotes', ''] } }, 0] },
+              { $concat: ['$classificationNotes', { $literal: `\n\n${notaCorrecao}` }] },
+              { $literal: notaCorrecao },
+            ],
+          },
+        }
+      : {};
+
+    // Checagem e gravação numa única operação atômica (AC-12): concorrência
+    // com uma atribuição de técnico nunca deixa a correção aplicar fora da
+    // janela, e trocar para a mesma prioridade já vigente é recusado aqui.
+    const doc = await ChamadoModel.findOneAndUpdate(
+      {
+        _id: chamadoId,
+        status: 'validado',
+        assignedToUserId: null,
+        finalPriority: { $ne: finalPriority },
+      },
+      [
+        {
+          $set: {
+            finalPriority: { $literal: finalPriority },
+            ...notasNoBanco,
+            sla: {
+              $mergeObjects: [
+                { $ifNull: ['$sla', {}] },
+                {
+                  $literal: {
+                    priority: sla.priority,
+                    responseTargetMinutes: sla.responseTargetMinutes,
+                    resolutionTargetMinutes: sla.resolutionTargetMinutes,
+                    businessHoursOnly: sla.businessHoursOnly,
+                    responseDueAt: sla.responseDueAt,
+                    resolutionDueAt: sla.resolutionDueAt,
+                    computedAt: sla.computedAt,
+                    configVersion: sla.configVersion,
+                    // Os marcadores de breach valiam para os prazos antigos.
+                    // Zerados, o monitor reavalia contra os prazos novos no
+                    // próximo ciclo; sem isso, um chamado dentro do prazo
+                    // corrigido contaria como fora do SLA no IMR e na glosa.
+                    responseBreachedAt: null,
+                    resolutionBreachedAt: null,
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+      { returnDocument: 'after', updatePipeline: true },
+    );
+
+    if (!doc) {
+      const existente = await ChamadoModel.findById(chamadoId);
+      if (!existente) return { ok: false, error: 'Chamado não encontrado.' };
+      if (existente.status !== 'validado') {
+        return {
+          ok: false,
+          error: `Correção de prioridade permitida apenas para chamados "Validado". Status atual: ${existente.status}.`,
+        };
+      }
+      if (existente.assignedToUserId) {
+        return {
+          ok: false,
+          error: 'Não é mais possível corrigir a prioridade: o chamado já tem técnico atribuído.',
+        };
+      }
+      if (existente.finalPriority === finalPriority) {
+        return { ok: false, error: 'A prioridade informada já é a atual.' };
+      }
+      return { ok: false, error: 'Não foi possível corrigir a prioridade. Tente novamente.' };
+    }
+
+    // Mesma razão dos marcadores: a deduplicação do monitor é por (chamado,
+    // tipo), então uma escalação dos prazos antigos silenciaria o aviso dos novos.
+    await SlaEscalationModel.deleteMany({ chamadoId: doc._id });
+
+    await ChamadoHistoryModel.create({
+      chamadoId: doc._id,
+      userId,
+      action: 'classificacao',
+      observacoes:
+        `Prioridade corrigida para ${finalPriority}.` +
+        (classificationNotes ? ` Observações: ${classificationNotes}` : ''),
+    });
+
+    // Corrige a DecisaoIa de prioridade, quando existir (mesmo caminho que já
+    // existe para vereditos da gestão). Chamado do formulário, ou sem decisão
+    // de prioridade, não tem — `nao_encontrada` é normal, não um erro.
+    const decisao = await resolverDecisao({
+      viewer: { userId: session.userId, role: session.role },
+      chamadoId,
+      campo: 'prioridade',
+      valor: { prioridade: finalPriority },
+      origem: 'gestao',
+      motivo: classificationNotes,
+    });
+    if (!decisao.ok && decisao.reason !== 'nao_encontrada') {
+      console.error('updateTicketPriorityAction: resolverDecisao falhou:', decisao.reason);
+    }
+
+    const classifiedByUser = await UserModel.findById(session.userId).select('name').lean();
+    await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:classified', {
+      ticketId: String(doc._id),
+      ticketNumber: doc.ticket_number,
+      title: doc.titulo,
+      classifiedBy: { id: session.userId, name: classifiedByUser?.name ?? undefined },
+      finalPriority,
+      at: now.toISOString(),
+    });
+
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${chamadoId}`);
+
+    return { ok: true };
+  } catch (e) {
+    // O detalhe fica no log; a tela recebe só a frase fixa, nunca a mensagem
+    // interna do Mongo ou do Mongoose.
+    console.error('updateTicketPriorityAction:', e);
+    return { ok: false, error: 'Erro ao corrigir prioridade. Tente novamente.' };
   }
 }
 

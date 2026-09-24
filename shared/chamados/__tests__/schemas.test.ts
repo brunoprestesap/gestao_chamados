@@ -10,6 +10,7 @@ import {
   ChamadoCreateSchema,
   ChamadoListQuerySchema,
   ClassificarChamadoSchema,
+  UpdateTicketPrioritySchema,
 } from '@/shared/chamados/chamado.schemas';
 import { CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
 import { RegisterExecutionSchema } from '@/shared/chamados/execution.schemas';
@@ -316,6 +317,54 @@ describe('CloseTicketSchema', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.closureNotes).toBe('notas de encerramento');
+  });
+});
+
+// ── UpdateTicketPrioritySchema (spec 0007, AC-11) ────────────────
+
+describe('UpdateTicketPrioritySchema', () => {
+  const baseInput = { chamadoId: VALID_ID, finalPriority: 'ALTA' as const };
+
+  it('aceita input válido, sem observações', () => {
+    const result = UpdateTicketPrioritySchema.safeParse(baseInput);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.classificationNotes).toBe('');
+  });
+
+  it('rejeita chamadoId inválido', () => {
+    const result = UpdateTicketPrioritySchema.safeParse({ ...baseInput, chamadoId: 'xyz' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita finalPriority ausente ou inválida', () => {
+    expect(UpdateTicketPrioritySchema.safeParse({ chamadoId: VALID_ID }).success).toBe(false);
+    expect(
+      UpdateTicketPrioritySchema.safeParse({ ...baseInput, finalPriority: 'INEXISTENTE' }).success,
+    ).toBe(false);
+  });
+
+  it('não exige subtypeId nem catalogServiceId — só troca a prioridade (AC-11)', () => {
+    const result = UpdateTicketPrioritySchema.safeParse(baseInput);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty('subtypeId');
+      expect(result.data).not.toHaveProperty('catalogServiceId');
+    }
+  });
+
+  it('faz trim no classificationNotes', () => {
+    const result = UpdateTicketPrioritySchema.safeParse({
+      ...baseInput,
+      classificationNotes: '  motivo da correção  ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.classificationNotes).toBe('motivo da correção');
+  });
+
+  it('classificationNotes ausente vira string vazia (default)', () => {
+    const result = UpdateTicketPrioritySchema.safeParse(baseInput);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.classificationNotes).toBe('');
   });
 });
 

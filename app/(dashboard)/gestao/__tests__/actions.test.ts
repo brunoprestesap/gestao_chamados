@@ -19,8 +19,10 @@ const mockEmitToRoom = vi.fn().mockResolvedValue(true);
 vi.mock('@/lib/realtime-emit', () => ({ emitToRoom: (...a: unknown[]) => mockEmitToRoom(...a) }));
 // O gancho das decisões da IA tem os testes dele em `lib/conversas/__tests__`,
 // contra o Mongo de verdade. Aqui ele só não pode atrapalhar a ação de negócio.
+const mockResolverDecisao = vi.fn();
 vi.mock('@/lib/conversas/decisoes', () => ({
   aplicarVeredito: vi.fn().mockResolvedValue(undefined),
+  resolverDecisao: (...args: unknown[]) => mockResolverDecisao(...args),
 }));
 
 vi.mock('@/lib/expediente-config', () => ({
@@ -66,6 +68,13 @@ vi.mock('@/models/SlaConfig', () => ({
   SlaConfigModel: { findOne: (...args: unknown[]) => mockSlaFindOne(...args) },
 }));
 
+const mockSlaEscalationDeleteMany = vi.fn().mockResolvedValue({ deletedCount: 0 });
+vi.mock('@/models/SlaEscalation', () => ({
+  SlaEscalationModel: {
+    deleteMany: (...args: unknown[]) => mockSlaEscalationDeleteMany(...args),
+  },
+}));
+
 const mockUserFind = vi.fn();
 const mockUserFindById = vi.fn();
 vi.mock('@/models/user.model', () => ({
@@ -86,6 +95,7 @@ import {
   assignTicketAction,
   classificarChamadoAction,
   closeTicketAction,
+  updateTicketPriorityAction,
 } from '@/app/(dashboard)/gestao/actions';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -101,6 +111,7 @@ beforeEach(() => {
   mockCanManage.mockReturnValue(true);
   mockHistoryCreate.mockResolvedValue({});
   mockNotificationCreate.mockResolvedValue({});
+  mockResolverDecisao.mockResolvedValue({ ok: false, reason: 'nao_encontrada' });
 });
 
 // ── classificarChamadoAction ─────────────────────────────────────
@@ -246,6 +257,250 @@ describe('classificarChamadoAction', () => {
     const setFields = mockChamadoUpdateOne.mock.calls[0][1].$set;
     expect(setFields.catalogServiceId.toHexString()).toBe(validInput.catalogServiceId);
     expect(setFields.subtypeId.toHexString()).toBe(validInput.subtypeId);
+  });
+});
+
+// ── updateTicketPriorityAction · spec 0007, AC-11, AC-12 ─────────
+
+describe('updateTicketPriorityAction', () => {
+  const CLASSIFIED_AT = new Date('2026-01-01T12:00:00Z');
+  const validInput = {
+    chamadoId: VALID_ID,
+    finalPriority: 'ALTA' as const,
+    classificationNotes: '',
+  };
+
+  function slaConfigOk() {
+    mockSlaFindOne.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          responseTargetMinutes: 60,
+          resolutionTargetMinutes: 240,
+          businessHoursOnly: true,
+          version: 'v1',
+        }),
+    });
+  }
+
+  it('retorna erro com dados inválidos (Zod)', async () => {
+    const result = await updateTicketPriorityAction({
+      chamadoId: 'invalid',
+      finalPriority: 'ALTA' as const,
+      classificationNotes: '',
+    });
+    expect(result).toEqual({ ok: false, error: expect.any(String) });
+  });
+
+  it('retorna erro se o chamado não existe', async () => {
+    mockChamadoFindById.mockResolvedValue(null);
+    const result = await updateTicketPriorityAction(validInput);
+    expect(result).toEqual({ ok: false, error: 'Chamado não encontrado.' });
+  });
+
+  it('retorna erro se o chamado nunca foi classificado (sem classifiedAt)', async () => {
+    mockChamadoFindById.mockResolvedValue({ _id: VALID_ID, status: 'validado' });
+    const result = await updateTicketPriorityAction(validInput);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('classificado');
+  });
+
+  it('corrige a prioridade, recalcula o SLA a partir do classifiedAt original e emite ticket:classified', async () => {
+    mockChamadoFindById.mockResolvedValue({
+      _id: VALID_ID,
+      status: 'validado',
+      classifiedAt: CLASSIFIED_AT,
+      classificationNotes: '',
+      finalPriority: 'NORMAL',
+    });
+    slaConfigOk();
+    const solicitanteId = new Types.ObjectId();
+    mockChamadoFindOneAndUpdate.mockResolvedValue({
+      _id: VALID_ID,
+      ticket_number: 'CHM-2026-00001',
+      titulo: 'Ar-condicionado',
+      solicitanteId,
+    });
+    mockUserFindById.mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve({ name: 'Preposto' }) }),
+    });
+
+    const result = await updateTicketPriorityAction(validInput);
+
+    expect(result).toEqual({ ok: true });
+    // O snapshot foi calculado a partir do `classifiedAt` original, não de "agora".
+    const [filtro, update] = mockChamadoFindOneAndUpdate.mock.calls[0];
+    expect(filtro).toMatchObject({
+      _id: VALID_ID,
+      status: 'validado',
+      assignedToUserId: null,
+      finalPriority: { $ne: 'ALTA' },
+    });
+    const [{ $set }] = update;
+    expect($set.finalPriority).toEqual({ $literal: 'ALTA' });
+    const slaNovo = $set.sla.$mergeObjects[1].$literal;
+    expect(slaNovo.responseDueAt).toEqual(new Date(CLASSIFIED_AT.getTime() + 60 * 60 * 1000));
+    // Breach e escalações dos prazos antigos saem, para o monitor reavaliar.
+    expect(slaNovo.responseBreachedAt).toBeNull();
+    expect(slaNovo.resolutionBreachedAt).toBeNull();
+    expect(mockSlaEscalationDeleteMany).toHaveBeenCalledWith({ chamadoId: VALID_ID });
+    expect(mockHistoryCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ chamadoId: VALID_ID, action: 'classificacao' }),
+    );
+    expect(mockResolverDecisao).toHaveBeenCalledWith(
+      expect.objectContaining({ chamadoId: VALID_ID, campo: 'prioridade' }),
+    );
+    const chamado = mockEmitToRoom.mock.calls.find((c) => c[1] === 'ticket:classified');
+    expect(chamado?.[0]).toBe(`user:${String(solicitanteId)}`);
+    expect(chamado?.[2]).toMatchObject({ finalPriority: 'ALTA' });
+  });
+
+  it('erro inesperado do banco: devolve a frase fixa, nunca a mensagem interna', async () => {
+    mockChamadoFindById.mockRejectedValue(new Error('MongoServerError: connection pool closed'));
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const result = await updateTicketPriorityAction(validInput);
+
+    expect(result).toEqual({ ok: false, error: 'Erro ao corrigir prioridade. Tente novamente.' });
+    erro.mockRestore();
+  });
+
+  it('acrescenta a nova observação às notas existentes, sem substituir', async () => {
+    mockChamadoFindById.mockResolvedValue({
+      _id: VALID_ID,
+      status: 'validado',
+      classifiedAt: CLASSIFIED_AT,
+      classificationNotes: 'Nota original da IA.',
+      finalPriority: 'NORMAL',
+    });
+    slaConfigOk();
+    mockChamadoFindOneAndUpdate.mockResolvedValue({
+      _id: VALID_ID,
+      ticket_number: 'CHM-2026-00001',
+      titulo: 'Ar-condicionado',
+      solicitanteId: new Types.ObjectId(),
+    });
+    mockUserFindById.mockReturnValue({ select: () => ({ lean: () => Promise.resolve(null) }) });
+
+    await updateTicketPriorityAction({
+      ...validInput,
+      classificationNotes: 'Na verdade é mais grave.',
+    });
+
+    // A soma acontece no banco, sobre o valor gravado (não o lido antes), para
+    // correções concorrentes não se apagarem; o DB test prova o resultado.
+    const [{ $set }] = mockChamadoFindOneAndUpdate.mock.calls[0][1];
+    const notas = JSON.stringify($set.classificationNotes);
+    expect(notas).toContain('$classificationNotes');
+    expect(notas).toContain('Correção: Na verdade é mais grave.');
+  });
+
+  it('recusa fora da janela: chamado com técnico atribuído', async () => {
+    mockChamadoFindById
+      .mockResolvedValueOnce({
+        _id: VALID_ID,
+        status: 'validado',
+        classifiedAt: CLASSIFIED_AT,
+        classificationNotes: '',
+        finalPriority: 'NORMAL',
+      })
+      .mockResolvedValueOnce({
+        _id: VALID_ID,
+        status: 'validado',
+        assignedToUserId: new Types.ObjectId(),
+        finalPriority: 'NORMAL',
+      });
+    slaConfigOk();
+    mockChamadoFindOneAndUpdate.mockResolvedValue(null);
+
+    const result = await updateTicketPriorityAction(validInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('técnico');
+    expect(mockHistoryCreate).not.toHaveBeenCalled();
+    expect(mockResolverDecisao).not.toHaveBeenCalled();
+  });
+
+  it('recusa fora da janela: status diferente de validado', async () => {
+    mockChamadoFindById
+      .mockResolvedValueOnce({
+        _id: VALID_ID,
+        status: 'validado',
+        classifiedAt: CLASSIFIED_AT,
+        classificationNotes: '',
+        finalPriority: 'NORMAL',
+      })
+      .mockResolvedValueOnce({ _id: VALID_ID, status: 'em atendimento', finalPriority: 'NORMAL' });
+    slaConfigOk();
+    mockChamadoFindOneAndUpdate.mockResolvedValue(null);
+
+    const result = await updateTicketPriorityAction(validInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('em atendimento');
+  });
+
+  it('recusa trocar para a mesma prioridade já vigente', async () => {
+    mockChamadoFindById
+      .mockResolvedValueOnce({
+        _id: VALID_ID,
+        status: 'validado',
+        classifiedAt: CLASSIFIED_AT,
+        classificationNotes: '',
+        finalPriority: 'ALTA',
+      })
+      .mockResolvedValueOnce({
+        _id: VALID_ID,
+        status: 'validado',
+        assignedToUserId: null,
+        finalPriority: 'ALTA',
+      });
+    slaConfigOk();
+    mockChamadoFindOneAndUpdate.mockResolvedValue(null);
+
+    const result = await updateTicketPriorityAction(validInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('já é a atual');
+  });
+
+  it('sem SlaConfig ativa para a nova prioridade, retorna erro sem gravar nada', async () => {
+    mockChamadoFindById.mockResolvedValue({
+      _id: VALID_ID,
+      status: 'validado',
+      classifiedAt: CLASSIFIED_AT,
+      classificationNotes: '',
+      finalPriority: 'NORMAL',
+    });
+    mockSlaFindOne.mockReturnValue({ lean: () => Promise.resolve(null) });
+
+    const result = await updateTicketPriorityAction(validInput);
+
+    expect(result.ok).toBe(false);
+    expect(mockChamadoFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('checagem e gravação numa única operação atômica: nunca lê o status antes de tentar o findOneAndUpdate', async () => {
+    mockChamadoFindById.mockResolvedValue({
+      _id: VALID_ID,
+      status: 'validado',
+      classifiedAt: CLASSIFIED_AT,
+      classificationNotes: '',
+      finalPriority: 'NORMAL',
+    });
+    slaConfigOk();
+    mockChamadoFindOneAndUpdate.mockResolvedValue({
+      _id: VALID_ID,
+      ticket_number: 'CHM-2026-00001',
+      titulo: 'x',
+      solicitanteId: new Types.ObjectId(),
+    });
+    mockUserFindById.mockReturnValue({ select: () => ({ lean: () => Promise.resolve(null) }) });
+
+    await updateTicketPriorityAction(validInput);
+
+    // Uma única chamada a `findById` (só para o `classifiedAt`); a checagem
+    // de status/atribuição vive inteira no filtro do `findOneAndUpdate`.
+    expect(mockChamadoFindById).toHaveBeenCalledOnce();
   });
 });
 

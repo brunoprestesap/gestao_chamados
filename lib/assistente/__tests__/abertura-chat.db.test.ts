@@ -19,7 +19,8 @@ import {
   temMongoDeTeste,
 } from '@/tests/mongo-test-env';
 
-vi.mock('@/lib/realtime-emit', () => ({ emitToRoom: vi.fn().mockResolvedValue(undefined) }));
+const mockEmitToRoom = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/lib/realtime-emit', () => ({ emitToRoom: (...a: unknown[]) => mockEmitToRoom(...a) }));
 vi.mock('@/lib/email/send-notification-email', () => ({
   sendNotificationEmail: vi.fn().mockResolvedValue(undefined),
 }));
@@ -42,15 +43,19 @@ type Modulos = {
   revisarAbertura: typeof import('../cartao').revisarAbertura;
   confirmarAbertura: typeof import('../confirmar').confirmarAbertura;
   conversas: typeof import('@/lib/conversas');
+  salvarConfig: typeof import('@/lib/ia-confianca/config').salvarConfig;
+  medirCalibragem: typeof import('@/lib/ia-confianca/calibragem').medirCalibragem;
   ChamadoModel: typeof import('@/models/Chamado').ChamadoModel;
   ChamadoHistoryModel: typeof import('@/models/ChamadoHistory').ChamadoHistoryModel;
   ConversaModel: typeof import('@/models/Conversa').ConversaModel;
   ConversaMensagemModel: typeof import('@/models/ConversaMensagem').ConversaMensagemModel;
   DecisaoIaModel: typeof import('@/models/DecisaoIa').DecisaoIaModel;
+  IaAutonomiaConfigModel: typeof import('@/models/IaAutonomiaConfig').IaAutonomiaConfigModel;
   NotificationModel: typeof import('@/models/Notification').NotificationModel;
   ServiceCatalogModel: typeof import('@/models/ServiceCatalog').ServiceCatalogModel;
   ServiceSubTypeModel: typeof import('@/models/ServiceSubType').ServiceSubTypeModel;
   ServiceTypeModel: typeof import('@/models/ServiceType').ServiceTypeModel;
+  SlaConfigModel: typeof import('@/models/SlaConfig').SlaConfigModel;
   UnitModel: typeof import('@/models/unit').UnitModel;
   UserModel: typeof import('@/models/user.model').UserModel;
   LlmCallModel: typeof import('@/models/LlmCall').LlmCallModel;
@@ -131,15 +136,19 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
       revisarAbertura: cartao.revisarAbertura,
       confirmarAbertura: confirmar.confirmarAbertura,
       conversas,
+      salvarConfig: (await import('@/lib/ia-confianca/config')).salvarConfig,
+      medirCalibragem: (await import('@/lib/ia-confianca/calibragem')).medirCalibragem,
       ChamadoModel: (await import('@/models/Chamado')).ChamadoModel,
       ChamadoHistoryModel: (await import('@/models/ChamadoHistory')).ChamadoHistoryModel,
       ConversaModel: (await import('@/models/Conversa')).ConversaModel,
       ConversaMensagemModel: (await import('@/models/ConversaMensagem')).ConversaMensagemModel,
       DecisaoIaModel: (await import('@/models/DecisaoIa')).DecisaoIaModel,
+      IaAutonomiaConfigModel: (await import('@/models/IaAutonomiaConfig')).IaAutonomiaConfigModel,
       NotificationModel: (await import('@/models/Notification')).NotificationModel,
       ServiceCatalogModel: (await import('@/models/ServiceCatalog')).ServiceCatalogModel,
       ServiceSubTypeModel: (await import('@/models/ServiceSubType')).ServiceSubTypeModel,
       ServiceTypeModel: (await import('@/models/ServiceType')).ServiceTypeModel,
+      SlaConfigModel: (await import('@/models/SlaConfig')).SlaConfigModel,
       UnitModel: (await import('@/models/unit')).UnitModel,
       UserModel: (await import('@/models/user.model')).UserModel,
       LlmCallModel: (await import('@/models/LlmCall')).LlmCallModel,
@@ -150,10 +159,12 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
       m.ConversaModel,
       m.ConversaMensagemModel,
       m.DecisaoIaModel,
+      m.IaAutonomiaConfigModel,
       m.NotificationModel,
       m.ServiceCatalogModel,
       m.ServiceSubTypeModel,
       m.ServiceTypeModel,
+      m.SlaConfigModel,
       m.UnitModel,
       m.UserModel,
       m.LlmCallModel,
@@ -166,6 +177,7 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
   beforeEach(async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockEmitToRoom.mockReset().mockResolvedValue(undefined);
     stub.reset();
     resetLlmRuntimeState();
     useStubEnv(stub.baseUrl);
@@ -654,5 +666,218 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
     expect(revisado).toEqual({ ok: false, reason: 'nao_encontrada' });
     expect(confirmado).toEqual({ ok: false, reason: 'nao_encontrada' });
     expect(await m.ChamadoModel.countDocuments({})).toBe(0);
+  });
+
+  // ── portão de confiança · spec 0007, AC-1 a AC-5, AC-7 ─────────
+
+  describe('portão de confiança: caminho confiante valida sozinho', () => {
+    async function ligarAutonomia(limiteConfianca: number | null) {
+      await m.salvarConfig(
+        {
+          servico: { limiteConfianca: null, amostraMinima: 30 },
+          prioridade: { limiteConfianca, amostraMinima: 30 },
+          autonomiaAtiva: true,
+        },
+        String(adminId),
+      );
+    }
+
+    it('confiança acima do limite: nasce validado, com o mesmo SLA que a classificação manual geraria (AC-1, AC-3, AC-5)', async () => {
+      // Arrange
+      await m.SlaConfigModel.create({
+        priority: 'NORMAL',
+        responseTargetMinutes: 120,
+        resolutionTargetMinutes: 480,
+        businessHoursOnly: true,
+        isActive: true,
+        version: 'v1',
+      } as never);
+      await ligarAutonomia(0.5); // proposta vem com prioridadeConfianca: 0.6
+      const conversaId = await novaConversa();
+      enfileirar();
+      const cartao = cartaoDe(await responder(conversaId, 'A lâmpada da sala 302 queimou.'));
+      // Quem recebe o evento e recarrega a tela precisa já ler a conversa vinculada.
+      let vinculadaNoEvento: boolean | null = null;
+      mockEmitToRoom.mockImplementation(async (_sala: unknown, evento: unknown) => {
+        if (evento !== 'ticket:classified') return;
+        const conversa = await m.ConversaModel.findById(conversaId).lean();
+        vinculadaNoEvento = Boolean(conversa?.chamadoId);
+      });
+
+      // Act
+      const confirmado = await m.confirmarAbertura(viewer, {
+        conversaId,
+        cartaoId: cartao!.mensagemId!,
+        unitId: String(unitId),
+        localExato: 'Sala 302',
+      });
+
+      // Assert
+      expect(confirmado).toMatchObject({ ok: true, jaExistia: false });
+      if (!confirmado.ok) return;
+      expect(vinculadaNoEvento).toBe(true);
+
+      const chamado = (await m.ChamadoModel.findById(confirmado.chamadoId).lean()) as Record<
+        string,
+        unknown
+      >;
+      expect(chamado.status).toBe('validado');
+      expect(chamado.finalPriority).toBe('NORMAL');
+      expect(chamado.iaSituacao).toBe('decidida');
+      const sla = chamado.sla as Record<string, unknown>;
+      expect(sla.priority).toBe('NORMAL');
+      expect(sla.responseTargetMinutes).toBe(120);
+      expect(sla.resolutionTargetMinutes).toBe(480);
+
+      // O prazo esperado, calculado sem passar por `montarSnapshotSla`: direto
+      // das primitivas de SLA, com os números da config deste teste e a partir
+      // do `classifiedAt` gravado (a âncora que a classificação manual usa).
+      expect(sla.computedAt).toEqual(chamado.classifiedAt);
+      const { getBusinessCalendarConfig } = await import('@/lib/expediente-config');
+      const { getActiveHolidaysForRange } = await import('@/lib/holidays');
+      const { computeSlaDueDatesFromConfig } = await import('@/lib/sla-utils');
+      const inicio = chamado.classifiedAt as Date;
+      const calendario = await getBusinessCalendarConfig();
+      const feriados = await getActiveHolidaysForRange(
+        inicio,
+        new Date(inicio.getTime() + 365 * 24 * 60 * 60 * 1000),
+        calendario.timezone,
+      );
+      const esperado = computeSlaDueDatesFromConfig(inicio, 120, 480, true, calendario, feriados);
+      expect(sla.responseDueAt).toEqual(esperado.responseDueAt);
+      expect(sla.resolutionDueAt).toEqual(esperado.resolutionDueAt);
+
+      // Decisão de prioridade aplicada; serviço continua sugestão (nunca precisou de triagem).
+      const decisoes = await m.DecisaoIaModel.find({ chamadoId: confirmado.chamadoId }).lean();
+      expect(decisoes.find((d) => d.campo === 'prioridade')?.efeito).toBe('aplicado');
+      expect(decisoes.find((d) => d.campo === 'servico')?.efeito).toBe('sugestao');
+
+      // Histórico: abertura + classificação da IA + decisao_ia por decisão, no mesmo formato da manual.
+      const historico = await m.ChamadoHistoryModel.find({
+        chamadoId: confirmado.chamadoId,
+      }).lean();
+      expect(historico.map((h) => h.action).sort()).toEqual([
+        'abertura',
+        'classificacao',
+        'decisao_ia',
+        'decisao_ia',
+      ]);
+      const classificacao = historico.find((h) => h.action === 'classificacao');
+      expect(classificacao?.actorType).toBe('ia');
+      expect(classificacao?.userId).toBeNull();
+      expect(classificacao?.statusAnterior).toBe('aberto');
+      expect(classificacao?.statusNovo).toBe('validado');
+
+      // A mensagem ao solicitante confirma a prioridade, sem prometer análise de Preposto (AC-14).
+      const ultima = await m.ConversaMensagemModel.findOne({ conversaId })
+        .sort({ createdAt: -1, _id: -1 })
+        .lean();
+      expect(ultima?.texto).not.toContain('Preposto');
+      expect(ultima?.texto).toContain('prioridade normal');
+
+      // A notificação da gestão usa o texto de validado automaticamente (AC-13).
+      const notificacao = await m.NotificationModel.findOne({ type: 'ticket:new' }).lean();
+      expect(notificacao?.title).toContain('validado automaticamente');
+
+      // Dispara o mesmo evento em tempo real que a classificação manual dispara (AC-5).
+      const evento = mockEmitToRoom.mock.calls.find(
+        (c) =>
+          c[1] === 'ticket:classified' &&
+          (c[2] as { ticketId?: string }).ticketId === confirmado.chamadoId,
+      );
+      expect(evento).toBeDefined();
+      expect(evento?.[0]).toBe(`user:${String(solicitanteId)}`);
+      expect(evento?.[2]).toMatchObject({ finalPriority: 'NORMAL' });
+    });
+
+    it('confiante mas sem config de SLA ativa: cai no caminho de sempre, sem lançar (AC-4)', async () => {
+      // Arrange: sem SlaConfigModel.create — nenhuma config ativa para NORMAL
+      await ligarAutonomia(0.5);
+      const conversaId = await novaConversa();
+      enfileirar();
+      const cartao = cartaoDe(await responder(conversaId, 'A lâmpada da sala 302 queimou.'));
+
+      // Act
+      const confirmado = await m.confirmarAbertura(viewer, {
+        conversaId,
+        cartaoId: cartao!.mensagemId!,
+        unitId: String(unitId),
+        localExato: 'Sala 302',
+      });
+
+      // Assert
+      expect(confirmado.ok).toBe(true);
+      if (!confirmado.ok) return;
+      const chamado = (await m.ChamadoModel.findById(confirmado.chamadoId).lean()) as Record<
+        string,
+        unknown
+      >;
+      expect(chamado.status).toBe('aberto');
+      expect(chamado.finalPriority).toBeFalsy();
+      const decisoes = await m.DecisaoIaModel.find({ chamadoId: confirmado.chamadoId }).lean();
+      expect(decisoes.find((d) => d.campo === 'prioridade')?.efeito).toBe('sugestao');
+      const historico = await m.ChamadoHistoryModel.find({
+        chamadoId: confirmado.chamadoId,
+      }).lean();
+      expect(historico.map((h) => h.action).sort()).not.toContain('classificacao');
+    });
+
+    it('confiança abaixo do limite: nasce aberto, com sugestão (AC-2)', async () => {
+      // Arrange: limite mais alto que a confiança da proposta (0.6)
+      await ligarAutonomia(0.9);
+      const conversaId = await novaConversa();
+      enfileirar();
+      const cartao = cartaoDe(await responder(conversaId, 'A lâmpada da sala 302 queimou.'));
+
+      // Act
+      const confirmado = await m.confirmarAbertura(viewer, {
+        conversaId,
+        cartaoId: cartao!.mensagemId!,
+        unitId: String(unitId),
+        localExato: 'Sala 302',
+      });
+
+      // Assert
+      expect(confirmado.ok).toBe(true);
+      if (!confirmado.ok) return;
+      const chamado = await m.ChamadoModel.findById(confirmado.chamadoId).lean();
+      expect(chamado?.status).toBe('aberto');
+    });
+
+    it('a amostra de calibragem nunca inclui uma decisão aplicada (AC-7)', async () => {
+      // Arrange
+      await m.SlaConfigModel.create({
+        priority: 'NORMAL',
+        responseTargetMinutes: 120,
+        resolutionTargetMinutes: 480,
+        businessHoursOnly: true,
+        isActive: true,
+        version: 'v1',
+      } as never);
+      await ligarAutonomia(0.5);
+      const conversaId = await novaConversa();
+      enfileirar();
+      const cartao = cartaoDe(await responder(conversaId, 'A lâmpada da sala 302 queimou.'));
+      const confirmado = await m.confirmarAbertura(viewer, {
+        conversaId,
+        cartaoId: cartao!.mensagemId!,
+        unitId: String(unitId),
+        localExato: 'Sala 302',
+      });
+      if (!confirmado.ok) throw new Error(confirmado.reason);
+
+      // A decisão aplicada nunca passa por revisão, mas mesmo forçando
+      // `revisadaEm` (como se tivesse sido revisada) ela não deve entrar.
+      await m.DecisaoIaModel.updateOne(
+        { chamadoId: confirmado.chamadoId, campo: 'prioridade' },
+        { $set: { revisadaEm: new Date() } },
+      );
+
+      // Act
+      const relatorio = await m.medirCalibragem({ servico: 1, prioridade: 1 });
+
+      // Assert
+      expect(relatorio.prioridade.totalElegivel).toBe(0);
+    });
   });
 });

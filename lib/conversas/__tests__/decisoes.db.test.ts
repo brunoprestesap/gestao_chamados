@@ -35,9 +35,11 @@ rodar('decisões, vereditos e correções, contra o Mongo', () => {
   let criarConversa: typeof import('../conversa-store').criarConversa;
   let enviarMensagem: typeof import('../conversa-store').enviarMensagem;
   let aplicarVeredito: typeof import('../decisoes').aplicarVeredito;
+  let decisoesOcultas: typeof import('../decisoes').decisoesOcultas;
   let lerDecisoes: typeof import('../decisoes').lerDecisoes;
   let registrarDecisao: typeof import('../decisoes').registrarDecisao;
   let resolverDecisao: typeof import('../decisoes').resolverDecisao;
+  let prioridadeValidadaPelaIa: typeof import('../proposta-store').prioridadeValidadaPelaIa;
 
   const solicitanteId = new Types.ObjectId();
   const prepostoId = new Types.ObjectId();
@@ -77,8 +79,9 @@ rodar('decisões, vereditos e correções, contra o Mongo', () => {
   beforeAll(async () => {
     ({ abrirChamadoDaConversa } = await import('../abertura'));
     ({ criarConversa, enviarMensagem } = await import('../conversa-store'));
-    ({ aplicarVeredito, lerDecisoes, registrarDecisao, resolverDecisao } =
+    ({ aplicarVeredito, decisoesOcultas, lerDecisoes, registrarDecisao, resolverDecisao } =
       await import('../decisoes'));
+    ({ prioridadeValidadaPelaIa } = await import('../proposta-store'));
 
     ({ ChamadoModel } = await import('@/models/Chamado'));
     ({ ChamadoHistoryModel } = await import('@/models/ChamadoHistory'));
@@ -455,5 +458,49 @@ rodar('decisões, vereditos e correções, contra o Mongo', () => {
     expect(linha).toContain(chamadoId);
     expect(linha).toContain('prioridade');
     expect(linha).not.toContain('A lâmpada queimou');
+  });
+
+  it('decisoesOcultas só esconde prioridade em sugestao; aplicado fica visível (spec 0007, AC-6)', async () => {
+    await semear();
+    const sugerido = await chamadoComDecisao([decisaoPrioridade('NORMAL')]);
+    const aplicado = await chamadoComDecisao([
+      { ...decisaoPrioridade('ALTA'), efeito: 'aplicado' },
+    ]);
+
+    const ocultasSugerido = await decisoesOcultas(sugerido);
+    expect(ocultasSugerido.size).toBe(1);
+
+    const ocultasAplicado = await decisoesOcultas(aplicado);
+    expect(ocultasAplicado.size).toBe(0);
+  });
+
+  it('o selo de validado pela IA continua depois de uma correção (spec 0007, AC-15)', async () => {
+    await semear();
+    const chamadoId = await chamadoComDecisao([
+      { ...decisaoPrioridade('NORMAL'), efeito: 'aplicado' },
+    ]);
+
+    const antes = await prioridadeValidadaPelaIa([chamadoId]);
+    expect(antes.has(chamadoId)).toBe(true);
+
+    // A gestão corrige a prioridade: `iaSituacao` vira 'revisada', mas o
+    // `efeito` da decisão nunca muda — é isso que o selo usa, nunca `iaSituacao`.
+    await resolverDecisao({
+      viewer: preposto,
+      chamadoId,
+      campo: 'prioridade',
+      valor: { prioridade: 'EMERGENCIAL' } as never,
+      origem: 'gestao',
+      motivo: 'Reavaliado.',
+    });
+
+    const chamado = await ChamadoModel.findById(chamadoId).lean();
+    expect(chamado!.iaSituacao).toBe('revisada');
+
+    const depois = await prioridadeValidadaPelaIa([chamadoId]);
+    expect(depois.has(chamadoId)).toBe(true);
+
+    const decisao = await DecisaoIaModel.findOne({ chamadoId }).lean();
+    expect(decisao!.efeito).toBe('aplicado');
   });
 });

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { LlmFailure } from '@/lib/llm';
+import { FINAL_PRIORITY_LABELS, type FinalPriority } from '@/shared/chamados/chamado.constants';
 import type { CartaoPayload } from '@/shared/conversas/conversa.schemas';
 
 /**
@@ -66,8 +67,21 @@ export function fraseDoCartao(cartao: CartaoPayload): string {
   return `${abertura}: ${servico}; ${unidade}; ${local}. O texto desta conversa vira a descrição do chamado.`;
 }
 
-/** A última mensagem do rascunho, gravada quando o chamado nasce (AC-11). */
-export function fraseDeChamadoAberto(ticketNumber: string): string {
+/**
+ * A última mensagem do rascunho, gravada quando o chamado nasce (AC-11).
+ *
+ * Quando o chamado já nasce `validado` sozinho (spec 0007, AC-14), a frase
+ * confirma a prioridade decidida em vez de prometer a análise de um Preposto,
+ * que neste caminho nunca vai acontecer.
+ */
+export function fraseDeChamadoAberto(
+  ticketNumber: string,
+  opcoes?: { validado?: boolean; finalPriority?: FinalPriority | null },
+): string {
+  if (opcoes?.validado && opcoes.finalPriority) {
+    const prioridade = FINAL_PRIORITY_LABELS[opcoes.finalPriority].toLowerCase();
+    return `Chamado #${ticketNumber} aberto com prioridade ${prioridade}, já validada. Você acompanha o atendimento por aqui.`;
+  }
   return `Chamado #${ticketNumber} aberto. Um Preposto vai analisar o seu pedido e encaminhar a um técnico, e você acompanha tudo por aqui.`;
 }
 

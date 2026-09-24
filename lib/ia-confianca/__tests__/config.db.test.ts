@@ -74,6 +74,50 @@ rodar('configuração de calibração, contra o Mongo', () => {
     await expect(IaAutonomiaConfigModel.countDocuments()).resolves.toBe(1);
   });
 
+  it('grava a PROMPT_VERSION atual junto com a configuração (spec 0007, AC-17)', async () => {
+    const { PROMPT_VERSION } = await import('@/lib/assistente/prompt');
+
+    await salvarConfig(
+      {
+        servico: { limiteConfianca: null, amostraMinima: 30 },
+        prioridade: { limiteConfianca: 0.8, amostraMinima: 30 },
+        autonomiaAtiva: true,
+      },
+      String(new Types.ObjectId()),
+    );
+
+    const doc = await IaAutonomiaConfigModel.findOne().lean();
+    expect(doc?.promptVersion).toBe(PROMPT_VERSION);
+  });
+
+  it('autonomia salva sob outro prompt sai desligada, sem mexer no documento (spec 0007, AC-17)', async () => {
+    await IaAutonomiaConfigModel.create({
+      prioridade: { limiteConfianca: 0.8, amostraMinima: 30 },
+      autonomiaAtiva: true,
+      promptVersion: 'versao-antiga',
+    });
+
+    const lido = await lerConfig();
+
+    expect(lido.autonomiaAtiva).toBe(false);
+    expect(lido.prioridade.limiteConfianca).toBe(0.8);
+    const doc = await IaAutonomiaConfigModel.findOne().lean();
+    expect(doc?.autonomiaAtiva).toBe(true);
+  });
+
+  it('autonomia ligada antes de existir o campo promptVersion sai desligada (spec 0007, AC-17)', async () => {
+    await IaAutonomiaConfigModel.collection.insertOne({
+      chave: 'global',
+      servico: { limiteConfianca: null, amostraMinima: 30 },
+      prioridade: { limiteConfianca: 0.8, amostraMinima: 30 },
+      autonomiaAtiva: true,
+    });
+
+    const lido = await lerConfig();
+
+    expect(lido.autonomiaAtiva).toBe(false);
+  });
+
   it('duas leituras concorrentes na primeira carga nunca criam dois documentos', async () => {
     await Promise.all([lerConfig(), lerConfig(), lerConfig()]);
 

@@ -1,6 +1,10 @@
 /**
  * Utilitário de SLA — cálculo de prazos em horário comercial e 24x7.
  * Utiliza configuração institucional (timezone, expediente, dias úteis) e feriados.
+ *
+ * Só cálculo puro aqui, sem tocar banco: é o que deixa este módulo testável
+ * sem mock de `@/lib/db`. Quem monta o snapshot lendo a config ativa é
+ * `montarSnapshotSla`, em `./sla-snapshot.ts`.
  */
 
 import type { BusinessCalendarConfig } from '@/lib/expediente-config';

@@ -395,7 +395,7 @@ describe('responderNaConversa · chamada ao modelo', () => {
     const input = mockStream.mock.calls[0][0];
     expect(input).toMatchObject({
       task: 'conversa.abertura',
-      promptVersion: '1',
+      promptVersion: '2',
       lane: 'interactive',
       userId: VIEWER.userId,
       ref: { type: 'conversa', id: CONVERSA_ID },

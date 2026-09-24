@@ -52,6 +52,14 @@ export const FINAL_PRIORITY_VALUES = ['BAIXA', 'NORMAL', 'ALTA', 'EMERGENCIAL'] 
 export const SERVICO_A_DEFINIR = 'A definir na triagem';
 export type FinalPriority = (typeof FINAL_PRIORITY_VALUES)[number];
 
+/** Rótulo para exibição da prioridade final (ALTA → Alta). */
+export const FINAL_PRIORITY_LABELS: Record<FinalPriority, string> = {
+  BAIXA: 'Baixa',
+  NORMAL: 'Normal',
+  ALTA: 'Alta',
+  EMERGENCIAL: 'Emergencial',
+};
+
 /** Natureza do atendimento (persistida: solicitada e aprovada) — NUNCA usar solicitada para SLA */
 export const ATTENDANCE_NATURE_VALUES = ['PADRAO', 'URGENTE'] as const;
 export type AttendanceNature = (typeof ATTENDANCE_NATURE_VALUES)[number];
