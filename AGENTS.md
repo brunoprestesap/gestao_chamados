@@ -65,6 +65,7 @@ Testes configurados: **Vitest** (unitários, ~1400 testes em `__tests__/` e `*.t
 - Login via **Server Action** (`app/(auth)/login/actions.ts`) que chama `signIn` server-side (não usa `signIn` do `next-auth/react`)
 - DAL centralizada em `lib/dal.ts` com `verifySession()` usando `React.cache()` para memoização por request
 - Guards: `requireSession()`, `requireManager()`, `requireTechnician()`, `requireAdmin()` — redirecionam para `/dashboard` se não autorizado
+- `proxy.ts` (o Next 16 usa proxy no lugar de middleware) manda anônimo para `/login` e barra quem não é Admin em `/usuarios`, `/catalogo`, `/unidades` e `/configuracoes`. Ele ignora `/api`, então cada rota de API faz a própria checagem. A lista `protectedPrefixes` não cobre `/conversas` nem `/sla-dashboard`: quem protege essas telas é o `requireSession()` de `app/(dashboard)/layout.tsx`
 - 4 roles: **Admin**, **Preposto**, **Solicitante**, **Técnico**
 - Workaround de tipo em `auth.ts` (NextAuth v5 beta não exporta `NextAuthConfig` corretamente)
 
@@ -235,6 +236,8 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `NEXT_PUBLIC_SOCKET_URL` — URL pública do socket para o browser
 - `BOOTSTRAP_TOKEN` — protege endpoint `/api/bootstrap`
 - `CRON_SECRET` — protege endpoint `/api/cron/recurring-tickets` (chamados recorrentes)
+- `CRON_SECRET` também protege `/api/cron/sla-monitor`; os dois endpoints de cron esperam o header `x-cron-secret` e recusam tudo se a variável estiver vazia
+- `AUTH_COOKIE_SECURE`: `true` só depois de habilitar TLS (ver `nginx/default.tls.conf`); no compose o padrão é `false`
 
 ### LDAP/AD (opcional — `/.env.local` ou `.env` na VPS)
 
@@ -252,6 +255,10 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `LLM_ENABLED`: `false` desliga a IA sem apagar as outras variáveis
 - `LLM_MAX_CONCURRENCY`: chamadas simultâneas ao vLLM, de 1 a 16 (padrão 4), combinadas com a equipe da GPU
 - `LLM_DEBUG`: `true` loga o texto enviado e recebido em `[LLM:debug]`; só para diagnóstico (LGPD)
+
+### E-mail (opcional: `/.env.local` ou `.env` na VPS)
+
+- `SMTP_HOST`, `SMTP_PORT` (padrão 587), `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `SMTP_FROM` (padrão `sigma@ap.trf1.gov.br`). Sem `SMTP_HOST`, o envio de e-mail fica desligado e o app segue (`lib/email/transporter.ts`)
 
 ### Socket Server (`socket-server/.env`)
 
@@ -297,6 +304,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 
 - **CI** (GitHub Actions): lint + build (Next.js e socket-server) em todo push/PR na `main` (`.github/workflows/ci.yml`)
 - **CI** também roda, como jobs separados: testes unitários (Vitest, com cobertura) e testes E2E (Playwright, com Mongo e seed no runner)
+- **CI** também roda o job `static-checks` antes de tudo: ESLint, `prettier --check` (`format:check`) e `tsc --noEmit` (`typecheck`). Build e testes só começam se ele passar, e o E2E espera `build-next` e `unit-tests`
 - **CD** (GitHub Actions): deploy automático na VPS via **self-hosted runner** após CI passar (`.github/workflows/deploy.yml`)
 - **Self-hosted runner**: instalado na VPS em `/opt/actions-runner`, roda como usuário `github-runner` com acesso ao Docker
 - **Fluxo**: push na `main` → CI (GitHub) → Deploy (VPS) → `git pull` + `docker compose up -d --build`
@@ -333,6 +341,8 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - **E2E**: Playwright
 - Padrão: Arrange-Act-Assert
 - Cobertura mínima: 80%
+- **Banco real**: testes de índice único, TTL e corrida usam o MongoDB de verdade por `tests/mongo-test-env.ts`. Sem `MONGO_TEST_URI`, os `*.db.test.ts` são pulados. O apoio aceita um `dbName` por arquivo e chama `createIndexes()` de propósito
+- **Vitest**: `vitest.config.ts` tira as diretivas `'use server'` e `'use client'` dos módulos e troca `server-only` e `next/cache` pelos mocks de `tests/mocks/`. A cobertura mede só `lib/**/*.ts` e `shared/**/*.ts`, sem limite mínimo configurado
 
 ## Convenções
 
@@ -354,3 +364,5 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - [app/(dashboard)/gestao/AGENTS.md](<app/(dashboard)/gestao/AGENTS.md>): a tela do Preposto/Admin — classificação, atribuição por especialidade, encerramento, reabertura, recusa e aprovação de cotação
 - [app/(dashboard)/chamados-atribuidos/AGENTS.md](<app/(dashboard)/chamados-atribuidos/AGENTS.md>): a tela do técnico — execução, pausa, observação de material e envio de cotação
 - [lib/ia-confianca/AGENTS.md](lib/ia-confianca/AGENTS.md): a tela de calibração da confiança da IA (Admin) — medição de acurácia contra `DecisaoIa`, sugestão de corte e o documento único de configuração
+- [socket-server/AGENTS.md](socket-server/AGENTS.md): o servidor Socket.IO em processo separado, com comandos próprios, as barreiras do `POST /emit` e as listas de eventos que precisam andar juntas
+- [models/AGENTS.md](models/AGENTS.md): os schemas Mongoose, os dois padrões de registro do modelo e os índices parciais
