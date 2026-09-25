@@ -33,6 +33,8 @@ Desde a spec 0005, a tela é dos quatro perfis (solicitante, técnico, Preposto,
 - **Toda frase de erro sai de `FALHA_FRASES`.** Motivo cru nunca aparece na tela. Motivo novo em `lib/conversas` exige frase nova aqui. A rota de comentário tem a frase própria dela em `COMENTARIO_FRASES`/`fraseDoComentario`, porque os motivos dela não vêm de `lib/conversas`.
 - **O endereço de cada linha é calculado no servidor**, em `_lib/lateral.ts`: o `conversaId` quando há conversa, o `chamadoId` quando não há. O cliente nunca adivinha.
 - **Quem pode escolher comentário interno vem pronto do servidor.** `lerLinhaDoTempo` calcula `podeComentarInterno` (gestão ou técnico atribuído) e `_lib/leitura.ts` repassa em `LeituraChamado`; a tela lê esse valor, nunca recalcula quem é gestão ou técnico no cliente.
+- **O aviso de chamado aberto é reconhecido por `ehFraseDeChamadoAberto`** (`lib/assistente/mensagens.ts`), não por igualdade de texto: `_lib/leitura.ts` marca `chamadoAberto` para as quatro frases (specs 0004, 0007 e 0008) e o `PainelChamado` as desenha como aviso de sucesso. Frase fora do reconhecimento cai em `CartaoSistema`, o cartão âmbar com o link do formulário.
+- **Da atribuição automática, só o nome do técnico chega ao solicitante e ao técnico** (spec 0008, AC-16): a linha do tempo mostra "Atribuído automaticamente a X" (`atribuicao_tecnico`, autor sistema). O motivo, a carga e `atribuicaoAutomatica` ficam na gestão.
 - **Só o solicitante dono vê o convite para avaliar.** `souSolicitante`, também vindo de `lerLinhaDoTempo`, gira o botão "Avaliar atendimento" em `PainelChamado`; sem essa trava, técnico e gestão veriam um botão que `submitTicketEvaluationAction` só aceita do solicitante.
 
 ## Acessibilidade, que é requisito e não enfeite

@@ -32,6 +32,9 @@ O assistente que responde na tela `/conversas` e abre o chamado a partir dela. S
 - **Nenhum log traz texto de relato, resposta ou local.** As linhas `[assistente]` levam só `conversaId`, se o código veio válido, `completo`, o destino do cartão e a duração.
 - **Só servidor.** Todo arquivo importa `server-only`.
 - **`PROMPT_VERSION` muda junto com o texto do prompt.** É ele que amarra um registro de `LlmCall` à redação que o produziu. Subir a versão também desliga a autonomia da IA até o Admin salvar a calibração de novo (`lib/ia-confianca/AGENTS.md`).
+- **A atribuição automática roda dentro de `confirmarAbertura`** (spec 0008), só quando o chamado nasceu `validado` e a confirmação não é uma repetição (`jaExistia`). Ela chama `tentarAtribuicaoAutomatica` (`lib/chamados/`), que nunca lança, e nenhum erro dela chega à pessoa: `nao_tentada` deixa tudo como na 0007. A frase final e o aviso aos gestores variam pelo resultado, e o motivo de um `sem_tecnico` nunca entra na frase, porque o solicitante não o vê.
+- **Frase fixa que fecha com um ponto um valor digitado ou extraído (o local, o título) passa por `textoSemPontuacaoFinal`** (`shared/texto.ts`), como `fraseDoCartao` faz com o local: senão "sala 5." vira "sala 5..". Só a frase perde a pontuação; o valor no payload segue como foi digitado. O mesmo vale para os corpos de email e da `Notification`.
+- **`fraseDeChamadoAberto` tem quatro formas** (sem validação, validado, atribuído e sem técnico), e quem as reconhece é `ehFraseDeChamadoAberto`, no mesmo arquivo: a leitura da conversa (`app/(dashboard)/conversas/_lib/leitura.ts`) desenha essa mensagem como aviso de sucesso por ele. Toda forma sai de `aberturaDoChamado`, e `mensagens.test.ts` gera todas as combinações para provar o reconhecimento. Uma frase não reconhecida vira o cartão âmbar de "a IA falhou", com o link do formulário, logo depois de o chamado ter sido aberto.
 
 ## Abertura do chamado (spec 0004)
 

@@ -120,6 +120,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Socket-server valida sessão via callback para `GET /api/session/verify` (stateless)
 - Rooms: `user:<userId>` (individual) e `managers` (Preposto + Admin)
 - Eventos permitidos: `ticket:assigned`, `ticket:new`, `ticket:execution_registered`, `ticket:closed`, `ticket:classified`
+- A atribuição automática (spec 0008) sai com `assignedBy: ATRIBUIDO_POR_SISTEMA` (`shared/socket.ts`), e técnico e gestão leem textos próprios. Os títulos desses avisos moram em `shared/chamados/aviso-atribuicao.ts`, um só para a `Notification`, o email e o toast: canal novo ou texto novo chama essas funções em vez de reescrever a frase
 - Comunicação interna autenticada por header `x-internal-secret` (`SOCKET_INTERNAL_SECRET`)
 - Fallback para MongoDB (model Notification) se socket offline
 
@@ -139,6 +140,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 
 - Classificação (Preposto/Admin): define prioridade final, dispara snapshot SLA
 - Desde a spec 0007, o chamado aberto pelo chat pode nascer `validado` sozinho, quando a IA passa no portão de confiança (`lib/assistente/portao.ts`); o Preposto ainda corrige a prioridade enquanto não há técnico (`updateTicketPriorityAction`)
+- Desde a spec 0008, o chamado que nasce `validado` pelo chat pode ser atribuído sozinho ao técnico ativo com a especialidade do serviço e a menor carga (`lib/chamados/atribuicao-automatica.ts`, chamado por `confirmarAbertura`): termina a mesma confirmação em `em atendimento`, com autor `sistema` e sem `assignedByUserId`. Sem técnico elegível ele fica `validado` e os gestores recebem o motivo. Interruptor próprio (`IaAutonomiaConfig.atribuicaoAutomaticaAtiva`), desligado por padrão; sem nova tentativa depois da confirmação
 - Atribuição: vincula técnico, emite `ticket:assigned`
 - Execução: técnico registra atendimento, emite `ticket:execution_registered`
 - Fechamento: emite `ticket:closed`, habilita avaliação pelo solicitante (1–5 + comentário, imutável)
@@ -146,7 +148,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 
 ### Modelos Mongoose
 
-- **Chamado** — Ticket com ciclo completo + campos SLA (`responseDueAt`, `resolutionDueAt`); `canalAbertura` (`formulario` ou `chat`) e `catalogServiceId`/`subtypeId` só são obrigatórios fora do `chat` — o chat pode abrir sem serviço do catálogo, e a classificação do Preposto exige escolhê-lo depois
+- **Chamado** — Ticket com ciclo completo + campos SLA (`responseDueAt`, `resolutionDueAt`); `atribuicaoAutomatica` (spec 0008: `resultado`, `motivo`, `tecnicoId`, `em`) só sai em endpoints de gestão, nunca para solicitante nem técnico; `canalAbertura` (`formulario` ou `chat`) e `catalogServiceId`/`subtypeId` só são obrigatórios fora do `chat` — o chat pode abrir sem serviço do catálogo, e a classificação do Preposto exige escolhê-lo depois
 - **User** — Roles, especialidades (técnicos via `specialties` → `ServiceSubType`), `maxAssignedTickets` (default 5), `passwordHash` opcional (permite usuários LDAP-only)
 - **ChamadoHistory** — Auditoria de todas as ações
 - **SlaConfig** — Configuração SLA por prioridade
@@ -188,6 +190,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Falha da IA nunca quebra a tela: vira mensagem de autor `sistema` com texto fixo do Sigma, nunca texto do modelo
 - Desde a spec 0004, a própria conversa abre o chamado: a cada mensagem a IA extrai serviço, prioridade (escondida) e local, e quando a proposta está completa o servidor grava sozinho um cartão resumo (`ConversaMensagem` tipo `cartao`); `Revisar e abrir` monta o cartão sem chamar o modelo, e confirmar chama `abrirChamadoDaConversa` com `canalAbertura: 'chat'`. Sem IA (ou sem serviço reconhecido), o cartão vira modo manual (só tipo, unidade e local) e o chamado abre do mesmo jeito
 - Desde a spec 0005, a mesma tela acompanha o chamado até o fim, para os quatro perfis (solicitante, técnico, Preposto, Admin): comentário vai por `POST /api/conversas/chamado/[chamadoId]/comentarios` (JSON simples, sem NDJSON), e classificação/atribuição/pausa/execução/encerramento chegam ao vivo pelo Socket.IO
+- Desde a spec 0008, a última mensagem do chat diz também o resultado da atribuição ("o técnico X já foi designado" ou "um Preposto vai designar o técnico"), sem nunca revelar o motivo. A leitura reconhece as quatro frases de abertura por `ehFraseDeChamadoAberto` (`lib/assistente/mensagens.ts`); frase nova sem passar por ele cai no cartão amarelo de "a IA falhou"
 - Detalhes da tela e das rotas: `app/(dashboard)/conversas/AGENTS.md`. Detalhes do assistente e da abertura pela IA: `lib/assistente/AGENTS.md`. Specs: `docs/specs/0003-tela-chat-chamados/`, `docs/specs/0004-abertura-chamado-ia/`, `docs/specs/0005-andamento-conversa-tecnico/`
 
 ### Validação
@@ -288,6 +291,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Andamento do chamado na conversa | `lib/conversas/linha-do-tempo.ts` (`podeComentarInterno`, `souSolicitante`), `lib/chamados/comentarios.ts`, `app/api/conversas/chamado/[chamadoId]/comentarios/route.ts`, `components/realtime/RealtimeProvider.tsx`, `docs/specs/0005-andamento-conversa-tecnico/`                                                 |
 | Calibração da confiança da IA    | `lib/ia-confianca/AGENTS.md`, `lib/ia-confianca/calibragem.ts` (relatório), `lib/ia-confianca/config.ts` (documento único), `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`, `docs/specs/0006-calibracao-trava-confianca/`                                                             |
 | Prioridade e SLA automáticos     | `lib/assistente/portao.ts` (portão de confiança), `lib/assistente/confirmar.ts`, `lib/sla-snapshot.ts` (`montarSnapshotSla`), `app/(dashboard)/gestao/actions.ts` (`updateTicketPriorityAction`), `docs/specs/0007-prioridade-sla-automaticos/`                                                                     |
+| Atribuição automática ao técnico | `lib/chamados/atribuicao-automatica.ts` (`tentarAtribuicaoAutomatica`), `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `shared/chamados/aviso-atribuicao.ts`, `docs/specs/0008-atribuicao-automatica-tecnico/`                                                                      |
 
 ## CI/CD
 
