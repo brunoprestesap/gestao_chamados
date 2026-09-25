@@ -10,29 +10,29 @@ _São recomendações para manter a construção organizada, não obrigações. 
 
 ## At a glance
 
-| #   | Feature                                            | Phase      | Status   |
-| --- | -------------------------------------------------- | ---------- | -------- |
-| 1   | Autenticação LDAP e perfis                         | Contexto   | existing |
-| 2   | Unidades e usuários                                | Contexto   | existing |
-| 3   | Catálogo de serviços                               | Contexto   | existing |
-| 4   | Abertura de chamado por formulário                 | Contexto   | existing |
-| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto   | existing |
-| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto   | existing |
-| 7   | SLA, expediente e pausas                           | Contexto   | existing |
-| 8   | Notificações em tempo real                         | Contexto   | existing |
-| 9   | Integração com a IA local                          | Foundation | done     |
-| 10  | Conversa e decisões da IA no banco                 | Foundation | done     |
-| 11  | Tela de chat de chamados                           | Slice 1    | done     |
-| 12  | Abertura do chamado pela IA                        | Slice 1    | done     |
-| 13  | Andamento e conversa com o técnico                 | Slice 2    | done     |
-| 14  | Calibração da trava de confiança                   | Slice 3    | done     |
-| 15  | Prioridade e SLA automáticos                       | Slice 3    | done     |
-| 16  | Atribuição automática ao técnico                   | Slice 3    | planned  |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned  |
-| 18  | Painel de acurácia da IA                           | Slice 3    | planned  |
-| 19  | Fotos no chat                                      | Slice 4    | planned  |
-| 20  | Aviso de chamado duplicado                         | Slice 4    | planned  |
-| 21  | Entrada por voz                                    | Slice 4    | planned  |
+| #   | Feature                                            | Phase      | Status      |
+| --- | -------------------------------------------------- | ---------- | ----------- |
+| 1   | Autenticação LDAP e perfis                         | Contexto   | existing    |
+| 2   | Unidades e usuários                                | Contexto   | existing    |
+| 3   | Catálogo de serviços                               | Contexto   | existing    |
+| 4   | Abertura de chamado por formulário                 | Contexto   | existing    |
+| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto   | existing    |
+| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto   | existing    |
+| 7   | SLA, expediente e pausas                           | Contexto   | existing    |
+| 8   | Notificações em tempo real                         | Contexto   | existing    |
+| 9   | Integração com a IA local                          | Foundation | done        |
+| 10  | Conversa e decisões da IA no banco                 | Foundation | done        |
+| 11  | Tela de chat de chamados                           | Slice 1    | done        |
+| 12  | Abertura do chamado pela IA                        | Slice 1    | done        |
+| 13  | Andamento e conversa com o técnico                 | Slice 2    | done        |
+| 14  | Calibração da trava de confiança                   | Slice 3    | done        |
+| 15  | Prioridade e SLA automáticos                       | Slice 3    | done        |
+| 16  | Atribuição automática ao técnico                   | Slice 3    | in-progress |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned     |
+| 18  | Painel de acurácia da IA                           | Slice 3    | planned     |
+| 19  | Fotos no chat                                      | Slice 4    | planned     |
+| 20  | Aviso de chamado duplicado                         | Slice 4    | planned     |
+| 21  | Entrada por voz                                    | Slice 4    | planned     |
 
 ## Existing (contexto)
 
@@ -186,12 +186,22 @@ spec [0007](../specs/0007-prioridade-sla-automaticos/index.md) · code in `lib/a
 - [x] Review it (fresh model): `/check review prioridade e SLA automáticos`
 - [x] Document it: `/document prioridade e SLA automáticos`
 
-### 16. Atribuição automática ao técnico · needs a decision
+### 16. Atribuição automática ao técnico · in-progress · GA
 
-Chamado validado pela IA segue direto para um técnico com a especialidade do serviço e espaço na carga, sem esperar o Preposto.
+Chamado validado pela IA segue direto para um técnico com a especialidade do serviço e espaço na carga, sem esperar o Preposto. Mexe no SLA de resposta contratual e atribui trabalho a pessoas sozinha, por isso GA.
 **Done when:** o técnico escolhido tem a especialidade (subtipo) do serviço e está abaixo do seu limite de chamados; sem técnico elegível, o chamado vai ao Preposto com o motivo; o técnico recebe a notificação de sempre e a atribuição aparece na conversa do solicitante.
+spec [0008](../specs/0008-atribuicao-automatica-tecnico/index.md) · code in `lib/chamados/atribuicao-automatica.ts`, `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `lib/assistente/confirmar.ts`, `shared/chamados/atribuicao-automatica.constants.ts`, `app/(dashboard)/gestao/`, `app/(dashboard)/configuracoes/ia-confianca/`
 
-- [ ] Design it (spec): `/architect atribuição automática ao técnico`
+- [x] Design it (spec): `/architect atribuição automática ao técnico`
+- [x] Build it: `/develop atribuição automática ao técnico`
+  - [x] Fio fino do caminho feliz, ponta a ponta (constantes, interruptor `atribuicaoAutomaticaAtiva`, campo `atribuicaoAutomatica`, `notificarAtribuicao` extraída, critério puro, `tentarAtribuicaoAutomatica`, chamada em `confirmarAbertura`, teste contra Mongo) · AC-1, AC-2, AC-5, AC-6, AC-9, AC-10, AC-11, AC-12, AC-14
+  - [x] Falhas, concorrência e idempotência (sem técnico, erro, conferência de carga com desfazer, corrida com a atribuição manual, log) · AC-3, AC-4, AC-7, AC-8, AC-17
+  - [x] Gestores, técnico e solicitante veem o resultado (`ticket:new` por resultado, aviso do técnico, detalhe e selo na Gestão, teste de vazamento) · AC-11, AC-12, AC-13, AC-15, AC-16
+  - [x] Regressão e limitações (atribuição manual e calibração intactas, correção pela reatribuição, janela de prioridade fechada) · AC-9, AC-18, AC-19
+- [x] Verify it: `/check verify atribuição automática ao técnico`
+- [x] Test it: `/test atribuição automática ao técnico`
+- [x] Review it (fresh model): `/check review atribuição automática ao técnico`
+- [x] Document it: `/document atribuição automática ao técnico`
 
 ### 17. Revisão das decisões da IA pelo Preposto · needs a decision
 
@@ -248,6 +258,8 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Cotação, observação de material e pausa por terceiros na conversa**: hoje ficam fora do sinal ao vivo de `/conversas`; considerar se a gestão sentir falta · from spec 0005
 - **Aviso de reatribuição de técnico**: `reatribuicao_tecnico` não emite nenhum evento hoje; se o solicitante precisar saber quando o técnico muda, cobrir numa fatia futura · from spec 0005
 - **Viés de concordância no acerto de serviço**: o Preposto vê a sugestão de serviço pré preenchida na classificação, então o número medido mede concordância, não um julgamento independente; considerar esconder a sugestão também na classificação se o viés atrapalhar a calibração · from spec 0006
+- **Unificar a escolha de técnico manual e automática**: `findBestTechnician`, as duas rotas `eligible-technicians` e as cópias à mão de `ACTIVE_STATUSES` passam a usar o critério novo (desempate justo) e `CHAMADO_STATUS_CARGA_TECNICO` · from spec 0008
+- **Nova tentativa de atribuição automática**: reavaliar chamados `sem_tecnico` quando um técnico libera vaga (ao concluir ou encerrar um chamado, ou pelo cron de 30 minutos) se o volume mostrar espera demais · from spec 0008
 - **Reprocessamento retroativo pra calibração**: se o volume de chamados pelo chat crescer devagar, considerar rodar a IA contra chamados antigos do formulário pra engordar a amostra de acurácia, custeando as chamadas extras ao vLLM · from spec 0006
 
 ## Legend

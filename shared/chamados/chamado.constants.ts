@@ -29,6 +29,15 @@ export const CHAMADO_STATUS_ATIVOS_TECNICO: readonly ChamadoStatus[] = [
   'concluído',
 ];
 
+/**
+ * Status que contam na carga de um técnico: o que as telas manuais de
+ * atribuição já contam à mão, e o que a atribuição automática usa (spec 0008).
+ */
+export const CHAMADO_STATUS_CARGA_TECNICO: readonly ChamadoStatus[] = [
+  'validado',
+  'em atendimento',
+];
+
 export const CHAMADO_STATUS_LABELS: Record<ChamadoStatus, string> = {
   aberto: 'Aberto',
   validado: 'Validado',

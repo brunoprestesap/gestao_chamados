@@ -6,6 +6,8 @@ import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
 import { escapeRegex } from '@/lib/regex';
 import { ChamadoModel } from '@/models/Chamado';
+import { UserModel } from '@/models/user.model';
+import type { AtribuicaoAutomaticaGestao } from '@/shared/chamados/atribuicao-automatica.constants';
 import { ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 
 // Projection — only the fields needed by the table/cards UI
@@ -39,6 +41,8 @@ const LIST_PROJECTION = {
   materialObservations: 1,
   sla: 1,
   canalAbertura: 1,
+  // Só a gestão lê: o resultado e o motivo da atribuição automática (spec 0008, AC-16).
+  atribuicaoAutomatica: 1,
   createdAt: 1,
   updatedAt: 1,
 } as const;
@@ -127,6 +131,31 @@ function normalizeChamado(
 }
 
 /**
+ * O resultado da atribuição automática para a lista (spec 0008, AC-15). O nome
+ * é o do técnico que a regra escolheu, lido pelo `tecnicoId` gravado, nunca por
+ * `assignedToUserId`: o Preposto pode ter reatribuído depois.
+ */
+function normalizeAtribuicaoAutomatica(
+  raw: unknown,
+  nomes: Map<string, string>,
+): AtribuicaoAutomaticaGestao | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const a = raw as {
+    resultado?: string;
+    motivo?: string | null;
+    tecnicoId?: unknown;
+    em?: Date | string | null;
+  };
+  if (a.resultado !== 'atribuido' && a.resultado !== 'sem_tecnico') return null;
+  return {
+    resultado: a.resultado,
+    motivo: (a.motivo as AtribuicaoAutomaticaGestao['motivo']) ?? null,
+    tecnicoNome: a.tecnicoId ? (nomes.get(String(a.tecnicoId)) ?? null) : null,
+    em: a.em ? new Date(a.em).toISOString() : '',
+  };
+}
+
+/**
  * GET /api/gestao/chamados
  * Lista chamados paginados. Filtros: q (busca livre), status, page, limit.
  * Apenas Admin ou Preposto.
@@ -197,11 +226,33 @@ export async function GET(req: Request) {
     prioridadeValidadaPelaIa(todosIds),
   ]);
 
+  // Os nomes dos técnicos que a atribuição automática escolheu: uma consulta só por página.
+  const tecnicoIds = [
+    ...new Set(
+      items.flatMap((c) => {
+        const id = (c as { atribuicaoAutomatica?: { tecnicoId?: unknown } }).atribuicaoAutomatica
+          ?.tecnicoId;
+        return id ? [String(id)] : [];
+      }),
+    ),
+  ];
+  const nomesDosTecnicos = new Map<string, string>();
+  if (tecnicoIds.length > 0) {
+    const tecnicos = await UserModel.find({ _id: { $in: tecnicoIds } })
+      .select('name')
+      .lean();
+    for (const t of tecnicos) nomesDosTecnicos.set(String(t._id), t.name);
+  }
+
   return NextResponse.json({
     items: items.map((c) => ({
       ...normalizeChamado(c),
       servicoSugeridoIa: sugeridos.has(String(c._id)),
       validadoPelaIa: validadosPelaIa.has(String(c._id)),
+      atribuicaoAutomatica: normalizeAtribuicaoAutomatica(
+        (c as { atribuicaoAutomatica?: unknown }).atribuicaoAutomatica,
+        nomesDosTecnicos,
+      ),
     })),
     pagination: { page, limit, total, totalPages },
   });

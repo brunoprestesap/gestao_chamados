@@ -39,6 +39,7 @@ import {
   STATUS_ICONS,
 } from '@/app/(dashboard)/meus-chamados/_constants';
 import { MarcaAberturaChat } from '@/components/chamado/MarcaAberturaChat';
+import { SeloSemTecnicoAutomatico } from '@/components/chamado/SeloSemTecnicoAutomatico';
 import { SeloValidadoIa } from '@/components/chamado/SeloValidadoIa';
 import { StatusMultiSelect } from '@/components/StatusMultiSelect';
 import { Badge } from '@/components/ui/badge';
@@ -820,6 +821,11 @@ export default function GestaoPage() {
                           validadoPelaIa={row.validadoPelaIa}
                           className="text-[11px]"
                         />
+                        <SeloSemTecnicoAutomatico
+                          atribuicaoAutomatica={row.atribuicaoAutomatica}
+                          assignedToUserId={row.assignedToUserId}
+                          className="text-[11px]"
+                        />
                       </div>
                     </TableCell>
                     <TableCell className="px-4 py-3.5">
@@ -901,6 +907,10 @@ export default function GestaoPage() {
                             servicoSugeridoIa={row.servicoSugeridoIa}
                           />
                           <SeloValidadoIa validadoPelaIa={row.validadoPelaIa} />
+                          <SeloSemTecnicoAutomatico
+                            atribuicaoAutomatica={row.atribuicaoAutomatica}
+                            assignedToUserId={row.assignedToUserId}
+                          />
                         </div>
 
                         {/* Row 3: metadata */}

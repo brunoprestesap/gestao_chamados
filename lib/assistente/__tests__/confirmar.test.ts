@@ -22,6 +22,11 @@ vi.mock('@/lib/chamados/novo-chamado', () => ({
   notificarNovoChamado: (...args: unknown[]) => mockNotificar(...args),
 }));
 
+const mockTentarAtribuicao = vi.fn();
+vi.mock('@/lib/chamados/atribuicao-automatica', () => ({
+  tentarAtribuicaoAutomatica: (...args: unknown[]) => mockTentarAtribuicao(...args),
+}));
+
 const mockUnidade = vi.fn();
 vi.mock('@/models/unit', () => ({
   UnitModel: {
@@ -159,6 +164,8 @@ beforeEach(() => {
   });
   mockEnviarMensagem.mockResolvedValue({ ok: true, destino: 'conversa', id: 'x' });
   mockNotificar.mockResolvedValue(undefined);
+  // A atribuição automática (spec 0008) desligada por padrão: nada muda nos outros testes.
+  mockTentarAtribuicao.mockResolvedValue({ resultado: 'nao_tentada' });
   mockInvalidarCartao.mockResolvedValue({ ok: true });
   // Portão de confiança fechado por padrão (spec 0007): os testes existentes
   // seguem cobrindo o caminho de sempre, `aberto` com sugestão.
@@ -659,5 +666,207 @@ describe('confirmarAbertura · modo manual', () => {
       ok: false,
       reason: 'dados_invalidos',
     });
+  });
+});
+
+// ── atribuição automática · spec 0008, AC-1, AC-6, AC-7, AC-12, AC-13 ──
+
+describe('confirmarAbertura · atribuição automática', () => {
+  const SNAPSHOT = {
+    priority: 'NORMAL',
+    responseTargetMinutes: 120,
+    resolutionTargetMinutes: 480,
+    businessHoursOnly: true,
+    responseDueAt: new Date('2026-01-02T12:00:00Z'),
+    resolutionDueAt: new Date('2026-01-03T12:00:00Z'),
+    computedAt: new Date('2026-01-01T12:00:00Z'),
+    configVersion: 'v1',
+  };
+
+  /** O portão da 0007 aberto: o chamado nasce `validado`, e só então o passo entra em cena. */
+  function nasceValidado() {
+    mockLerConfig.mockResolvedValue({
+      servico: { limiteConfianca: null, amostraMinima: 30 },
+      prioridade: { limiteConfianca: 0.5, amostraMinima: 30 },
+      autonomiaAtiva: true,
+      atribuicaoAutomaticaAtiva: true,
+    });
+    mockMontarSnapshotSla.mockResolvedValue({ ok: true, snapshot: SNAPSHOT });
+  }
+
+  it('chamado que nasceu validado pelo chat chama o passo uma vez, com o subtipo do serviço lido no servidor (AC-1)', async () => {
+    // Arrange
+    nasceValidado();
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(mockTentarAtribuicao).toHaveBeenCalledOnce();
+    expect(mockTentarAtribuicao).toHaveBeenCalledWith({
+      chamadoId: CHAMADO_ID,
+      solicitanteId: VIEWER.userId,
+      subtypeId: SUBTIPO_ID,
+      titulo: 'Troca de lâmpada — Sala 302, perto da janela',
+      ticketNumber: '2026-0412',
+    });
+  });
+
+  it('atribuído: a frase do chat diz o técnico e o aviso da gestão leva o resultado (AC-12, AC-13)', async () => {
+    // Arrange
+    nasceValidado();
+    mockTentarAtribuicao.mockResolvedValue({
+      resultado: 'atribuido',
+      tecnicoId: '6aad5286df6f201a25eda333',
+      tecnicoNome: 'Carla',
+    });
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    const texto = mockEnviarMensagem.mock.calls[0][0].texto;
+    expect(texto).toContain('o técnico Carla já foi designado');
+    expect(texto).not.toContain('Preposto');
+    expect(mockNotificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jaValidado: true,
+        atribuicao: {
+          resultado: 'atribuido',
+          tecnicoId: '6aad5286df6f201a25eda333',
+          tecnicoNome: 'Carla',
+        },
+      }),
+    );
+  });
+
+  it('sem técnico: a frase diz que um Preposto designa, e o motivo vai só à gestão (AC-12, AC-13)', async () => {
+    // Arrange
+    nasceValidado();
+    mockTentarAtribuicao.mockResolvedValue({ resultado: 'sem_tecnico', motivo: 'sem_vaga' });
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    const texto = mockEnviarMensagem.mock.calls[0][0].texto;
+    expect(texto).toContain('Um Preposto vai designar o técnico');
+    expect(texto).not.toContain('limite');
+    expect(mockNotificar).toHaveBeenCalledWith(
+      expect.objectContaining({ atribuicao: { resultado: 'sem_tecnico', motivo: 'sem_vaga' } }),
+    );
+  });
+
+  it('nao_tentada (passo desligado ou corrida perdida): a frase e o aviso da 0007, sem a chave atribuicao (AC-12, AC-13)', async () => {
+    // Arrange
+    nasceValidado();
+    mockTentarAtribuicao.mockResolvedValue({ resultado: 'nao_tentada' });
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(mockEnviarMensagem.mock.calls[0][0].texto).toBe(
+      'Chamado #2026-0412 aberto com prioridade normal, já validada. Você acompanha o atendimento por aqui.',
+    );
+    expect('atribuicao' in mockNotificar.mock.calls[0][0]).toBe(false);
+  });
+
+  it('o passo lançando, contra o contrato, não vira erro para a pessoa: o chamado abre como na 0007', async () => {
+    // Arrange
+    nasceValidado();
+    mockTentarAtribuicao.mockRejectedValue(new Error('quebrou'));
+
+    // Act
+    const r = await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(r).toMatchObject({ ok: true, chamadoId: CHAMADO_ID, jaExistia: false });
+    expect(mockEnviarMensagem.mock.calls[0][0].texto).toContain('já validada');
+    expect(mockNotificar).toHaveBeenCalled();
+    expect(avisos.some((a) => a.includes('atribuicao_indisponivel'))).toBe(true);
+  });
+
+  it('o passo lançando algo que não é Error: o log diz "desconhecido" e a abertura segue', async () => {
+    // Arrange
+    nasceValidado();
+    mockTentarAtribuicao.mockRejectedValue('caiu sem ser um Error');
+
+    // Act
+    const r = await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(r).toMatchObject({ ok: true, chamadoId: CHAMADO_ID, jaExistia: false });
+    const linha = avisos.find((a) => a.includes('atribuicao_indisponivel'));
+    expect(linha).toContain('"erro":"desconhecido"');
+    expect(mockEnviarMensagem.mock.calls[0][0].texto).toContain('já validada');
+  });
+
+  it('chamado que nasce aberto (sem confiança) nunca passa pelo passo (AC-6)', async () => {
+    // Arrange: portão fechado por padrão no beforeEach
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(mockTentarAtribuicao).not.toHaveBeenCalled();
+  });
+
+  it('chamado do modo manual nunca passa pelo passo, mesmo com as duas chaves ligadas (AC-6)', async () => {
+    // Arrange
+    nasceValidado();
+    mockLerProposta.mockResolvedValue(lida({ cartaoAtual: cartao('manual') }));
+
+    // Act
+    await confirmarAbertura(VIEWER, { ...ENTRADA, tipoServico: 'Manutenção Predial' });
+
+    // Assert
+    expect(mockTentarAtribuicao).not.toHaveBeenCalled();
+  });
+
+  it('confiante mas sem SLA config: nasce aberto e nunca passa pelo passo (AC-6)', async () => {
+    // Arrange
+    nasceValidado();
+    mockMontarSnapshotSla.mockResolvedValue({ ok: false, motivo: 'sem config ativa' });
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(mockTentarAtribuicao).not.toHaveBeenCalled();
+  });
+
+  it('clique duplo com a conversa já vinculada não atribui, não avisa e não grava frase de novo (AC-7)', async () => {
+    // Arrange
+    nasceValidado();
+    mockLerProposta.mockResolvedValue(lida({ situacao: 'vinculada' }));
+
+    // Act
+    const r = await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(r).toMatchObject({ ok: true, jaExistia: true });
+    expect(mockTentarAtribuicao).not.toHaveBeenCalled();
+    expect(mockEnviarMensagem).not.toHaveBeenCalled();
+    expect(mockNotificar).not.toHaveBeenCalled();
+  });
+
+  it('a abertura devolvendo jaExistia (corrida entre duas confirmações) também não atribui (AC-7)', async () => {
+    // Arrange
+    nasceValidado();
+    mockAbrir.mockResolvedValue({
+      ok: true,
+      chamadoId: CHAMADO_ID,
+      ticketNumber: '2026-0412',
+      jaExistia: true,
+    });
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    expect(mockTentarAtribuicao).not.toHaveBeenCalled();
+    expect(mockEnviarMensagem).not.toHaveBeenCalled();
+    expect(mockNotificar).not.toHaveBeenCalled();
   });
 });

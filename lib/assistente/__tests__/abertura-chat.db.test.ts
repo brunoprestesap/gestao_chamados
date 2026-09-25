@@ -38,6 +38,31 @@ vi.mock('@/lib/email/send-notification-email', () => ({
 
 const rodar = temMongoDeTeste ? describe : describe.skip;
 
+/**
+ * O que a leitura do solicitante nunca pode trazer: a proposta, a confiança, o
+ * motivo e a prioridade sugerida. O `0.87` é a confiança do vLLM falso. Ele é
+ * ancorado porque um timestamp ISO como `…10.874Z` também contém "0.87", e sem
+ * a âncora o teste falhava ao acaso (cerca de 0,1% por timestamp serializado).
+ */
+const VAZAMENTO_DA_PROPOSTA = /propostaIa|confianca|"motivo"|prioridade|(?<![\d.])0\.87(?!\d)/;
+
+describe('padrão de vazamento da proposta', () => {
+  it('pega a confiança de verdade e não confunde um timestamp com ela', () => {
+    // Act & Assert: a confiança vazada é pega, em qualquer lugar do JSON
+    expect(VAZAMENTO_DA_PROPOSTA.test('{"x":0.87}')).toBe(true);
+    expect(VAZAMENTO_DA_PROPOSTA.test('[0.87,1]')).toBe(true);
+    expect(VAZAMENTO_DA_PROPOSTA.test('{"propostaIa":{}}')).toBe(true);
+    // E o timestamp que contém "0.87" não é
+    for (const em of [
+      '2026-09-25T12:52:10.874Z',
+      '2026-01-01T00:00:00.870Z',
+      '2026-09-25T09:20:50.879Z',
+    ]) {
+      expect(VAZAMENTO_DA_PROPOSTA.test(JSON.stringify({ em }))).toBe(false);
+    }
+  });
+});
+
 type Modulos = {
   responderNaConversa: typeof import('../responder').responderNaConversa;
   revisarAbertura: typeof import('../cartao').revisarAbertura;
@@ -642,7 +667,7 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
     // Assert
     for (const resultado of [lida, linha]) {
       const texto = JSON.stringify(resultado);
-      expect(texto).not.toMatch(/propostaIa|confianca|"motivo"|prioridade|0\.87/);
+      expect(texto).not.toMatch(VAZAMENTO_DA_PROPOSTA);
     }
     expect(lida.ok && lida.conversa.cartaoAtualId).toBe(cartao!.mensagemId);
   });
@@ -677,6 +702,7 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
           servico: { limiteConfianca: null, amostraMinima: 30 },
           prioridade: { limiteConfianca, amostraMinima: 30 },
           autonomiaAtiva: true,
+          atribuicaoAutomaticaAtiva: false,
         },
         String(adminId),
       );
@@ -878,6 +904,263 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
 
       // Assert
       expect(relatorio.prioridade.totalElegivel).toBe(0);
+    });
+  });
+
+  // ── atribuição automática · spec 0008, AC-1, AC-5, AC-6, AC-7, AC-10, AC-12, AC-13, AC-16 ──
+
+  describe('atribuição automática ao técnico pelo chat', () => {
+    const tecnicoId = new Types.ObjectId();
+
+    async function prepararSla() {
+      await m.SlaConfigModel.create({
+        priority: 'NORMAL',
+        responseTargetMinutes: 120,
+        resolutionTargetMinutes: 480,
+        businessHoursOnly: true,
+        isActive: true,
+        version: 'v1',
+      } as never);
+    }
+
+    async function ligar(limiteConfianca: number | null, atribuicao = true) {
+      await m.salvarConfig(
+        {
+          servico: { limiteConfianca: null, amostraMinima: 30 },
+          prioridade: { limiteConfianca, amostraMinima: 30 },
+          autonomiaAtiva: true,
+          atribuicaoAutomaticaAtiva: atribuicao,
+        },
+        String(adminId),
+      );
+    }
+
+    async function criarTecnico(extra: Record<string, unknown> = {}) {
+      await m.UserModel.create({
+        _id: tecnicoId,
+        name: 'Carla',
+        username: 'carla',
+        role: 'Técnico',
+        isActive: true,
+        specialties: [subtypeId],
+        maxAssignedTickets: 5,
+        ...extra,
+      } as never);
+    }
+
+    async function confirmar() {
+      const conversaId = await novaConversa();
+      enfileirar();
+      const cartao = cartaoDe(await responder(conversaId, 'A lâmpada da sala 302 queimou.'));
+      const entrada = {
+        conversaId,
+        cartaoId: cartao!.mensagemId!,
+        unitId: String(unitId),
+        localExato: 'Sala 302',
+      };
+      const confirmado = await m.confirmarAbertura(viewer, entrada);
+      if (!confirmado.ok) throw new Error(confirmado.reason);
+      return { conversaId, entrada, confirmado };
+    }
+
+    async function ultimaMensagem(conversaId: string) {
+      return m.ConversaMensagemModel.findOne({ conversaId })
+        .sort({ createdAt: -1, _id: -1 })
+        .lean();
+    }
+
+    it('do relato ao técnico designado: chamado em atendimento, chat, gestão e técnico avisados (AC-1, AC-10, AC-12, AC-13)', async () => {
+      // Arrange
+      await prepararSla();
+      await ligar(0.5);
+      await criarTecnico();
+
+      // Act
+      const { conversaId, confirmado } = await confirmar();
+
+      // Assert: o chamado terminou a mesma confirmação em atendimento
+      const chamado = (await m.ChamadoModel.findById(confirmado.chamadoId).lean()) as Record<
+        string,
+        any // eslint-disable-line @typescript-eslint/no-explicit-any
+      >;
+      expect(chamado.status).toBe('em atendimento');
+      expect(String(chamado.assignedToUserId)).toBe(String(tecnicoId));
+      expect(chamado.assignedByUserId).toBeUndefined();
+      expect(chamado.sla.responseStartedAt).toEqual(chamado.assignedAt);
+      expect(chamado.atribuicaoAutomatica).toMatchObject({ resultado: 'atribuido' });
+
+      // A frase final do chat diz quem foi designado, sem prometer o Preposto (AC-12)
+      const ultima = await ultimaMensagem(conversaId);
+      expect(ultima?.texto).toContain('o técnico Carla já foi designado');
+      expect(ultima?.texto).not.toContain('Preposto');
+
+      // A gestão lê o resultado, e nunca que "falta atribuir" (AC-13)
+      const paraGestores = await m.NotificationModel.find({ type: 'ticket:new' }).lean();
+      expect(paraGestores).toHaveLength(2);
+      for (const n of paraGestores) {
+        expect(n.title).toBe(`Chamado #${confirmado.ticketNumber} validado e atribuído a Carla`);
+        expect(JSON.stringify(n)).not.toContain('falta atribuir');
+      }
+
+      // O técnico recebeu a notificação de sempre, em variante automática (AC-11)
+      const doTecnico = await m.NotificationModel.find({ type: 'ticket:assigned' }).lean();
+      expect(doTecnico).toHaveLength(1);
+      expect(String(doTecnico[0].userId)).toBe(String(tecnicoId));
+      expect(doTecnico[0].title).toContain('automaticamente');
+
+      // O histórico conta o fato uma vez, e a decisão de técnico não vira `decisao_ia` (AC-10)
+      const historico = await m.ChamadoHistoryModel.find({
+        chamadoId: confirmado.chamadoId,
+      }).lean();
+      expect(historico.map((h) => h.action).sort()).toEqual([
+        'abertura',
+        'atribuicao_tecnico',
+        'classificacao',
+        'decisao_ia',
+        'decisao_ia',
+      ]);
+      const atribuicao = historico.find((h) => h.action === 'atribuicao_tecnico');
+      expect(atribuicao).toMatchObject({
+        actorType: 'sistema',
+        userId: null,
+        observacoes: 'Atribuído automaticamente a Carla',
+      });
+      const decisao = await m.DecisaoIaModel.findOne({
+        chamadoId: confirmado.chamadoId,
+        campo: 'tecnico',
+      }).lean();
+      expect(decisao).toMatchObject({ decididoPor: 'regra', efeito: 'aplicado', confianca: null });
+    });
+
+    it('o solicitante lê o técnico na linha do tempo, sem motivo, carga nem id (AC-10, AC-16)', async () => {
+      // Arrange
+      await prepararSla();
+      await ligar(0.5);
+      await criarTecnico();
+      const { confirmado } = await confirmar();
+
+      // Act
+      const linha = await m.conversas.lerLinhaDoTempo(viewer, confirmado.chamadoId);
+
+      // Assert
+      expect(linha.ok).toBe(true);
+      if (!linha.ok) return;
+      const historico = linha.itens.filter((i) => i.fonte === 'historico');
+      const atribuicao = historico.find((i) => i.dados.action === 'atribuicao_tecnico');
+      expect(atribuicao?.dados).toMatchObject({
+        actorType: 'sistema',
+        observacoes: 'Atribuído automaticamente a Carla',
+      });
+      const tudo = JSON.stringify(linha.itens);
+      expect(tudo).not.toContain(String(tecnicoId));
+      expect(tudo).not.toContain('atribuicaoAutomatica');
+      expect(tudo).not.toContain('sem_vaga');
+      expect(tudo).not.toContain('chamados ativos');
+    });
+
+    it('ninguém com a especialidade: o chamado fica validado e a gestão recebe o motivo (AC-3, AC-12, AC-13, AC-16)', async () => {
+      // Arrange: nenhum técnico criado
+      await prepararSla();
+      await ligar(0.5);
+
+      // Act
+      const { conversaId, confirmado } = await confirmar();
+
+      // Assert
+      const chamado = (await m.ChamadoModel.findById(confirmado.chamadoId).lean()) as Record<
+        string,
+        any // eslint-disable-line @typescript-eslint/no-explicit-any
+      >;
+      expect(chamado.status).toBe('validado');
+      expect(chamado.assignedToUserId).toBeUndefined();
+      expect(chamado.atribuicaoAutomatica).toMatchObject({
+        resultado: 'sem_tecnico',
+        motivo: 'sem_especialidade',
+      });
+
+      // O solicitante não vê erro nem motivo: só que um Preposto vai designar
+      const ultima = await ultimaMensagem(conversaId);
+      expect(ultima?.texto).toContain('Um Preposto vai designar o técnico');
+      expect(ultima?.texto).not.toContain('especialidade');
+
+      // A gestão vê o motivo em português
+      const paraGestores = await m.NotificationModel.find({ type: 'ticket:new' }).lean();
+      expect(paraGestores).toHaveLength(2);
+      for (const n of paraGestores) {
+        expect(n.title).toBe(
+          `Chamado #${confirmado.ticketNumber} validado, sem técnico disponível`,
+        );
+        expect(n.body).toContain('nenhum técnico ativo com a especialidade');
+      }
+      expect(await m.NotificationModel.countDocuments({ type: 'ticket:assigned' })).toBe(0);
+    });
+
+    it('interruptor da atribuição desligado, com a autonomia ligada: chamado validado, como na 0007 (AC-5)', async () => {
+      // Arrange
+      await prepararSla();
+      await ligar(0.5, false);
+      await criarTecnico();
+
+      // Act
+      const { conversaId, confirmado } = await confirmar();
+
+      // Assert
+      const chamado = (await m.ChamadoModel.findById(confirmado.chamadoId).lean()) as Record<
+        string,
+        any // eslint-disable-line @typescript-eslint/no-explicit-any
+      >;
+      expect(chamado.status).toBe('validado');
+      expect(chamado.atribuicaoAutomatica).toBeUndefined();
+      const ultima = await ultimaMensagem(conversaId);
+      expect(ultima?.texto).toContain('já validada. Você acompanha o atendimento por aqui.');
+      const notificacao = await m.NotificationModel.findOne({ type: 'ticket:new' }).lean();
+      expect(notificacao?.title).toBe(
+        `Chamado #${confirmado.ticketNumber} validado automaticamente`,
+      );
+    });
+
+    it('confiança abaixo do limite: nasce aberto e o passo nunca roda, mesmo com as duas chaves ligadas (AC-6)', async () => {
+      // Arrange
+      await prepararSla();
+      await ligar(0.9);
+      await criarTecnico();
+
+      // Act
+      const { confirmado } = await confirmar();
+
+      // Assert
+      const chamado = (await m.ChamadoModel.findById(confirmado.chamadoId).lean()) as Record<
+        string,
+        any // eslint-disable-line @typescript-eslint/no-explicit-any
+      >;
+      expect(chamado.status).toBe('aberto');
+      expect(chamado.assignedToUserId).toBeUndefined();
+      expect(chamado.atribuicaoAutomatica).toBeUndefined();
+    });
+
+    it('clique duplo: a segunda confirmação não atribui, não avisa e não grava frase de novo (AC-7)', async () => {
+      // Arrange
+      await prepararSla();
+      await ligar(0.5);
+      await criarTecnico();
+      const { conversaId, entrada, confirmado } = await confirmar();
+      const avisosAntes = await m.NotificationModel.countDocuments({});
+      const mensagensAntes = await m.ConversaMensagemModel.countDocuments({ conversaId });
+
+      // Act
+      const segunda = await m.confirmarAbertura(viewer, entrada);
+
+      // Assert
+      expect(segunda).toMatchObject({ ok: true, jaExistia: true, chamadoId: confirmado.chamadoId });
+      expect(await m.NotificationModel.countDocuments({})).toBe(avisosAntes);
+      expect(await m.ConversaMensagemModel.countDocuments({ conversaId })).toBe(mensagensAntes);
+      expect(
+        await m.ChamadoHistoryModel.countDocuments({
+          chamadoId: confirmado.chamadoId,
+          action: 'atribuicao_tecnico',
+        }),
+      ).toBe(1);
+      expect(await m.DecisaoIaModel.countDocuments({ campo: 'tecnico' })).toBe(1);
     });
   });
 });

@@ -35,6 +35,11 @@ vi.mock('@/models/Chamado', () => ({
   },
 }));
 
+const mockUserFind = vi.fn();
+vi.mock('@/models/user.model', () => ({
+  UserModel: { find: (...args: unknown[]) => mockUserFind(...args) },
+}));
+
 const mockServicoSugerido = vi.fn();
 const mockPrioridadeValidada = vi.fn();
 vi.mock('@/lib/conversas', () => ({
@@ -339,5 +344,152 @@ describe('GET /api/gestao/chamados — countDocuments + find run in parallel', (
     expect(findFilter.status).toBe('validado');
     expect(countFilter.$or).toBeDefined();
     expect(findFilter.$or).toBeDefined();
+  });
+});
+
+describe('GET /api/gestao/chamados — atribuição automática (spec 0008, AC-15)', () => {
+  const TECNICO_ESCOLHIDO = '7'.repeat(24);
+  const TECNICO_ATUAL = '8'.repeat(24);
+
+  function comTecnicos(nomes: Record<string, string>) {
+    mockUserFind.mockReturnValue({
+      select: () => ({
+        lean: () => Promise.resolve(Object.entries(nomes).map(([_id, name]) => ({ _id, name }))),
+      }),
+    });
+  }
+
+  it('pede o campo na projeção', async () => {
+    // Act
+    await GET(makeRequest());
+
+    // Assert
+    expect(mockFind.mock.calls[0][1]).toHaveProperty('atribuicaoAutomatica', 1);
+  });
+
+  it('devolve o técnico que a regra escolheu, e não o de hoje, depois de uma reatribuição', async () => {
+    // Arrange: a regra escolheu o 7777…, o Preposto trocou para o 8888…
+    const reatribuido = makeChamado({
+      _id: '1'.repeat(24),
+      status: 'em atendimento',
+      assignedToUserId: { _id: TECNICO_ATUAL, name: 'Diego' },
+      atribuicaoAutomatica: {
+        resultado: 'atribuido',
+        motivo: null,
+        tecnicoId: TECNICO_ESCOLHIDO,
+        em: new Date('2026-09-25T15:00:00Z'),
+      },
+    });
+    mockCountDocuments.mockResolvedValue(1);
+    mockLean.mockResolvedValue([reatribuido]);
+    comTecnicos({ [TECNICO_ESCOLHIDO]: 'Carla' });
+
+    // Act
+    const body = await (await GET(makeRequest())).json();
+
+    // Assert
+    expect(body.items[0].atribuicaoAutomatica).toEqual({
+      resultado: 'atribuido',
+      motivo: null,
+      tecnicoNome: 'Carla',
+      em: '2026-09-25T15:00:00.000Z',
+    });
+    expect(body.items[0].assignedToUserName).toBe('Diego');
+    // Uma consulta só, com os ids da página
+    expect(mockUserFind).toHaveBeenCalledTimes(1);
+    expect(mockUserFind.mock.calls[0][0]).toEqual({ _id: { $in: [TECNICO_ESCOLHIDO] } });
+  });
+
+  it('sem técnico: devolve o motivo e nenhum nome', async () => {
+    // Arrange
+    mockCountDocuments.mockResolvedValue(1);
+    mockLean.mockResolvedValue([
+      makeChamado({
+        status: 'validado',
+        atribuicaoAutomatica: {
+          resultado: 'sem_tecnico',
+          motivo: 'sem_especialidade',
+          tecnicoId: null,
+          em: new Date('2026-09-25T15:00:00Z'),
+        },
+      }),
+    ]);
+
+    // Act
+    const body = await (await GET(makeRequest())).json();
+
+    // Assert
+    expect(body.items[0].atribuicaoAutomatica).toEqual({
+      resultado: 'sem_tecnico',
+      motivo: 'sem_especialidade',
+      tecnicoNome: null,
+      em: '2026-09-25T15:00:00.000Z',
+    });
+    expect(mockUserFind).not.toHaveBeenCalled();
+  });
+
+  it('chamado sem o campo (formulário, chave desligada) devolve null, sem consultar usuários', async () => {
+    // Arrange
+    mockCountDocuments.mockResolvedValue(1);
+    mockLean.mockResolvedValue([makeChamado()]);
+
+    // Act
+    const body = await (await GET(makeRequest())).json();
+
+    // Assert
+    expect(body.items[0].atribuicaoAutomatica).toBeNull();
+    expect(mockUserFind).not.toHaveBeenCalled();
+  });
+
+  it('nome de técnico que sumiu do banco vira nulo, e o resultado continua saindo', async () => {
+    // Arrange
+    mockCountDocuments.mockResolvedValue(1);
+    mockLean.mockResolvedValue([
+      makeChamado({
+        atribuicaoAutomatica: {
+          resultado: 'atribuido',
+          motivo: null,
+          tecnicoId: TECNICO_ESCOLHIDO,
+          em: new Date('2026-09-25T15:00:00Z'),
+        },
+      }),
+    ]);
+    comTecnicos({});
+
+    // Act
+    const body = await (await GET(makeRequest())).json();
+
+    // Assert
+    expect(body.items[0].atribuicaoAutomatica).toMatchObject({
+      resultado: 'atribuido',
+      tecnicoNome: null,
+    });
+  });
+
+  it('resultado gravado que a tela não conhece vira null, e o resto da lista continua saindo', async () => {
+    // Arrange: um documento com resultado inesperado ao lado de um chamado normal
+    mockCountDocuments.mockResolvedValue(2);
+    mockLean.mockResolvedValue([
+      makeChamado({
+        _id: '1'.repeat(24),
+        atribuicaoAutomatica: {
+          resultado: 'em_analise',
+          motivo: null,
+          tecnicoId: null,
+          em: new Date('2026-09-25T15:00:00Z'),
+        },
+      }),
+      makeChamado({ _id: '2'.repeat(24) }),
+    ]);
+
+    // Act
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(body.items).toHaveLength(2);
+    expect(body.items[0].atribuicaoAutomatica).toBeNull();
+    expect(body.items[1].atribuicaoAutomatica).toBeNull();
   });
 });

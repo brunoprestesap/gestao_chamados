@@ -27,6 +27,7 @@ type FormValues = {
   servico: { limiteConfianca: string; amostraMinima: number };
   prioridade: { limiteConfianca: string; amostraMinima: number };
   autonomiaAtiva: boolean;
+  atribuicaoAutomaticaAtiva: boolean;
 };
 
 type Campo = 'servico' | 'prioridade';
@@ -46,6 +47,7 @@ function paraFormValues(config: IaAutonomiaConfigLida): FormValues {
       amostraMinima: config.prioridade.amostraMinima,
     },
     autonomiaAtiva: config.autonomiaAtiva,
+    atribuicaoAutomaticaAtiva: config.atribuicaoAutomaticaAtiva,
   };
 }
 
@@ -174,8 +176,38 @@ export function IaConfiancaForm({
                       Autonomia da IA ativa
                     </FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Interruptor global. Nenhuma fatia lê este valor ainda; nada muda no
-                      comportamento do sistema ao ligar.
+                      Interruptor global. Ligado, o chamado aberto pelo chat com confiança igual ou
+                      acima do limite de prioridade nasce validado, sem esperar o Preposto.
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-border/50">
+          <CardContent className="pt-6">
+            <FormField
+              control={form.control}
+              name="atribuicaoAutomaticaAtiva"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="mt-0.5 rounded-md"
+                    />
+                  </FormControl>
+                  <div className="space-y-1">
+                    <FormLabel className="cursor-pointer font-medium">
+                      Atribuição automática de técnico
+                    </FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Só vale com a autonomia da IA ligada. Ligada, o chamado validado pela IA já
+                      vai para o técnico com a especialidade do serviço e a menor carga; sem técnico
+                      elegível, ele fica com o Preposto. Não depende da versão do prompt.
                     </p>
                   </div>
                 </FormItem>

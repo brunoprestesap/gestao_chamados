@@ -51,6 +51,7 @@ const CONFIG_BASE: IaAutonomiaConfigLida = {
   servico: { limiteConfianca: null, amostraMinima: 30 },
   prioridade: { limiteConfianca: null, amostraMinima: 30 },
   autonomiaAtiva: false,
+  atribuicaoAutomaticaAtiva: false,
 };
 
 const submeter = async (user: ReturnType<typeof userEvent.setup>) =>
@@ -186,6 +187,42 @@ describe('IaConfiancaForm · gravação', () => {
     // Assert
     expect(mockSalvar).toHaveBeenCalledTimes(1);
     expect(mockSalvar).toHaveBeenCalledWith(expect.objectContaining({ autonomiaAtiva: true }));
+  });
+
+  it('a atribuição automática aparece desligada e liga sem mexer na autonomia (spec 0008, AC-5)', async () => {
+    // Arrange
+    const user = userEvent.setup();
+    render(
+      <IaConfiancaForm config={CONFIG_BASE} sugestoes={{ servico: null, prioridade: null }} />,
+    );
+    const atribuicao = screen.getByRole('checkbox', { name: /atribuição automática de técnico/i });
+    expect(atribuicao).not.toBeChecked();
+
+    // Act
+    await user.click(atribuicao);
+    await submeter(user);
+
+    // Assert
+    expect(mockSalvar).toHaveBeenCalledTimes(1);
+    expect(mockSalvar).toHaveBeenCalledWith(
+      expect.objectContaining({ autonomiaAtiva: false, atribuicaoAutomaticaAtiva: true }),
+    );
+  });
+
+  it('reflete a atribuição automática já ligada e a explica como dependente da autonomia', () => {
+    // Act
+    render(
+      <IaConfiancaForm
+        config={{ ...CONFIG_BASE, atribuicaoAutomaticaAtiva: true }}
+        sugestoes={{ servico: null, prioridade: null }}
+      />,
+    );
+
+    // Assert
+    expect(
+      screen.getByRole('checkbox', { name: /atribuição automática de técnico/i }),
+    ).toBeChecked();
+    expect(screen.getByText(/só vale com a autonomia da ia ligada/i)).toBeInTheDocument();
   });
 
   it('ao salvar com sucesso, avisa e atualiza a página', async () => {

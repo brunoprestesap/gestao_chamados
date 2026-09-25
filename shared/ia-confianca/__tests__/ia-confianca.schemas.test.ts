@@ -8,6 +8,7 @@ const validoBase = {
   servico: { limiteConfianca: 0.9, amostraMinima: 30 },
   prioridade: { limiteConfianca: null, amostraMinima: 30 },
   autonomiaAtiva: false,
+  atribuicaoAutomaticaAtiva: false,
 };
 
 describe('salvarIaAutonomiaConfigSchema', () => {
@@ -53,6 +54,31 @@ describe('salvarIaAutonomiaConfigSchema', () => {
     const parsed = salvarIaAutonomiaConfigSchema.safeParse({
       ...validoBase,
       prioridade: { limiteConfianca: null, amostraMinima: 2.5 },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('exige atribuicaoAutomaticaAtiva (spec 0008): formulário antigo falha alto em vez de desligar calado', () => {
+    const semCampo: Record<string, unknown> = { ...validoBase };
+    delete semCampo.atribuicaoAutomaticaAtiva;
+    const parsed = salvarIaAutonomiaConfigSchema.safeParse(semCampo);
+    expect(parsed.success).toBe(false);
+  });
+
+  it('aceita atribuicaoAutomaticaAtiva ligada, independente da autonomia (spec 0008)', () => {
+    const parsed = salvarIaAutonomiaConfigSchema.safeParse({
+      ...validoBase,
+      autonomiaAtiva: false,
+      atribuicaoAutomaticaAtiva: true,
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.atribuicaoAutomaticaAtiva).toBe(true);
+  });
+
+  it('recusa atribuicaoAutomaticaAtiva que não é booleano', () => {
+    const parsed = salvarIaAutonomiaConfigSchema.safeParse({
+      ...validoBase,
+      atribuicaoAutomaticaAtiva: 'sim',
     });
     expect(parsed.success).toBe(false);
   });

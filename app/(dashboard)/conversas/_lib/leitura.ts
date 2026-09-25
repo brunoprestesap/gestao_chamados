@@ -2,7 +2,7 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
-import { fraseDeChamadoAberto } from '@/lib/assistente/mensagens';
+import { ehFraseDeChamadoAberto } from '@/lib/assistente/mensagens';
 import { lerConversa, lerLinhaDoTempo, servicoSugeridoPelaIa, type Viewer } from '@/lib/conversas';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
@@ -116,10 +116,9 @@ export async function lerChamadoEmLeitura(
   const nomes = await resolverNomes(ids);
 
   // A última mensagem do rascunho é o aviso de chamado aberto (spec 0004). Ela
-  // é do Sigma, com texto fixo: comparar com a frase é exato, não adivinhação.
-  const avisoDeAbertura = chamado.ticket_number
-    ? fraseDeChamadoAberto(String(chamado.ticket_number))
-    : null;
+  // é do Sigma, com texto fixo, e tem mais de uma forma (0007 e 0008): quem as
+  // reconhece é `ehFraseDeChamadoAberto`, do mesmo módulo que as monta.
+  const numeroDoChamado = chamado.ticket_number ? String(chamado.ticket_number) : null;
 
   const itens: ItemLeitura[] = linha.itens.map((item) => {
     if (item.fonte === 'mensagem') {
@@ -130,7 +129,10 @@ export async function lerChamadoEmLeitura(
         autor: item.dados.autor,
         tipo: item.dados.tipo,
         texto: item.dados.texto,
-        chamadoAberto: item.dados.autor === 'sistema' && item.dados.texto === avisoDeAbertura,
+        chamadoAberto:
+          item.dados.autor === 'sistema' &&
+          numeroDoChamado !== null &&
+          ehFraseDeChamadoAberto(item.dados.texto, numeroDoChamado),
       };
     }
     if (item.fonte === 'comentario') {

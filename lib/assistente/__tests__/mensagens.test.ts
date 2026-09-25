@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { LLM_FAILURE_REASONS } from '@/lib/llm/types';
+import { FINAL_PRIORITY_LABELS, type FinalPriority } from '@/shared/chamados/chamado.constants';
+import type { CartaoPayload } from '@/shared/conversas/conversa.schemas';
 
 import {
   afirmaChamadoJaAberto,
+  ehFraseDeChamadoAberto,
   FORMULARIO_HREF,
   fraseDeChamadoAberto,
+  fraseDoCartao,
   mensagemDeReserva,
   respostaSemAfirmarAbertura,
 } from '../mensagens';
@@ -189,5 +193,227 @@ describe('FORMULARIO_HREF', () => {
   it('aponta para a lista onde fica o botão de novo chamado', () => {
     // Assert
     expect(FORMULARIO_HREF).toBe('/meus-chamados');
+  });
+});
+
+// ── spec 0008, AC-12: o resultado da atribuição automática ─────────
+
+describe('fraseDeChamadoAberto · atribuição automática (spec 0008, AC-12)', () => {
+  const validado = { validado: true, finalPriority: 'ALTA' as const };
+
+  it('atribuído: diz o nome do técnico e não promete análise do Preposto', () => {
+    // Act
+    const texto = fraseDeChamadoAberto('CHM-2026-00001', {
+      ...validado,
+      atribuicao: { resultado: 'atribuido', tecnicoId: 't1', tecnicoNome: 'Carla' },
+    });
+
+    // Assert
+    expect(texto).toContain('#CHM-2026-00001');
+    expect(texto).toContain('prioridade alta');
+    expect(texto).toContain('o técnico Carla já foi designado');
+    expect(texto).not.toContain('Preposto');
+  });
+
+  it('atribuído com nome vazio: cai em um técnico, nunca em branco', () => {
+    // Act
+    const texto = fraseDeChamadoAberto('CHM-2026-00001', {
+      ...validado,
+      atribuicao: { resultado: 'atribuido', tecnicoId: 't1', tecnicoNome: '  ' },
+    });
+
+    // Assert
+    expect(texto).toContain('um técnico já foi designado');
+    expect(texto).not.toContain('o técnico  ');
+  });
+
+  it('sem técnico: diz que um Preposto vai designar, sem revelar o motivo', () => {
+    // Act
+    const texto = fraseDeChamadoAberto('CHM-2026-00001', {
+      ...validado,
+      atribuicao: { resultado: 'sem_tecnico', motivo: 'sem_vaga' },
+    });
+
+    // Assert
+    expect(texto).toContain('Um Preposto vai designar o técnico');
+    expect(texto).not.toContain('limite');
+    expect(texto).not.toContain('especialidade');
+    expect(texto).not.toContain('sem_vaga');
+  });
+
+  it('nao_tentada e ausente mantêm a frase da 0007, palavra por palavra', () => {
+    // Arrange
+    const da0007 = fraseDeChamadoAberto('CHM-2026-00001', validado);
+
+    // Act
+    const naoTentada = fraseDeChamadoAberto('CHM-2026-00001', {
+      ...validado,
+      atribuicao: { resultado: 'nao_tentada' },
+    });
+
+    // Assert
+    expect(naoTentada).toBe(da0007);
+    expect(da0007).toBe(
+      'Chamado #CHM-2026-00001 aberto com prioridade alta, já validada. Você acompanha o atendimento por aqui.',
+    );
+  });
+
+  it('chamado que nasceu aberto ignora o resultado: quem decide é o Preposto', () => {
+    // Act
+    const texto = fraseDeChamadoAberto('CHM-2026-00001', {
+      validado: false,
+      finalPriority: null,
+      atribuicao: { resultado: 'atribuido', tecnicoId: 't1', tecnicoNome: 'Carla' },
+    });
+
+    // Assert
+    expect(texto).toContain('Um Preposto vai analisar');
+    expect(texto).not.toContain('Carla');
+  });
+});
+
+// ── o reconhecimento da frase, para a leitura da conversa ──────────
+
+describe('ehFraseDeChamadoAberto', () => {
+  const NUMERO = 'CHM-2026-00412';
+
+  /** Toda forma que `fraseDeChamadoAberto` monta: sem validação, e validado com cada resultado. */
+  function todasAsFrases(): { descricao: string; texto: string }[] {
+    const prioridades = Object.keys(FINAL_PRIORITY_LABELS) as FinalPriority[];
+    const resultados = [
+      undefined,
+      { resultado: 'nao_tentada' as const },
+      { resultado: 'atribuido' as const, tecnicoId: 't1', tecnicoNome: 'Carla' },
+      { resultado: 'atribuido' as const, tecnicoId: 't1', tecnicoNome: '  ' },
+      { resultado: 'sem_tecnico' as const, motivo: 'sem_especialidade' as const },
+      { resultado: 'sem_tecnico' as const, motivo: 'sem_vaga' as const },
+      { resultado: 'sem_tecnico' as const, motivo: 'erro' as const },
+    ];
+    return [
+      { descricao: 'sem validação', texto: fraseDeChamadoAberto(NUMERO) },
+      ...prioridades.flatMap((finalPriority) =>
+        resultados.map((atribuicao) => ({
+          descricao: `${finalPriority}, ${atribuicao?.resultado ?? 'sem resultado'}`,
+          texto: fraseDeChamadoAberto(NUMERO, { validado: true, finalPriority, atribuicao }),
+        })),
+      ),
+    ];
+  }
+
+  it('reconhece toda frase que fraseDeChamadoAberto sabe montar, em todas as variantes', () => {
+    // Arrange
+    const frases = todasAsFrases();
+
+    // Act
+    const naoReconhecidas = frases.filter((f) => !ehFraseDeChamadoAberto(f.texto, NUMERO));
+
+    // Assert: 1 sem validação, mais 4 prioridades por 7 resultados
+    expect(frases).toHaveLength(1 + 4 * 7);
+    expect(naoReconhecidas).toEqual([]);
+  });
+
+  it('a frase de um chamado não é a de outro, nem quando um número é o começo do outro', () => {
+    // Arrange
+    const validada = { validado: true, finalPriority: 'NORMAL' as const };
+
+    // Act & Assert
+    expect(ehFraseDeChamadoAberto(fraseDeChamadoAberto('412', validada), '4120')).toBe(false);
+    expect(ehFraseDeChamadoAberto(fraseDeChamadoAberto('4120', validada), '412')).toBe(false);
+    expect(ehFraseDeChamadoAberto(fraseDeChamadoAberto('412'), '4120')).toBe(false);
+    expect(ehFraseDeChamadoAberto(fraseDeChamadoAberto('CHM-2026-00413'), NUMERO)).toBe(false);
+  });
+
+  it('não confunde os outros textos do Sigma na conversa com o aviso de abertura', () => {
+    // Act & Assert
+    for (const motivo of TODOS) {
+      expect(ehFraseDeChamadoAberto(mensagemDeReserva(motivo), NUMERO)).toBe(false);
+    }
+    expect(ehFraseDeChamadoAberto('', NUMERO)).toBe(false);
+    expect(ehFraseDeChamadoAberto(`Chamado #${NUMERO} aberto`, NUMERO)).toBe(false);
+    expect(ehFraseDeChamadoAberto(`Seu chamado #${NUMERO} foi aberto.`, NUMERO)).toBe(false);
+  });
+});
+
+// ── o texto do cartão resumo ───────────────────────────────────────
+
+describe('fraseDoCartao', () => {
+  const CARTAO: CartaoPayload = {
+    modo: 'ia',
+    servico: {
+      catalogServiceId: 'a'.repeat(24),
+      subtypeId: 'b'.repeat(24),
+      tipoServico: 'Manutenção Predial',
+      rotuloServico: 'Reparo de tomada',
+      rotuloSubtipo: 'Elétrica',
+    },
+    unidade: { unitId: 'c'.repeat(24), rotulo: 'Núcleo de Gestão de Pessoas', andar: '2º andar' },
+    localExato: 'sala 5',
+    faltando: [],
+  };
+  const BASE =
+    'Resumo do chamado para você conferir e confirmar: serviço Reparo de tomada, de Elétrica; unidade Núcleo de Gestão de Pessoas, 2º andar; local sala 5. O texto desta conversa vira a descrição do chamado.';
+
+  it('monta a frase com o serviço, a unidade e o local, terminando o local com um ponto', () => {
+    expect(fraseDoCartao(CARTAO)).toBe(BASE);
+  });
+
+  it('um local que já termina em pontuação não gera ponto duplo: a frase é a mesma', () => {
+    // Arrange: o local vem do modelo ou do que a pessoa digitou, e pode terminar em qualquer sinal
+    const terminacoes = ['.', '!', '?', '...', '…', ' .', ';', ':', ',', '. ', '.  '];
+
+    // Act
+    const divergentes = terminacoes.filter(
+      (fim) => fraseDoCartao({ ...CARTAO, localExato: `sala 5${fim}` }) !== BASE,
+    );
+
+    // Assert
+    expect(divergentes).toEqual([]);
+    expect(fraseDoCartao({ ...CARTAO, localExato: 'sala 5.' })).not.toContain('5..');
+  });
+
+  it('só a frase perde a pontuação: o local do payload segue como foi digitado', () => {
+    // Arrange
+    const cartao: CartaoPayload = { ...CARTAO, localExato: 'sala 5.' };
+
+    // Act
+    fraseDoCartao(cartao);
+
+    // Assert
+    expect(cartao.localExato).toBe('sala 5.');
+  });
+
+  it('sem local, diz "local a informar" e fecha com um ponto só', () => {
+    // Act
+    const texto = fraseDoCartao({ ...CARTAO, localExato: null, faltando: ['local'] });
+
+    // Assert
+    expect(texto).toContain('local a informar. O texto desta conversa');
+    expect(texto).toContain('para você completar e confirmar');
+  });
+
+  it('local só de pontuação não some da frase, e ela continua inteira', () => {
+    // Act
+    const texto = fraseDoCartao({ ...CARTAO, localExato: '...' });
+
+    // Assert: nada é perdido em silêncio, e o resto da frase segue no lugar
+    expect(texto).toContain('local ...');
+    expect(texto).toContain('O texto desta conversa vira a descrição do chamado.');
+  });
+
+  it('cartão manual: a frase pede o tipo e a unidade, sem depender do local', () => {
+    // Act
+    const texto = fraseDoCartao({
+      ...CARTAO,
+      modo: 'manual',
+      servico: null,
+      unidade: null,
+      localExato: 'sala 5.',
+      faltando: ['tipo', 'unidade'],
+    });
+
+    // Assert
+    expect(texto).toBe(
+      'Resumo do chamado para você completar e confirmar: tipo de serviço a escolher; unidade a escolher; local sala 5. O texto desta conversa vira a descrição do chamado.',
+    );
   });
 });
