@@ -3,6 +3,8 @@
  * Eventos servidor -> cliente e payloads.
  */
 
+import type { AtribuicaoMotivo } from '@/shared/chamados/atribuicao-automatica.constants';
+
 export interface TicketAssignedPayload {
   ticketId: string;
   ticketNumber?: string;
@@ -11,6 +13,13 @@ export interface TicketAssignedPayload {
   assignedTo: { id: string; name?: string };
   at: string;
 }
+
+/**
+ * Quem consta como autor de uma atribuição feita pelo próprio Sigma (spec 0008,
+ * AC-11). O `id` não é de nenhum usuário: quem lê o payload compara com ele
+ * para escolher o texto "atribuído a você automaticamente".
+ */
+export const ATRIBUIDO_POR_SISTEMA = { id: 'sistema', name: 'Atribuição automática' } as const;
 
 /** Payload quando a gestão classifica um chamado aberto (notificação para o Solicitante). */
 export interface TicketClassifiedPayload {
@@ -30,6 +39,14 @@ export interface TicketNewPayload {
   openedBy: { id: string; name?: string };
   /** Nasceu `validado` sozinho pela IA (spec 0007, AC-13): não precisa de triagem. */
   jaValidado?: boolean;
+  /**
+   * O que a atribuição automática fez (spec 0008, AC-13). Ausente quando o
+   * passo estava desligado ou não chegou a rodar: o texto da 0007 vale. Só
+   * vai para a sala `managers`; solicitante e técnico nunca recebem o motivo.
+   */
+  atribuicao?:
+    | { resultado: 'atribuido'; tecnicoNome: string }
+    | { resultado: 'sem_tecnico'; motivo: AtribuicaoMotivo };
   at: string;
 }
 

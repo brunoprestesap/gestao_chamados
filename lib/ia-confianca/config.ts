@@ -17,6 +17,8 @@ export type IaAutonomiaConfigLida = {
   servico: CampoConfigLida;
   prioridade: CampoConfigLida;
   autonomiaAtiva: boolean;
+  /** Spec 0008: independe de `PROMPT_VERSION`, porque a escolha é por regra e não pela confiança do modelo. */
+  atribuicaoAutomaticaAtiva: boolean;
 };
 
 const PADRAO_CAMPO: CampoConfigLida = { limiteConfianca: null, amostraMinima: 30 };
@@ -49,6 +51,7 @@ export async function lerConfig(): Promise<IaAutonomiaConfigLida> {
       amostraMinima: doc.prioridade?.amostraMinima ?? PADRAO_CAMPO.amostraMinima,
     },
     autonomiaAtiva: (doc.autonomiaAtiva ?? false) && doc.promptVersion === PROMPT_VERSION,
+    atribuicaoAutomaticaAtiva: doc.atribuicaoAutomaticaAtiva ?? false,
   };
 }
 
@@ -66,6 +69,7 @@ export async function salvarConfig(
         servico: input.servico,
         prioridade: input.prioridade,
         autonomiaAtiva: input.autonomiaAtiva,
+        atribuicaoAutomaticaAtiva: input.atribuicaoAutomaticaAtiva,
         promptVersion: PROMPT_VERSION,
         updatedByUserId,
       },

@@ -19,7 +19,7 @@ export default async function IaConfiancaPage() {
     <div className="space-y-6">
       <PageHeader
         title="Calibração da confiança da IA"
-        subtitle="Mede se a sugestão da IA bate com o que o Preposto decidiu, e define o limite de confiança que qualquer autonomia futura vai usar. Nada muda no sistema nesta tela."
+        subtitle="Mede se a sugestão da IA bate com o que o Preposto decidiu, e define o que a IA pode fazer sozinha: o limite de confiança, a autonomia e a atribuição automática de técnico."
       />
 
       <div className="grid gap-6 lg:grid-cols-2">

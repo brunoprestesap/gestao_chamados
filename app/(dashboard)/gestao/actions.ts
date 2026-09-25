@@ -3,6 +3,7 @@
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
+import { notificarAtribuicao } from '@/lib/chamados/notificar-atribuicao';
 import { aplicarVeredito, resolverDecisao } from '@/lib/conversas/decisoes';
 import { canManage, requireManager, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
@@ -882,36 +883,15 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
     // Notificação persistida + evento realtime para o técnico (após sucesso no Mongo)
     const assignedByUser = await UserModel.findById(assignedByUserId).select('name').lean();
     const technicianIdStr = String(selectedTechnician._id);
-    const ticketAssignedPayload = {
-      ticketId: String(ticketId),
+    await notificarAtribuicao({
+      chamadoId: String(ticketId),
       ticketNumber: updateResult.ticket_number,
-      title: updateResult.titulo,
+      titulo: updateResult.titulo,
+      solicitanteId: String(updateResult.solicitanteId),
+      tecnico: { id: technicianIdStr, name: selectedTechnician.name },
       assignedBy: { id: String(assignedByUserId), name: assignedByUser?.name ?? undefined },
-      assignedTo: { id: technicianIdStr, name: selectedTechnician.name },
-      at: now.toISOString(),
-    };
-    await NotificationModel.create({
-      userId: selectedTechnician._id,
-      type: 'ticket:assigned',
-      title: updateResult.ticket_number
-        ? `Chamado #${updateResult.ticket_number} atribuído a você`
-        : 'Chamado atribuído a você',
-      body: updateResult.titulo ?? '',
-      data: ticketAssignedPayload,
-      readAt: null,
+      at: now,
     });
-    sendNotificationEmail(technicianIdStr, 'ticket:assigned', ticketAssignedPayload).catch(
-      () => {},
-    );
-    await emitToRoom(`user:${technicianIdStr}`, 'ticket:assigned', ticketAssignedPayload);
-    // O solicitante recebe o mesmo aviso, para ver a atribuição ao vivo na
-    // própria conversa (spec 0005, AC-2). O cliente decide texto e link pelo
-    // `userId` recebido, comparado a `assignedTo.id`.
-    await emitToRoom(
-      `user:${String(updateResult.solicitanteId)}`,
-      'ticket:assigned',
-      ticketAssignedPayload,
-    );
 
     // Veredito da gestão sobre o técnico que a IA sugeriu (spec 0002).
     await aplicarVeredito({

@@ -6,17 +6,23 @@ import { io, type Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 
 import { playNotificationSound } from '@/lib/notification-sound';
+import { ATRIBUICAO_MOTIVO_LABELS } from '@/shared/chamados/atribuicao-automatica.constants';
+import {
+  atribuidoPeloSistema,
+  tituloDeAtribuicaoAoTecnico,
+  tituloDeChamadoValidado,
+} from '@/shared/chamados/aviso-atribuicao';
 import { PAUSE_REASON_LABELS } from '@/shared/chamados/pause-reason.constants';
-import type {
-  ClientToServerEvents,
-  ServerToClientEvents,
-  SlaBreachPayload,
-  SlaWarningPayload,
-  TicketAssignedPayload,
-  TicketClosedPayload,
-  TicketExecutionRegisteredPayload,
-  TicketNewPayload,
-  TicketPausedPayload,
+import {
+  type ClientToServerEvents,
+  type ServerToClientEvents,
+  type SlaBreachPayload,
+  type SlaWarningPayload,
+  type TicketAssignedPayload,
+  type TicketClosedPayload,
+  type TicketExecutionRegisteredPayload,
+  type TicketNewPayload,
+  type TicketPausedPayload,
 } from '@/shared/socket';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -112,26 +118,39 @@ export function RealtimeProvider({
       const souOTecnico = payload.assignedTo?.id === userIdRef.current;
 
       if (souOTecnico) {
+        // Atribuição feita pelo próprio Sigma (spec 0008, AC-11): sem "Atribuído por: Preposto".
+        const automatica = atribuidoPeloSistema(payload.assignedBy);
         const atribuidoPor = payload.assignedBy?.name ?? 'Preposto';
         const url = getAssignedTicketUrl(payload);
 
-        toast.success(`Novo chamado ${numero} atribuído a você`, {
-          description: (
-            <div className="mt-1 flex flex-col gap-0.5 text-left">
-              {tituloChamado && (
-                <p className="line-clamp-2 text-sm font-medium text-foreground">{tituloChamado}</p>
-              )}
-              <p className="text-xs text-muted-foreground">Atribuído por: {atribuidoPor}</p>
-            </div>
-          ),
-          duration: 6000,
-          action: {
-            label: 'Abrir',
-            onClick: () => {
-              routerRef.current.push(url);
+        toast.success(
+          automatica
+            ? tituloDeAtribuicaoAoTecnico(payload.ticketNumber, true)
+            : `Novo chamado ${numero} atribuído a você`,
+          {
+            description: (
+              <div className="mt-1 flex flex-col gap-0.5 text-left">
+                {tituloChamado && (
+                  <p className="line-clamp-2 text-sm font-medium text-foreground">
+                    {tituloChamado}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {automatica
+                    ? 'Atribuído automaticamente pelo Sigma'
+                    : `Atribuído por: ${atribuidoPor}`}
+                </p>
+              </div>
+            ),
+            duration: 6000,
+            action: {
+              label: 'Abrir',
+              onClick: () => {
+                routerRef.current.push(url);
+              },
             },
           },
-        });
+        );
         emitNotificationEvent();
         return;
       }
@@ -184,8 +203,10 @@ export function RealtimeProvider({
       const abertoPor = payload.openedBy?.name ?? 'Solicitante';
       const url = getNewTicketManagementUrl(payload);
 
+      // O resultado da atribuição automática (spec 0008, AC-13). Sem ele, vale o texto da 0007.
+      const atribuicao = payload.jaValidado ? payload.atribuicao : undefined;
       const tituloToast = payload.jaValidado
-        ? `Chamado ${numero} validado automaticamente`
+        ? tituloDeChamadoValidado(payload.ticketNumber, atribuicao)
         : `Novo chamado ${numero} aberto`;
       toast.success(tituloToast, {
         description: (
@@ -194,6 +215,11 @@ export function RealtimeProvider({
               <p className="line-clamp-2 text-sm font-medium text-foreground">{tituloChamado}</p>
             )}
             <p className="text-xs text-muted-foreground">Aberto por: {abertoPor}</p>
+            {atribuicao?.resultado === 'sem_tecnico' && (
+              <p className="text-xs text-muted-foreground">
+                Motivo: {ATRIBUICAO_MOTIVO_LABELS[atribuicao.motivo]}
+              </p>
+            )}
           </div>
         ),
         duration: 6000,

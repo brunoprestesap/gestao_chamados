@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { tentarAtribuicaoAutomatica } from '@/lib/chamados/atribuicao-automatica';
 import { notificarNovoChamado } from '@/lib/chamados/novo-chamado';
 import {
   abrirChamadoDaConversa,
@@ -16,6 +17,7 @@ import {
 import { dbConnect } from '@/lib/db';
 import { montarSnapshotSla } from '@/lib/sla-snapshot';
 import { UnitModel } from '@/models/unit';
+import type { AtribuicaoResultado } from '@/shared/chamados/atribuicao-automatica.constants';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import type { TipoServico } from '@/shared/chamados/tipo-servico';
 import { confirmarAberturaSchema } from '@/shared/conversas/abertura.schemas';
@@ -270,6 +272,30 @@ export async function confirmarAbertura(
     if (!aberto.ok) return falha(traduzir(aberto.reason));
 
     if (!aberto.jaExistia) {
+      // A atribuição automática (spec 0008): só o chamado que nasceu `validado`
+      // pelo chat, e só na primeira confirmação (`jaExistia` voltou antes). O
+      // passo nunca lança; `nao_tentada` deixa tudo como na spec 0007.
+      let atribuicao: AtribuicaoResultado = { resultado: 'nao_tentada' };
+      if (statusChamado === 'validado' && servico) {
+        atribuicao = await tentarAtribuicaoAutomatica({
+          chamadoId: aberto.chamadoId,
+          solicitanteId: viewer.userId,
+          subtypeId: servico.subtypeId,
+          titulo,
+          ticketNumber: aberto.ticketNumber,
+        }).catch((err: unknown): AtribuicaoResultado => {
+          // O contrato do passo é nunca lançar; se lançar mesmo assim, o chamado
+          // já existe e a pessoa não pode receber um erro por isso.
+          registrar({
+            conversaId,
+            chamadoId: aberto.chamadoId,
+            aviso: 'atribuicao_indisponivel',
+            erro: err instanceof Error ? err.name : 'desconhecido',
+          });
+          return { resultado: 'nao_tentada' };
+        });
+      }
+
       const aviso = await enviarMensagem({
         viewer,
         conversaId,
@@ -279,6 +305,7 @@ export async function confirmarAbertura(
           validado: statusChamado === 'validado',
           finalPriority:
             statusChamado === 'validado' ? (proposta.prioridade?.prioridade ?? null) : null,
+          atribuicao,
         }),
       });
       if (!aviso.ok) {
@@ -292,6 +319,8 @@ export async function confirmarAbertura(
         titulo,
         solicitanteId: viewer.userId,
         jaValidado: statusChamado === 'validado',
+        // `nao_tentada` não muda o aviso: vale o texto da 0007.
+        ...(atribuicao.resultado !== 'nao_tentada' ? { atribuicao } : {}),
       }).catch((err) => {
         console.error(
           '[abertura]',

@@ -1,8 +1,13 @@
 import 'server-only';
 
 import type { LlmFailure } from '@/lib/llm';
+import {
+  type AtribuicaoResultado,
+  TECNICO_NOME_GENERICO,
+} from '@/shared/chamados/atribuicao-automatica.constants';
 import { FINAL_PRIORITY_LABELS, type FinalPriority } from '@/shared/chamados/chamado.constants';
 import type { CartaoPayload } from '@/shared/conversas/conversa.schemas';
+import { textoSemPontuacaoFinal } from '@/shared/texto';
 
 /**
  * Textos fixos do Sigma na conversa (specs 0003 e 0004). Nunca é texto do
@@ -57,7 +62,12 @@ export function fraseDoCartao(cartao: CartaoPayload): string {
   const unidade = cartao.unidade
     ? `unidade ${[cartao.unidade.rotulo, cartao.unidade.andar].filter(Boolean).join(', ')}`
     : 'unidade a escolher';
-  const local = cartao.localExato ? `local ${cartao.localExato}` : 'local a informar';
+  // A frase fecha o local com um ponto, e o local pode ter vindo com um ("sala 5."):
+  // só a frase perde a pontuação, o `localExato` do payload segue como foi digitado.
+  // Um local só de pontuação fica como está, para nada sumir em silêncio.
+  const local = cartao.localExato
+    ? `local ${textoSemPontuacaoFinal(cartao.localExato) || cartao.localExato}`
+    : 'local a informar';
 
   const abertura =
     cartao.faltando.length > 0
@@ -73,16 +83,57 @@ export function fraseDoCartao(cartao: CartaoPayload): string {
  * Quando o chamado já nasce `validado` sozinho (spec 0007, AC-14), a frase
  * confirma a prioridade decidida em vez de prometer a análise de um Preposto,
  * que neste caminho nunca vai acontecer.
+ *
+ * Com a atribuição automática (spec 0008, AC-12), a frase diz também o
+ * resultado: técnico designado, ou um Preposto que vai designá-lo.
+ * `nao_tentada` e o passo desligado mantêm a frase da 0007. O motivo de um
+ * `sem_tecnico` nunca entra aqui: o solicitante não o vê (AC-16).
  */
 export function fraseDeChamadoAberto(
   ticketNumber: string,
-  opcoes?: { validado?: boolean; finalPriority?: FinalPriority | null },
+  opcoes?: {
+    validado?: boolean;
+    finalPriority?: FinalPriority | null;
+    atribuicao?: AtribuicaoResultado;
+  },
 ): string {
   if (opcoes?.validado && opcoes.finalPriority) {
     const prioridade = FINAL_PRIORITY_LABELS[opcoes.finalPriority].toLowerCase();
-    return `Chamado #${ticketNumber} aberto com prioridade ${prioridade}, já validada. Você acompanha o atendimento por aqui.`;
+    const abertura = `${aberturaDoChamado(ticketNumber)} com prioridade ${prioridade}, já validada`;
+    const atribuicao = opcoes.atribuicao;
+    if (atribuicao?.resultado === 'atribuido') {
+      const nome = atribuicao.tecnicoNome.trim();
+      const tecnico = nome ? `o técnico ${nome}` : TECNICO_NOME_GENERICO;
+      return `${abertura}, e ${tecnico} já foi designado. Você acompanha o atendimento por aqui.`;
+    }
+    if (atribuicao?.resultado === 'sem_tecnico') {
+      return `${abertura}. Um Preposto vai designar o técnico, e você acompanha o atendimento por aqui.`;
+    }
+    return `${abertura}. Você acompanha o atendimento por aqui.`;
   }
-  return `Chamado #${ticketNumber} aberto. Um Preposto vai analisar o seu pedido e encaminhar a um técnico, e você acompanha tudo por aqui.`;
+  return `${aberturaDoChamado(ticketNumber)}. Um Preposto vai analisar o seu pedido e encaminhar a um técnico, e você acompanha tudo por aqui.`;
+}
+
+/** O começo comum de toda frase de abertura: o número diz de qual chamado ela é. */
+function aberturaDoChamado(ticketNumber: string): string {
+  return `Chamado #${ticketNumber} aberto`;
+}
+
+/**
+ * Diz se o texto é uma das frases de `fraseDeChamadoAberto` deste chamado, seja
+ * qual for a variante (specs 0004, 0007 e 0008). Mora ao lado de quem monta a
+ * frase, e os dois partem de `aberturaDoChamado`, para uma variante nova não
+ * ficar de fora do reconhecimento: a leitura da conversa desenha essa mensagem
+ * como aviso de sucesso, e uma frase não reconhecida vira o cartão de "a IA
+ * falhou", que oferece o formulário logo depois de o chamado ter sido aberto.
+ *
+ * Depois de "aberto" vem sempre um ponto (sem validação) ou " com prioridade"
+ * (validado). O número fecha o casamento: a frase do chamado 412 nunca casa com
+ * a do 4120.
+ */
+export function ehFraseDeChamadoAberto(texto: string, ticketNumber: string): boolean {
+  const abertura = aberturaDoChamado(ticketNumber);
+  return texto.startsWith(`${abertura}. `) || texto.startsWith(`${abertura} com prioridade `);
 }
 
 /**

@@ -499,6 +499,105 @@ describe('lerChamadoEmLeitura', () => {
       false,
     ]);
   });
+
+  /**
+   * A frase de abertura tem quatro formas (spec 0004, 0007 e 0008). Todas são o
+   * aviso de sucesso: nenhuma pode cair no cartão amarelo de "a IA falhou", que
+   * oferece o formulário logo depois de o chamado ter sido aberto e atribuído.
+   */
+  it.each([
+    ['chamado aberto, sem validação (0004)', undefined],
+    ['validado pela IA (0007)', { validado: true, finalPriority: 'NORMAL' as const }],
+    [
+      'validado e atribuído (0008)',
+      {
+        validado: true,
+        finalPriority: 'ALTA' as const,
+        atribuicao: {
+          resultado: 'atribuido' as const,
+          tecnicoId: 't1',
+          tecnicoNome: 'Carla',
+        },
+      },
+    ],
+    [
+      'validado, sem técnico (0008)',
+      {
+        validado: true,
+        finalPriority: 'BAIXA' as const,
+        atribuicao: { resultado: 'sem_tecnico' as const, motivo: 'sem_vaga' as const },
+      },
+    ],
+  ])('a frase de chamado %s é o aviso de sucesso', async (_nome, opcoes) => {
+    // Arrange
+    mockLerLinhaDoTempo.mockResolvedValue({
+      ok: true,
+      truncado: false,
+      itens: [
+        {
+          fonte: 'mensagem',
+          id: 'm1',
+          em: new Date('2026-09-17T08:38:00.000Z'),
+          dados: {
+            autor: 'sistema',
+            tipo: 'texto',
+            userId: null,
+            texto: fraseDeChamadoAberto('CHM-2026-00412', opcoes),
+          },
+        },
+      ],
+    });
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.itens[0]).toMatchObject({ fonte: 'mensagem', chamadoAberto: true });
+  });
+
+  it('a frase de abertura de outro chamado não é o aviso deste, nem quando não é do Sigma', async () => {
+    // Arrange
+    const validada = { validado: true, finalPriority: 'NORMAL' as const };
+    mockLerLinhaDoTempo.mockResolvedValue({
+      ok: true,
+      truncado: false,
+      itens: [
+        {
+          fonte: 'mensagem',
+          id: 'm1',
+          em: new Date('2026-09-17T08:38:00.000Z'),
+          dados: {
+            autor: 'sistema',
+            tipo: 'texto',
+            userId: null,
+            texto: fraseDeChamadoAberto('CHM-2026-00413', validada),
+          },
+        },
+        {
+          fonte: 'mensagem',
+          id: 'm2',
+          em: new Date('2026-09-17T08:39:00.000Z'),
+          dados: {
+            autor: 'solicitante',
+            tipo: 'texto',
+            userId: VIEWER.userId,
+            texto: fraseDeChamadoAberto('CHM-2026-00412', validada),
+          },
+        },
+      ],
+    });
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    if (!r.ok) throw new Error('esperava leitura');
+    expect(r.leitura.itens.map((i) => i.fonte === 'mensagem' && i.chamadoAberto)).toEqual([
+      false,
+      false,
+    ]);
+  });
 });
 
 // ── campos novos para o acompanhamento na conversa · spec 0005 ───

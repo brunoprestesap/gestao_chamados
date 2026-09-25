@@ -1,5 +1,12 @@
 import type { AllowedEmitEvents } from '@/lib/realtime-emit';
-import type { ServerToClientEvents } from '@/shared/socket';
+import { ATRIBUICAO_MOTIVO_LABELS } from '@/shared/chamados/atribuicao-automatica.constants';
+import {
+  atribuidoPeloSistema,
+  tituloDeAtribuicaoAoTecnico,
+  tituloDeChamadoValidado,
+} from '@/shared/chamados/aviso-atribuicao';
+import type { ServerToClientEvents, TicketNewPayload } from '@/shared/socket';
+import { textoSemPontuacaoFinal } from '@/shared/texto';
 
 const APP_URL =
   process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3000';
@@ -10,6 +17,42 @@ interface TemplatePayload {
   title?: string;
   /** Só em `ticket:new`: o chamado já nasceu `validado` pela IA (spec 0007, AC-13). */
   jaValidado?: boolean;
+  /** Só em `ticket:new`: o que a atribuição automática fez (spec 0008, AC-13). */
+  atribuicao?: TicketNewPayload['atribuicao'];
+  /** Só em `ticket:assigned`: quem atribuiu; `ATRIBUIDO_POR_SISTEMA` é a atribuição automática (spec 0008, AC-11). */
+  assignedBy?: { id: string; name?: string };
+}
+
+/** Texto digitado por gente (título, local, nome) entra em HTML: nunca cru. */
+function escapeHtml(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * O payload como o corpo HTML o lê: tudo o que pode ter sido digitado por
+ * alguém sai escapado daqui, uma vez só, na fronteira. O assunto é texto puro e
+ * lê o payload original.
+ *
+ * O título chega sem pontuação no fim, porque todo corpo fecha a frase dele com
+ * um ponto ("…: {título}."): um título que já termina em ponto gerava "5..". A
+ * pontuação sai do texto cru, antes do escape, para não cortar uma entidade
+ * como `&quot;`.
+ */
+function paraHtml(p: TemplatePayload): TemplatePayload {
+  return {
+    ...p,
+    ticketNumber: p.ticketNumber === undefined ? undefined : escapeHtml(p.ticketNumber),
+    title: p.title === undefined ? undefined : escapeHtml(textoSemPontuacaoFinal(p.title)),
+    atribuicao:
+      p.atribuicao?.resultado === 'atribuido'
+        ? { ...p.atribuicao, tecnicoNome: escapeHtml(p.atribuicao.tecnicoNome) }
+        : p.atribuicao,
+  };
 }
 
 type TemplatePayloadByEvent = {
@@ -27,11 +70,11 @@ interface EmailContent {
 
 const SUBJECT_MAP: Record<string, (p: TemplatePayload) => string> = {
   'ticket:assigned': (p) =>
-    `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} atribu\u00eddo a voc\u00ea`,
-  'ticket:new': (p) =>
-    p.jaValidado
-      ? `Chamado ${p.ticketNumber ? `#${p.ticketNumber} ` : ''}validado automaticamente`
-      : `Novo chamado aberto: ${p.ticketNumber ? `#${p.ticketNumber}` : ''}`,
+    tituloDeAtribuicaoAoTecnico(p.ticketNumber, atribuidoPeloSistema(p.assignedBy)),
+  'ticket:new': (p) => {
+    if (!p.jaValidado) return `Novo chamado aberto: ${p.ticketNumber ? `#${p.ticketNumber}` : ''}`;
+    return tituloDeChamadoValidado(p.ticketNumber, p.atribuicao);
+  },
   'ticket:execution_registered': (p) =>
     `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} \u2014 servi\u00e7o registrado`,
   'ticket:closed': (p) => `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} encerrado`,
@@ -53,11 +96,21 @@ const SUBJECT_MAP: Record<string, (p: TemplatePayload) => string> = {
 
 const BODY_MAP: Record<string, (p: TemplatePayload) => string> = {
   'ticket:assigned': (p) =>
-    `Voc\u00ea recebeu um novo chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''}${p.title ? `: ${p.title}` : ''}.`,
-  'ticket:new': (p) =>
-    p.jaValidado
-      ? `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi aberto e validado automaticamente pela IA${p.title ? `: ${p.title}` : ''}. A prioridade e o SLA já estão definidos; falta atribuir um técnico.`
-      : `Um novo chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi aberto${p.title ? `: ${p.title}` : ''}.`,
+    `Você recebeu um novo chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''}${p.title ? `: ${p.title}` : ''}.${atribuidoPeloSistema(p.assignedBy) ? ' Ele foi atribuído automaticamente pelo Sigma.' : ''}`,
+  'ticket:new': (p) => {
+    const numero = p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : '';
+    if (!p.jaValidado) {
+      return `Um novo chamado${numero} foi aberto${p.title ? `: ${p.title}` : ''}.`;
+    }
+    const aberto = `O chamado${numero} foi aberto e validado automaticamente pela IA${p.title ? `: ${p.title}` : ''}. A prioridade e o SLA já estão definidos`;
+    if (p.atribuicao?.resultado === 'atribuido') {
+      return `${aberto} e o chamado foi atribuído a ${p.atribuicao.tecnicoNome}.`;
+    }
+    if (p.atribuicao?.resultado === 'sem_tecnico') {
+      return `${aberto}; falta atribuir um técnico (${ATRIBUICAO_MOTIVO_LABELS[p.atribuicao.motivo]}).`;
+    }
+    return `${aberto}; falta atribuir um técnico.`;
+  },
   'ticket:execution_registered': (p) =>
     `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} teve um servi\u00e7o registrado e aguarda encerramento.`,
   'ticket:closed': (p) =>
@@ -133,21 +186,24 @@ export function renderNotificationEmail<T extends AllowedEmitEvents>(
   payload: TemplatePayloadByEvent[T],
   recipientName: string,
 ): EmailContent {
+  const segura = paraHtml(payload);
   const subjectFn =
     SUBJECT_MAP[type] ??
     (() => `Notifica\u00e7\u00e3o sobre o chamado ${payload.ticketNumber ?? ''}`);
   const bodyFn =
     BODY_MAP[type] ??
     (() =>
-      `Voc\u00ea tem uma nova notifica\u00e7\u00e3o sobre o chamado${payload.ticketNumber ? ` #${payload.ticketNumber}` : ''}.`);
+      `Voc\u00ea tem uma nova notifica\u00e7\u00e3o sobre o chamado${segura.ticketNumber ? ` #${segura.ticketNumber}` : ''}.`);
 
   const subject = subjectFn(payload).trim();
-  const bodyHtml = bodyFn(payload);
+  const bodyHtml = bodyFn(segura);
 
-  const ticketUrl = payload.ticketId ? `${APP_URL}/meus-chamados/${payload.ticketId}` : null;
+  const ticketUrl = payload.ticketId
+    ? escapeHtml(`${APP_URL}/meus-chamados/${payload.ticketId}`)
+    : null;
 
   return {
     subject,
-    html: buildHtml(recipientName, bodyHtml, ticketUrl),
+    html: buildHtml(escapeHtml(recipientName), bodyHtml, ticketUrl),
   };
 }

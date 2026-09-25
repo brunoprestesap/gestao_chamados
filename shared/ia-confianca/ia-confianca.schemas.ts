@@ -29,6 +29,8 @@ export const salvarIaAutonomiaConfigSchema = z.object({
   servico: campoConfigSchema,
   prioridade: campoConfigSchema,
   autonomiaAtiva: z.boolean(),
+  /** Spec 0008. Obrigatório de propósito: um formulário antigo falha alto em vez de desligar a chave calado. */
+  atribuicaoAutomaticaAtiva: z.boolean(),
 });
 
 export type SalvarIaAutonomiaConfigInput = z.infer<typeof salvarIaAutonomiaConfigSchema>;

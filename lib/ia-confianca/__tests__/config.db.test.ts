@@ -46,6 +46,7 @@ rodar('configuração de calibração, contra o Mongo', () => {
       servico: { limiteConfianca: null, amostraMinima: 30 },
       prioridade: { limiteConfianca: null, amostraMinima: 30 },
       autonomiaAtiva: false,
+      atribuicaoAutomaticaAtiva: false,
     });
     await expect(IaAutonomiaConfigModel.countDocuments()).resolves.toBe(1);
   });
@@ -58,6 +59,7 @@ rodar('configuração de calibração, contra o Mongo', () => {
         servico: { limiteConfianca: 0.9, amostraMinima: 20 },
         prioridade: { limiteConfianca: null, amostraMinima: 15 },
         autonomiaAtiva: true,
+        atribuicaoAutomaticaAtiva: false,
       },
       userId,
     );
@@ -67,6 +69,7 @@ rodar('configuração de calibração, contra o Mongo', () => {
       servico: { limiteConfianca: 0.9, amostraMinima: 20 },
       prioridade: { limiteConfianca: null, amostraMinima: 15 },
       autonomiaAtiva: true,
+      atribuicaoAutomaticaAtiva: false,
     });
 
     const doc = await IaAutonomiaConfigModel.findOne().lean();
@@ -82,6 +85,7 @@ rodar('configuração de calibração, contra o Mongo', () => {
         servico: { limiteConfianca: null, amostraMinima: 30 },
         prioridade: { limiteConfianca: 0.8, amostraMinima: 30 },
         autonomiaAtiva: true,
+        atribuicaoAutomaticaAtiva: false,
       },
       String(new Types.ObjectId()),
     );
@@ -116,6 +120,50 @@ rodar('configuração de calibração, contra o Mongo', () => {
     const lido = await lerConfig();
 
     expect(lido.autonomiaAtiva).toBe(false);
+  });
+
+  it('a atribuição automática nasce desligada, e um documento antigo sem o campo a lê desligada (spec 0008, AC-5)', async () => {
+    await IaAutonomiaConfigModel.collection.insertOne({
+      chave: 'global',
+      servico: { limiteConfianca: null, amostraMinima: 30 },
+      prioridade: { limiteConfianca: 0.8, amostraMinima: 30 },
+      autonomiaAtiva: true,
+    });
+
+    const lido = await lerConfig();
+
+    expect(lido.atribuicaoAutomaticaAtiva).toBe(false);
+  });
+
+  it('grava e lê a atribuição automática, separada da autonomia (spec 0008, AC-5)', async () => {
+    await salvarConfig(
+      {
+        servico: { limiteConfianca: null, amostraMinima: 30 },
+        prioridade: { limiteConfianca: 0.8, amostraMinima: 30 },
+        autonomiaAtiva: false,
+        atribuicaoAutomaticaAtiva: true,
+      },
+      String(new Types.ObjectId()),
+    );
+
+    const lido = await lerConfig();
+
+    expect(lido.atribuicaoAutomaticaAtiva).toBe(true);
+    expect(lido.autonomiaAtiva).toBe(false);
+  });
+
+  it('a atribuição automática não depende da PROMPT_VERSION: subir o prompt desliga só a autonomia (spec 0008, AC-5)', async () => {
+    await IaAutonomiaConfigModel.create({
+      prioridade: { limiteConfianca: 0.8, amostraMinima: 30 },
+      autonomiaAtiva: true,
+      atribuicaoAutomaticaAtiva: true,
+      promptVersion: 'versao-antiga',
+    });
+
+    const lido = await lerConfig();
+
+    expect(lido.autonomiaAtiva).toBe(false);
+    expect(lido.atribuicaoAutomaticaAtiva).toBe(true);
   });
 
   it('duas leituras concorrentes na primeira carga nunca criam dois documentos', async () => {

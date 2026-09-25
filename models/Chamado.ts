@@ -1,5 +1,9 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import {
+  ATRIBUICAO_MOTIVOS,
+  ATRIBUICAO_RESULTADOS,
+} from '@/shared/chamados/atribuicao-automatica.constants';
 import { ATTENDANCE_NATURE_VALUES, CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
 import {
   GRAU_URGENCIA_OPTIONS,
@@ -13,6 +17,23 @@ import { CANAIS_ABERTURA, IA_SITUACOES } from '@/shared/conversas/conversa.const
 function exigeServicoDoCatalogo(this: { canalAbertura?: string }): boolean {
   return this.canalAbertura !== 'chat';
 }
+
+/**
+ * O resultado da atribuição automática (spec 0008). Ausente significa "não
+ * tentado": chamado do formulário, `aberto` no nascimento, interruptor
+ * desligado, corrida perdida para um gestor ou falha antes de a chave ser lida.
+ * Só endpoints de gestão o leem: solicitante e técnico nunca o recebem.
+ */
+const AtribuicaoAutomaticaSchema = new Schema(
+  {
+    resultado: { type: String, enum: ATRIBUICAO_RESULTADOS, required: true },
+    motivo: { type: String, enum: [...ATRIBUICAO_MOTIVOS, null], default: null },
+    /** O técnico que a regra escolheu. Não muda se o Preposto reatribuir depois. */
+    tecnicoId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    em: { type: Date, required: true },
+  },
+  { _id: false },
+);
 
 const ChamadoSchema = new Schema(
   {
@@ -92,6 +113,8 @@ const ChamadoSchema = new Schema(
     assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     assignedAt: { type: Date, required: false },
     assignedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    // Vazio quando o próprio Sigma atribuiu (spec 0008): `assignedByUserId` nunca é preenchido.
+    atribuicaoAutomatica: { type: AtribuicaoAutomaticaSchema, required: false },
     // Reatribuição (Admin/Preposto) — status "em atendimento"
     reassignedAt: { type: Date, required: false },
     reassignedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },

@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   Ban,
+  Bot,
   Building2,
   CheckCircle2,
   ClipboardList,
@@ -46,6 +47,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateTime } from '@/lib/utils';
+import { textoDaAtribuicaoAutomatica } from '@/shared/chamados/atribuicao-automatica.constants';
 import { SERVICO_A_DEFINIR } from '@/shared/chamados/chamado.constants';
 import { PAUSE_REASON_LABELS, type PauseReason } from '@/shared/chamados/pause-reason.constants';
 
@@ -285,6 +287,9 @@ export function ChamadoDetailSheet({
 
   const isSolicitante = userRole === 'Solicitante';
   const isManager = userRole === 'Preposto' || userRole === 'Admin' || userRole === null;
+  // Estrito, sem o `null` de cima: o resultado e o motivo da atribuição automática
+  // nunca aparecem sem a certeza de que quem vê é gestão (spec 0008, AC-16).
+  const veAtribuicaoAutomatica = userRole === 'Preposto' || userRole === 'Admin';
 
   // Ações de gestão — apenas para Preposto/Admin (e quando o callback foi fornecido)
   const showClassificar = isManager && status === 'aberto' && !!onClassificar;
@@ -517,6 +522,14 @@ export function ChamadoDetailSheet({
                         icon={UserCheck}
                         label="Técnico"
                         value={chamado.assignedToUserName}
+                      />
+                    )}
+                    {/* O resultado da atribuição automática é só da gestão (spec 0008, AC-15 e AC-16). */}
+                    {veAtribuicaoAutomatica && chamado.atribuicaoAutomatica && (
+                      <MetadataRow
+                        icon={Bot}
+                        label="Atribuição automática"
+                        value={textoDaAtribuicaoAutomatica(chamado.atribuicaoAutomatica)}
                       />
                     )}
                     <MetadataRow icon={Clock} label="Aberto em" value={formattedDate} />

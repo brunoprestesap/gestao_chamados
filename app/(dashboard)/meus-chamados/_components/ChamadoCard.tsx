@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { MaterialObservationNormalized } from '@/lib/dto-normalizers';
 import { cn, formatDateShort, formatDateTime } from '@/lib/utils';
+import type { AtribuicaoAutomaticaGestao } from '@/shared/chamados/atribuicao-automatica.constants';
 import { ATTENDANCE_NATURE_LABELS, SERVICO_A_DEFINIR } from '@/shared/chamados/chamado.constants';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
@@ -147,6 +148,11 @@ export type ChamadoDTO = {
   servicoSugeridoIa?: boolean;
   /** Nasceu `validado` sozinho pela IA (spec 0007, AC-15). Vem da lista da gestão. */
   validadoPelaIa?: boolean;
+  /**
+   * O que a atribuição automática fez (spec 0008, AC-15). Vem só da lista da
+   * gestão: `/api/meus-chamados` e `chamados-atribuidos` nunca o devolvem.
+   */
+  atribuicaoAutomatica?: AtribuicaoAutomaticaGestao | null;
   finalPriority?: string | null;
   createdAt: string;
   updatedAt: string;
