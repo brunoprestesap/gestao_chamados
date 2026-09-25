@@ -201,7 +201,7 @@ spec [0008](../specs/0008-atribuicao-automatica-tecnico/index.md) · code in `li
 - [x] Verify it: `/check verify atribuição automática ao técnico`
 - [x] Test it: `/test atribuição automática ao técnico`
 - [x] Review it (fresh model): `/check review atribuição automática ao técnico`
-- [ ] Document it: `/document atribuição automática ao técnico`
+- [x] Document it: `/document atribuição automática ao técnico`
 
 ### 17. Revisão das decisões da IA pelo Preposto · needs a decision
 
