@@ -116,39 +116,50 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
       remainingPercent > 0 &&
       !escalationSet.has(`${chamadoIdStr}:warning_80`)
     ) {
-      const created = await tryCreateEscalation({
-        chamadoId: chamado._id,
-        type: 'warning_80',
-        level: 'manager',
-        notifiedAt: now,
-        notifiedUserIds: managerIds,
+      // `warning_80` não tem marcador no `Chamado` para travar como o breach
+      // (AC-20): reconfere o prazo contra o banco antes de criar a escalação,
+      // para uma correção de prioridade no meio do ciclo não deixar um aviso
+      // órfão para um prazo que já mudou.
+      const aindaValeOPrazo = await ChamadoModel.exists({
+        _id: chamado._id,
+        'sla.resolutionDueAt': resolutionDueAt,
       });
 
-      if (created) {
-        const warningPayload: SlaWarningPayload = {
-          ...basePayload,
-          type: 'resolution',
-          dueAt: resolutionDueAt.toISOString(),
-          remainingPercent: Math.round(remainingPercent * 100) / 100,
-          at: now.toISOString(),
-        };
+      if (aindaValeOPrazo) {
+        const created = await tryCreateEscalation({
+          chamadoId: chamado._id,
+          type: 'warning_80',
+          level: 'manager',
+          notifiedAt: now,
+          notifiedUserIds: managerIds,
+        });
 
-        const notifications = managerIds.map((userId) => ({
-          userId,
-          type: 'sla:warning' as const,
-          title: `SLA do chamado ${chamado.ticket_number ?? chamadoIdStr} próximo do vencimento`,
-          body: `Restam ~${Math.round(remainingPercent)}% do prazo de resolução.`,
-          data: { ticketId: chamadoIdStr },
-        }));
-        if (notifications.length > 0) {
-          await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
-          for (const uid of managerIds) {
-            sendNotificationEmail(String(uid), 'sla:warning', warningPayload).catch(() => {});
+        if (created) {
+          const warningPayload: SlaWarningPayload = {
+            ...basePayload,
+            type: 'resolution',
+            dueAt: resolutionDueAt.toISOString(),
+            remainingPercent: Math.round(remainingPercent * 100) / 100,
+            at: now.toISOString(),
+          };
+
+          const notifications = managerIds.map((userId) => ({
+            userId,
+            type: 'sla:warning' as const,
+            title: `SLA do chamado ${chamado.ticket_number ?? chamadoIdStr} próximo do vencimento`,
+            body: `Restam ~${Math.round(remainingPercent)}% do prazo de resolução.`,
+            data: { ticketId: chamadoIdStr },
+          }));
+          if (notifications.length > 0) {
+            await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
+            for (const uid of managerIds) {
+              sendNotificationEmail(String(uid), 'sla:warning', warningPayload).catch(() => {});
+            }
           }
-        }
 
-        await emitToRoom('managers', 'sla:warning', warningPayload);
-        report.warnings++;
+          await emitToRoom('managers', 'sla:warning', warningPayload);
+          report.warnings++;
+        }
       }
     }
 
@@ -167,52 +178,56 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
       !responseAlreadyAnsweredOnTime &&
       !escalationSet.has(`${chamadoIdStr}:breach_response`)
     ) {
-      const created = await tryCreateEscalation({
-        chamadoId: chamado._id,
-        type: 'breach_response',
-        level: 'admin',
-        notifiedAt: now,
-        notifiedUserIds: adminIds,
-      });
+      // Marca breach no chamado primeiro — o filtro repete o prazo lido no
+      // início do laço (spec 0009, AC-20). Só cria a escalação e avisa
+      // quando este update casa de verdade: sem isso, uma correção que moveu
+      // `responseDueAt` no meio do ciclo ainda deixava uma `SlaEscalation`
+      // órfã (o marcador ficava certo, mas a escalação não), travando o
+      // chamado para sempre sem poder marcar o breach do prazo novo.
+      const marcado = await ChamadoModel.updateOne(
+        {
+          _id: chamado._id,
+          'sla.responseBreachedAt': null,
+          'sla.responseDueAt': responseDueAt,
+        },
+        { $set: { 'sla.responseBreachedAt': now } },
+      );
 
-      if (created) {
-        const breachPayload: SlaBreachPayload = {
-          ...basePayload,
-          type: 'response',
-          dueAt: responseDueAt.toISOString(),
-          breachedAt: now.toISOString(),
-          at: now.toISOString(),
-        };
+      if (marcado.modifiedCount === 1) {
+        const created = await tryCreateEscalation({
+          chamadoId: chamado._id,
+          type: 'breach_response',
+          level: 'admin',
+          notifiedAt: now,
+          notifiedUserIds: adminIds,
+        });
 
-        const notifications = adminIds.map((userId) => ({
-          userId,
-          type: 'sla:breach' as const,
-          title: `SLA de resposta do chamado ${chamado.ticket_number ?? chamadoIdStr} estourou`,
-          body: `Prazo de resposta expirou sem atendimento iniciado.`,
-          data: { ticketId: chamadoIdStr },
-        }));
-        if (notifications.length > 0) {
-          await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
-          for (const uid of adminIds) {
-            sendNotificationEmail(String(uid), 'sla:breach', breachPayload).catch(() => {});
+        if (created) {
+          const breachPayload: SlaBreachPayload = {
+            ...basePayload,
+            type: 'response',
+            dueAt: responseDueAt.toISOString(),
+            breachedAt: now.toISOString(),
+            at: now.toISOString(),
+          };
+
+          const notifications = adminIds.map((userId) => ({
+            userId,
+            type: 'sla:breach' as const,
+            title: `SLA de resposta do chamado ${chamado.ticket_number ?? chamadoIdStr} estourou`,
+            body: `Prazo de resposta expirou sem atendimento iniciado.`,
+            data: { ticketId: chamadoIdStr },
+          }));
+          if (notifications.length > 0) {
+            await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
+            for (const uid of adminIds) {
+              sendNotificationEmail(String(uid), 'sla:breach', breachPayload).catch(() => {});
+            }
           }
+
+          await emitToRoom('managers', 'sla:breach', breachPayload);
+          report.breaches++;
         }
-
-        // Marca breach no chamado — o filtro repete o prazo lido no início do
-        // laço (spec 0009, AC-20): uma correção que moveu `responseDueAt` no
-        // meio do ciclo faz este update não casar, e o monitor nunca desfaz
-        // uma descida de prioridade feita entre a leitura e esta gravação.
-        await ChamadoModel.updateOne(
-          {
-            _id: chamado._id,
-            'sla.responseBreachedAt': null,
-            'sla.responseDueAt': responseDueAt,
-          },
-          { $set: { 'sla.responseBreachedAt': now } },
-        );
-
-        await emitToRoom('managers', 'sla:breach', breachPayload);
-        report.breaches++;
       }
     }
 
@@ -226,49 +241,53 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
       sla.resolutionBreachedAt == null &&
       !escalationSet.has(`${chamadoIdStr}:breach_resolution`)
     ) {
-      const created = await tryCreateEscalation({
-        chamadoId: chamado._id,
-        type: 'breach_resolution',
-        level: 'admin',
-        notifiedAt: now,
-        notifiedUserIds: adminIds,
-      });
+      // Marca breach primeiro, mesmo filtro por prazo lido do AC-20 — e só
+      // cria a escalação e avisa quando casa de verdade, pelo mesmo motivo
+      // do breach de resposta acima.
+      const marcado = await ChamadoModel.updateOne(
+        {
+          _id: chamado._id,
+          'sla.resolutionBreachedAt': null,
+          'sla.resolutionDueAt': resolutionDueAt,
+        },
+        { $set: { 'sla.resolutionBreachedAt': now } },
+      );
 
-      if (created) {
-        const breachPayload: SlaBreachPayload = {
-          ...basePayload,
-          type: 'resolution',
-          dueAt: resolutionDueAt.toISOString(),
-          breachedAt: now.toISOString(),
-          at: now.toISOString(),
-        };
+      if (marcado.modifiedCount === 1) {
+        const created = await tryCreateEscalation({
+          chamadoId: chamado._id,
+          type: 'breach_resolution',
+          level: 'admin',
+          notifiedAt: now,
+          notifiedUserIds: adminIds,
+        });
 
-        const notifications = adminIds.map((userId) => ({
-          userId,
-          type: 'sla:breach' as const,
-          title: `SLA de resolução do chamado ${chamado.ticket_number ?? chamadoIdStr} estourou`,
-          body: `Prazo de resolução expirou sem conclusão do chamado.`,
-          data: { ticketId: chamadoIdStr },
-        }));
-        if (notifications.length > 0) {
-          await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
-          for (const uid of adminIds) {
-            sendNotificationEmail(String(uid), 'sla:breach', breachPayload).catch(() => {});
+        if (created) {
+          const breachPayload: SlaBreachPayload = {
+            ...basePayload,
+            type: 'resolution',
+            dueAt: resolutionDueAt.toISOString(),
+            breachedAt: now.toISOString(),
+            at: now.toISOString(),
+          };
+
+          const notifications = adminIds.map((userId) => ({
+            userId,
+            type: 'sla:breach' as const,
+            title: `SLA de resolução do chamado ${chamado.ticket_number ?? chamadoIdStr} estourou`,
+            body: `Prazo de resolução expirou sem conclusão do chamado.`,
+            data: { ticketId: chamadoIdStr },
+          }));
+          if (notifications.length > 0) {
+            await NotificationModel.insertMany(notifications, { ordered: false }).catch(() => {});
+            for (const uid of adminIds) {
+              sendNotificationEmail(String(uid), 'sla:breach', breachPayload).catch(() => {});
+            }
           }
+
+          await emitToRoom('managers', 'sla:breach', breachPayload);
+          report.breaches++;
         }
-
-        // Marca breach no chamado — mesmo filtro por prazo lido do AC-20.
-        await ChamadoModel.updateOne(
-          {
-            _id: chamado._id,
-            'sla.resolutionBreachedAt': null,
-            'sla.resolutionDueAt': resolutionDueAt,
-          },
-          { $set: { 'sla.resolutionBreachedAt': now } },
-        );
-
-        await emitToRoom('managers', 'sla:breach', breachPayload);
-        report.breaches++;
       }
     }
   }

@@ -16,6 +16,7 @@ vi.mock('@/models/Chamado', () => ({
   ChamadoModel: {
     find: vi.fn(),
     updateOne: vi.fn(),
+    exists: vi.fn(),
   },
 }));
 
@@ -109,6 +110,9 @@ beforeEach(() => {
   vi.mocked(SlaEscalationModel.create).mockResolvedValue({} as never);
   vi.mocked(NotificationModel.insertMany).mockResolvedValue([] as never);
   vi.mocked(ChamadoModel.updateOne).mockResolvedValue({ modifiedCount: 1 } as never);
+  // Por padrão, o prazo lido no laço ainda vale quando o warning_80 reconfere
+  // (AC-20): só os testes da corrida simulam o contrário.
+  vi.mocked(ChamadoModel.exists).mockResolvedValue({ _id: 'x' } as never);
   vi.mocked(emitToRoom).mockResolvedValue(true);
 });
 
@@ -224,6 +228,38 @@ describe('checkSlaEscalations — warning 80%', () => {
     );
     expect(warningCall).toBeUndefined();
   });
+
+  it('não cria o aviso de 80% se o prazo lido já não é mais o do chamado (AC-20: corrida com uma correção)', async () => {
+    // Arrange: sem marcador para travar como o breach, a reconferência é
+    // `ChamadoModel.exists` contra o prazo lido; aqui ele já mudou.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-10T17:00:00Z'));
+
+    const chamado = makeBaseChamado({
+      sla: {
+        priority: 'NORMAL',
+        computedAt: new Date('2026-04-10T08:00:00Z'),
+        responseDueAt: new Date('2026-04-10T10:00:00Z'),
+        resolutionDueAt: new Date('2026-04-10T18:00:00Z'),
+        responseStartedAt: null,
+        resolvedAt: null,
+        responseBreachedAt: new Date('2026-04-10T10:30:00Z'),
+        resolutionBreachedAt: null,
+        pausedMinutes: 0,
+      },
+    });
+    vi.mocked(ChamadoModel.find).mockReturnValue(withLean([chamado]) as never);
+    vi.mocked(ChamadoModel.exists).mockResolvedValue(null);
+
+    // Act
+    const report = await checkSlaEscalations();
+
+    // Assert
+    expect(report.warnings).toBe(0);
+    expect(SlaEscalationModel.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'warning_80' }),
+    );
+  });
 });
 
 describe('checkSlaEscalations — breach de resposta', () => {
@@ -335,6 +371,27 @@ describe('checkSlaEscalations — breach de resposta', () => {
     );
     expect(responseBreachCall).toBeUndefined();
   });
+
+  it('não marca breach de resposta, nem cria escalação, se o prazo lido já não é mais o do chamado (AC-20: corrida com uma correção)', async () => {
+    // Arrange: `updateOne` não casa porque o filtro repete o `responseDueAt`
+    // lido; simula o `modifiedCount: 0` que uma correção concorrente causaria.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-10T11:00:00Z'));
+
+    vi.mocked(ChamadoModel.find).mockReturnValue(withLean([makeBaseChamado()]) as never);
+    vi.mocked(ChamadoModel.updateOne).mockResolvedValue({ modifiedCount: 0 } as never);
+
+    // Act
+    const report = await checkSlaEscalations();
+
+    // Assert: sem o `modifiedCount` casar, a escalação nunca é criada nem o
+    // admin é avisado — o mesmo achado do breach de resolução, aqui para o de
+    // resposta.
+    expect(SlaEscalationModel.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'breach_response' }),
+    );
+    expect(report.breaches).toBe(0);
+  });
 });
 
 describe('checkSlaEscalations — breach de resolução', () => {
@@ -415,7 +472,7 @@ describe('checkSlaEscalations — breach de resolução', () => {
     vi.mocked(ChamadoModel.updateOne).mockResolvedValue({ modifiedCount: 0 } as never);
 
     // Act
-    await checkSlaEscalations();
+    const report = await checkSlaEscalations();
 
     // Assert: mesmo sem casar, o filtro ainda leva o prazo lido — é essa
     // repetição que impede o monitor de desfazer uma correção concorrente.
@@ -423,6 +480,14 @@ describe('checkSlaEscalations — breach de resolução', () => {
       expect.objectContaining({ 'sla.resolutionDueAt': new Date('2026-04-10T18:00:00Z') }),
       expect.anything(),
     );
+    // O ponto que o achado do /check review pegou: sem o `modifiedCount`
+    // casar, a escalação nunca é criada — nem o aviso aos admins — para não
+    // deixar uma `SlaEscalation` órfã que trava o chamado quando o prazo
+    // novo (o que a correção gravou) realmente estourar.
+    expect(SlaEscalationModel.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'breach_resolution' }),
+    );
+    expect(report.breaches).toBe(0);
   });
 });
 

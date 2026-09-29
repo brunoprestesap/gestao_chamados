@@ -226,8 +226,9 @@ async function comNovaTentativa(fn: () => Promise<void>, onFalha: (erro: string)
  * (uma atribuição, outra correção, o monitor de SLA) faz a operação não
  * casar, e a correção é recusada pedindo para tentar de novo (AC-7). Depois
  * do update, cada passo (`correcao_gestao`, entrada neutra, `resolverDecisao`,
- * limpeza de `SlaEscalation`, o aviso ao técnico) tem o seu `try`: a falha de
- * um vira log e nunca desfaz a correção nem impede os seguintes (AC-21). O
+ * limpeza de `SlaEscalation`, a busca do nome do gestor, o aviso ao técnico)
+ * tem o seu `try`: a falha de um vira log e nunca desfaz a correção nem
+ * impede os seguintes (AC-21). O
  * aviso ao técnico é `ticket:corrected`, sem motivo (AC-14); `ticket:classified`
  * ao solicitante continua como está.
  */
@@ -421,7 +422,15 @@ export async function updateTicketPriorityAction(
       );
     }
 
-    const gestorUser = await UserModel.findById(session.userId).select('name').lean();
+    // O nome do gestor serve ao aviso (passo 6) e ao `ticket:classified` mais
+    // abaixo; a busca é seu próprio passo, isolado como os demais (AC-21).
+    let gestorNome: string | undefined;
+    try {
+      const gestorUser = await UserModel.findById(session.userId).select('name').lean();
+      gestorNome = gestorUser?.name ?? undefined;
+    } catch (err) {
+      registrarFalha('gestor', err instanceof Error ? err.message : String(err));
+    }
 
     // Passo 6: avisa o técnico atribuído, sem motivo (AC-14). Sem técnico, não
     // há ninguém para avisar de uma correção de prioridade.
@@ -434,7 +443,7 @@ export async function updateTicketPriorityAction(
           tecnicoId: String(doc.assignedToUserId),
           campo: 'prioridade',
           finalPriority,
-          correctedBy: { id: session.userId, name: gestorUser?.name ?? undefined },
+          correctedBy: { id: session.userId, name: gestorNome },
           at: new Date(),
         });
       } catch (err) {
@@ -455,7 +464,7 @@ export async function updateTicketPriorityAction(
       ticketId: String(doc._id),
       ticketNumber: doc.ticket_number,
       title: doc.titulo,
-      classifiedBy: { id: session.userId, name: gestorUser?.name ?? undefined },
+      classifiedBy: { id: session.userId, name: gestorNome },
       finalPriority,
       at: new Date().toISOString(),
     });
@@ -1352,11 +1361,15 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
 /**
  * Reatribui um chamado (status "em atendimento") para outro técnico elegível.
  * Apenas Admin/Preposto. Mantém status "em atendimento". O filtro atômico
- * repete o `catalogServiceId` lido (spec 0009, AC-15). Grava `correcao_gestao`
+ * repete `catalogServiceId`, `assignedToUserId` e `sla.responseStartedAt`
+ * lidos (spec 0009, AC-15): duas reatribuições concorrentes nunca passam as
+ * duas, e o técnico perdedor nunca é avisado por engano. Os passos depois do
+ * update (nome do técnico anterior, `correcao_gestao`, o histórico
+ * `reatribuicao_tecnico`, o aviso) cada um com seu `try` (AC-21): uma falha
+ * vira log e nunca desfaz a reatribuição já gravada. Grava `correcao_gestao`
  * com o motivo e avisa só o técnico novo por `notificarAtribuicao`
- * (`avisarSolicitante: false`); falha do aviso vira log e não desfaz a
- * reatribuição. O texto visível de `reatribuicao_tecnico` não leva mais
- * "Observações" (o motivo já está em `correcao_gestao`).
+ * (`avisarSolicitante: false`). O texto visível de `reatribuicao_tecnico` não
+ * leva mais "Observações" (o motivo já está em `correcao_gestao`).
  */
 export async function reassignTicketAction(
   raw: ReassignTicketInput,
@@ -1474,9 +1487,17 @@ export async function reassignTicketAction(
     };
 
     // Passo 1 (único que decide se a reatribuição vale): o filtro repete
-    // status e o serviço lido (spec 0009, AC-15).
+    // status, serviço, técnico atual e o início de resposta lidos (spec 0009,
+    // AC-15) — o mesmo `assignedToUserId` que decide o payload acima, e
+    // `responseStartedAt` porque `slaUpdate` só o grava quando ainda é nulo.
     const updated = await ChamadoModel.findOneAndUpdate(
-      { _id: ticketId, status: 'em atendimento', catalogServiceId: chamado.catalogServiceId },
+      {
+        _id: ticketId,
+        status: 'em atendimento',
+        catalogServiceId: chamado.catalogServiceId,
+        assignedToUserId: chamado.assignedToUserId,
+        'sla.responseStartedAt': chamado.sla?.responseStartedAt ?? null,
+      },
       { $set: updatePayload },
       { new: true },
     );
@@ -1494,9 +1515,6 @@ export async function reassignTicketAction(
       };
     }
 
-    const previousTech = await UserModel.findById(currentAssignedId).select('name').lean();
-    const previousName = previousTech?.name ?? 'Técnico anterior';
-
     let resultadoLog: Parameters<typeof logRevisaoIa>[0]['resultado'] = 'ok';
     const registrarFalha = (passo: string, erro: string) => {
       if (resultadoLog === 'ok') resultadoLog = `parcial:${passo}`;
@@ -1506,7 +1524,18 @@ export async function reassignTicketAction(
       );
     };
 
-    // Passo 2: entrada só da gestão, com o motivo (AC-13).
+    // Passo 2: nome do técnico anterior, para o texto dos passos seguintes.
+    // Isolado como os demais (AC-21): falhar aqui não desfaz a reatribuição
+    // já gravada no passo 1.
+    let previousName = 'Técnico anterior';
+    try {
+      const previousTech = await UserModel.findById(currentAssignedId).select('name').lean();
+      previousName = previousTech?.name ?? 'Técnico anterior';
+    } catch (err) {
+      registrarFalha('tecnico_anterior', err instanceof Error ? err.message : String(err));
+    }
+
+    // Passo 3: entrada só da gestão, com o motivo (AC-13).
     try {
       await ChamadoHistoryModel.create({
         chamadoId: updated._id,
@@ -1518,18 +1547,22 @@ export async function reassignTicketAction(
       registrarFalha('correcao_gestao', err instanceof Error ? err.message : String(err));
     }
 
-    // Passo 3 (existente, intacto): história visível a todos, sem "Observações"
-    // — o motivo já vive em `correcao_gestao` (AC-13).
-    await ChamadoHistoryModel.create({
-      chamadoId: updated._id,
-      userId: reassignedByUserId,
-      action: 'reatribuicao_tecnico',
-      statusAnterior: 'em atendimento',
-      statusNovo: 'em atendimento',
-      observacoes: `Reatribuído de ${previousName} para ${newTech.name}. Reatribuído por sessão (Admin/Preposto).`,
-    });
+    // Passo 4: história visível a todos, sem "Observações" — o motivo já vive
+    // em `correcao_gestao` (AC-13).
+    try {
+      await ChamadoHistoryModel.create({
+        chamadoId: updated._id,
+        userId: reassignedByUserId,
+        action: 'reatribuicao_tecnico',
+        statusAnterior: 'em atendimento',
+        statusNovo: 'em atendimento',
+        observacoes: `Reatribuído de ${previousName} para ${newTech.name}. Reatribuído por sessão (Admin/Preposto).`,
+      });
+    } catch (err) {
+      registrarFalha('reatribuicao_historico', err instanceof Error ? err.message : String(err));
+    }
 
-    // Passo 4 (existente, intacto): trocar de técnico é uma correção da
+    // Passo 5 (existente, intacto): trocar de técnico é uma correção da
     // decisão da IA (spec 0002).
     await aplicarVeredito({
       viewer: { userId: session.userId, role: session.role },
@@ -1538,7 +1571,7 @@ export async function reassignTicketAction(
       motivo: notes,
     });
 
-    // Passo 5: avisa o técnico novo, sem avisar o solicitante (AC-15). Falha
+    // Passo 6: avisa o técnico novo, sem avisar o solicitante (AC-15). Falha
     // vira log e não desfaz a reatribuição.
     try {
       const gestorUser = await UserModel.findById(session.userId).select('name').lean();

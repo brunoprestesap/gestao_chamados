@@ -632,6 +632,28 @@ describe('updateTicketPriorityAction', () => {
     expect(chamada).toBeUndefined();
   });
 
+  it('falha ao buscar o nome do gestor não desfaz a correção, loga parcial:gestor (AC-21)', async () => {
+    mockChamadoFindById.mockResolvedValue(chamadoBase());
+    const tecnicoId = new Types.ObjectId().toHexString();
+    mockChamadoFindOneAndUpdate.mockResolvedValue(docAtualizado({ assignedToUserId: tecnicoId }));
+    mockUserFindById.mockReturnValue({
+      select: () => ({ lean: () => Promise.reject(new Error('mongo caiu')) }),
+    });
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await updateTicketPriorityAction(validInput);
+
+    expect(result).toEqual({ ok: true });
+    expect(ultimoLogRevisaoIa(warn)?.resultado).toBe('parcial:gestor');
+    // Sem o nome, o aviso ao técnico ainda sai, só sem o nome de quem corrigiu.
+    expect(mockNotificationCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: tecnicoId, type: 'ticket:corrected' }),
+    );
+    erro.mockRestore();
+    warn.mockRestore();
+  });
+
   it('falha no aviso ao técnico não desfaz a correção, loga parcial:aviso (AC-21)', async () => {
     mockChamadoFindById.mockResolvedValue(chamadoBase());
     const tecnicoId = new Types.ObjectId().toHexString();
@@ -1749,7 +1771,11 @@ describe('reassignTicketAction', () => {
     if (!result.ok) expect(result.error).toContain('sobrecarregado');
   });
 
-  it('gravação atômica: o filtro repete status e o catalogServiceId lido (spec 0009, AC-15)', async () => {
+  it('gravação atômica: o filtro repete status, serviço, técnico e o início de resposta lidos (spec 0009, AC-15)', async () => {
+    const responseStartedAt = new Date('2026-09-29T12:00:00Z');
+    mockChamadoFindById.mockReturnValue({
+      lean: () => Promise.resolve(chamadoAtribuido({ sla: { responseStartedAt } })),
+    });
     mockChamadoFindOneAndUpdate.mockResolvedValue(
       chamadoAtribuido({ assignedToUserId: NEW_TECH_ID }),
     );
@@ -1761,6 +1787,8 @@ describe('reassignTicketAction', () => {
       _id: VALID_ID,
       status: 'em atendimento',
       catalogServiceId: CATALOG_SERVICE_ID,
+      assignedToUserId: CURRENT_TECH_ID,
+      'sla.responseStartedAt': responseStartedAt,
     });
   });
 
@@ -1829,6 +1857,70 @@ describe('reassignTicketAction', () => {
       'ticket:assigned',
       expect.anything(),
     );
+  });
+
+  it('falha ao buscar o técnico anterior não desfaz a reatribuição, loga parcial (AC-21)', async () => {
+    mockUserFindById.mockImplementation((id: unknown) => {
+      const idStr = String(id);
+      if (idStr === CURRENT_TECH_ID) {
+        return { select: () => ({ lean: () => Promise.reject(new Error('mongo caiu')) }) };
+      }
+      const lean = () => {
+        if (idStr === NEW_TECH_ID) {
+          return Promise.resolve({
+            _id: NEW_TECH_ID,
+            name: 'Beto',
+            role: 'Técnico',
+            isActive: true,
+            specialties: [SUBTYPE_ID],
+            maxAssignedTickets: 5,
+          });
+        }
+        return Promise.resolve({ name: 'Preposto' });
+      };
+      return { lean, select: () => ({ lean }) };
+    });
+    mockChamadoFindOneAndUpdate.mockResolvedValue(
+      chamadoAtribuido({ assignedToUserId: NEW_TECH_ID }),
+    );
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await reassignTicketAction(validInput);
+
+    expect(result.ok).toBe(true);
+    expect(ultimoLogRevisaoIa(warn)?.resultado).toBe('parcial:tecnico_anterior');
+    // Sem o nome real, os textos seguintes ainda saem com o nome de reserva.
+    const correcaoGestao = mockHistoryCreate.mock.calls.find(
+      ([arg]) => arg.action === 'correcao_gestao',
+    );
+    expect(correcaoGestao?.[0].observacoes).toContain('Técnico anterior');
+    erro.mockRestore();
+    warn.mockRestore();
+  });
+
+  it('falha ao gravar o histórico de reatribuição não desfaz a reatribuição, loga parcial (AC-21)', async () => {
+    mockChamadoFindOneAndUpdate.mockResolvedValue(
+      chamadoAtribuido({ assignedToUserId: NEW_TECH_ID }),
+    );
+    mockHistoryCreate.mockImplementation((doc: { action: string }) => {
+      if (doc.action === 'reatribuicao_tecnico') return Promise.reject(new Error('mongo caiu'));
+      return Promise.resolve({});
+    });
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await reassignTicketAction(validInput);
+
+    expect(result.ok).toBe(true);
+    expect(ultimoLogRevisaoIa(warn)?.resultado).toBe('parcial:reatribuicao_historico');
+    // A entrada da gestão (correcao_gestao), o passo anterior, ainda é gravada.
+    const correcaoGestao = mockHistoryCreate.mock.calls.find(
+      ([arg]) => arg.action === 'correcao_gestao',
+    );
+    expect(correcaoGestao).toBeDefined();
+    erro.mockRestore();
+    warn.mockRestore();
   });
 
   it('falha ao gravar correcao_gestao não desfaz a reatribuição, loga parcial (AC-21)', async () => {
