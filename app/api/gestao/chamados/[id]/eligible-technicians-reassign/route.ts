@@ -14,10 +14,13 @@ const ACTIVE_STATUSES = ['validado', 'em atendimento'] as const;
 
 /**
  * GET /api/gestao/chamados/[id]/eligible-technicians-reassign
- * Lista técnicos elegíveis para REATRIBUIÇÃO (chamado já em atendimento).
- * Exclui o técnico atualmente atribuído. Retorna carga atual e max.
+ * Lista técnicos elegíveis para REATRIBUIÇÃO (chamado já em atendimento), ou
+ * para a correção de serviço quando `catalogServiceId` é informado (spec
+ * 0009, AC-11): nesse caso a especialidade exigida é a do serviço NOVO, não
+ * a do serviço atual do chamado. Exclui o técnico atualmente atribuído.
+ * Retorna carga atual e max.
  */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireManager();
     await dbConnect();
@@ -40,7 +43,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
-    if (!chamado.catalogServiceId) {
+    const catalogServiceIdParam = new URL(req.url).searchParams.get('catalogServiceId');
+    if (catalogServiceIdParam && !Types.ObjectId.isValid(catalogServiceIdParam)) {
+      return NextResponse.json({ error: 'Serviço do catálogo inválido' }, { status: 400 });
+    }
+    const catalogServiceId = catalogServiceIdParam ?? chamado.catalogServiceId;
+
+    if (!catalogServiceId) {
       return NextResponse.json(
         { error: 'Chamado não possui serviço catalogado.' },
         { status: 400 },
@@ -57,8 +66,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
-    // Especialidades do técnico são subtipos; obtém o subtypeId do serviço catalogado
-    const service = await ServiceCatalogModel.findById(chamado.catalogServiceId)
+    // Especialidades do técnico são subtipos; obtém o subtypeId do serviço
+    // (o novo, quando informado — spec 0009, AC-11)
+    const service = await ServiceCatalogModel.findById(catalogServiceId)
       .select('subtypeId')
       .lean();
     if (!service?.subtypeId) {

@@ -1,13 +1,16 @@
+import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import { prioridadeValidadaPelaIa, servicoSugeridoPelaIa } from '@/lib/conversas';
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
+import { idsDoRecorte } from '@/lib/gestao/revisao-ia-filtro';
 import { escapeRegex } from '@/lib/regex';
 import { ChamadoModel } from '@/models/Chamado';
 import { UserModel } from '@/models/user.model';
 import type { AtribuicaoAutomaticaGestao } from '@/shared/chamados/atribuicao-automatica.constants';
+import { CHAMADO_STATUS_NAO_FINALIZADOS } from '@/shared/chamados/chamado.constants';
 import { ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 
 // Projection — only the fields needed by the table/cards UI
@@ -170,6 +173,7 @@ export async function GET(req: Request) {
     status: url.searchParams.get('status') ?? 'all',
     page: url.searchParams.get('page') ?? '1',
     limit: url.searchParams.get('limit') ?? '20',
+    revisaoIa: url.searchParams.get('revisaoIa') ?? undefined,
   });
 
   if (!parsed.success) {
@@ -179,7 +183,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const { q, status, page, limit } = parsed.data;
+  const { q, status, page, limit, revisaoIa } = parsed.data;
   const filter: Record<string, unknown> = {};
 
   if (status !== 'all') {
@@ -196,6 +200,29 @@ export async function GET(req: Request) {
       { localExato: regex },
       { tipoServico: regex },
     ];
+  }
+
+  // O recorte "Revisão da IA" combina com q e status, nunca os substitui
+  // (spec 0009, AC-2): cada condição do recorte entra como um `$and` a mais.
+  if (revisaoIa) {
+    const condicoesRecorte: Record<string, unknown>[] = [];
+    if (revisaoIa === 'sem_revisao' || revisaoIa === 'corrigidos') {
+      const ids = await idsDoRecorte(revisaoIa);
+      condicoesRecorte.push({ _id: { $in: ids.map((id) => new Types.ObjectId(id)) } });
+      // Sem `status` informado, só os chamados ainda não finalizados entram.
+      if (revisaoIa === 'sem_revisao' && status === 'all') {
+        condicoesRecorte.push({ status: { $in: CHAMADO_STATUS_NAO_FINALIZADOS } });
+      }
+    } else if (revisaoIa === 'triagem') {
+      condicoesRecorte.push({ status: 'aberto', iaSituacao: 'sugerida' });
+    } else {
+      condicoesRecorte.push({
+        status: 'validado',
+        'atribuicaoAutomatica.resultado': 'sem_tecnico',
+        $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }],
+      });
+    }
+    filter.$and = [...((filter.$and as Record<string, unknown>[]) ?? []), ...condicoesRecorte];
   }
 
   const skip = (page - 1) * limit;

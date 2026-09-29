@@ -198,9 +198,16 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
           }
         }
 
-        // Marca breach no chamado
+        // Marca breach no chamado — o filtro repete o prazo lido no início do
+        // laço (spec 0009, AC-20): uma correção que moveu `responseDueAt` no
+        // meio do ciclo faz este update não casar, e o monitor nunca desfaz
+        // uma descida de prioridade feita entre a leitura e esta gravação.
         await ChamadoModel.updateOne(
-          { _id: chamado._id, 'sla.responseBreachedAt': null },
+          {
+            _id: chamado._id,
+            'sla.responseBreachedAt': null,
+            'sla.responseDueAt': responseDueAt,
+          },
           { $set: { 'sla.responseBreachedAt': now } },
         );
 
@@ -250,9 +257,13 @@ export async function checkSlaEscalations(): Promise<SlaMonitorReport> {
           }
         }
 
-        // Marca breach no chamado
+        // Marca breach no chamado — mesmo filtro por prazo lido do AC-20.
         await ChamadoModel.updateOne(
-          { _id: chamado._id, 'sla.resolutionBreachedAt': null },
+          {
+            _id: chamado._id,
+            'sla.resolutionBreachedAt': null,
+            'sla.resolutionDueAt': resolutionDueAt,
+          },
           { $set: { 'sla.resolutionBreachedAt': now } },
         );
 

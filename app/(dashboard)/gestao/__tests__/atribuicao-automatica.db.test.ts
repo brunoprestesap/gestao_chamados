@@ -11,14 +11,16 @@ import {
 
 /**
  * A atribuição automática (spec 0008) diante das ações da gestão, com as ações
- * de verdade e o MongoDB de verdade: a janela de prioridade que fecha, a
- * reatribuição que corrige a decisão da regra, a atribuição manual de quem
- * ficou sem técnico e a corrida entre a gestão e o passo automático.
+ * de verdade e o MongoDB de verdade: a janela de prioridade que a spec 0009
+ * (AC-16) abriu, a reatribuição que corrige a decisão da regra, a atribuição
+ * manual de quem ficou sem técnico e a corrida entre a gestão e o passo
+ * automático.
  *
  * Roda só com `MONGO_TEST_URI` (ver `tests/mongo-test-env.ts`).
  *
  * covers: AC-7 (corrida), AC-9 (correção pela reatribuição), AC-15 (o marcador
- * sobrevive à atribuição manual), AC-18 (manual e reatribuição intactas), AC-19
+ * sobrevive à atribuição manual), AC-18 (manual e reatribuição intactas), a
+ * 0009 AC-16 (a janela de prioridade não fecha mais para o atribuído sozinho)
  */
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -55,6 +57,7 @@ rodar('atribuição automática e as ações da gestão, contra o Mongo', () => 
   const typeId = new Types.ObjectId();
   const subtypeId = new Types.ObjectId();
   const catalogServiceId = new Types.ObjectId();
+  const catalogServiceId2 = new Types.ObjectId();
 
   let sequencia = 0;
 
@@ -122,14 +125,24 @@ rodar('atribuição automática e as ações da gestão, contra o Mongo', () => 
     ] as never);
     await ServiceTypeModel.create({ _id: typeId, name: 'Manutenção Predial' } as never);
     await ServiceSubTypeModel.create({ _id: subtypeId, typeId, name: 'Iluminação' } as never);
-    await ServiceCatalogModel.create({
-      _id: catalogServiceId,
-      code: 'ELET-0001',
-      name: 'Troca de lâmpada',
-      description: 'Lâmpada queimada',
-      typeId,
-      subtypeId,
-    } as never);
+    await ServiceCatalogModel.create([
+      {
+        _id: catalogServiceId,
+        code: 'ELET-0001',
+        name: 'Troca de lâmpada',
+        description: 'Lâmpada queimada',
+        typeId,
+        subtypeId,
+      },
+      {
+        _id: catalogServiceId2,
+        code: 'ELET-0002',
+        name: 'Troca de lâmpada LED',
+        description: 'Lâmpada LED queimada, mesmo subtipo',
+        typeId,
+        subtypeId,
+      },
+    ] as never);
     await SlaConfigModel.create([
       { priority: 'NORMAL', responseTargetMinutes: 120, resolutionTargetMinutes: 480 },
       { priority: 'ALTA', responseTargetMinutes: 30, resolutionTargetMinutes: 120 },
@@ -196,10 +209,10 @@ rodar('atribuição automática e as ações da gestão, contra o Mongo', () => 
     });
   }
 
-  // ── janela de prioridade · AC-19 ────────────────────────────────
+  // ── janela de prioridade · spec 0009 AC-16 (revoga o AC-19 da 0008) ──
 
-  describe('correção de prioridade (AC-19)', () => {
-    it('um chamado atribuído sozinho recusa a correção, com a mesma mensagem de um atribuído à mão', async () => {
+  describe('correção de prioridade num chamado atribuído pela regra (spec 0009, AC-16)', () => {
+    it('um chamado atribuído sozinho aceita a correção, igual a um atribuído à mão', async () => {
       // Arrange
       await ligar();
       // Sem carga para ninguém, a regra escolhe um dos dois técnicos; à mão, a gestão atribui
@@ -214,26 +227,25 @@ rodar('atribuição automática e as ações da gestão, contra o Mongo', () => 
       });
       expect(atribuidoAMao.ok).toBe(true);
 
-      // Act
-      const recusaAutomatica = await actions.updateTicketPriorityAction({
+      // Act — subir a prioridade nunca depende do papel (AC-10 só trava a descida).
+      const corrigidoAutomatico = await actions.updateTicketPriorityAction({
         chamadoId: String(automatico._id),
         finalPriority: 'ALTA',
-        classificationNotes: '',
+        motivo: 'Reincidência relatada pelo setor.',
       });
-      const recusaManual = await actions.updateTicketPriorityAction({
+      const corrigidoManual = await actions.updateTicketPriorityAction({
         chamadoId: String(manual._id),
         finalPriority: 'ALTA',
-        classificationNotes: '',
+        motivo: 'Reincidência relatada pelo setor.',
       });
 
-      // Assert: a mensagem clara de hoje, e o SLA e a prioridade intocados
-      expect(recusaAutomatica.ok).toBe(false);
-      expect(recusaManual.ok).toBe(false);
-      expect(recusaAutomatica).toEqual(recusaManual);
+      // Assert: a atribuição automática (spec 0008) não fecha mais a janela.
+      expect(corrigidoAutomatico).toEqual({ ok: true });
+      expect(corrigidoManual).toEqual({ ok: true });
       const depois = await ChamadoModel.findById(automatico._id).lean();
-      expect(depois?.finalPriority).toBe('NORMAL');
-      expect(depois?.sla?.responseTargetMinutes).toBe(120);
-      expect(depois?.sla?.resolutionDueAt).toEqual(automatico.sla?.resolutionDueAt);
+      expect(depois?.finalPriority).toBe('ALTA');
+      // O marcador da atribuição automática (spec 0008) sobrevive à correção.
+      expect(depois?.atribuicaoAutomatica?.resultado).toBe('atribuido');
     });
 
     it('um chamado que ficou sem técnico automático continua na janela: a prioridade ainda se corrige', async () => {
@@ -250,13 +262,75 @@ rodar('atribuição automática e as ações da gestão, contra o Mongo', () => 
       const corrigido = await actions.updateTicketPriorityAction({
         chamadoId: String(chamado._id),
         finalPriority: 'ALTA',
-        classificationNotes: 'Mais grave do que parecia.',
+        motivo: 'Mais grave do que parecia.',
       });
 
       // Assert
       expect(corrigido).toEqual({ ok: true });
       const depois = await ChamadoModel.findById(chamado._id).lean();
       expect(depois?.finalPriority).toBe('ALTA');
+      expect(depois?.atribuicaoAutomatica?.resultado).toBe('sem_tecnico');
+    });
+  });
+
+  // ── janela de serviço · spec 0009 AC-16 (mesma abertura da correção de prioridade) ──
+
+  describe('correção de serviço num chamado atribuído pela regra (spec 0009, AC-16)', () => {
+    it('um chamado atribuído sozinho aceita a correção de serviço, igual a um atribuído à mão', async () => {
+      // Arrange
+      await ligar();
+      const automatico = await chamadoValidado();
+      const resultado = await tentar(automatico);
+      expect(resultado.resultado).toBe('atribuido');
+      const manual = await chamadoValidado();
+      const atribuidoAMao = await actions.assignTicketAction({
+        ticketId: String(manual._id),
+        preferredTechnicianId: String(diegoId),
+      });
+      expect(atribuidoAMao.ok).toBe(true);
+
+      // Act — o novo serviço é do mesmo subtipo, então o técnico atual continua elegível.
+      const corrigidoAutomatico = await actions.corrigirServicoAction({
+        chamadoId: String(automatico._id),
+        catalogServiceId: String(catalogServiceId2),
+        motivo: 'Era lâmpada LED, não a comum.',
+      });
+      const corrigidoManual = await actions.corrigirServicoAction({
+        chamadoId: String(manual._id),
+        catalogServiceId: String(catalogServiceId2),
+        motivo: 'Era lâmpada LED, não a comum.',
+      });
+
+      // Assert: a atribuição automática (spec 0008) não fecha a janela de serviço.
+      expect(corrigidoAutomatico).toEqual({ ok: true });
+      expect(corrigidoManual).toEqual({ ok: true });
+      const depois = await ChamadoModel.findById(automatico._id).lean();
+      expect(String(depois?.catalogServiceId)).toBe(String(catalogServiceId2));
+      // O marcador da atribuição automática (spec 0008) sobrevive à correção.
+      expect(depois?.atribuicaoAutomatica?.resultado).toBe('atribuido');
+    });
+
+    it('um chamado que ficou sem técnico automático continua na janela: o serviço ainda se corrige', async () => {
+      // Arrange: nenhum técnico ativo com a especialidade
+      await ligar();
+      await UserModel.updateMany({ role: 'Técnico' }, { $set: { isActive: false } });
+      const chamado = await chamadoValidado();
+      expect(await tentar(chamado)).toEqual({
+        resultado: 'sem_tecnico',
+        motivo: 'sem_especialidade',
+      });
+
+      // Act
+      const corrigido = await actions.corrigirServicoAction({
+        chamadoId: String(chamado._id),
+        catalogServiceId: String(catalogServiceId2),
+        motivo: 'Era lâmpada LED, não a comum.',
+      });
+
+      // Assert
+      expect(corrigido).toEqual({ ok: true });
+      const depois = await ChamadoModel.findById(chamado._id).lean();
+      expect(String(depois?.catalogServiceId)).toBe(String(catalogServiceId2));
       expect(depois?.atribuicaoAutomatica?.resultado).toBe('sem_tecnico');
     });
   });

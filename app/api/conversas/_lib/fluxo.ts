@@ -28,6 +28,10 @@ const STATUS: Record<ConversaFalha, number> = {
   confirmacao_em_andamento: 409,
   ja_existe: 409,
   erro: 500,
+  // Motivos da revisão da IA pela gestão (spec 0009): não chegam a estas rotas
+  // de envio de mensagem, mas o tipo é o mesmo `ConversaFalha` de `lib/conversas`.
+  nada_a_confirmar: 409,
+  divergente: 409,
 };
 
 /** Sessão verificada ou 401. Rota de API responde em JSON, nunca redireciona. */

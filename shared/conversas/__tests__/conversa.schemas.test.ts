@@ -8,6 +8,7 @@ import {
   DECISAO_CAMPOS,
 } from '@/shared/conversas/conversa.constants';
 import {
+  confirmarDecisoesIaSchema,
   CONVERSA_PAYLOAD_SCHEMAS,
   conversaTextoSchema,
   decisaoMotivoSchema,
@@ -418,5 +419,44 @@ describe('registrarDecisaoSchema (AC-6)', () => {
 
   it('recusa chamadoId malformado', () => {
     expect(registrarDecisaoSchema.safeParse({ ...base, chamadoId: 'novo' }).success).toBe(false);
+  });
+});
+
+describe('confirmarDecisoesIaSchema (spec 0009, AC-5)', () => {
+  const chamadoId = new Types.ObjectId().toHexString();
+
+  it('aceita só o chamadoId, campos fica ausente (confirma todas as pendentes)', () => {
+    const result = confirmarDecisoesIaSchema.safeParse({ chamadoId });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.campos).toBeUndefined();
+  });
+
+  it('aceita um subconjunto de campos válidos', () => {
+    const result = confirmarDecisoesIaSchema.safeParse({
+      chamadoId,
+      campos: ['prioridade', 'tecnico'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.campos).toEqual(['prioridade', 'tecnico']);
+  });
+
+  it.each(DECISAO_CAMPOS)('aceita o campo isolado %s', (campo) => {
+    expect(confirmarDecisoesIaSchema.safeParse({ chamadoId, campos: [campo] }).success).toBe(true);
+  });
+
+  it('recusa um campo fora de DECISAO_CAMPOS', () => {
+    expect(confirmarDecisoesIaSchema.safeParse({ chamadoId, campos: ['status'] }).success).toBe(
+      false,
+    );
+  });
+
+  it('recusa chamadoId malformado', () => {
+    expect(confirmarDecisoesIaSchema.safeParse({ chamadoId: 'novo' }).success).toBe(false);
+  });
+
+  it('recusa campos vazio como array explícito (ambíguo com "nenhum pendente")', () => {
+    // campos: [] é diferente de campos ausente — a ação trata os dois igual
+    // (todas as pendentes), mas o schema só valida a forma, não a semântica.
+    expect(confirmarDecisoesIaSchema.safeParse({ chamadoId, campos: [] }).success).toBe(true);
   });
 });

@@ -69,6 +69,26 @@ export const FINAL_PRIORITY_LABELS: Record<FinalPriority, string> = {
   EMERGENCIAL: 'Emergencial',
 };
 
+/** Da mais branda para a mais rígida (spec 0009, AC-8/AC-9). */
+export const PRIORIDADE_ORDEM: Record<FinalPriority, number> = {
+  BAIXA: 0,
+  NORMAL: 1,
+  ALTA: 2,
+  EMERGENCIAL: 3,
+};
+
+/**
+ * Sentido da correção de prioridade, puro. `null` quando não muda (a ação que
+ * chama já recusa a mesma prioridade antes de chegar aqui).
+ */
+export function direcaoDaPrioridade(
+  atual: FinalPriority,
+  nova: FinalPriority,
+): 'sobe' | 'desce' | null {
+  if (PRIORIDADE_ORDEM[nova] === PRIORIDADE_ORDEM[atual]) return null;
+  return PRIORIDADE_ORDEM[nova] > PRIORIDADE_ORDEM[atual] ? 'sobe' : 'desce';
+}
+
 /** Natureza do atendimento (persistida: solicitada e aprovada) — NUNCA usar solicitada para SLA */
 export const ATTENDANCE_NATURE_VALUES = ['PADRAO', 'URGENTE'] as const;
 export type AttendanceNature = (typeof ATTENDANCE_NATURE_VALUES)[number];

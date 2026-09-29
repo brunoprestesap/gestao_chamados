@@ -4,6 +4,7 @@
  */
 
 import type { AtribuicaoMotivo } from '@/shared/chamados/atribuicao-automatica.constants';
+import type { FinalPriority } from '@/shared/chamados/chamado.constants';
 
 export interface TicketAssignedPayload {
   ticketId: string;
@@ -209,6 +210,22 @@ export interface TicketQuoteRejectedPayload {
   at: string;
 }
 
+/**
+ * Payload quando a gestão corrige prioridade ou serviço de um chamado cujo
+ * técnico continua o mesmo (spec 0009, AC-14). Sem motivo: o técnico vê o que
+ * mudou, não o porquê. Quando o técnico troca, este evento não sai — vale
+ * `ticket:assigned` por `notificarAtribuicao` (AC-15).
+ */
+export interface TicketCorrectedPayload {
+  ticketId: string;
+  ticketNumber?: string;
+  title?: string;
+  campo: 'prioridade' | 'servico';
+  finalPriority?: FinalPriority;
+  correctedBy: { id: string; name?: string };
+  at: string;
+}
+
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
   'ticket:classified': (payload: TicketClassifiedPayload) => void;
@@ -226,6 +243,7 @@ export interface ServerToClientEvents {
   'ticket:quote_approved': (payload: TicketQuoteApprovedPayload) => void;
   'ticket:quote_rejected': (payload: TicketQuoteRejectedPayload) => void;
   'ticket:reopened': (payload: TicketReopenedPayload) => void;
+  'ticket:corrected': (payload: TicketCorrectedPayload) => void;
   'sla:warning': (payload: SlaWarningPayload) => void;
   'sla:breach': (payload: SlaBreachPayload) => void;
 }

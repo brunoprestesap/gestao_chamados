@@ -394,10 +394,34 @@ describe('checkSlaEscalations — breach de resolução', () => {
     // Act
     await checkSlaEscalations();
 
-    // Assert
+    // Assert — o filtro repete o `resolutionDueAt` lido no laço (spec 0009, AC-20).
     expect(ChamadoModel.updateOne).toHaveBeenCalledWith(
-      { _id: CHAMADO_ID, 'sla.resolutionBreachedAt': null },
+      {
+        _id: CHAMADO_ID,
+        'sla.resolutionBreachedAt': null,
+        'sla.resolutionDueAt': new Date('2026-04-10T18:00:00Z'),
+      },
       { $set: { 'sla.resolutionBreachedAt': nowDate } },
+    );
+  });
+
+  it('não marca breach de resolução se o prazo lido já não é mais o do chamado (AC-20: corrida com uma correção)', async () => {
+    // Arrange: `updateOne` não casa porque o filtro repete o `resolutionDueAt`
+    // lido; simula o `modifiedCount: 0` que uma correção concorrente causaria.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-10T19:00:00Z'));
+
+    vi.mocked(ChamadoModel.find).mockReturnValue(withLean([makeBaseChamado()]) as never);
+    vi.mocked(ChamadoModel.updateOne).mockResolvedValue({ modifiedCount: 0 } as never);
+
+    // Act
+    await checkSlaEscalations();
+
+    // Assert: mesmo sem casar, o filtro ainda leva o prazo lido — é essa
+    // repetição que impede o monitor de desfazer uma correção concorrente.
+    expect(ChamadoModel.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ 'sla.resolutionDueAt': new Date('2026-04-10T18:00:00Z') }),
+      expect.anything(),
     );
   });
 });

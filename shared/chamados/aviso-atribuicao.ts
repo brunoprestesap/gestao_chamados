@@ -1,4 +1,5 @@
 import type { AtribuicaoMotivo } from '@/shared/chamados/atribuicao-automatica.constants';
+import { FINAL_PRIORITY_LABELS, type FinalPriority } from '@/shared/chamados/chamado.constants';
 import { ATRIBUIDO_POR_SISTEMA } from '@/shared/socket';
 
 /**
@@ -46,4 +47,21 @@ export function tituloDeChamadoValidado(
     return `${chamado} validado, sem técnico disponível`;
   }
   return `${chamado} validado automaticamente`;
+}
+
+/**
+ * O título do aviso ao técnico quando prioridade ou serviço mudam sem trocar
+ * de técnico (spec 0009, AC-14). Nunca leva o motivo.
+ */
+export function tituloDeCorrecaoAoTecnico(
+  ticketNumber: string | null | undefined,
+  campo: 'prioridade' | 'servico',
+  finalPriority?: FinalPriority | null,
+): string {
+  const chamado = ticketNumber ? `chamado #${ticketNumber}` : 'chamado';
+  if (campo === 'prioridade') {
+    const rotulo = finalPriority ? FINAL_PRIORITY_LABELS[finalPriority] : '';
+    return `Prioridade do ${chamado} mudou para ${rotulo}`;
+  }
+  return `O serviço do ${chamado} mudou`;
 }

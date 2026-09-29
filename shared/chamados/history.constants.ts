@@ -23,9 +23,22 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'reabertura',
   'decisao_ia',
   'correcao_ia',
+  'confirmacao_ia',
+  'correcao_gestao',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
+
+/**
+ * Ações que carregam confiança, motivo ou detalhe da correção: só Preposto e
+ * Admin recebem (spec 0009, AC-13). Solicitante e técnico veem o efeito (a
+ * entrada neutra `classificacao`, o novo valor no chamado), nunca isto.
+ */
+export const ACOES_SO_DA_GESTAO: readonly ChamadoHistoryAction[] = [
+  'correcao_ia',
+  'confirmacao_ia',
+  'correcao_gestao',
+];
 
 /**
  * Quem praticou a ação. `ia` e `sistema` não têm usuário; só `usuario` exige
@@ -66,4 +79,6 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   reabertura: 'Reabertura do Chamado',
   decisao_ia: 'Decisão da IA',
   correcao_ia: 'Correção de Decisão da IA',
+  confirmacao_ia: 'Confirmação de Decisão da IA',
+  correcao_gestao: 'Correção pela Gestão',
 };

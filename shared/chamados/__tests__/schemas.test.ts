@@ -10,6 +10,7 @@ import {
   ChamadoCreateSchema,
   ChamadoListQuerySchema,
   ClassificarChamadoSchema,
+  CorrigirServicoSchema,
   UpdateTicketPrioritySchema,
 } from '@/shared/chamados/chamado.schemas';
 import { CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
@@ -320,15 +321,19 @@ describe('CloseTicketSchema', () => {
   });
 });
 
-// ── UpdateTicketPrioritySchema (spec 0007, AC-11) ────────────────
+// ── UpdateTicketPrioritySchema (spec 0007, AC-11; motivo obrigatório spec 0009, AC-7) ──
 
 describe('UpdateTicketPrioritySchema', () => {
-  const baseInput = { chamadoId: VALID_ID, finalPriority: 'ALTA' as const };
+  const baseInput = {
+    chamadoId: VALID_ID,
+    finalPriority: 'ALTA' as const,
+    motivo: 'motivo da correção com mais de dez caracteres',
+  };
 
-  it('aceita input válido, sem observações', () => {
+  it('aceita input válido', () => {
     const result = UpdateTicketPrioritySchema.safeParse(baseInput);
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.classificationNotes).toBe('');
+    if (result.success) expect(result.data.motivo).toBe(baseInput.motivo);
   });
 
   it('rejeita chamadoId inválido', () => {
@@ -337,7 +342,10 @@ describe('UpdateTicketPrioritySchema', () => {
   });
 
   it('rejeita finalPriority ausente ou inválida', () => {
-    expect(UpdateTicketPrioritySchema.safeParse({ chamadoId: VALID_ID }).success).toBe(false);
+    expect(
+      UpdateTicketPrioritySchema.safeParse({ chamadoId: VALID_ID, motivo: baseInput.motivo })
+        .success,
+    ).toBe(false);
     expect(
       UpdateTicketPrioritySchema.safeParse({ ...baseInput, finalPriority: 'INEXISTENTE' }).success,
     ).toBe(false);
@@ -352,19 +360,85 @@ describe('UpdateTicketPrioritySchema', () => {
     }
   });
 
-  it('faz trim no classificationNotes', () => {
+  it('faz trim no motivo', () => {
     const result = UpdateTicketPrioritySchema.safeParse({
       ...baseInput,
-      classificationNotes: '  motivo da correção  ',
+      motivo: `  ${baseInput.motivo}  `,
     });
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.classificationNotes).toBe('motivo da correção');
+    if (result.success) expect(result.data.motivo).toBe(baseInput.motivo);
   });
 
-  it('classificationNotes ausente vira string vazia (default)', () => {
-    const result = UpdateTicketPrioritySchema.safeParse(baseInput);
+  it('rejeita motivo ausente (obrigatório, spec 0009 AC-7)', () => {
+    const { motivo: _motivo, ...semMotivo } = baseInput;
+    expect(UpdateTicketPrioritySchema.safeParse(semMotivo).success).toBe(false);
+  });
+
+  it('rejeita motivo com menos de 10 caracteres', () => {
+    const result = UpdateTicketPrioritySchema.safeParse({ ...baseInput, motivo: 'curto' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita motivo acima do limite', () => {
+    const result = UpdateTicketPrioritySchema.safeParse({
+      ...baseInput,
+      motivo: 'x'.repeat(501),
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ── CorrigirServicoSchema (spec 0009, AC-11) ──────────────────────
+
+describe('CorrigirServicoSchema', () => {
+  const baseInput = { chamadoId: VALID_ID, catalogServiceId: 'b'.repeat(24) };
+
+  it('aceita input válido sem motivo nem novoTecnicoId (ambos opcionais)', () => {
+    const result = CorrigirServicoSchema.safeParse(baseInput);
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.classificationNotes).toBe('');
+    if (result.success) {
+      expect(result.data.motivo).toBe('');
+      expect(result.data.novoTecnicoId).toBeUndefined();
+    }
+  });
+
+  it('rejeita chamadoId ou catalogServiceId inválidos', () => {
+    expect(CorrigirServicoSchema.safeParse({ ...baseInput, chamadoId: 'x' }).success).toBe(false);
+    expect(
+      CorrigirServicoSchema.safeParse({ ...baseInput, catalogServiceId: 'x' }).success,
+    ).toBe(false);
+  });
+
+  it('aceita novoTecnicoId como ObjectId válido', () => {
+    const result = CorrigirServicoSchema.safeParse({
+      ...baseInput,
+      novoTecnicoId: 'c'.repeat(24),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita novoTecnicoId inválido', () => {
+    const result = CorrigirServicoSchema.safeParse({ ...baseInput, novoTecnicoId: 'xyz' });
+    expect(result.success).toBe(false);
+  });
+
+  it('faz trim no motivo e aceita quando tem pelo menos 10 caracteres', () => {
+    const result = CorrigirServicoSchema.safeParse({
+      ...baseInput,
+      motivo: '  motivo da correção  ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.motivo).toBe('motivo da correção');
+  });
+
+  it('rejeita motivo informado com menos de 10 caracteres', () => {
+    const result = CorrigirServicoSchema.safeParse({ ...baseInput, motivo: 'curto' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita motivo acima do limite', () => {
+    const result = CorrigirServicoSchema.safeParse({ ...baseInput, motivo: 'x'.repeat(501) });
+    expect(result.success).toBe(false);
   });
 });
 

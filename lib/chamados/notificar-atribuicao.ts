@@ -32,10 +32,25 @@ export type NotificarAtribuicaoParams = {
   tecnico: { id: string; name: string };
   assignedBy: { id: string; name?: string };
   at: Date;
+  /**
+   * Avisa também o solicitante (padrão de sempre: `true`). A troca de técnico
+   * por reatribuição ou por correção de serviço não avisa o solicitante
+   * (spec 0009, AC-15) — só o técnico novo recebe.
+   */
+  avisarSolicitante?: boolean;
 };
 
 export async function notificarAtribuicao(params: NotificarAtribuicaoParams): Promise<void> {
-  const { chamadoId, ticketNumber, titulo, solicitanteId, tecnico, assignedBy, at } = params;
+  const {
+    chamadoId,
+    ticketNumber,
+    titulo,
+    solicitanteId,
+    tecnico,
+    assignedBy,
+    at,
+    avisarSolicitante = true,
+  } = params;
 
   const payload: TicketAssignedPayload = {
     ticketId: chamadoId,
@@ -70,11 +85,13 @@ export async function notificarAtribuicao(params: NotificarAtribuicaoParams): Pr
   sendNotificationEmail(tecnico.id, 'ticket:assigned', payload).catch(() => {});
   // O solicitante recebe o mesmo aviso, para ver a atribuição ao vivo na própria
   // conversa (spec 0005, AC-2). O cliente decide texto e link pelo `userId`
-  // recebido, comparado a `assignedTo.id`.
-  await Promise.all([
-    aviso(() => emitToRoom(`user:${tecnico.id}`, 'ticket:assigned', payload)),
-    aviso(() => emitToRoom(`user:${solicitanteId}`, 'ticket:assigned', payload)),
-  ]);
+  // recebido, comparado a `assignedTo.id`. A troca de técnico (reatribuição ou
+  // correção de serviço) não avisa o solicitante (spec 0009, AC-15).
+  const emissoes = [aviso(() => emitToRoom(`user:${tecnico.id}`, 'ticket:assigned', payload))];
+  if (avisarSolicitante) {
+    emissoes.push(aviso(() => emitToRoom(`user:${solicitanteId}`, 'ticket:assigned', payload)));
+  }
+  await Promise.all(emissoes);
 
   if (falhas.length > 0) throw falhas[0];
 }

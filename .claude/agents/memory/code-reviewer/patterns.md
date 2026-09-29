@@ -49,3 +49,9 @@
 - DTOs locais em `page.tsx` ou `_components/` (não exportados de `shared/`)
 - `MaterialObservationDTO` definido em `components/chamado/MaterialObservationsList.tsx` — único source of truth para o tipo do array no client
 - Tipo em `ChamadoCard.tsx` repete os campos inline em vez de importar `MaterialObservationDTO`
+# Padrões observados (code-reviewer)
+
+- 2026-09-24 (spec 0007): abertura pelo chat tem caminho de reparo (`repararSePreciso` em lib/conversas/conversa-store.ts) que completa histórico/vínculo e faz `abrirChamadoDaConversa` sair cedo. Todo histórico novo gravado na abertura precisa ser replicado no reparo.
+- Mudança de prazos SLA (`sla.*DueAt`) precisa reconciliar `sla.responseBreachedAt`/`resolutionBreachedAt` e as escalações do `lib/sla-monitor.ts` (IMR e sla-breach-report leem esses marcadores).
+- Imagem Docker de prod só tem `.next/standalone`: scripts em `scripts/*.ts` (tsx) não rodam no container; migrações não são executadas pelo CD.
+- Testes de concorrência "*.db.test.ts" tendem a ser tautológicos; conferir se conseguem falhar.

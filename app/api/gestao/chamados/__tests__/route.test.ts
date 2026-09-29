@@ -47,8 +47,14 @@ vi.mock('@/lib/conversas', () => ({
   prioridadeValidadaPelaIa: (...args: unknown[]) => mockPrioridadeValidada(...args),
 }));
 
+const mockIdsDoRecorte = vi.fn();
+vi.mock('@/lib/gestao/revisao-ia-filtro', () => ({
+  idsDoRecorte: (...args: unknown[]) => mockIdsDoRecorte(...args),
+}));
+
 // Import after mocks
 import { GET } from '@/app/api/gestao/chamados/route';
+import { CHAMADO_STATUS_NAO_FINALIZADOS } from '@/shared/chamados/chamado.constants';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -96,6 +102,7 @@ beforeEach(() => {
   mockLean.mockResolvedValue([]);
   mockServicoSugerido.mockResolvedValue(new Set());
   mockPrioridadeValidada.mockResolvedValue(new Set());
+  mockIdsDoRecorte.mockResolvedValue([]);
 });
 
 describe('GET /api/gestao/chamados — pagination', () => {
@@ -326,6 +333,101 @@ describe('GET /api/gestao/chamados — selo "validado pela IA" (spec 0007, AC-15
       ['1'.repeat(24), true],
       ['2'.repeat(24), false],
     ]);
+  });
+});
+
+describe('GET /api/gestao/chamados — revisão da IA (spec 0009, AC-1, AC-2)', () => {
+  it('sem o parâmetro, nada muda: sem $and no filtro e sem chamar idsDoRecorte', async () => {
+    await GET(makeRequest());
+
+    const findFilter = mockFind.mock.calls[0][0];
+    expect(findFilter.$and).toBeUndefined();
+    expect(mockIdsDoRecorte).not.toHaveBeenCalled();
+  });
+
+  it('valor desconhecido devolve 400, sem tocar no banco', async () => {
+    const res = await GET(makeRequest({ revisaoIa: 'nao_existe' }));
+
+    expect(res.status).toBe(400);
+    expect(mockIdsDoRecorte).not.toHaveBeenCalled();
+    expect(mockFind).not.toHaveBeenCalled();
+  });
+
+  it('sem_revisao: busca os ids na DecisaoIa e, sem status informado, restringe aos não finalizados', async () => {
+    const id = '1'.repeat(24);
+    mockIdsDoRecorte.mockResolvedValue([id]);
+
+    await GET(makeRequest({ revisaoIa: 'sem_revisao' }));
+
+    expect(mockIdsDoRecorte).toHaveBeenCalledWith('sem_revisao');
+    const findFilter = mockFind.mock.calls[0][0];
+    expect(findFilter.$and).toHaveLength(2);
+    expect(findFilter.$and[0]._id.$in.map(String)).toEqual([id]);
+    expect(findFilter.$and[1]).toEqual({
+      status: { $in: CHAMADO_STATUS_NAO_FINALIZADOS },
+    });
+  });
+
+  it('sem_revisao com status informado: não soma a restrição padrão de não finalizados', async () => {
+    mockIdsDoRecorte.mockResolvedValue([]);
+
+    await GET(makeRequest({ revisaoIa: 'sem_revisao', status: 'validado' }));
+
+    const findFilter = mockFind.mock.calls[0][0];
+    expect(findFilter.status).toBe('validado');
+    expect(findFilter.$and).toHaveLength(1);
+    expect(findFilter.$and[0]).toHaveProperty('_id');
+  });
+
+  it('corrigidos: busca os ids na DecisaoIa, sem restrição de status padrão', async () => {
+    const id = '2'.repeat(24);
+    mockIdsDoRecorte.mockResolvedValue([id]);
+
+    await GET(makeRequest({ revisaoIa: 'corrigidos' }));
+
+    expect(mockIdsDoRecorte).toHaveBeenCalledWith('corrigidos');
+    const findFilter = mockFind.mock.calls[0][0];
+    expect(findFilter.$and).toHaveLength(1);
+    expect(findFilter.$and[0]._id.$in.map(String)).toEqual([id]);
+  });
+
+  it('triagem: filtra status aberto e iaSituacao sugerida direto no Chamado, sem consultar a DecisaoIa', async () => {
+    await GET(makeRequest({ revisaoIa: 'triagem' }));
+
+    expect(mockIdsDoRecorte).not.toHaveBeenCalled();
+    const findFilter = mockFind.mock.calls[0][0];
+    expect(findFilter.$and).toEqual([{ status: 'aberto', iaSituacao: 'sugerida' }]);
+  });
+
+  it('sem_tecnico: filtra validado, atribuicaoAutomatica.resultado e sem técnico, sem consultar a DecisaoIa', async () => {
+    await GET(makeRequest({ revisaoIa: 'sem_tecnico' }));
+
+    expect(mockIdsDoRecorte).not.toHaveBeenCalled();
+    const findFilter = mockFind.mock.calls[0][0];
+    expect(findFilter.$and).toEqual([
+      {
+        status: 'validado',
+        'atribuicaoAutomatica.resultado': 'sem_tecnico',
+        $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }],
+      },
+    ]);
+  });
+
+  it('combina com q: os dois filtros valem ao mesmo tempo', async () => {
+    await GET(makeRequest({ revisaoIa: 'triagem', q: 'elevador' }));
+
+    const findFilter = mockFind.mock.calls[0][0];
+    expect(findFilter.$or).toBeDefined();
+    expect(findFilter.$and).toEqual([{ status: 'aberto', iaSituacao: 'sugerida' }]);
+  });
+
+  it('pagination.total reflete o recorte, via countDocuments com o mesmo filtro', async () => {
+    mockCountDocuments.mockResolvedValue(3);
+
+    await GET(makeRequest({ revisaoIa: 'triagem' }));
+
+    const countFilter = mockCountDocuments.mock.calls[0][0];
+    expect(countFilter.$and).toEqual([{ status: 'aberto', iaSituacao: 'sugerida' }]);
   });
 });
 

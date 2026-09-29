@@ -4,17 +4,25 @@ import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
 import { notificarAtribuicao } from '@/lib/chamados/notificar-atribuicao';
-import { aplicarVeredito, resolverDecisao } from '@/lib/conversas/decisoes';
-import { canManage, requireManager, requireSession } from '@/lib/dal';
+import { notificarCorrecaoAoTecnico } from '@/lib/chamados/notificar-correcao';
+import {
+  aplicarVeredito,
+  camposPendentesDeConfirmacao,
+  confirmarDecisao,
+  resolverDecisao,
+} from '@/lib/conversas/decisoes';
+import { canManage, isAdmin, requireManager, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
+import { logRevisaoIa } from '@/lib/gestao/log-revisao-ia';
 import { emitToRoom } from '@/lib/realtime-emit';
-import { montarSnapshotSla } from '@/lib/sla-snapshot';
+import { montarSnapshotCorrecao, montarSnapshotSla } from '@/lib/sla-snapshot';
 import { evaluateResponseBreach } from '@/lib/sla-utils';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { NotificationModel } from '@/models/Notification';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
+import { ServiceTypeModel } from '@/models/ServiceType';
 import { SlaEscalationModel } from '@/models/SlaEscalation';
 import { UserModel } from '@/models/user.model';
 import {
@@ -25,10 +33,16 @@ import {
   type UpdateTicketCatalogInput,
   UpdateTicketCatalogSchema,
 } from '@/shared/chamados/assignment.schemas';
-import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
+import {
+  direcaoDaPrioridade,
+  FINAL_PRIORITY_LABELS,
+  toAttendanceNature,
+} from '@/shared/chamados/chamado.constants';
 import {
   type ClassificarChamadoInput,
   ClassificarChamadoSchema,
+  type CorrigirServicoInput,
+  CorrigirServicoSchema,
   type UpdateTicketPriorityInput,
   UpdateTicketPrioritySchema,
 } from '@/shared/chamados/chamado.schemas';
@@ -38,9 +52,16 @@ import {
   type ReopenTicketInput,
   ReopenTicketSchema,
 } from '@/shared/chamados/reopen-ticket.schemas';
+import { tipoServicoDoNomeDoTipo } from '@/shared/chamados/tipo-servico';
+import { DECISAO_CAMPO_LABELS, type DecisaoCampo } from '@/shared/conversas/conversa.constants';
+import {
+  type ConfirmarDecisoesIaInput,
+  confirmarDecisoesIaSchema,
+} from '@/shared/conversas/conversa.schemas';
 
 export type ClassificarResult = { ok: true } | { ok: false; error: string };
 export type UpdateTicketPriorityResult = { ok: true } | { ok: false; error: string };
+export type CorrigirServicoResult = { ok: true } | { ok: false; error: string };
 export type UpdateTicketCatalogResult = { ok: true } | { ok: false; error: string };
 export type CloseTicketResult = { ok: true } | { ok: false; error: string };
 export type RejectTicketResult = { ok: true } | { ok: false; error: string };
@@ -183,15 +204,32 @@ export async function classificarChamadoAction(
   }
 }
 
+/** Duas tentativas antes de registrar a falha (AC-21) — sem transação, é a rede de segurança possível. */
+async function comNovaTentativa(fn: () => Promise<void>, onFalha: (erro: string) => void) {
+  try {
+    await fn();
+  } catch {
+    try {
+      await fn();
+    } catch (err2) {
+      onFalha(err2 instanceof Error ? err2.message : String(err2));
+    }
+  }
+}
+
 /**
- * Corrige a prioridade final de um chamado já `validado` (spec 0007, AC-11),
- * decidido pela IA ou classificado manualmente. A janela é estreita de
- * propósito (`validado`, sem técnico atribuído, fatia 17 abre a janela
- * completa): a checagem e a gravação acontecem numa única operação atômica
- * no banco, para uma atribuição concorrente nunca deixar a correção aplicar
- * fora da janela (AC-12). O SLA é recalculado a partir do `classifiedAt` já
- * gravado, nunca do instante da correção, pela mesma `montarSnapshotSla` que
- * a classificação usa — o prazo contratual não se move pela correção em si.
+ * Corrige a prioridade final de um chamado `validado` ou `em atendimento`
+ * (spec 0007, AC-11; janela alargada e regra de SLA assimétrica pela spec
+ * 0009, AC-7 a AC-10). A checagem e a gravação acontecem numa única operação
+ * atômica no banco, cujo filtro repete os valores lidos (status, prioridade
+ * atual, técnico atribuído e prazo de resolução): qualquer mudança no meio
+ * (uma atribuição, outra correção, o monitor de SLA) faz a operação não
+ * casar, e a correção é recusada pedindo para tentar de novo (AC-7). Depois
+ * do update, cada passo (`correcao_gestao`, entrada neutra, `resolverDecisao`,
+ * limpeza de `SlaEscalation`, o aviso ao técnico) tem o seu `try`: a falha de
+ * um vira log e nunca desfaz a correção nem impede os seguintes (AC-21). O
+ * aviso ao técnico é `ticket:corrected`, sem motivo (AC-14); `ticket:classified`
+ * ao solicitante continua como está.
  */
 export async function updateTicketPriorityAction(
   raw: UpdateTicketPriorityInput,
@@ -202,146 +240,224 @@ export async function updateTicketPriorityAction(
     if (!parsed.success) {
       const first = parsed.error.flatten().fieldErrors;
       const msg =
-        first.finalPriority?.[0] ?? first.chamadoId?.[0] ?? 'Dados inválidos. Verifique os campos.';
+        first.finalPriority?.[0] ??
+        first.motivo?.[0] ??
+        first.chamadoId?.[0] ??
+        'Dados inválidos. Verifique os campos.';
       return { ok: false, error: msg };
     }
 
-    const { chamadoId, finalPriority, classificationNotes } = parsed.data;
+    const { chamadoId, finalPriority, motivo } = parsed.data;
     await dbConnect();
 
-    // `classifiedAt` nunca muda depois de gravado: lê antes, com segurança,
-    // porque nenhuma correção concorrente altera esse valor (é o âncora do
-    // recálculo, não o alvo da checagem atômica abaixo).
     const atual = await ChamadoModel.findById(chamadoId);
     if (!atual) return { ok: false, error: 'Chamado não encontrado.' };
-    if (!atual.classifiedAt) {
+    if (!ACTIVE_STATUSES.includes(atual.status as (typeof ACTIVE_STATUSES)[number])) {
+      logRevisaoIa({
+        chamadoId,
+        campo: 'prioridade',
+        operacao: 'corrigir_prioridade',
+        resultado: 'recusada',
+      });
+      return {
+        ok: false,
+        error: `Correção de prioridade permitida apenas para chamados "Validado" ou "Em atendimento". Status atual: ${atual.status}.`,
+      };
+    }
+    if (!atual.classifiedAt || !atual.finalPriority) {
       return { ok: false, error: 'Chamado ainda não foi classificado.' };
     }
+    const direcao = direcaoDaPrioridade(
+      atual.finalPriority as UpdateTicketPriorityInput['finalPriority'],
+      finalPriority,
+    );
+    if (!direcao) {
+      return { ok: false, error: 'A prioridade informada já é a atual.' };
+    }
 
-    const snapshot = await montarSnapshotSla(finalPriority, atual.classifiedAt);
-    if (!snapshot.ok) return { ok: false, error: snapshot.motivo };
-    const { snapshot: sla } = snapshot;
+    const assignedToUserId = atual.assignedToUserId ?? null;
+    if (direcao === 'desce' && assignedToUserId && !isAdmin(session.role)) {
+      logRevisaoIa({
+        chamadoId,
+        campo: 'prioridade',
+        operacao: 'corrigir_prioridade',
+        direcao,
+        resultado: 'recusada',
+      });
+      return {
+        ok: false,
+        error: 'Só o Admin pode baixar a prioridade de um chamado que já tem técnico atribuído.',
+      };
+    }
 
-    const now = new Date();
+    const resolutionDueAtAtual = atual.sla?.resolutionDueAt ?? null;
+    const resultadoSnapshot = await montarSnapshotCorrecao({
+      novaPrioridade: finalPriority,
+      direcao,
+      now: new Date(),
+      classifiedAt: atual.classifiedAt,
+      comTecnico: Boolean(assignedToUserId),
+      atual: {
+        resolutionDueAt: resolutionDueAtAtual,
+        responseDueAt: atual.sla?.responseDueAt ?? null,
+        responseStartedAt: atual.sla?.responseStartedAt ?? null,
+        resolutionTargetMinutes: atual.sla?.resolutionTargetMinutes ?? null,
+      },
+    });
+    if (!resultadoSnapshot.ok) return { ok: false, error: resultadoSnapshot.motivo };
+    const { sla: patch, escalacoesApagar } = resultadoSnapshot;
+
     const userId = new Types.ObjectId(session.userId);
-    // A observação nova é somada às notas no próprio banco, não às lidas
-    // acima: duas correções concorrentes nunca apagam a observação uma da
-    // outra (AC-11). `$literal` porque o texto vem do usuário e poderia
-    // começar com `$`, que o pipeline leria como caminho de campo.
-    const notaCorrecao = classificationNotes ? `Correção: ${classificationNotes}` : null;
-    const notasNoBanco = notaCorrecao
-      ? {
-          classificationNotes: {
-            $cond: [
-              { $gt: [{ $strLenCP: { $ifNull: ['$classificationNotes', ''] } }, 0] },
-              { $concat: ['$classificationNotes', { $literal: `\n\n${notaCorrecao}` }] },
-              { $literal: notaCorrecao },
-            ],
-          },
-        }
-      : {};
+    const setFields: Record<string, unknown> = {
+      finalPriority,
+      'sla.priority': patch.priority,
+      'sla.resolutionDueAt': patch.resolutionDueAt,
+      'sla.responseDueAt': patch.responseDueAt,
+    };
+    if (patch.resolutionBreachedAt !== undefined) {
+      setFields['sla.resolutionBreachedAt'] = patch.resolutionBreachedAt;
+    }
+    if (patch.responseBreachedAt !== undefined) {
+      setFields['sla.responseBreachedAt'] = patch.responseBreachedAt;
+    }
+    if (patch.resolutionTargetMinutes !== undefined) {
+      setFields['sla.resolutionTargetMinutes'] = patch.resolutionTargetMinutes;
+      setFields['sla.responseTargetMinutes'] = patch.responseTargetMinutes;
+      setFields['sla.businessHoursOnly'] = patch.businessHoursOnly;
+      setFields['sla.configVersion'] = patch.configVersion;
+    }
 
-    // Checagem e gravação numa única operação atômica (AC-12): concorrência
-    // com uma atribuição de técnico nunca deixa a correção aplicar fora da
-    // janela, e trocar para a mesma prioridade já vigente é recusado aqui.
+    // Passo 1 (único que decide se a correção vale): o filtro repete tudo o
+    // que foi lido — status, prioridade, técnico e o prazo de resolução — sem
+    // pré-condição solta. Qualquer um mudando no meio, a operação não casa.
     const doc = await ChamadoModel.findOneAndUpdate(
       {
         _id: chamadoId,
-        status: 'validado',
-        assignedToUserId: null,
-        finalPriority: { $ne: finalPriority },
+        status: { $in: ACTIVE_STATUSES },
+        finalPriority: atual.finalPriority,
+        assignedToUserId,
+        'sla.resolutionDueAt': resolutionDueAtAtual,
       },
-      [
-        {
-          $set: {
-            finalPriority: { $literal: finalPriority },
-            ...notasNoBanco,
-            sla: {
-              $mergeObjects: [
-                { $ifNull: ['$sla', {}] },
-                {
-                  $literal: {
-                    priority: sla.priority,
-                    responseTargetMinutes: sla.responseTargetMinutes,
-                    resolutionTargetMinutes: sla.resolutionTargetMinutes,
-                    businessHoursOnly: sla.businessHoursOnly,
-                    responseDueAt: sla.responseDueAt,
-                    resolutionDueAt: sla.resolutionDueAt,
-                    computedAt: sla.computedAt,
-                    configVersion: sla.configVersion,
-                    // Os marcadores de breach valiam para os prazos antigos.
-                    // Zerados, o monitor reavalia contra os prazos novos no
-                    // próximo ciclo; sem isso, um chamado dentro do prazo
-                    // corrigido contaria como fora do SLA no IMR e na glosa.
-                    responseBreachedAt: null,
-                    resolutionBreachedAt: null,
-                  },
-                },
-              ],
-            },
-          },
-        },
-      ],
-      { returnDocument: 'after', updatePipeline: true },
+      { $set: setFields },
+      { returnDocument: 'after' },
     );
 
     if (!doc) {
-      const existente = await ChamadoModel.findById(chamadoId);
-      if (!existente) return { ok: false, error: 'Chamado não encontrado.' };
-      if (existente.status !== 'validado') {
-        return {
-          ok: false,
-          error: `Correção de prioridade permitida apenas para chamados "Validado". Status atual: ${existente.status}.`,
-        };
-      }
-      if (existente.assignedToUserId) {
-        return {
-          ok: false,
-          error: 'Não é mais possível corrigir a prioridade: o chamado já tem técnico atribuído.',
-        };
-      }
-      if (existente.finalPriority === finalPriority) {
-        return { ok: false, error: 'A prioridade informada já é a atual.' };
-      }
-      return { ok: false, error: 'Não foi possível corrigir a prioridade. Tente novamente.' };
+      logRevisaoIa({
+        chamadoId,
+        campo: 'prioridade',
+        operacao: 'corrigir_prioridade',
+        direcao,
+        resultado: 'recusada',
+      });
+      return {
+        ok: false,
+        error:
+          'Os dados do chamado mudaram desde a última leitura. Atualize a página e tente de novo.',
+      };
     }
 
-    // Mesma razão dos marcadores: a deduplicação do monitor é por (chamado,
-    // tipo), então uma escalação dos prazos antigos silenciaria o aviso dos novos.
-    await SlaEscalationModel.deleteMany({ chamadoId: doc._id });
+    let resultadoLog: Parameters<typeof logRevisaoIa>[0]['resultado'] = 'ok';
+    const registrarFalha = (passo: string, erro: string) => {
+      if (resultadoLog === 'ok') resultadoLog = `parcial:${passo}`;
+      console.error(
+        '[gestao]',
+        JSON.stringify({ chamadoId, acao: 'corrigir_prioridade', passo, erro }),
+      );
+    };
 
-    await ChamadoHistoryModel.create({
-      chamadoId: doc._id,
-      userId,
-      action: 'classificacao',
-      observacoes:
-        `Prioridade corrigida para ${finalPriority}.` +
-        (classificationNotes ? ` Observações: ${classificationNotes}` : ''),
-    });
+    // Passo 2: entrada só da gestão, com o motivo (AC-13).
+    try {
+      await ChamadoHistoryModel.create({
+        chamadoId: doc._id,
+        userId,
+        action: 'correcao_gestao',
+        observacoes: `${DECISAO_CAMPO_LABELS.prioridade}: ${FINAL_PRIORITY_LABELS[atual.finalPriority as keyof typeof FINAL_PRIORITY_LABELS]} → ${FINAL_PRIORITY_LABELS[finalPriority]}. Motivo: ${motivo}`,
+      });
+    } catch (err) {
+      registrarFalha('correcao_gestao', err instanceof Error ? err.message : String(err));
+    }
 
-    // Corrige a DecisaoIa de prioridade, quando existir (mesmo caminho que já
-    // existe para vereditos da gestão). Chamado do formulário, ou sem decisão
-    // de prioridade, não tem — `nao_encontrada` é normal, não um erro.
-    const decisao = await resolverDecisao({
-      viewer: { userId: session.userId, role: session.role },
+    // Passo 3: entrada neutra, visível a todos, sem motivo nem valor antigo.
+    try {
+      await ChamadoHistoryModel.create({
+        chamadoId: doc._id,
+        userId,
+        action: 'classificacao',
+        observacoes: `Prioridade alterada para ${FINAL_PRIORITY_LABELS[finalPriority]} pela gestão.`,
+      });
+    } catch (err) {
+      registrarFalha('entrada_neutra', err instanceof Error ? err.message : String(err));
+    }
+
+    // Passo 4: corrige a DecisaoIa de prioridade, quando existir. Chamado do
+    // formulário, ou sem decisão de prioridade, não tem — `nao_encontrada` é
+    // normal, não uma falha do passo.
+    try {
+      const decisao = await resolverDecisao({
+        viewer: { userId: session.userId, role: session.role },
+        chamadoId,
+        campo: 'prioridade',
+        valor: { prioridade: finalPriority },
+        origem: 'gestao',
+        motivo,
+      });
+      if (!decisao.ok && decisao.reason !== 'nao_encontrada') {
+        registrarFalha('decisao', decisao.reason);
+      }
+    } catch (err) {
+      registrarFalha('decisao', err instanceof Error ? err.message : String(err));
+    }
+
+    // Passo 5: limpeza das SlaEscalation que a nova regra tornou obsoletas.
+    if (escalacoesApagar.length > 0) {
+      await comNovaTentativa(
+        () =>
+          SlaEscalationModel.deleteMany({
+            chamadoId: doc._id,
+            type: { $in: escalacoesApagar },
+          }).then(() => undefined),
+        (erro) => registrarFalha('escalacoes', erro),
+      );
+    }
+
+    const gestorUser = await UserModel.findById(session.userId).select('name').lean();
+
+    // Passo 6: avisa o técnico atribuído, sem motivo (AC-14). Sem técnico, não
+    // há ninguém para avisar de uma correção de prioridade.
+    if (doc.assignedToUserId) {
+      try {
+        await notificarCorrecaoAoTecnico({
+          chamadoId: String(doc._id),
+          ticketNumber: doc.ticket_number,
+          titulo: doc.titulo,
+          tecnicoId: String(doc.assignedToUserId),
+          campo: 'prioridade',
+          finalPriority,
+          correctedBy: { id: session.userId, name: gestorUser?.name ?? undefined },
+          at: new Date(),
+        });
+      } catch (err) {
+        registrarFalha('aviso', err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    logRevisaoIa({
       chamadoId,
       campo: 'prioridade',
-      valor: { prioridade: finalPriority },
-      origem: 'gestao',
-      motivo: classificationNotes,
+      operacao: 'corrigir_prioridade',
+      direcao,
+      resultado: resultadoLog,
     });
-    if (!decisao.ok && decisao.reason !== 'nao_encontrada') {
-      console.error('updateTicketPriorityAction: resolverDecisao falhou:', decisao.reason);
-    }
 
-    const classifiedByUser = await UserModel.findById(session.userId).select('name').lean();
+    // `ticket:classified` ao solicitante, como sempre (fire-and-forget).
     await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:classified', {
       ticketId: String(doc._id),
       ticketNumber: doc.ticket_number,
       title: doc.titulo,
-      classifiedBy: { id: session.userId, name: classifiedByUser?.name ?? undefined },
+      classifiedBy: { id: session.userId, name: gestorUser?.name ?? undefined },
       finalPriority,
-      at: now.toISOString(),
+      at: new Date().toISOString(),
     });
 
     revalidatePath('/gestao');
@@ -353,6 +469,321 @@ export async function updateTicketPriorityAction(
     // interna do Mongo ou do Mongoose.
     console.error('updateTicketPriorityAction:', e);
     return { ok: false, error: 'Erro ao corrigir prioridade. Tente novamente.' };
+  }
+}
+
+/**
+ * Corrige o serviço catalogado de um chamado `validado` ou `em atendimento`
+ * que já tem serviço (spec 0009, AC-11): troca `catalogServiceId`, `subtypeId`
+ * e `tipoServico` — nunca prioridade nem SLA. O técnico atual fica quando tem
+ * a especialidade do serviço novo; quando não tem, exige `novoTecnicoId` (só
+ * em `em atendimento`) e troca o técnico na mesma gravação. A checagem e a
+ * gravação são uma única operação atômica, cujo filtro repete o serviço e o
+ * técnico lidos (AC-21); os passos seguintes (`correcao_gestao`, entrada
+ * neutra, `resolverDecisao`, a troca de técnico, o aviso) cada um com seu
+ * `try`, nunca desfazendo a correção. Trocou o técnico: avisa só o novo, pelo
+ * mesmo caminho de `reassignTicketAction` (`notificarAtribuicao`, sem avisar o
+ * solicitante, AC-15). Manteve, e há técnico: `ticket:corrected` (AC-14).
+ */
+export async function corrigirServicoAction(
+  raw: CorrigirServicoInput,
+): Promise<CorrigirServicoResult> {
+  try {
+    const session = await requireManager();
+    const parsed = CorrigirServicoSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.flatten().fieldErrors;
+      const msg =
+        first.catalogServiceId?.[0] ??
+        first.motivo?.[0] ??
+        first.chamadoId?.[0] ??
+        'Dados inválidos. Verifique os campos.';
+      return { ok: false, error: msg };
+    }
+
+    const { chamadoId, catalogServiceId, novoTecnicoId, motivo } = parsed.data;
+    await dbConnect();
+
+    const atual = await ChamadoModel.findById(chamadoId);
+    if (!atual) return { ok: false, error: 'Chamado não encontrado.' };
+    if (!ACTIVE_STATUSES.includes(atual.status as (typeof ACTIVE_STATUSES)[number])) {
+      logRevisaoIa({
+        chamadoId,
+        campo: 'servico',
+        operacao: 'corrigir_servico',
+        resultado: 'recusada',
+      });
+      return {
+        ok: false,
+        error: `Correção de serviço permitida apenas para chamados "Validado" ou "Em atendimento". Status atual: ${atual.status}.`,
+      };
+    }
+    if (!atual.catalogServiceId) {
+      return {
+        ok: false,
+        error: 'Chamado ainda não tem serviço catalogado. Classifique o chamado primeiro.',
+      };
+    }
+    if (String(atual.catalogServiceId) === catalogServiceId) {
+      return { ok: false, error: 'O serviço informado já é o atual.' };
+    }
+
+    const currentAssignedId = atual.assignedToUserId ? String(atual.assignedToUserId) : null;
+    if (novoTecnicoId && !currentAssignedId) {
+      return {
+        ok: false,
+        error: 'Só é possível escolher um novo técnico em chamados em atendimento.',
+      };
+    }
+
+    const novoServico = await ServiceCatalogModel.findById(catalogServiceId)
+      .select('name subtypeId typeId')
+      .lean();
+    if (!novoServico) return { ok: false, error: 'Serviço do catálogo não encontrado.' };
+    if (!novoServico.subtypeId) {
+      return { ok: false, error: 'Serviço do catálogo não possui subtipo definido.' };
+    }
+    const novoSubtypeId = String(novoServico.subtypeId);
+
+    const novoServiceType = novoServico.typeId
+      ? await ServiceTypeModel.findById(novoServico.typeId).select('name').lean()
+      : null;
+    const tipoServico = novoServiceType ? tipoServicoDoNomeDoTipo(novoServiceType.name) : null;
+    if (!tipoServico) {
+      logRevisaoIa({
+        chamadoId,
+        campo: 'servico',
+        operacao: 'corrigir_servico',
+        resultado: 'recusada',
+      });
+      return {
+        ok: false,
+        error: 'Não foi possível determinar o tipo do serviço novo. Contate o suporte.',
+      };
+    }
+
+    // O técnico atual fica se tiver a especialidade; sem ela, precisa de um novo.
+    let tecnicoFinalId: Types.ObjectId | null = atual.assignedToUserId ?? null;
+    let tecnicoTrocou = false;
+    let novoTecnicoNome: string | null = null;
+    let tecnicoAnteriorNome: string | null = null;
+
+    if (currentAssignedId) {
+      const tecnicoAtual = await UserModel.findById(currentAssignedId)
+        .select('name specialties')
+        .lean();
+      const tecnicoAtualTemEspecialidade = Boolean(
+        tecnicoAtual?.specialties?.some((s) => String(s) === novoSubtypeId),
+      );
+
+      if (!tecnicoAtualTemEspecialidade) {
+        if (!novoTecnicoId) {
+          return {
+            ok: false,
+            error:
+              'O técnico atual não tem a especialidade deste serviço. Escolha um novo técnico.',
+          };
+        }
+        if (novoTecnicoId === currentAssignedId) {
+          return { ok: false, error: 'Escolha um técnico diferente do atual.' };
+        }
+        const candidato = await UserModel.findById(novoTecnicoId)
+          .select('name role isActive specialties maxAssignedTickets')
+          .lean();
+        if (!candidato || candidato.role !== 'Técnico' || !candidato.isActive) {
+          return { ok: false, error: 'Técnico selecionado inválido.' };
+        }
+        const candidatoTemEspecialidade = candidato.specialties?.some(
+          (s) => String(s) === novoSubtypeId,
+        );
+        if (!candidatoTemEspecialidade) {
+          return {
+            ok: false,
+            error: 'Técnico selecionado não possui a especialidade necessária para este serviço.',
+          };
+        }
+        const carga = await ChamadoModel.countDocuments({
+          assignedToUserId: candidato._id,
+          status: { $in: ACTIVE_STATUSES },
+        });
+        const maxAssignedTickets = candidato.maxAssignedTickets ?? 5;
+        if (carga >= maxAssignedTickets) {
+          return { ok: false, error: 'Técnico selecionado está sobrecarregado.' };
+        }
+
+        tecnicoFinalId = candidato._id;
+        tecnicoTrocou = true;
+        novoTecnicoNome = candidato.name;
+        tecnicoAnteriorNome = tecnicoAtual?.name ?? 'Técnico anterior';
+      }
+    }
+
+    const servicoAnterior = await ServiceCatalogModel.findById(atual.catalogServiceId)
+      .select('name')
+      .lean();
+
+    const userId = new Types.ObjectId(session.userId);
+    const setFields: Record<string, unknown> = {
+      catalogServiceId: new Types.ObjectId(catalogServiceId),
+      subtypeId: new Types.ObjectId(novoSubtypeId),
+      tipoServico,
+    };
+    if (tecnicoTrocou && tecnicoFinalId) {
+      setFields.assignedToUserId = tecnicoFinalId;
+      setFields.reassignedAt = new Date();
+      setFields.reassignedByUserId = userId;
+      setFields.reassignmentNotes = '';
+    }
+
+    // Passo 1 (único que decide se a correção vale): o filtro repete o
+    // serviço e o técnico lidos — qualquer um mudando no meio, não casa.
+    const doc = await ChamadoModel.findOneAndUpdate(
+      {
+        _id: chamadoId,
+        status: { $in: ACTIVE_STATUSES },
+        catalogServiceId: atual.catalogServiceId,
+        assignedToUserId: atual.assignedToUserId ?? null,
+      },
+      { $set: setFields },
+      { returnDocument: 'after' },
+    );
+
+    if (!doc) {
+      logRevisaoIa({
+        chamadoId,
+        campo: 'servico',
+        operacao: 'corrigir_servico',
+        resultado: 'recusada',
+      });
+      return {
+        ok: false,
+        error:
+          'Os dados do chamado mudaram desde a última leitura. Atualize a página e tente de novo.',
+      };
+    }
+
+    let resultadoLog: Parameters<typeof logRevisaoIa>[0]['resultado'] = 'ok';
+    const registrarFalha = (passo: string, erro: string) => {
+      if (resultadoLog === 'ok') resultadoLog = `parcial:${passo}`;
+      console.error(
+        '[gestao]',
+        JSON.stringify({ chamadoId, acao: 'corrigir_servico', passo, erro }),
+      );
+    };
+
+    // Passo 2: entrada só da gestão, com o motivo (AC-13).
+    try {
+      await ChamadoHistoryModel.create({
+        chamadoId: doc._id,
+        userId,
+        action: 'correcao_gestao',
+        observacoes: `${DECISAO_CAMPO_LABELS.servico}: ${servicoAnterior?.name ?? 'serviço anterior'} → ${novoServico.name}. Motivo: ${motivo || 'não informado'}`,
+      });
+    } catch (err) {
+      registrarFalha('correcao_gestao', err instanceof Error ? err.message : String(err));
+    }
+
+    // Passo 3: entrada neutra, visível a todos, sem motivo nem valor antigo.
+    try {
+      await ChamadoHistoryModel.create({
+        chamadoId: doc._id,
+        userId,
+        action: 'classificacao',
+        observacoes: `Serviço alterado para ${novoServico.name} pela gestão.`,
+      });
+    } catch (err) {
+      registrarFalha('entrada_neutra', err instanceof Error ? err.message : String(err));
+    }
+
+    // Passo 4: corrige a DecisaoIa de serviço, quando existir.
+    try {
+      const decisao = await resolverDecisao({
+        viewer: { userId: session.userId, role: session.role },
+        chamadoId,
+        campo: 'servico',
+        valor: { catalogServiceId, subtypeId: novoSubtypeId, tipoServico },
+        origem: 'gestao',
+        motivo: motivo || undefined,
+      });
+      if (!decisao.ok && decisao.reason !== 'nao_encontrada') {
+        registrarFalha('decisao', decisao.reason);
+      }
+    } catch (err) {
+      registrarFalha('decisao', err instanceof Error ? err.message : String(err));
+    }
+
+    // Passo 5: troca de técnico, quando aplicável — história própria (sem
+    // "Observações", AC-13) e o veredito do campo técnico.
+    if (tecnicoTrocou && tecnicoFinalId) {
+      try {
+        await ChamadoHistoryModel.create({
+          chamadoId: doc._id,
+          userId,
+          action: 'reatribuicao_tecnico',
+          statusAnterior: doc.status,
+          statusNovo: doc.status,
+          observacoes: `Reatribuído de ${tecnicoAnteriorNome} para ${novoTecnicoNome} (correção de serviço).`,
+        });
+      } catch (err) {
+        registrarFalha('reatribuicao_historico', err instanceof Error ? err.message : String(err));
+      }
+      try {
+        await aplicarVeredito({
+          viewer: { userId: session.userId, role: session.role },
+          chamadoId,
+          vereditos: [{ campo: 'tecnico', valor: { tecnicoId: String(tecnicoFinalId) } }],
+          motivo: motivo || undefined,
+        });
+      } catch (err) {
+        registrarFalha('reatribuicao_veredito', err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    // Passo 6: avisa o técnico, sem motivo. Trocou: o técnico novo, pelo
+    // mesmo caminho da reatribuição (AC-15), sem avisar o solicitante. Não
+    // trocou e há técnico: `ticket:corrected` (AC-14).
+    try {
+      const gestorUser = await UserModel.findById(session.userId).select('name').lean();
+      if (tecnicoTrocou && tecnicoFinalId) {
+        await notificarAtribuicao({
+          chamadoId: String(doc._id),
+          ticketNumber: doc.ticket_number,
+          titulo: doc.titulo,
+          solicitanteId: String(doc.solicitanteId),
+          tecnico: { id: String(tecnicoFinalId), name: novoTecnicoNome ?? 'Técnico' },
+          assignedBy: { id: session.userId, name: gestorUser?.name ?? undefined },
+          at: new Date(),
+          avisarSolicitante: false,
+        });
+      } else if (doc.assignedToUserId) {
+        await notificarCorrecaoAoTecnico({
+          chamadoId: String(doc._id),
+          ticketNumber: doc.ticket_number,
+          titulo: doc.titulo,
+          tecnicoId: String(doc.assignedToUserId),
+          campo: 'servico',
+          correctedBy: { id: session.userId, name: gestorUser?.name ?? undefined },
+          at: new Date(),
+        });
+      }
+    } catch (err) {
+      registrarFalha('aviso', err instanceof Error ? err.message : String(err));
+    }
+
+    logRevisaoIa({
+      chamadoId,
+      campo: 'servico',
+      operacao: 'corrigir_servico',
+      resultado: resultadoLog,
+    });
+
+    revalidatePath('/gestao');
+    revalidatePath(`/meus-chamados/${chamadoId}`);
+
+    return { ok: true };
+  } catch (e) {
+    console.error('corrigirServicoAction:', e);
+    return { ok: false, error: 'Erro ao corrigir serviço. Tente novamente.' };
   }
 }
 
@@ -920,7 +1351,12 @@ export async function assignTicketAction(raw: AssignTicketInput): Promise<Assign
 
 /**
  * Reatribui um chamado (status "em atendimento") para outro técnico elegível.
- * Apenas Admin/Preposto. Mantém status "em atendimento". Registra histórico.
+ * Apenas Admin/Preposto. Mantém status "em atendimento". O filtro atômico
+ * repete o `catalogServiceId` lido (spec 0009, AC-15). Grava `correcao_gestao`
+ * com o motivo e avisa só o técnico novo por `notificarAtribuicao`
+ * (`avisarSolicitante: false`); falha do aviso vira log e não desfaz a
+ * reatribuição. O texto visível de `reatribuicao_tecnico` não leva mais
+ * "Observações" (o motivo já está em `correcao_gestao`).
  */
 export async function reassignTicketAction(
   raw: ReassignTicketInput,
@@ -947,6 +1383,12 @@ export async function reassignTicketAction(
     }
 
     if (chamado.status !== 'em atendimento') {
+      logRevisaoIa({
+        chamadoId: ticketId,
+        campo: 'tecnico',
+        operacao: 'reatribuir',
+        resultado: 'recusada',
+      });
       return {
         ok: false,
         error: 'Somente chamados com status "Em atendimento" podem ser reatribuídos.',
@@ -1031,13 +1473,21 @@ export async function reassignTicketAction(
       ...slaUpdate,
     };
 
+    // Passo 1 (único que decide se a reatribuição vale): o filtro repete
+    // status e o serviço lido (spec 0009, AC-15).
     const updated = await ChamadoModel.findOneAndUpdate(
-      { _id: ticketId, status: 'em atendimento' },
+      { _id: ticketId, status: 'em atendimento', catalogServiceId: chamado.catalogServiceId },
       { $set: updatePayload },
       { new: true },
     );
 
     if (!updated) {
+      logRevisaoIa({
+        chamadoId: ticketId,
+        campo: 'tecnico',
+        operacao: 'reatribuir',
+        resultado: 'recusada',
+      });
       return {
         ok: false,
         error: 'Não foi possível reatribuir. O chamado pode ter mudado de status.',
@@ -1046,27 +1496,71 @@ export async function reassignTicketAction(
 
     const previousTech = await UserModel.findById(currentAssignedId).select('name').lean();
     const previousName = previousTech?.name ?? 'Técnico anterior';
-    const obsParts = [
-      `Reatribuído de ${previousName} para ${newTech.name}.`,
-      `Reatribuído por sessão (Admin/Preposto).`,
-    ];
-    if ((notes ?? '').trim()) obsParts.push(`Observações: ${(notes ?? '').trim()}`);
 
+    let resultadoLog: Parameters<typeof logRevisaoIa>[0]['resultado'] = 'ok';
+    const registrarFalha = (passo: string, erro: string) => {
+      if (resultadoLog === 'ok') resultadoLog = `parcial:${passo}`;
+      console.error(
+        '[gestao]',
+        JSON.stringify({ chamadoId: ticketId, acao: 'reatribuir', passo, erro }),
+      );
+    };
+
+    // Passo 2: entrada só da gestão, com o motivo (AC-13).
+    try {
+      await ChamadoHistoryModel.create({
+        chamadoId: updated._id,
+        userId: reassignedByUserId,
+        action: 'correcao_gestao',
+        observacoes: `${DECISAO_CAMPO_LABELS.tecnico}: ${previousName} → ${newTech.name}. Motivo: ${notes}`,
+      });
+    } catch (err) {
+      registrarFalha('correcao_gestao', err instanceof Error ? err.message : String(err));
+    }
+
+    // Passo 3 (existente, intacto): história visível a todos, sem "Observações"
+    // — o motivo já vive em `correcao_gestao` (AC-13).
     await ChamadoHistoryModel.create({
       chamadoId: updated._id,
       userId: reassignedByUserId,
       action: 'reatribuicao_tecnico',
       statusAnterior: 'em atendimento',
       statusNovo: 'em atendimento',
-      observacoes: obsParts.join(' '),
+      observacoes: `Reatribuído de ${previousName} para ${newTech.name}. Reatribuído por sessão (Admin/Preposto).`,
     });
 
-    // Trocar de técnico é uma correção da decisão da IA (spec 0002).
+    // Passo 4 (existente, intacto): trocar de técnico é uma correção da
+    // decisão da IA (spec 0002).
     await aplicarVeredito({
       viewer: { userId: session.userId, role: session.role },
       chamadoId: ticketId,
       vereditos: [{ campo: 'tecnico', valor: { tecnicoId: String(newTech._id) } }],
       motivo: notes,
+    });
+
+    // Passo 5: avisa o técnico novo, sem avisar o solicitante (AC-15). Falha
+    // vira log e não desfaz a reatribuição.
+    try {
+      const gestorUser = await UserModel.findById(session.userId).select('name').lean();
+      await notificarAtribuicao({
+        chamadoId: String(updated._id),
+        ticketNumber: updated.ticket_number,
+        titulo: updated.titulo,
+        solicitanteId: String(updated.solicitanteId),
+        tecnico: { id: String(newTech._id), name: newTech.name },
+        assignedBy: { id: session.userId, name: gestorUser?.name ?? undefined },
+        at: now,
+        avisarSolicitante: false,
+      });
+    } catch (err) {
+      registrarFalha('aviso', err instanceof Error ? err.message : String(err));
+    }
+
+    logRevisaoIa({
+      chamadoId: ticketId,
+      campo: 'tecnico',
+      operacao: 'reatribuir',
+      resultado: resultadoLog,
     });
 
     revalidatePath('/gestao');
@@ -1176,6 +1670,69 @@ export async function rejectTicketAction(raw: RejectTicketInput): Promise<Reject
     return {
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao recusar chamado. Tente novamente.',
+    };
+  }
+}
+
+export type ConfirmarDecisoesIaResultadoCampo = {
+  campo: DecisaoCampo;
+  ok: boolean;
+  error?: string;
+};
+export type ConfirmarDecisoesIaResult =
+  | { ok: true; resultados: ConfirmarDecisoesIaResultadoCampo[] }
+  | { ok: false; error: string };
+
+/**
+ * Confirma que a decisão da IA continua valendo — uma decisão, ou todas as
+ * pendentes do chamado quando `campos` fica de fora (spec 0009, AC-5). Campo
+ * pedido que não está pendente é ignorado, sem erro.
+ */
+export async function confirmarDecisoesIaAction(
+  raw: ConfirmarDecisoesIaInput,
+): Promise<ConfirmarDecisoesIaResult> {
+  try {
+    const session = await requireManager();
+    const parsed = confirmarDecisoesIaSchema.safeParse(raw);
+    if (!parsed.success) {
+      return { ok: false, error: 'Dados inválidos. Verifique os campos.' };
+    }
+
+    const { chamadoId, campos } = parsed.data;
+    await dbConnect();
+
+    const camposPendentes = await camposPendentesDeConfirmacao(chamadoId, campos);
+    if (camposPendentes.length === 0) {
+      logRevisaoIa({ chamadoId, campo: null, operacao: 'confirmar', resultado: 'recusada' });
+      return { ok: false, error: 'Não há decisão pendente de confirmação para este chamado.' };
+    }
+
+    const resultados: ConfirmarDecisoesIaResultadoCampo[] = [];
+    for (const campo of camposPendentes) {
+      const resultado = await confirmarDecisao({
+        viewer: { userId: session.userId, role: session.role },
+        chamadoId,
+        campo,
+      });
+      logRevisaoIa({
+        chamadoId,
+        campo,
+        operacao: 'confirmar',
+        resultado: resultado.ok ? 'ok' : 'recusada',
+      });
+      resultados.push(
+        resultado.ok ? { campo, ok: true } : { campo, ok: false, error: resultado.reason },
+      );
+    }
+
+    revalidatePath('/gestao');
+
+    return { ok: true, resultados };
+  } catch (e) {
+    console.error('confirmarDecisoesIaAction:', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Erro ao confirmar decisão. Tente novamente.',
     };
   }
 }

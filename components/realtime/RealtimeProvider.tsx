@@ -11,6 +11,7 @@ import {
   atribuidoPeloSistema,
   tituloDeAtribuicaoAoTecnico,
   tituloDeChamadoValidado,
+  tituloDeCorrecaoAoTecnico,
 } from '@/shared/chamados/aviso-atribuicao';
 import { PAUSE_REASON_LABELS } from '@/shared/chamados/pause-reason.constants';
 import {
@@ -20,6 +21,7 @@ import {
   type SlaWarningPayload,
   type TicketAssignedPayload,
   type TicketClosedPayload,
+  type TicketCorrectedPayload,
   type TicketExecutionRegisteredPayload,
   type TicketNewPayload,
   type TicketPausedPayload,
@@ -53,6 +55,11 @@ function getExecutionTicketUrl(payload: TicketExecutionRegisteredPayload): strin
 /** Rota do chamado (detalhe) para o Solicitante quando o chamado é encerrado. */
 function getClosedTicketUrl(payload: TicketClosedPayload): string {
   return `/meus-chamados/${payload.ticketId}`;
+}
+
+/** Rota do chamado para o técnico avisado de uma correção (spec 0009, AC-14). */
+function getCorrectedTicketUrl(payload: TicketCorrectedPayload): string {
+  return `/chamados-atribuidos/${payload.ticketId}`;
 }
 
 function emitNotificationEvent() {
@@ -284,6 +291,36 @@ export function RealtimeProvider({
           },
         },
       });
+      emitNotificationEvent();
+    });
+
+    socket.on('ticket:corrected', (payload: TicketCorrectedPayload) => {
+      // Só o técnico que continua com o chamado entra nesta sala (spec 0009, AC-14).
+      playNotificationSound();
+      const tituloChamado = (payload.title ?? '').trim();
+      const corrigidoPor = payload.correctedBy?.name ?? 'Preposto';
+      const url = getCorrectedTicketUrl(payload);
+
+      toast.info(
+        tituloDeCorrecaoAoTecnico(payload.ticketNumber, payload.campo, payload.finalPriority),
+        {
+          description: (
+            <div className="mt-1 flex flex-col gap-0.5 text-left">
+              {tituloChamado && (
+                <p className="line-clamp-2 text-sm font-medium text-foreground">{tituloChamado}</p>
+              )}
+              <p className="text-xs text-muted-foreground">Corrigido por: {corrigidoPor}</p>
+            </div>
+          ),
+          duration: 6000,
+          action: {
+            label: 'Abrir',
+            onClick: () => {
+              routerRef.current.push(url);
+            },
+          },
+        },
+      );
       emitNotificationEvent();
     });
 
