@@ -99,7 +99,10 @@ export const UpdateTicketPrioritySchema = z.object({
     .string()
     .trim()
     .min(10, 'Explique o motivo da correção em pelo menos 10 caracteres')
-    .max(DECISAO_CORRECAO_MOTIVO_MAX, `O motivo passa de ${DECISAO_CORRECAO_MOTIVO_MAX} caracteres`),
+    .max(
+      DECISAO_CORRECAO_MOTIVO_MAX,
+      `O motivo passa de ${DECISAO_CORRECAO_MOTIVO_MAX} caracteres`,
+    ),
 });
 
 export type UpdateTicketPriorityInput = z.infer<typeof UpdateTicketPrioritySchema>;

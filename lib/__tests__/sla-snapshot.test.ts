@@ -48,7 +48,11 @@ const ALVOS_POR_PRIORIDADE: Record<
   BAIXA: { responseTargetMinutes: 240, resolutionTargetMinutes: 2880, businessHoursOnly: false },
   NORMAL: { responseTargetMinutes: 120, resolutionTargetMinutes: 1440, businessHoursOnly: false },
   ALTA: { responseTargetMinutes: 60, resolutionTargetMinutes: 480, businessHoursOnly: false },
-  EMERGENCIAL: { responseTargetMinutes: 15, resolutionTargetMinutes: 120, businessHoursOnly: false },
+  EMERGENCIAL: {
+    responseTargetMinutes: 15,
+    resolutionTargetMinutes: 120,
+    businessHoursOnly: false,
+  },
 };
 
 describe('montarSnapshotSla', () => {
@@ -465,7 +469,13 @@ describe('montarSnapshotCorrecao', () => {
         lean: () =>
           Promise.resolve(
             priority === 'NORMAL'
-              ? { priority, version: 'v1', responseTargetMinutes: 120, resolutionTargetMinutes: 1440, businessHoursOnly: true }
+              ? {
+                  priority,
+                  version: 'v1',
+                  responseTargetMinutes: 120,
+                  resolutionTargetMinutes: 1440,
+                  businessHoursOnly: true,
+                }
               : { priority, version: 'v1', ...ALVOS_POR_PRIORIDADE[priority] },
           ),
       }));

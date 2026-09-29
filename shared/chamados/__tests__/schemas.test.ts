@@ -404,9 +404,9 @@ describe('CorrigirServicoSchema', () => {
 
   it('rejeita chamadoId ou catalogServiceId inválidos', () => {
     expect(CorrigirServicoSchema.safeParse({ ...baseInput, chamadoId: 'x' }).success).toBe(false);
-    expect(
-      CorrigirServicoSchema.safeParse({ ...baseInput, catalogServiceId: 'x' }).success,
-    ).toBe(false);
+    expect(CorrigirServicoSchema.safeParse({ ...baseInput, catalogServiceId: 'x' }).success).toBe(
+      false,
+    );
   });
 
   it('aceita novoTecnicoId como ObjectId válido', () => {

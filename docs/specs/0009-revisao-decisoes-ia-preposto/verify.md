@@ -1,6 +1,6 @@
 # Verify: revisão das decisões da IA pelo Preposto · spec 0009 · updated 2026-09-29
 
-_Passos derivados dos critérios de aceitação da spec 0009. `/check verify` roda estes passos;
+\_Passos derivados dos critérios de aceitação da spec 0009. `/check verify` roda estes passos;
 `/test` trava os duráveis. Cobre o Marco 1 (revisar de ponta a ponta), o Marco 2 (correção de
 prioridade com o atendimento em curso) e o Marco 3 (correção de serviço) de ponta a ponta pelo
 navegador, contra o app rodando de verdade. O achado do `/check verify` do marco 3 (AC-16 sem
@@ -17,7 +17,7 @@ motivo, o técnico novo recebendo o `ticket:assigned` de sempre, o solicitante n
 A troca de técnico pela correção de serviço (a outra metade do AC-14/AC-15) não foi exercitada ao
 vivo nesta rodada, só por teste; fica para o próximo `/check verify` junto com o link do toast
 (`/chamados-atribuidos/[id]`), que não pôde ser confirmado por clique devido à sessão do navegador
-ter trocado de usuário no meio do teste (ver notas nas linhas de AC-14/AC-15 abaixo)._
+ter trocado de usuário no meio do teste (ver notas nas linhas de AC-14/AC-15 abaixo).\_
 
 ## UI / manual
 

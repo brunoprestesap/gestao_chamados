@@ -112,7 +112,8 @@ describe('CorrigirPrioridadeDialog', () => {
     const user = userEvent.setup();
     mockUpdateTicketPriorityAction.mockResolvedValue({
       ok: false,
-      error: 'Os dados do chamado mudaram desde a última leitura. Atualize a página e tente de novo.',
+      error:
+        'Os dados do chamado mudaram desde a última leitura. Atualize a página e tente de novo.',
     });
     const onOpenChange = vi.fn();
     const onSuccess = vi.fn();
@@ -181,9 +182,7 @@ describe('CorrigirPrioridadeDialog', () => {
     const user = userEvent.setup();
     renderDialog({ currentPriority: 'ALTA', hasTechnician: true, isAdmin: true });
 
-    expect(
-      screen.queryByText(/só o Admin pode baixar a prioridade/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/só o Admin pode baixar a prioridade/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox'));
     const normal = await screen.findByRole('option', { name: 'Normal' });

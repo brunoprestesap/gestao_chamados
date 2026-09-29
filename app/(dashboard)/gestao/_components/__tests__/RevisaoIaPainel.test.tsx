@@ -94,7 +94,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
   it('mostra o valor atual de cada campo', async () => {
     vi.stubGlobal('fetch', mockFetchCampos([campoServico(), campoPrioridade(), campoTecnico()]));
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     expect(await screen.findByText('Troca de lâmpada')).toBeInTheDocument();
     expect(screen.getByText('NORMAL')).toBeInTheDocument();
@@ -123,7 +130,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
       ]),
     );
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     expect(await screen.findByText(/92% de confiança/)).toBeInTheDocument();
     expect(screen.getByText(/\(regra\)/)).toBeInTheDocument();
@@ -164,7 +178,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
       ]),
     );
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     // 80% de confiança só existe na linha de prioridade (servico usa 92%),
     // então esse parágrafo identifica a linha sem ambiguidade.
@@ -206,7 +227,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
       ]),
     );
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     await screen.findByText('Troca de lâmpada');
     expect(screen.getAllByRole('button', { name: 'Confirmar' })).toHaveLength(1);
@@ -220,7 +248,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
       resultados: [{ campo: 'servico', ok: true }],
     });
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     await user.click(await screen.findByRole('button', { name: 'Confirmar' }));
 
@@ -241,7 +276,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
       error: 'Este valor já mudou desde a última leitura. Atualize a página e tente de novo.',
     });
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     await user.click(await screen.findByRole('button', { name: 'Confirmar' }));
 
@@ -278,7 +320,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
       ],
     });
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     const botaoTodas = await screen.findByRole('button', { name: /Confirmar todas/ });
     await user.click(botaoTodas);
@@ -294,7 +343,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
   it('divergente mostra o aviso de que o valor mudou', async () => {
     vi.stubGlobal('fetch', mockFetchCampos([campoServico({ divergente: true })]));
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     expect(await screen.findByText(/já não é o que a decisão registra/)).toBeInTheDocument();
   });
@@ -323,7 +379,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
   it('sem podeReatribuirTecnico, não mostra o botão Reatribuir', async () => {
     vi.stubGlobal('fetch', mockFetchCampos([campoServico(), campoPrioridade(), campoTecnico()]));
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     await screen.findByText('Troca de lâmpada');
     expect(screen.queryByRole('button', { name: 'Reatribuir' })).not.toBeInTheDocument();
@@ -353,7 +416,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
   it('sem podeCorrigirPrioridade, não mostra o botão Corrigir', async () => {
     vi.stubGlobal('fetch', mockFetchCampos([campoServico(), campoPrioridade(), campoTecnico()]));
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     await screen.findByText('Troca de lâmpada');
     expect(screen.queryByRole('button', { name: 'Corrigir' })).not.toBeInTheDocument();
@@ -383,7 +453,14 @@ describe('RevisaoIaPainel (spec 0009, AC-4, AC-5)', () => {
   it('sem podeCorrigirServico, não mostra o botão Corrigir na linha do serviço', async () => {
     vi.stubGlobal('fetch', mockFetchCampos([campoServico()]));
 
-    render(<RevisaoIaPainel chamadoId={CHAMADO_ID} podeReatribuirTecnico={false} podeCorrigirPrioridade={false} podeCorrigirServico={false} />);
+    render(
+      <RevisaoIaPainel
+        chamadoId={CHAMADO_ID}
+        podeReatribuirTecnico={false}
+        podeCorrigirPrioridade={false}
+        podeCorrigirServico={false}
+      />,
+    );
 
     await screen.findByText('Troca de lâmpada');
     expect(screen.queryByRole('button', { name: 'Corrigir' })).not.toBeInTheDocument();

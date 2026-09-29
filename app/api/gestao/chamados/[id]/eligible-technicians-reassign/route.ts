@@ -68,9 +68,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     // Especialidades do técnico são subtipos; obtém o subtypeId do serviço
     // (o novo, quando informado — spec 0009, AC-11)
-    const service = await ServiceCatalogModel.findById(catalogServiceId)
-      .select('subtypeId')
-      .lean();
+    const service = await ServiceCatalogModel.findById(catalogServiceId).select('subtypeId').lean();
     if (!service?.subtypeId) {
       return NextResponse.json(
         { error: 'Serviço catalogado do chamado não possui subtipo definido.' },

@@ -156,7 +156,8 @@ export async function montarSnapshotCorrecao(params: {
       if (!novo.ok) return { ok: false, motivo: novo.motivo };
 
       // Prazo já vencido: fica como está, subir nunca reabre um prazo vencido.
-      const resolutionDueAt = Dc.getTime() > now.getTime() ? menorData(Dc, novo.snapshot.resolutionDueAt) : Dc;
+      const resolutionDueAt =
+        Dc.getTime() > now.getTime() ? menorData(Dc, novo.snapshot.resolutionDueAt) : Dc;
       const prazoMoveu = resolutionDueAt.getTime() !== Dc.getTime();
 
       let responseDueAt = atual.responseDueAt ?? novo.snapshot.responseDueAt;

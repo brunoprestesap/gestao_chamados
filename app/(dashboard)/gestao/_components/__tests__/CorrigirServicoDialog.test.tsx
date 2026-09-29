@@ -269,9 +269,7 @@ describe('CorrigirServicoDialog (spec 0009, AC-11)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Corrigir Serviço' }));
 
-    expect(
-      await screen.findByText(/O técnico atual não tem a especialidade/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/O técnico atual não tem a especialidade/)).toBeInTheDocument();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 

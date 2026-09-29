@@ -311,9 +311,7 @@ export function ChamadoDetailSheet({
   // Janela alargada pela spec 0009 (AC-7): validado ou em atendimento, com ou
   // sem técnico — quem trava a descida com técnico é a regra de papel (AC-10).
   const showCorrigirPrioridade =
-    isManager &&
-    (status === 'validado' || status === 'em atendimento') &&
-    !!onCorrigirPrioridade;
+    isManager && (status === 'validado' || status === 'em atendimento') && !!onCorrigirPrioridade;
   // Só troca o serviço de um chamado que já tem um (AC-11); sem serviço, quem
   // resolve isso é a classificação, não a correção.
   const showCorrigirServico =

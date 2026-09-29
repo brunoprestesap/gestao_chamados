@@ -75,9 +75,7 @@ beforeEach(() => {
 
 describe('GET .../eligible-technicians-reassign', () => {
   it('responde 400 com ID de chamado inválido', async () => {
-    const req = new Request(
-      'http://localhost/api/gestao/chamados/x/eligible-technicians-reassign',
-    );
+    const req = new Request('http://localhost/api/gestao/chamados/x/eligible-technicians-reassign');
     const res = await GET(req, makeParams('nao-e-objectid'));
     expect(res.status).toBe(400);
   });

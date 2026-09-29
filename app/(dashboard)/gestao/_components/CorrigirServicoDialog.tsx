@@ -213,12 +213,10 @@ export function CorrigirServicoDialog({ open, onOpenChange, chamado, onSuccess }
         showCloseButton
       >
         <DialogHeader className="pr-8 sm:pr-0">
-          <DialogTitle className="text-base font-semibold sm:text-lg">
-            Corrigir Serviço
-          </DialogTitle>
+          <DialogTitle className="text-base font-semibold sm:text-lg">Corrigir Serviço</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            Vale para chamados validados ou em atendimento que já têm serviço. Prioridade e prazo
-            de SLA não mudam.
+            Vale para chamados validados ou em atendimento que já têm serviço. Prioridade e prazo de
+            SLA não mudam.
           </DialogDescription>
         </DialogHeader>
 

@@ -57,13 +57,10 @@ rodar('updateTicketPriorityAction, contra o Mongo', () => {
       isAdmin: (role?: string) => role === 'Admin',
     }));
     vi.doMock('@/lib/sla-snapshot', async () => {
-      const real =
-        await vi.importActual<typeof import('@/lib/sla-snapshot')>('@/lib/sla-snapshot');
+      const real = await vi.importActual<typeof import('@/lib/sla-snapshot')>('@/lib/sla-snapshot');
       return {
         ...real,
-        montarSnapshotCorrecao: async (
-          ...args: Parameters<typeof real.montarSnapshotCorrecao>
-        ) => {
+        montarSnapshotCorrecao: async (...args: Parameters<typeof real.montarSnapshotCorrecao>) => {
           if (antesDoSnapshot) await antesDoSnapshot();
           return real.montarSnapshotCorrecao(...args);
         },
