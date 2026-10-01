@@ -138,14 +138,29 @@ services:
     command:
       - -c
       - |
+        apk add --no-cache curl > /dev/null 2>&1
+        # O segredo fica num arquivo só do root, fora do `crontab -l`.
+        printf '%s' "$$CRON_SECRET" > /etc/cron-secret
+        chmod 600 /etc/cron-secret
+        # Cada job chama uma rota e grava uma linha no log do container: hora,
+        # rota, resposta e código HTTP (inclusive 401 e falha de conexão).
+        cat > /usr/local/bin/chamar-cron <<'SCRIPT'
+        #!/bin/sh
+        rota="$$1"
+        inicio=$$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        saida=$$(curl -sS --max-time 60 -w ' http=%{http_code}' -X POST -H "x-cron-secret: $$(cat /etc/cron-secret)" "http://next-app:3000/api/cron/$$rota" 2>&1 | tr '\n' ' ')
+        echo "$$inicio $$rota $$saida" >> /proc/1/fd/1
+        SCRIPT
+        chmod 700 /usr/local/bin/chamar-cron
         # Todos os jobs num bloco só: um segundo `| crontab -` apagaria os anteriores.
         printf '%s\n' \
-          "*/30 * * * * curl -sf --max-time 60 -X POST -H 'x-cron-secret: $$CRON_SECRET' http://next-app:3000/api/cron/recurring-tickets >> /proc/1/fd/1 2>&1" \
-          "*/15 * * * * curl -sf --max-time 60 -X POST -H 'x-cron-secret: $$CRON_SECRET' http://next-app:3000/api/cron/encerramento-automatico >> /proc/1/fd/1 2>&1" \
-          "*/15 * * * * curl -sf --max-time 60 -X POST -H 'x-cron-secret: $$CRON_SECRET' http://next-app:3000/api/cron/sla-monitor >> /proc/1/fd/1 2>&1" \
+          '*/30 * * * * /usr/local/bin/chamar-cron recurring-tickets' \
+          '*/15 * * * * /usr/local/bin/chamar-cron encerramento-automatico' \
+          '*/15 * * * * /usr/local/bin/chamar-cron sla-monitor' \
           | crontab -
-        apk add --no-cache curl > /dev/null 2>&1
-        crond -f -l 6
+        # `exec`: o crond vira o PID 1, e `/proc/1/fd/1` passa a ser a saída que o
+        # Docker registra (com o `sh` como PID 1 a linha do job se perdia).
+        exec crond -f -l 6
     environment:
       CRON_SECRET: ${CRON_SECRET}
     depends_on:

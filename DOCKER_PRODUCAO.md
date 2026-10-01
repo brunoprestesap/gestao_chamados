@@ -326,6 +326,20 @@ docker compose build --no-cache     # Forçar rebuild completo
 4. **Erro de TLS/certificado**: usar `LDAP_TLS_REJECT_UNAUTHORIZED=false` para CA interna.
 5. **Endpoint de diagnóstico** (dev): `GET /api/debug-ldap?username=LOGIN` retorna status detalhado do LDAP e MongoDB.
 
+### Jobs do container `cron` (recorrentes, encerramento automático, monitor de SLA)
+
+O container `cron` chama três rotas do `next-app`: `recurring-tickets` a cada 30 min, `encerramento-automatico` e `sla-monitor` a cada 15 min. Cada execução grava uma linha no log do container, com hora (UTC), rota, resposta e código HTTP:
+
+```bash
+sudo docker logs severino-cron-1 --tail 20
+# 2026-10-01T15:15:00Z encerramento-automatico {"encerrados":0,"prazosPreenchidos":0} http=200
+```
+
+- `http=401`: o `CRON_SECRET` do container não bate com o do `next-app`. Depois de trocar o `.env`, recrie os dois com `docker compose up -d next-app cron` (`restart` não relê o `.env`).
+- `http=000` com `curl: (7)`: o `next-app` não está acessível pela rede `sigma`.
+- Sem nenhuma linha por mais de 15 min: o `crond` parou; veja `docker ps` e recrie o container.
+- `crontab -l` dentro do container mostra só as rotas; o segredo fica em `/etc/cron-secret`, legível apenas pelo root.
+
 ### Seed falha com duplicate key
 
 O banco já contém dados. Limpe as collections antes (seção 4) ou insira apenas os registros novos manualmente.
