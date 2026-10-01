@@ -1,17 +1,38 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, ChevronRight, Loader2, Plus, Ticket } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  Loader2,
+  MessagesSquare,
+  Plus,
+  Star,
+  Ticket,
+} from 'lucide-react';
 import Link from 'next/link';
-import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
+import {
+  alertTone,
+  EmptyState,
+  formatNumber,
+  PainelRoot,
+  plural,
+  SectionCard,
+  SectionLink,
+  StatTile,
+  TicketRows,
+  TodayLabel,
+} from '@/app/(dashboard)/dashboard/_components/painel-ui';
 import type { DashboardSolicitanteData } from '@/app/(dashboard)/dashboard/actions';
 import { NewTicketDialog } from '@/app/(dashboard)/meus-chamados/_components/NewTicketDialog';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
 import { PageHeader } from '@/components/dashboard/header';
-import { Badge } from '@/components/ui/badge';
-import { cn, formatDate } from '@/lib/utils';
-import type { ChamadoStatus } from '@/shared/chamados/chamado.constants';
-import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
+import { Stagger, StaggerItem } from '@/components/motion/stagger';
+import { Button } from '@/components/ui/button';
+import { formatDate } from '@/lib/utils';
 
 type Props = {
   data: DashboardSolicitanteData;
@@ -19,191 +40,163 @@ type Props = {
 
 export function DashboardSolicitanteContent({ data }: Props) {
   const timezone = useInstitutionalTimezone();
-  const tzOpt = { timeZone: timezone };
-  return (
-    <div className="space-y-8">
-      <PageHeader title="Painel de Gestão" subtitle="Visao geral dos seus chamados de manutencao" />
+  const router = useRouter();
+  const [novoAberto, setNovoAberto] = useState(false);
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* 1) Chamados em Andamento */}
-        <Link
-          href="/meus-chamados"
-          className="group block rounded-2xl border border-border/50 bg-card shadow-sm transition-all duration-200 hover:shadow-lg hover:shadow-black/[0.04] hover:-translate-y-0.5"
-        >
-          <div className="relative overflow-hidden p-5">
-            <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent opacity-60 transition-opacity group-hover:opacity-100" />
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[13px] font-medium text-muted-foreground">
-                  Chamados em Andamento
-                </p>
-                <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight">
-                  {data.emAndamento}
-                </p>
-                <p className="mt-1.5 text-xs text-muted-foreground/70">
-                  {data.emAndamento === 1
-                    ? '1 chamado em andamento'
-                    : `${data.emAndamento} chamados em andamento`}
-                </p>
-              </div>
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600 transition-transform duration-200 group-hover:scale-105 dark:bg-amber-950/50 dark:text-amber-400">
-                <Loader2 className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-        </Link>
-
-        {/* 2) Avaliacoes Pendentes */}
-        <Link
-          href="/meus-chamados"
-          className="group block rounded-2xl border border-border/50 bg-card shadow-sm transition-all duration-200 hover:shadow-lg hover:shadow-black/[0.04] hover:-translate-y-0.5"
-        >
-          <div className="relative overflow-hidden p-5">
-            <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-orange-400/60 to-transparent opacity-60 transition-opacity group-hover:opacity-100" />
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
-                  <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
-                  Avaliacoes Pendentes
-                </p>
-                <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-orange-700 dark:text-orange-300">
-                  {data.avaliacoesPendentes}
-                </p>
-                <p className="mt-1.5 text-xs text-muted-foreground/70">
-                  {data.avaliacoesPendentes === 1
-                    ? '1 chamado aguarda sua avaliacao'
-                    : `${data.avaliacoesPendentes} chamados aguardam sua avaliacao`}
-                </p>
-              </div>
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600 transition-transform duration-200 group-hover:scale-105 dark:bg-orange-950/50 dark:text-orange-400">
-                <AlertCircle className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-        </Link>
-
-        {/* 3) Chamados Encerrados */}
-        <Link
-          href="/meus-chamados"
-          className="group block rounded-2xl border border-border/50 bg-card shadow-sm transition-all duration-200 hover:shadow-lg hover:shadow-black/[0.04] hover:-translate-y-0.5"
-        >
-          <div className="relative overflow-hidden p-5">
-            <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent opacity-60 transition-opacity group-hover:opacity-100" />
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[13px] font-medium text-muted-foreground">Chamados Encerrados</p>
-                <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight">
-                  {data.encerradosTotal}
-                </p>
-                <p className="mt-1.5 text-xs text-muted-foreground/70">
-                  {data.encerradosTotal} encerrados · {data.encerradosAvaliados} avaliados
-                </p>
-              </div>
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600 transition-transform duration-200 group-hover:scale-105 dark:bg-emerald-950/50 dark:text-emerald-400">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-        </Link>
-
-        {/* 4) Abrir Novo Chamado */}
-        <AbrirNovoChamadoCard />
-      </section>
-
-      {/* 5) Recent tickets */}
-      <div className="rounded-2xl border border-border/50 bg-card shadow-sm">
-        <div className="flex flex-row items-center justify-between border-b border-border/30 px-5 py-4">
-          <h3 className="text-sm font-semibold text-foreground">Ultimos Chamados Abertos</h3>
-          <Link
-            href="/meus-chamados"
-            className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-          >
-            Ver todos
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
-        <div className="p-5">
-          {data.ultimosChamados.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="grid h-12 w-12 place-items-center rounded-full bg-muted/50">
-                <Ticket className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">Nenhum chamado criado ainda</p>
-              <Link
-                href="/meus-chamados"
-                className="mt-2 text-sm font-medium text-primary hover:underline"
-              >
-                Abrir primeiro chamado
-              </Link>
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {data.ultimosChamados.map((c) => (
-                <li key={c._id}>
-                  <Link
-                    href={`/meus-chamados/${c._id}`}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/30 p-3.5 transition-all duration-150 hover:border-border/60 hover:bg-muted/30"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-mono text-sm font-semibold text-foreground">
-                        {c.ticket_number}
-                      </p>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {c.titulo || 'Sem titulo'}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge variant="secondary" className="rounded-md text-xs">
-                        {CHAMADO_STATUS_LABELS[c.status as ChamadoStatus] ?? c.status}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(c.createdAt, tzOpt)}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
+  const criadoEm = new Map(
+    data.ultimosChamados.map((c) => [c._id, formatDate(c.createdAt, { timeZone: timezone })]),
   );
-}
-
-function AbrirNovoChamadoCard() {
-  const [open, setOpen] = useState(false);
+  const pctAvaliados =
+    data.encerradosTotal > 0
+      ? Math.round((data.encerradosAvaliados / data.encerradosTotal) * 100)
+      : 0;
 
   return (
-    <>
-      <div
-        role="button"
-        tabIndex={0}
-        className={cn(
-          'group cursor-pointer rounded-2xl border-2 border-dashed border-primary/25 bg-primary/[0.03] shadow-sm transition-all duration-200',
-          'hover:border-primary/40 hover:bg-primary/[0.06] hover:shadow-lg hover:shadow-black/[0.04] hover:-translate-y-0.5',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        )}
-        onClick={() => setOpen(true)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        <div className="flex flex-col items-center justify-center p-6 text-center">
-          <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary transition-transform duration-200 group-hover:scale-110">
-            <Plus className="h-6 w-6" />
-          </div>
-          <p className="mt-3 font-semibold text-foreground">Abrir Novo Chamado</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Registre uma nova solicitacao de manutencao
-          </p>
+    <PainelRoot>
+      <div>
+        <TodayLabel />
+        <div className="mt-1">
+          <PageHeader
+            title="Painel de Gestão"
+            subtitle="Acompanhe seus chamados de manutenção e abra novas solicitações"
+            actions={
+              <Button size="sm" onClick={() => setNovoAberto(true)}>
+                <Plus aria-hidden />
+                Abrir chamado
+              </Button>
+            }
+          />
         </div>
       </div>
-      <NewTicketDialog open={open} onOpenChange={setOpen} onSuccess={() => {}} />
-    </>
+
+      {data.avaliacoesPendentes > 0 ? (
+        <Link
+          href="/meus-chamados"
+          className="group flex items-center gap-4 rounded-2xl border border-amber-300/70 bg-amber-50 p-4 transition-colors hover:bg-amber-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-amber-800/60 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 sm:p-5"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+            <Star className="h-5 w-5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-foreground">
+              {data.avaliacoesPendentes === 1
+                ? '1 chamado aguarda a sua avaliação'
+                : `${formatNumber(data.avaliacoesPendentes)} chamados aguardam a sua avaliação`}
+            </span>
+            <span className="block text-[13px] text-muted-foreground">
+              A avaliação tem prazo: depois dele o chamado é encerrado sem a sua nota.
+            </span>
+          </span>
+          <ChevronRight
+            className="h-5 w-5 shrink-0 text-amber-700 transition-transform group-hover:translate-x-0.5 dark:text-amber-300"
+            aria-hidden
+          />
+        </Link>
+      ) : null}
+
+      <Stagger className="grid gap-4 sm:grid-cols-3 xl:gap-5">
+        <StaggerItem>
+          <StatTile
+            href="/meus-chamados"
+            label="Em andamento"
+            value={formatNumber(data.emAndamento)}
+            helper={
+              data.emAndamento === 0
+                ? 'Nenhum chamado em andamento'
+                : plural(data.emAndamento, 'chamado sendo tratado', 'chamados sendo tratados')
+            }
+            icon={Loader2}
+            tone="primary"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <StatTile
+            href="/meus-chamados"
+            label="Avaliações pendentes"
+            value={formatNumber(data.avaliacoesPendentes)}
+            helper={
+              data.avaliacoesPendentes === 0 ? 'Nenhuma avaliação pendente' : 'Dentro do prazo'
+            }
+            icon={Star}
+            tone={alertTone(data.avaliacoesPendentes, 'warning')}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <StatTile
+            href="/meus-chamados"
+            label="Encerrados"
+            value={formatNumber(data.encerradosTotal)}
+            helper={
+              data.encerradosTotal === 0
+                ? 'Nenhum chamado encerrado'
+                : `${formatNumber(data.encerradosAvaliados)} avaliados (${pctAvaliados}%)`
+            }
+            icon={CheckCircle2}
+            tone="success"
+          />
+        </StaggerItem>
+      </Stagger>
+
+      <Stagger className="grid gap-4 lg:grid-cols-3 xl:gap-5">
+        <StaggerItem className="lg:col-span-2">
+          <SectionCard
+            title="Últimos chamados"
+            description="Os três mais recentes que você abriu"
+            icon={ClipboardList}
+            action={<SectionLink href="/meus-chamados">Ver todos</SectionLink>}
+          >
+            {data.ultimosChamados.length === 0 ? (
+              <EmptyState
+                icon={Ticket}
+                title="Nenhum chamado criado ainda"
+                description="Quando você abrir um chamado, ele aparece aqui."
+                action={
+                  <Button size="sm" onClick={() => setNovoAberto(true)}>
+                    <Plus aria-hidden />
+                    Abrir primeiro chamado
+                  </Button>
+                }
+              />
+            ) : (
+              <TicketRows
+                tickets={data.ultimosChamados}
+                hrefBase="/meus-chamados"
+                meta={(id) => `aberto em ${criadoEm.get(id) ?? ''}`}
+              />
+            )}
+          </SectionCard>
+        </StaggerItem>
+
+        <StaggerItem>
+          <section className="flex h-full flex-col justify-between gap-6 rounded-2xl border border-primary/20 bg-primary/[0.04] p-5 sm:p-6">
+            <div>
+              <h2 className="text-[15px] font-semibold text-foreground">Precisa de manutenção?</h2>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                Preencha o formulário ou descreva o problema na conversa: o assistente monta o
+                chamado para você.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button onClick={() => setNovoAberto(true)} className="h-11">
+                <Plus aria-hidden />
+                Abrir pelo formulário
+              </Button>
+              <Button asChild variant="outline" className="h-11 bg-background">
+                <Link href="/conversas">
+                  <MessagesSquare aria-hidden />
+                  Descrever na conversa
+                </Link>
+              </Button>
+            </div>
+          </section>
+        </StaggerItem>
+      </Stagger>
+
+      <NewTicketDialog
+        open={novoAberto}
+        onOpenChange={setNovoAberto}
+        onSuccess={() => router.refresh()}
+      />
+    </PainelRoot>
   );
 }

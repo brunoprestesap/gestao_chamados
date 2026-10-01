@@ -1,16 +1,33 @@
 'use client';
 
-import { CheckCircle2, ChevronRight, ClipboardList, Loader2, Ticket, Wrench } from 'lucide-react';
+import {
+  ClipboardCheck,
+  ClipboardList,
+  Loader2,
+  MessagesSquare,
+  Ticket,
+  Wrench,
+} from 'lucide-react';
 import Link from 'next/link';
 
+import {
+  CapacityMeter,
+  capacityState,
+  EmptyState,
+  formatNumber,
+  PainelRoot,
+  SectionCard,
+  SectionLink,
+  StatTile,
+  TicketRows,
+  TodayLabel,
+  toneClasses,
+} from '@/app/(dashboard)/dashboard/_components/painel-ui';
 import type { DashboardTecnicoData } from '@/app/(dashboard)/dashboard/actions';
 import { PageHeader } from '@/components/dashboard/header';
 import { Stagger, StaggerItem } from '@/components/motion/stagger';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ChamadoStatus } from '@/shared/chamados/chamado.constants';
-import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 
 type Props = {
   data: DashboardTecnicoData;
@@ -18,231 +35,183 @@ type Props = {
 
 const CHAMADOS_ATRIBUIDOS_HREF = '/chamados-atribuidos';
 
-function StatCard({
-  href,
-  title,
-  value,
-  helper,
-  icon: Icon,
-  iconClassName,
-  accentClassName,
-  valueClassName,
-}: {
-  href: string;
-  title: string;
-  value: string | number;
-  helper: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconClassName?: string;
-  accentClassName?: string;
-  valueClassName?: string;
-}) {
+export function DashboardTecnicoContent({ data }: Props) {
+  const estado = capacityState(data.cargaAtiva, data.maxAssignedTickets);
+  const vagas = Math.max(data.maxAssignedTickets - data.cargaAtiva, 0);
+  const maxEspecialidade = Math.max(...data.especialidades.map((e) => e.chamadosAtivos), 1);
+
   return (
-    <Link
-      href={href}
-      className="group relative block overflow-hidden rounded-2xl border border-border/50 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/4"
-    >
-      <div
-        className={cn(
-          'absolute inset-x-0 top-0 h-[3px] bg-linear-to-r from-transparent to-transparent opacity-60 transition-opacity group-hover:opacity-100',
-          accentClassName ?? 'via-primary/40',
-        )}
-      />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium text-muted-foreground">{title}</p>
-          <p className={cn('mt-2 text-2xl font-bold tabular-nums tracking-tight', valueClassName)}>
-            {value}
-          </p>
-          <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground/70">{helper}</p>
-        </div>
-        <div
-          className={cn(
-            'grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-transform duration-200 group-hover:scale-105',
-            iconClassName ?? 'bg-muted/50 text-muted-foreground',
-          )}
-        >
-          <Icon className="h-5 w-5" />
+    <PainelRoot>
+      <div>
+        <TodayLabel />
+        <div className="mt-1">
+          <PageHeader
+            title="Painel de Gestão"
+            subtitle="Visão geral da sua carga de trabalho e chamados atribuídos"
+            actions={
+              <>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/conversas">
+                    <MessagesSquare aria-hidden />
+                    Conversas
+                  </Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href={CHAMADOS_ATRIBUIDOS_HREF}>
+                    <ClipboardList aria-hidden />
+                    Meus atendimentos
+                  </Link>
+                </Button>
+              </>
+            }
+          />
         </div>
       </div>
-    </Link>
-  );
-}
 
-export function DashboardTecnicoContent({ data }: Props) {
-  return (
-    <div className="w-full space-y-8">
-      <PageHeader
-        title="Painel de Gestão"
-        subtitle="Visão geral da sua carga de trabalho e chamados atribuídos"
-      />
-
-      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StaggerItem>
-          <StatCard
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 xl:gap-5">
+        {/* Carga: o número que organiza o dia do técnico */}
+        <StaggerItem className="sm:col-span-2">
+          <Link
             href={CHAMADOS_ATRIBUIDOS_HREF}
-            title="Minha Carga de Trabalho"
-            value={`${data.cargaAtiva} de ${data.maxAssignedTickets}`}
-            helper="chamados ativos atribuídos"
-            icon={Wrench}
-            iconClassName="bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400"
-            accentClassName="via-blue-500/60"
-          />
+            className="group flex h-full flex-col rounded-2xl border border-border/50 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:shadow-lg hover:shadow-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-6"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[13px] font-medium text-muted-foreground">
+                Minha Carga de Trabalho
+              </p>
+              <span
+                className={cn(
+                  'rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  toneClasses(estado.tone).chip,
+                )}
+              >
+                {estado.label}
+              </span>
+            </div>
+            <p className="mt-4 flex items-baseline gap-2">
+              <span className="text-5xl font-bold tracking-tight tabular-nums">
+                {formatNumber(data.cargaAtiva)}
+              </span>
+              <span className="text-lg text-muted-foreground">
+                de {formatNumber(data.maxAssignedTickets)}
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">chamados ativos atribuídos</p>
+            <CapacityMeter
+              className="mt-auto pt-5"
+              value={data.cargaAtiva}
+              max={data.maxAssignedTickets}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {vagas === 0
+                ? 'Sem vagas para novas atribuições'
+                : `${formatNumber(vagas)} ${vagas === 1 ? 'vaga livre' : 'vagas livres'} para novas atribuições`}
+            </p>
+          </Link>
         </StaggerItem>
 
         <StaggerItem>
-          <StatCard
+          <StatTile
             href={CHAMADOS_ATRIBUIDOS_HREF}
-            title="Em Atendimento"
-            value={data.emAtendimento}
-            helper={
-              data.emAtendimento === 0
-                ? 'Nenhum chamado em atendimento'
-                : data.emAtendimento === 1
-                  ? '1 chamado em atendimento'
-                  : `${data.emAtendimento} chamados em atendimento`
-            }
+            label="Em Atendimento"
+            value={formatNumber(data.emAtendimento)}
+            helper={data.emAtendimento === 0 ? 'Nenhum em execução' : 'Em execução por você'}
             icon={Loader2}
-            iconClassName="bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400"
-            accentClassName="via-purple-400/50"
+            tone="primary"
           />
         </StaggerItem>
-
         <StaggerItem>
-          <StatCard
+          <StatTile
             href={CHAMADOS_ATRIBUIDOS_HREF}
-            title="Prontos para Concluir"
-            value={data.prontosParaConcluir}
+            label="Prontos para Concluir"
+            value={formatNumber(data.prontosParaConcluir)}
             helper={
               data.prontosParaConcluir === 0
-                ? 'Nenhum chamado pronto para registrar execução'
-                : 'status Em atendimento'
+                ? 'Nada para registrar agora'
+                : 'Registre a execução ao terminar'
             }
             icon={ClipboardList}
-            iconClassName="bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
-            accentClassName="via-amber-400/50"
+            tone={data.prontosParaConcluir > 0 ? 'warning' : 'neutral'}
           />
         </StaggerItem>
-
         <StaggerItem>
-          <StatCard
+          <StatTile
             href={CHAMADOS_ATRIBUIDOS_HREF}
-            title="Aguardando avaliação"
-            value={data.concluidosAguardandoEncerramento}
+            label="Aguardando avaliação"
+            value={formatNumber(data.concluidosAguardandoEncerramento)}
             helper={
               data.concluidosAguardandoEncerramento === 0
                 ? 'Nenhum aguardando avaliação'
-                : 'aguardando a avaliação do solicitante'
+                : 'À espera do solicitante'
             }
-            icon={CheckCircle2}
-            iconClassName="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"
-            accentClassName="via-emerald-400/50"
+            icon={ClipboardCheck}
+            tone="success"
           />
         </StaggerItem>
       </Stagger>
 
-      <Stagger className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <StaggerItem className="lg:col-span-1">
-          <Card className="h-full">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Meus Serviços / Especialidades</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {data.especialidades.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/20 py-8 text-center">
-                  <Wrench className="mb-2 h-8 w-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">
-                    Nenhuma especialidade cadastrada no seu perfil.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {data.especialidades.map((esp) => (
-                    <Badge
-                      key={esp._id}
-                      variant="secondary"
-                      className="max-w-full rounded-md px-2.5 py-1 text-xs font-medium sm:max-w-none"
-                    >
-                      <span className="min-w-0 max-w-[180px] truncate sm:max-w-none">
-                        {esp.code} — {esp.name}
-                      </span>
-                      {esp.chamadosAtivos > 0 && (
-                        <span className="ml-1.5 shrink-0 font-bold tabular-nums text-primary">
-                          ({esp.chamadosAtivos} ativo{esp.chamadosAtivos !== 1 ? 's' : ''})
-                        </span>
-                      )}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      <Stagger className="grid grid-cols-1 gap-4 lg:grid-cols-3 xl:gap-5">
+        <StaggerItem className="lg:col-span-2">
+          <SectionCard
+            title="Últimos Chamados Atribuídos"
+            description="Os mais recentes que chegaram para você"
+            icon={Ticket}
+            action={<SectionLink href={CHAMADOS_ATRIBUIDOS_HREF}>Ver todos</SectionLink>}
+          >
+            {data.ultimosChamados.length === 0 ? (
+              <EmptyState
+                icon={Ticket}
+                title="Nenhum chamado atribuído"
+                description="Você não possui chamados atribuídos no momento."
+              />
+            ) : (
+              <TicketRows tickets={data.ultimosChamados} hrefBase={CHAMADOS_ATRIBUIDOS_HREF} />
+            )}
+          </SectionCard>
         </StaggerItem>
 
-        <StaggerItem className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-base">Últimos Chamados Atribuídos</CardTitle>
-              <Link
-                href={CHAMADOS_ATRIBUIDOS_HREF}
-                className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-              >
-                Ver todos
-                <ChevronRight className="h-4 w-4 shrink-0" />
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {data.ultimosChamados.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/20 py-10 text-center">
-                  <div className="grid h-12 w-12 place-items-center rounded-full bg-muted/50">
-                    <Ticket className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="mt-3 text-sm font-medium text-foreground">
-                    Nenhum chamado atribuído
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Você não possui chamados atribuídos no momento.
-                  </p>
-                  <Link
-                    href={CHAMADOS_ATRIBUIDOS_HREF}
-                    className="mt-4 text-sm font-medium text-primary hover:underline"
-                  >
-                    Ir para Chamados Atribuídos
-                  </Link>
-                </div>
-              ) : (
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {data.ultimosChamados.map((c) => (
-                    <li key={c._id}>
-                      <Link
-                        href={`/chamados-atribuidos/${c._id}`}
-                        className="group flex h-full flex-col justify-between gap-3 rounded-xl border border-border/50 bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="font-mono text-xs font-semibold text-primary/80">
-                              {c.ticket_number}
-                            </p>
-                            <p className="mt-1 line-clamp-2 text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                              {c.titulo || 'Sem título'}
-                            </p>
-                          </div>
-                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-primary/60" />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="rounded-md text-[11px] font-medium">
-                            {CHAMADO_STATUS_LABELS[c.status as ChamadoStatus] ?? c.status}
-                          </Badge>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+        <StaggerItem>
+          <SectionCard
+            title="Meus Serviços / Especialidades"
+            description="Chamados ativos em cada especialidade"
+            icon={Wrench}
+          >
+            {data.especialidades.length === 0 ? (
+              <EmptyState
+                icon={Wrench}
+                title="Nenhuma especialidade"
+                description="Peça ao administrador para cadastrar as suas no perfil."
+              />
+            ) : (
+              <ul className="space-y-3">
+                {data.especialidades.map((esp) => (
+                  <li key={esp._id}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                        {esp.code ? `${esp.code} — ${esp.name}` : esp.name}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {esp.chamadosAtivos === 0
+                          ? 'sem ativos'
+                          : `${formatNumber(esp.chamadosAtivos)} ${esp.chamadosAtivos === 1 ? 'ativo' : 'ativos'}`}
+                      </span>
+                    </div>
+                    <div
+                      aria-hidden
+                      className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                    >
+                      <div
+                        className="h-full rounded-full bg-primary/70 transition-[width] duration-500"
+                        style={{ width: `${(esp.chamadosAtivos / maxEspecialidade) * 100}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
         </StaggerItem>
       </Stagger>
-    </div>
+    </PainelRoot>
   );
 }
