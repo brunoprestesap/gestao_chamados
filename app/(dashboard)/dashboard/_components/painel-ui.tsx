@@ -213,23 +213,23 @@ export function StatTile({
       className="group flex h-full flex-col rounded-2xl border border-border/50 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:shadow-lg hover:shadow-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            className={cn(
-              'grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-transform duration-200 group-hover:scale-105',
-              t.chip,
-            )}
-          >
-            <Icon className="h-4 w-4" aria-hidden />
-          </span>
-          <p className="truncate text-[13px] font-medium text-muted-foreground">{label}</p>
-        </div>
+        <span
+          className={cn(
+            'grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-transform duration-200 group-hover:scale-105',
+            t.chip,
+          )}
+        >
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
         <ArrowUpRight
           className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-muted-foreground"
           aria-hidden
         />
       </div>
-      <p className={cn('mt-4 text-3xl font-bold tracking-tight tabular-nums', t.value)}>{value}</p>
+      {/* O rótulo ocupa a largura toda do cartão, abaixo do ícone: ao lado dele,
+          nos cartões estreitos do desktop, "Aguardando avaliação" virava reticências. */}
+      <p className="mt-3 text-[13px] leading-snug font-medium text-muted-foreground">{label}</p>
+      <p className={cn('mt-1 text-3xl font-bold tracking-tight tabular-nums', t.value)}>{value}</p>
       {helper ? <p className="mt-1 text-xs text-muted-foreground">{helper}</p> : null}
       {footer ? <div className="mt-auto pt-4">{footer}</div> : null}
     </Link>
