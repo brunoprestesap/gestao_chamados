@@ -124,7 +124,9 @@ test.describe('Gestão de ativos: etiqueta, ficha e chamado', () => {
     await dialog.getByRole('combobox', { name: /unidade/i }).click();
     await page.getByRole('option').first().click();
     await dialog.getByLabel(/local exato/i).fill(localExato);
-    await dialog.getByText('Ar-Condicionado').click();
+    // O mesmo tipo dos outros E2E: o seed da CI tem serviço de catálogo para a
+    // segunda opção de subtipo, que é a que o fixture escolhe.
+    await dialog.getByText('Manutenção Predial').click();
     await selectFirstSubtypeAndCatalogService(page, dialog);
     await dialog.getByPlaceholder(/descreva/i).fill('Split pingando água (E2E de ativos).');
     await dialog.getByText('Padrão').first().click();
