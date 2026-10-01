@@ -31,7 +31,7 @@ As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadas
 ## Comandos
 
 ```bash
-npx tsx scripts/gerar-carga-ativos.ts [csv] [saída]   # gera o script mongosh da carga do Tier A
+npx tsx scripts/gerar-carga-ativos.ts [csv] [saída]   # gera o script mongosh da carga do Tier A (na máquina de dev; o passo a passo na VPS está no AGENTS.md raiz, seção Deploy)
 npm run zxing:wasm                                    # recopia o .wasm da câmera depois de atualizar barcode-detector
 MONGO_TEST_URI=mongodb://localhost:27018/severino_test npx vitest run lib/ativos   # inclui os testes de banco real
 ```

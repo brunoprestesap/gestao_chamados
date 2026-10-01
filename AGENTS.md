@@ -333,7 +333,8 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - **Seed**: `docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js`
 - **Re-semear**: limpar collections antes (seed usa `insertMany` ordered, para no primeiro duplicado)
 - **Variáveis**: `.env` na raiz (não versionado) — `AUTH_SECRET`, `SOCKET_INTERNAL_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `SOCKET_CORS_ORIGIN`, `AUTH_URL`
-- **Carga do Tier A** (uma vez, spec 0011): gerar com `npx tsx scripts/gerar-carga-ativos.ts` e rodar `docker exec -i severino-mongodb-1 mongosh manutencao < scripts/carga-ativos.generated.js`; só cria, nunca altera ativo existente, e pode rodar de novo
+- **Carga do Tier A** (spec 0011, já feita em 01/10/2026; rodar de novo só cria o que faltar): gerar o script **na máquina de desenvolvimento** com `npx tsx scripts/gerar-carga-ativos.ts` (a imagem de produção não tem `tsx`, e assim o CSV não vai para o servidor), copiar só `scripts/carga-ativos.generated.js` para `~/` na VPS com `scp`, rodar `sudo docker exec -i severino-mongodb-1 mongosh manutencao < ~/carga-ativos.generated.js` e apagar a cópia (`rm`), porque o script tem nome e matrícula (LGPD). O usuário `manutencao` não está no grupo `docker`, então o passo exige `sudo`
+- **Lock e Alpine**: a imagem roda `npm ci` no Node 24 Alpine, que exige no `package-lock.json` as dependências wasm do musl (as cópias aninhadas de `@emnapi` do `@rolldown/binding-wasm32-wasi`). O `npm install` no Windows costuma tirá-las; depois de mudar dependência, confira com `npx npm@11.19.0 ci --dry-run --ignore-scripts --os=linux --cpu=x64 --libc=musl` antes do PR (o deploy de 01/10/2026 quebrou assim, como já tinha quebrado em `b7bb5a2`)
 - **IA local**: `sudo bash /opt/severino/scripts/update-llm-env.sh` grava as `LLM_*` no `.env`, recria o `next-app` e confere o vLLM de dentro do container (`docker compose restart` não recarrega o `.env`)
 
 ### PM2 (alternativa sem Docker)
