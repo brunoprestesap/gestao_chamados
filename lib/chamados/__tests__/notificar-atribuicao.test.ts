@@ -21,9 +21,11 @@ import { notificarAtribuicao } from '../notificar-atribuicao';
 
 /**
  * A notificação de atribuição, extraída de `assignTicketAction` para a manual e
- * a automática avisarem do mesmo jeito (spec 0008, AC-11 e AC-18).
+ * a automática avisarem do mesmo jeito (spec 0008, AC-11 e AC-18). A troca de
+ * técnico (reatribuição, ou a correção de serviço) usa `avisarSolicitante:
+ * false` para não avisar o solicitante (spec 0009, AC-15).
  *
- * covers: AC-11 (variante automática), AC-18 (mesmo payload da manual)
+ * covers: AC-11 (variante automática), AC-18 (mesmo payload da manual), AC-15 (avisarSolicitante)
  */
 
 const CHAMADO_ID = '6aad5286df6f201a25edd001';
@@ -203,5 +205,52 @@ describe('notificarAtribuicao · atribuição automática', () => {
 
   it('sem falha nenhuma, resolve sem erro', async () => {
     await expect(notificarAtribuicao(automatica)).resolves.toBeUndefined();
+  });
+});
+
+describe('notificarAtribuicao · avisarSolicitante (spec 0009, AC-15)', () => {
+  const base = {
+    chamadoId: CHAMADO_ID,
+    ticketNumber: 'CHM-2026-00001',
+    titulo: 'Troca de lâmpada — Sala 302',
+    solicitanteId: SOLICITANTE_ID,
+    tecnico: { id: TECNICO_ID, name: 'Carla' },
+    assignedBy: { id: PREPOSTO_ID, name: 'Paulo' },
+    at: AT,
+  };
+
+  it('omitido: continua avisando o solicitante, como sempre (padrão de hoje)', async () => {
+    await notificarAtribuicao(base);
+
+    expect(mockEmitToRoom.mock.calls).toEqual([
+      [`user:${TECNICO_ID}`, 'ticket:assigned', expect.anything()],
+      [`user:${SOLICITANTE_ID}`, 'ticket:assigned', expect.anything()],
+    ]);
+  });
+
+  it('false: avisa só o técnico, nunca o solicitante', async () => {
+    await notificarAtribuicao({ ...base, avisarSolicitante: false });
+
+    expect(mockEmitToRoom).toHaveBeenCalledOnce();
+    expect(mockEmitToRoom).toHaveBeenCalledWith(
+      `user:${TECNICO_ID}`,
+      'ticket:assigned',
+      expect.anything(),
+    );
+  });
+
+  it('false: a Notification e o email do técnico continuam saindo normalmente', async () => {
+    await notificarAtribuicao({ ...base, avisarSolicitante: false });
+
+    expect(mockNotificationCreate).toHaveBeenCalledOnce();
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+  });
+
+  it('false: falha do único evento (do técnico) ainda propaga, como sempre propagou na manual', async () => {
+    mockEmitToRoom.mockRejectedValueOnce(new Error('socket caiu'));
+
+    await expect(notificarAtribuicao({ ...base, avisarSolicitante: false })).rejects.toThrow(
+      'socket caiu',
+    );
   });
 });

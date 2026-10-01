@@ -6,6 +6,7 @@ import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { ACOES_SO_DA_GESTAO } from '@/shared/chamados/history.constants';
 
 function normalizeHistoryItem(h: {
   _id: unknown;
@@ -65,9 +66,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
   }
 
+  // Confiança, motivo e correção da gestão são só da gestão (spec 0009, AC-13).
+  const filtroAcao = canManage ? {} : { action: { $nin: ACOES_SO_DA_GESTAO } };
+
   // Busca o histórico do chamado ordenado por data (mais recente primeiro)
   const [history, ocultas] = await Promise.all([
-    ChamadoHistoryModel.find({ chamadoId: new Types.ObjectId(id) })
+    ChamadoHistoryModel.find({ chamadoId: new Types.ObjectId(id), ...filtroAcao })
       .sort({ createdAt: -1 })
       .lean(),
     decisoesOcultas(id),

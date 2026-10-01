@@ -27,8 +27,8 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 13  | Andamento e conversa com o técnico                 | Slice 2    | done        |
 | 14  | Calibração da trava de confiança                   | Slice 3    | done        |
 | 15  | Prioridade e SLA automáticos                       | Slice 3    | done        |
-| 16  | Atribuição automática ao técnico                   | Slice 3    | in-progress |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | planned     |
+| 16  | Atribuição automática ao técnico                   | Slice 3    | done        |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3    | in-progress |
 | 18  | Painel de acurácia da IA                           | Slice 3    | planned     |
 | 19  | Fotos no chat                                      | Slice 4    | planned     |
 | 20  | Aviso de chamado duplicado                         | Slice 4    | planned     |
@@ -186,7 +186,7 @@ spec [0007](../specs/0007-prioridade-sla-automaticos/index.md) · code in `lib/a
 - [x] Review it (fresh model): `/check review prioridade e SLA automáticos`
 - [x] Document it: `/document prioridade e SLA automáticos`
 
-### 16. Atribuição automática ao técnico · in-progress · GA
+### 16. Atribuição automática ao técnico · done · GA
 
 Chamado validado pela IA segue direto para um técnico com a especialidade do serviço e espaço na carga, sem esperar o Preposto. Mexe no SLA de resposta contratual e atribui trabalho a pessoas sozinha, por isso GA.
 **Done when:** o técnico escolhido tem a especialidade (subtipo) do serviço e está abaixo do seu limite de chamados; sem técnico elegível, o chamado vai ao Preposto com o motivo; o técnico recebe a notificação de sempre e a atribuição aparece na conversa do solicitante.
@@ -203,12 +203,22 @@ spec [0008](../specs/0008-atribuicao-automatica-tecnico/index.md) · code in `li
 - [x] Review it (fresh model): `/check review atribuição automática ao técnico`
 - [x] Document it: `/document atribuição automática ao técnico`
 
-### 17. Revisão das decisões da IA pelo Preposto · needs a decision
+### 17. Revisão das decisões da IA pelo Preposto · in-progress · GA
 
-Na Gestão, o Preposto separa o que a IA decidiu do que aguarda triagem e corrige serviço, prioridade ou técnico quando precisar. Cada correção alimenta a métrica principal.
+Na Gestão, o Preposto separa o que a IA decidiu do que aguarda triagem e corrige serviço, prioridade ou técnico quando precisar. Cada correção alimenta a métrica principal. Mexe em prazo contratual e glosa do IMR (a regra de SLA para corrigir a prioridade com o atendimento em curso), por isso GA.
 **Done when:** o Preposto filtra chamados decididos pela IA e pendentes de triagem; os pendentes abrem com a sugestão da IA já preenchida; corrigir registra o que mudou; corrigir a prioridade de um chamado com SLA já iniciado segue uma regra definida e registrada.
+spec [0009](../specs/0009-revisao-decisoes-ia-preposto/index.md) · code in `app/(dashboard)/gestao/`, `lib/conversas/decisoes.ts`
 
-- [ ] Design it (spec): `/architect revisão das decisões da IA pelo Preposto`
+- [x] Design it (spec): `/architect revisão das decisões da IA pelo Preposto`
+- [x] Build it: `/develop revisão das decisões da IA pelo Preposto`
+  - [x] Revisar de ponta a ponta (filtro "Revisão da IA", painel por campo, confirmar, visibilidade da trilha e índice) · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-13, AC-17, AC-19
+  - [x] Correção de prioridade com o atendimento em curso (regra de SLA assimétrica, só o Admin baixa com técnico, monitor de SLA, diálogo) · AC-7, AC-8, AC-9, AC-10, AC-16, AC-20, AC-21
+  - [x] Correção de serviço (ação, técnico elegível pelo serviço novo, `tipoServico`, diálogo) · AC-11, AC-12
+  - [x] Avisos e regressão (`ticket:corrected`, reatribuição avisa o técnico novo, vazamento do motivo, calibração e atribuição intactas) · AC-14, AC-15, AC-18
+- [x] Verify it: `/check verify revisão das decisões da IA pelo Preposto`
+- [x] Test it: `/test revisão das decisões da IA pelo Preposto`
+- [x] Review it (fresh model): `/check review revisão das decisões da IA pelo Preposto`
+- [ ] Document it: `/document revisão das decisões da IA pelo Preposto`
 
 ### 18. Painel de acurácia da IA · needs a decision
 
@@ -261,6 +271,10 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Unificar a escolha de técnico manual e automática**: `findBestTechnician`, as duas rotas `eligible-technicians` e as cópias à mão de `ACTIVE_STATUSES` passam a usar o critério novo (desempate justo) e `CHAMADO_STATUS_CARGA_TECNICO` · from spec 0008
 - **Nova tentativa de atribuição automática**: reavaliar chamados `sem_tecnico` quando um técnico libera vaga (ao concluir ou encerrar um chamado, ou pelo cron de 30 minutos) se o volume mostrar espera demais · from spec 0008
 - **Reprocessamento retroativo pra calibração**: se o volume de chamados pelo chat crescer devagar, considerar rodar a IA contra chamados antigos do formulário pra engordar a amostra de acurácia, custeando as chamadas extras ao vLLM · from spec 0006
+- **Desatribuir chamado e avisar o técnico anterior**: sem "desatribuir", um chamado com serviço errado, técnico sem a especialidade e nenhum outro elegível não tem saída; e o técnico que perde um chamado numa reatribuição continua sem aviso · from spec 0009
+- **Reconciliar decisão divergente**: chamado corrigido cuja `DecisaoIa` ficou `sem_revisao` (falha entre os dois passos, sem transação); hoje o painel avisa e a confirmação é recusada, falta uma ação "registrar a correção já feita" · from spec 0009
+- **`classificationNotes` chega ao solicitante**: `/api/meus-chamados` devolve as observações da classificação manual do Preposto; decidir se isso é aceitável (a 0009 só fecha o vazamento do motivo das correções) · from spec 0009
+- **Contadores no controle "Revisão da IA"**: mostrar quantos chamados há em cada recorte, se a fila ficar grande · from spec 0009
 
 ## Legend
 

@@ -21,9 +21,11 @@ const socketFalso = {
 vi.mock('socket.io-client', () => ({ io: () => socketFalso }));
 
 const toastSuccess = vi.fn();
+const toastInfo = vi.fn();
 vi.mock('sonner', () => ({
   toast: {
     success: (...args: unknown[]) => toastSuccess(...args),
+    info: (...args: unknown[]) => toastInfo(...args),
     warning: vi.fn(),
     error: vi.fn(),
   },
@@ -59,6 +61,12 @@ function disparar(evento: string, payload: unknown) {
 function descricaoDoToast(): void {
   const descricao = toastSuccess.mock.calls.at(-1)?.[1]?.description as ReactNode;
   render(<div data-testid="descricao">{descricao}</div>);
+}
+
+/** Mesma ideia, para o toast informativo do ticket:corrected (toast.info). */
+function descricaoDoToastInfo(): void {
+  const descricao = toastInfo.mock.calls.at(-1)?.[1]?.description as ReactNode;
+  render(<div data-testid="descricao-info">{descricao}</div>);
 }
 
 const ATRIBUIDO = {
@@ -270,5 +278,94 @@ describe('RealtimeProvider · ticket:new (spec 0008, AC-13)', () => {
 
     // Assert
     expect(toastSuccess.mock.calls[0][0]).toBe('Novo chamado #CHM-2026-00001 aberto');
+  });
+});
+
+describe('RealtimeProvider · ticket:corrected (spec 0009, AC-14)', () => {
+  const CORRIGIDO = {
+    ticketId: 'c'.repeat(24),
+    ticketNumber: 'CHM-2026-00001',
+    title: 'Troca de lâmpada — Sala 302',
+    campo: 'prioridade' as const,
+    finalPriority: 'ALTA' as const,
+    correctedBy: { id: PREPOSTO_ID, name: 'Paulo' },
+    at: '2026-09-25T15:00:00.000Z',
+  };
+
+  it('prioridade: o título diz o rótulo da prioridade nova', () => {
+    // Arrange
+    montar(TECNICO_ID);
+
+    // Act
+    disparar('ticket:corrected', CORRIGIDO);
+
+    // Assert
+    expect(toastInfo.mock.calls[0][0]).toBe(
+      'Prioridade do chamado #CHM-2026-00001 mudou para Alta',
+    );
+  });
+
+  it('serviço: o título não leva prioridade nenhuma', () => {
+    // Arrange
+    montar(TECNICO_ID);
+
+    // Act
+    disparar('ticket:corrected', { ...CORRIGIDO, campo: 'servico', finalPriority: undefined });
+
+    // Assert
+    expect(toastInfo.mock.calls[0][0]).toBe('O serviço do chamado #CHM-2026-00001 mudou');
+  });
+
+  it('mostra o título do chamado e quem corrigiu, nunca o motivo', () => {
+    // Arrange
+    montar(TECNICO_ID);
+
+    // Act
+    disparar('ticket:corrected', CORRIGIDO);
+
+    // Assert
+    descricaoDoToastInfo();
+    expect(screen.getByText('Troca de lâmpada — Sala 302')).toBeInTheDocument();
+    expect(screen.getByText('Corrigido por: Paulo')).toBeInTheDocument();
+    expect(screen.queryByText(/[Mm]otivo/)).not.toBeInTheDocument();
+  });
+
+  it('sem correctedBy.name, cai no texto genérico "Preposto"', () => {
+    // Arrange
+    montar(TECNICO_ID);
+
+    // Act
+    disparar('ticket:corrected', { ...CORRIGIDO, correctedBy: { id: PREPOSTO_ID } });
+
+    // Assert
+    descricaoDoToastInfo();
+    expect(screen.getByText('Corrigido por: Preposto')).toBeInTheDocument();
+  });
+
+  it('o botão Abrir leva ao chamado do técnico, não à conversa do solicitante', () => {
+    // Arrange
+    montar(TECNICO_ID);
+    disparar('ticket:corrected', CORRIGIDO);
+    const acao = toastInfo.mock.calls[0][1].action;
+
+    // Act
+    acao.onClick();
+
+    // Assert
+    expect(acao.label).toBe('Abrir');
+    expect(routerPush).toHaveBeenCalledExactlyOnceWith(
+      `/chamados-atribuidos/${CORRIGIDO.ticketId}`,
+    );
+  });
+
+  it('sem número do chamado, o título não deixa espaço duplo', () => {
+    // Arrange
+    montar(TECNICO_ID);
+
+    // Act
+    disparar('ticket:corrected', { ...CORRIGIDO, ticketNumber: undefined });
+
+    // Assert
+    expect(toastInfo.mock.calls[0][0]).toBe('Prioridade do chamado mudou para Alta');
   });
 });

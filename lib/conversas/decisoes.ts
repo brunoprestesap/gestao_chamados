@@ -10,6 +10,7 @@ import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
 import {
   DECISAO_CAMPO_LABELS,
+  DECISAO_CAMPOS,
   type DecisaoCampo,
   type DecisaoSituacao,
   type IaSituacao,
@@ -301,6 +302,35 @@ export function textoCorrecao(campo: DecisaoCampo, anterior: string, novo: strin
   return `${DECISAO_CAMPO_LABELS[campo]}: ${anterior} → ${novo}`;
 }
 
+/**
+ * O valor atual do chamado, no formato que `resolverValorNoBanco` espera
+ * (spec 0009, AC-5). `null` quando o campo está vazio no chamado (sem
+ * serviço, sem prioridade ou sem técnico): aí não há o que comparar.
+ */
+export function valorParaInput(
+  campo: DecisaoCampo,
+  chamado: {
+    catalogServiceId?: unknown;
+    subtypeId?: unknown;
+    finalPriority?: string | null;
+    assignedToUserId?: unknown;
+  },
+): ValorDecisaoInput | null {
+  if (campo === 'servico') {
+    if (!chamado.catalogServiceId || !chamado.subtypeId) return null;
+    return {
+      catalogServiceId: String(chamado.catalogServiceId),
+      subtypeId: String(chamado.subtypeId),
+    };
+  }
+  if (campo === 'prioridade') {
+    const parsed = valorPrioridadeSchema.safeParse({ prioridade: chamado.finalPriority });
+    return parsed.success ? parsed.data : null;
+  }
+  if (!chamado.assignedToUserId) return null;
+  return { tecnicoId: String(chamado.assignedToUserId) };
+}
+
 export type ResolverDecisaoParams = {
   viewer: Viewer;
   chamadoId: string;
@@ -396,6 +426,115 @@ export async function resolverDecisao(
     );
     return falha('erro');
   }
+}
+
+export type ConfirmarDecisaoParams = {
+  viewer: Viewer;
+  chamadoId: string;
+  campo: DecisaoCampo;
+};
+
+/**
+ * O Preposto (ou Admin) confirma que a decisão da IA continua valendo, sem
+ * corrigir nada (spec 0009, AC-5). Só confirma decisão `efeito: 'aplicado'`
+ * e `situacao: 'sem_revisao'`, e só se o valor final da decisão ainda for o
+ * valor atual do chamado; caso contrário recusa (`divergente`) em vez de
+ * confirmar um estado que já mudou.
+ *
+ * A gravação é um único `updateOne` condicional nas mesmas duas condições:
+ * confirmar duas vezes, ou em duas abas, não bate na segunda vez (não casa o
+ * filtro) e não duplica a entrada `confirmacao_ia`.
+ */
+export async function confirmarDecisao(
+  params: ConfirmarDecisaoParams,
+): Promise<Resultado<{ situacao: DecisaoSituacao }>> {
+  if (params.viewer.role !== 'Preposto' && params.viewer.role !== 'Admin') {
+    return falha('sem_permissao');
+  }
+  if (!objectIdSchema.safeParse(params.chamadoId).success) return falha('nao_encontrada');
+
+  try {
+    await dbConnect();
+
+    const decisao = await DecisaoIaModel.findOne({
+      chamadoId: params.chamadoId,
+      campo: params.campo,
+    }).lean();
+    if (!decisao) return falha('nao_encontrada');
+    if (decisao.efeito !== 'aplicado' || decisao.situacao !== 'sem_revisao') {
+      return falha('nada_a_confirmar');
+    }
+
+    const chamado = await ChamadoModel.findById(params.chamadoId)
+      .select('catalogServiceId subtypeId finalPriority assignedToUserId')
+      .lean();
+    if (!chamado) return falha('nao_encontrada');
+
+    const entradaAtual = valorParaInput(params.campo, chamado);
+    const valorAtual = entradaAtual ? await resolverValorNoBanco(params.campo, entradaAtual) : null;
+    const valorFinal = decisao.valorFinal as unknown as ValorDecisao;
+    if (!valorAtual || !mesmoValor(valorFinal, valorAtual)) {
+      return falha('divergente');
+    }
+
+    const agora = new Date();
+    const atualizado = await DecisaoIaModel.updateOne(
+      { _id: decisao._id, situacao: 'sem_revisao', efeito: 'aplicado' },
+      {
+        $set: {
+          situacao: 'confirmada',
+          revisadaEm: agora,
+          revisadaPorUserId: new Types.ObjectId(params.viewer.userId),
+        },
+      },
+    );
+    if (atualizado.modifiedCount !== 1) return falha('nada_a_confirmar');
+
+    await ChamadoHistoryModel.create({
+      chamadoId: new Types.ObjectId(params.chamadoId),
+      userId: new Types.ObjectId(params.viewer.userId),
+      actorType: 'usuario',
+      action: 'confirmacao_ia',
+      decisaoIaId: decisao._id,
+      observacoes: textoDecisao(params.campo, valorFinal.rotulo),
+    });
+
+    return { ok: true, situacao: 'confirmada' };
+  } catch (err) {
+    console.error(
+      '[conversa]',
+      JSON.stringify({
+        operacao: 'confirmarDecisao',
+        chamadoId: params.chamadoId,
+        campo: params.campo,
+        error: err instanceof Error ? err.message : 'unknown',
+      }),
+    );
+    return falha('erro');
+  }
+}
+
+/**
+ * Os campos do chamado com decisão pendente de confirmação (`efeito:
+ * 'aplicado'` e `situacao: 'sem_revisao'`), dentre os campos pedidos — ou
+ * todos os três quando nenhum é pedido (spec 0009, AC-5).
+ */
+export async function camposPendentesDeConfirmacao(
+  chamadoId: string,
+  campos?: DecisaoCampo[],
+): Promise<DecisaoCampo[]> {
+  if (!objectIdSchema.safeParse(chamadoId).success) return [];
+  await dbConnect();
+  const alvo = campos && campos.length > 0 ? campos : [...DECISAO_CAMPOS];
+  const docs = await DecisaoIaModel.find({
+    chamadoId,
+    campo: { $in: alvo },
+    efeito: 'aplicado',
+    situacao: 'sem_revisao',
+  })
+    .select('campo')
+    .lean();
+  return docs.map((d) => d.campo as DecisaoCampo);
 }
 
 /**

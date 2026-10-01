@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACOES_SO_DA_GESTAO,
   CHAMADO_HISTORY_ACTION_LABELS,
   CHAMADO_HISTORY_ACTIONS,
   CHAMADO_HISTORY_ACTOR_LABELS,
@@ -72,6 +73,30 @@ describe('CHAMADO_HISTORY_ACTION_LABELS', () => {
   it('nomeia as duas ações da IA em português (AC-11)', () => {
     expect(CHAMADO_HISTORY_ACTION_LABELS.decisao_ia).toBe('Decisão da IA');
     expect(CHAMADO_HISTORY_ACTION_LABELS.correcao_ia).toBe('Correção de Decisão da IA');
+  });
+
+  it('registra a confirmação e a correção da gestão (spec 0009, AC-13)', () => {
+    expect([...CHAMADO_HISTORY_ACTIONS]).toContain('confirmacao_ia');
+    expect([...CHAMADO_HISTORY_ACTIONS]).toContain('correcao_gestao');
+  });
+});
+
+describe('ACOES_SO_DA_GESTAO (spec 0009, AC-13)', () => {
+  it('tem exatamente correcao_ia, confirmacao_ia e correcao_gestao', () => {
+    expect([...ACOES_SO_DA_GESTAO].sort()).toEqual(
+      ['confirmacao_ia', 'correcao_gestao', 'correcao_ia'].sort(),
+    );
+  });
+
+  it('não esconde decisao_ia: o que a IA escolheu continua visível a todos', () => {
+    // Assert: a decisao_ia de sempre segue mostrando o que a IA escolheu
+    expect(ACOES_SO_DA_GESTAO).not.toContain('decisao_ia');
+  });
+
+  it('toda ação da lista existe em CHAMADO_HISTORY_ACTIONS', () => {
+    for (const acao of ACOES_SO_DA_GESTAO) {
+      expect([...CHAMADO_HISTORY_ACTIONS]).toContain(acao);
+    }
   });
 });
 

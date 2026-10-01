@@ -149,12 +149,15 @@ describe('CONVERSA_FALHAS', () => {
     'ja_existe',
     'invalida',
     'erro',
+    // spec 0009: confirmarDecisao (revisão da IA pela gestão).
+    'nada_a_confirmar',
+    'divergente',
   ])('declara o motivo %s, que alguma função devolve', (motivo) => {
     expect([...CONVERSA_FALHAS]).toContain(motivo);
   });
 
-  it('não declara motivo além dos oito do contrato', () => {
+  it('não declara motivo além dos dez do contrato', () => {
     // Assert: motivo a mais é motivo que ninguém trata na tela
-    expect(CONVERSA_FALHAS).toHaveLength(8);
+    expect(CONVERSA_FALHAS).toHaveLength(10);
   });
 });

@@ -83,6 +83,10 @@ export const FALHA_FRASES: Record<ConversaFalha, string> = {
   ja_existe: 'Esta conversa já virou chamado.',
   invalida: 'Escreva a mensagem antes de enviar. O limite é de 2.000 caracteres.',
   erro: 'Não deu para salvar agora. Tente de novo em instantes.',
+  // Motivos da revisão da IA pela gestão (spec 0009): não aparecem nesta tela,
+  // mas o tipo é o mesmo `ConversaFalha` de `lib/conversas`.
+  nada_a_confirmar: 'Não há mais nada pendente de confirmação.',
+  divergente: 'Este valor já mudou desde a última leitura. Atualize a página e tente de novo.',
 };
 
 // ---------------------------------------------------------------------------

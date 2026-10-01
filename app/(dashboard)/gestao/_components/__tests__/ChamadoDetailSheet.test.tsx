@@ -37,6 +37,9 @@ vi.mock('@/app/(dashboard)/meus-chamados/[id]/_components/HistoryTimeline', () =
 vi.mock('@/app/(dashboard)/meus-chamados/[id]/_components/AttachmentGallery', () => ({
   AttachmentGallery: () => null,
 }));
+// `RevisaoIaPainel` (spec 0009) chama `confirmarDecisoesIaAction`, cujo módulo
+// puxa `lib/db.ts` na importação. Tem teste próprio em `RevisaoIaPainel.test.tsx`.
+vi.mock('../RevisaoIaPainel', () => ({ RevisaoIaPainel: () => null }));
 
 import type { ChamadoDTO } from '../../../meus-chamados/_components/ChamadoCard';
 import { ChamadoDetailSheet } from '../ChamadoDetailSheet';
@@ -65,7 +68,7 @@ function chamado(overrides: Partial<ChamadoDTO> = {}): ChamadoDTO {
   };
 }
 
-describe('ChamadoDetailSheet · Corrigir Prioridade (AC-11, AC-12)', () => {
+describe('ChamadoDetailSheet · Corrigir Prioridade (AC-11; janela alargada e papel pela spec 0009, AC-7, AC-10)', () => {
   it('mostra o botão quando validado, sem técnico atribuído e o gestor pode corrigir', () => {
     const onCorrigirPrioridade = vi.fn();
     render(
@@ -81,7 +84,7 @@ describe('ChamadoDetailSheet · Corrigir Prioridade (AC-11, AC-12)', () => {
     expect(screen.getByRole('button', { name: /Corrigir Prioridade/i })).toBeInTheDocument();
   });
 
-  it('esconde o botão quando o chamado já tem técnico atribuído (AC-12)', () => {
+  it('mostra o botão mesmo com técnico atribuído — quem trava a descida é o papel, não a visibilidade (spec 0009, AC-7, revoga o AC-12 da 0007)', () => {
     render(
       <ChamadoDetailSheet
         chamado={chamado({ assignedToUserId: 'b'.repeat(24), assignedToUserName: 'João Técnico' })}
@@ -92,13 +95,27 @@ describe('ChamadoDetailSheet · Corrigir Prioridade (AC-11, AC-12)', () => {
       />,
     );
 
-    expect(screen.queryByRole('button', { name: /Corrigir Prioridade/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Corrigir Prioridade/i })).toBeInTheDocument();
   });
 
-  it('esconde o botão fora do status validado', () => {
+  it('mostra o botão também em atendimento — a janela alargou (spec 0009, AC-7)', () => {
     render(
       <ChamadoDetailSheet
         chamado={chamado({ status: 'em atendimento' })}
+        open
+        onOpenChange={vi.fn()}
+        onCorrigirPrioridade={vi.fn()}
+        userRole="Preposto"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Corrigir Prioridade/i })).toBeInTheDocument();
+  });
+
+  it('esconde o botão fora da janela (aberto, ainda não classificado)', () => {
+    render(
+      <ChamadoDetailSheet
+        chamado={chamado({ status: 'aberto' })}
         open
         onOpenChange={vi.fn()}
         onCorrigirPrioridade={vi.fn()}

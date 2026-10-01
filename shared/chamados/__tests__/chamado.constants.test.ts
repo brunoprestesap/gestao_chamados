@@ -4,6 +4,8 @@ import {
   CHAMADO_STATUS_ATIVOS_TECNICO,
   CHAMADO_STATUS_NAO_FINALIZADOS,
   CHAMADO_STATUSES,
+  direcaoDaPrioridade,
+  FINAL_PRIORITY_VALUES,
 } from '@/shared/chamados/chamado.constants';
 
 /**
@@ -56,6 +58,32 @@ describe('CHAMADO_STATUS_ATIVOS_TECNICO', () => {
     // Assert: todo status ativo do técnico também é um status não finalizado
     for (const status of CHAMADO_STATUS_ATIVOS_TECNICO) {
       expect(CHAMADO_STATUS_NAO_FINALIZADOS).toContain(status);
+    }
+  });
+});
+
+/**
+ * A regra de SLA da correção de prioridade (spec 0009, AC-8/AC-9) trata subir
+ * e descer de jeitos opostos: a direção decide qual tabela vale.
+ */
+describe('direcaoDaPrioridade', () => {
+  it('diz "sobe" quando a nova prioridade é mais rígida', () => {
+    // Act & Assert
+    expect(direcaoDaPrioridade('BAIXA', 'NORMAL')).toBe('sobe');
+    expect(direcaoDaPrioridade('NORMAL', 'EMERGENCIAL')).toBe('sobe');
+    expect(direcaoDaPrioridade('BAIXA', 'EMERGENCIAL')).toBe('sobe');
+  });
+
+  it('diz "desce" quando a nova prioridade é mais branda', () => {
+    // Act & Assert
+    expect(direcaoDaPrioridade('EMERGENCIAL', 'ALTA')).toBe('desce');
+    expect(direcaoDaPrioridade('ALTA', 'BAIXA')).toBe('desce');
+  });
+
+  it('devolve null quando a prioridade não muda', () => {
+    // Act & Assert
+    for (const p of FINAL_PRIORITY_VALUES) {
+      expect(direcaoDaPrioridade(p, p)).toBeNull();
     }
   });
 });

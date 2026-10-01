@@ -93,6 +93,8 @@ const DecisaoIaSchema = new Schema(
 DecisaoIaSchema.index({ chamadoId: 1, campo: 1 }, { unique: true });
 /** Base das métricas de acerto por campo. */
 DecisaoIaSchema.index({ situacao: 1, campo: 1, createdAt: -1 });
+/** Base do `distinct` dos recortes "Revisão da IA" (spec 0009, AC-1/AC-2). */
+DecisaoIaSchema.index({ situacao: 1, efeito: 1, chamadoId: 1 });
 
 export type DecisaoIa = InferSchemaType<typeof DecisaoIaSchema>;
 

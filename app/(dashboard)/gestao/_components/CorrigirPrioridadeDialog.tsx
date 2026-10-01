@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Gauge } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -36,17 +36,21 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  direcaoDaPrioridade,
   FINAL_PRIORITY_LABELS,
   FINAL_PRIORITY_VALUES,
   type FinalPriority,
+  PRIORIDADE_ORDEM,
 } from '@/shared/chamados/chamado.constants';
 import { UpdateTicketPrioritySchema } from '@/shared/chamados/chamado.schemas';
 
 /**
- * A correção mínima da prioridade de um chamado já `validado` (spec 0007,
- * AC-11). A ação recusa fora da janela (chamado atribuído, status diferente
- * de `validado`, ou mesma prioridade); esta tela só mostra a mensagem que a
- * ação devolve, sem repetir a checagem aqui.
+ * Corrige a prioridade de um chamado `validado` ou `em atendimento` (spec
+ * 0007, AC-11; janela alargada e regra de SLA assimétrica pela spec 0009,
+ * AC-7 a AC-10). A ação recusa fora da janela ou fora do papel; esta tela só
+ * mostra a mensagem que a ação devolve, sem repetir a checagem de status
+ * aqui — mas desabilita, à vista, as prioridades mais baixas para o Preposto
+ * quando o chamado já tem técnico (só o Admin baixa nesse caso, AC-10).
  */
 
 const formSchema = UpdateTicketPrioritySchema.omit({ chamadoId: true });
@@ -58,7 +62,15 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   chamadoId: string;
   currentPriority: FinalPriority | null | undefined;
+  /** Chamado já tem técnico atribuído — trava a descida para quem não é Admin (AC-10). */
+  hasTechnician: boolean;
+  isAdmin: boolean;
   onSuccess: () => void;
+};
+
+const EFEITO_SLA_TEXTO: Record<'sobe' | 'desce', string> = {
+  sobe: 'Subir a prioridade nunca aumenta o prazo que o chamado já tinha — só encolhe ou mantém.',
+  desce: 'Baixar a prioridade dá o prazo cheio da prioridade nova, contado desde a classificação.',
 };
 
 export function CorrigirPrioridadeDialog({
@@ -66,6 +78,8 @@ export function CorrigirPrioridadeDialog({
   onOpenChange,
   chamadoId,
   currentPriority,
+  hasTechnician,
+  isAdmin,
   onSuccess,
 }: Props) {
   const [submitting, setSubmitting] = useState(false);
@@ -74,12 +88,12 @@ export function CorrigirPrioridadeDialog({
   const form = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(formSchema) as any,
-    defaultValues: { finalPriority: currentPriority ?? 'NORMAL', classificationNotes: '' },
+    defaultValues: { finalPriority: currentPriority ?? 'NORMAL', motivo: '' },
   });
 
   useEffect(() => {
     if (open) {
-      form.reset({ finalPriority: currentPriority ?? 'NORMAL', classificationNotes: '' });
+      form.reset({ finalPriority: currentPriority ?? 'NORMAL', motivo: '' });
       setError(null);
     }
   }, [open, currentPriority, form]);
@@ -108,8 +122,18 @@ export function CorrigirPrioridadeDialog({
     [chamadoId, onOpenChange, onSuccess],
   );
 
+  const selecionada = form.watch('finalPriority');
   // Enviar a prioridade que já vale só devolveria o erro "já é a atual".
-  const mesmaPrioridade = form.watch('finalPriority') === currentPriority;
+  const mesmaPrioridade = selecionada === currentPriority;
+  const direcao = currentPriority ? direcaoDaPrioridade(currentPriority, selecionada) : null;
+  const soAdminBaixaComTecnico = hasTechnician && !isAdmin;
+
+  const opcoesDesabilitadas = useMemo(() => {
+    if (!soAdminBaixaComTecnico || !currentPriority) return new Set<FinalPriority>();
+    return new Set(
+      FINAL_PRIORITY_VALUES.filter((v) => PRIORIDADE_ORDEM[v] < PRIORIDADE_ORDEM[currentPriority]),
+    );
+  }, [soAdminBaixaComTecnico, currentPriority]);
 
   const handleOpenChange = useCallback(
     (v: boolean) => {
@@ -134,16 +158,18 @@ export function CorrigirPrioridadeDialog({
                 Corrigir Prioridade
               </DialogTitle>
               <DialogDescription className="mt-1 text-xs sm:text-sm">
-                O SLA é recalculado a partir da classificação original, sem mover o prazo pela
-                correção em si. Só é possível enquanto o chamado está validado e sem técnico
-                atribuído.
+                Vale para chamados validados ou em atendimento. O prazo segue a regra de SLA da
+                correção, nunca o cálculo comum da classificação.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         {error && (
-          <div className="rounded-xl border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive sm:text-sm">
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive sm:text-sm"
+          >
             {error}
           </div>
         )}
@@ -164,12 +190,22 @@ export function CorrigirPrioridadeDialog({
                     </FormControl>
                     <SelectContent className="max-h-[min(70vh,20rem)]" position="popper">
                       {FINAL_PRIORITY_VALUES.map((v) => (
-                        <SelectItem key={v} value={v}>
+                        <SelectItem key={v} value={v} disabled={opcoesDesabilitadas.has(v)}>
                           {FINAL_PRIORITY_LABELS[v]}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {soAdminBaixaComTecnico && (
+                    <p className="text-xs text-muted-foreground">
+                      Este chamado já tem técnico atribuído: só o Admin pode baixar a prioridade.
+                    </p>
+                  )}
+                  {direcao && (
+                    <p aria-live="polite" className="text-xs text-muted-foreground">
+                      {EFEITO_SLA_TEXTO[direcao]}
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -177,13 +213,13 @@ export function CorrigirPrioridadeDialog({
 
             <FormField
               control={form.control}
-              name="classificationNotes"
+              name="motivo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Observações da correção</FormLabel>
+                  <FormLabel>Motivo *</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Por que a prioridade mudou (acrescenta à classificação original)."
+                      placeholder="Explique por que a prioridade mudou (pelo menos 10 caracteres)."
                       className="min-h-20 resize-y"
                       {...field}
                     />

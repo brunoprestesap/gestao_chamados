@@ -4,13 +4,14 @@ import {
   atribuidoPeloSistema,
   tituloDeAtribuicaoAoTecnico,
   tituloDeChamadoValidado,
+  tituloDeCorrecaoAoTecnico,
 } from '../aviso-atribuicao';
 
 /**
  * Os títulos dos avisos da atribuição, os mesmos na Notification, no email e no
- * toast (spec 0008, AC-11 e AC-13).
+ * toast (spec 0008, AC-11 e AC-13; spec 0009, AC-14).
  *
- * covers: AC-11 (aviso ao técnico), AC-13 (aviso à gestão)
+ * covers: AC-11 (aviso ao técnico), AC-13 (aviso à gestão), AC-14 (aviso de correção)
  */
 
 describe('atribuidoPeloSistema', () => {
@@ -61,5 +62,35 @@ describe('tituloDeChamadoValidado', () => {
     expect(tituloDeChamadoValidado(undefined, { resultado: 'sem_tecnico', motivo: 'erro' })).toBe(
       'Chamado validado, sem técnico disponível',
     );
+  });
+});
+
+describe('tituloDeCorrecaoAoTecnico (spec 0009, AC-14)', () => {
+  it('prioridade: diz o rótulo da prioridade nova, nunca o código bruto', () => {
+    expect(tituloDeCorrecaoAoTecnico('CHM-1', 'prioridade', 'ALTA')).toBe(
+      'Prioridade do chamado #CHM-1 mudou para Alta',
+    );
+    expect(tituloDeCorrecaoAoTecnico('CHM-1', 'prioridade', 'EMERGENCIAL')).toBe(
+      'Prioridade do chamado #CHM-1 mudou para Emergencial',
+    );
+  });
+
+  it('serviço: nunca leva a prioridade', () => {
+    expect(tituloDeCorrecaoAoTecnico('CHM-1', 'servico')).toBe('O serviço do chamado #CHM-1 mudou');
+    expect(tituloDeCorrecaoAoTecnico('CHM-1', 'servico', 'ALTA')).toBe(
+      'O serviço do chamado #CHM-1 mudou',
+    );
+  });
+
+  it('sem número do chamado, não deixa espaço duplo', () => {
+    expect(tituloDeCorrecaoAoTecnico('', 'prioridade', 'NORMAL')).toBe(
+      'Prioridade do chamado mudou para Normal',
+    );
+    expect(tituloDeCorrecaoAoTecnico(undefined, 'servico')).toBe('O serviço do chamado mudou');
+  });
+
+  it('nunca leva o motivo: só campo e valor novo', () => {
+    const titulo = tituloDeCorrecaoAoTecnico('CHM-1', 'prioridade', 'ALTA');
+    expect(titulo).not.toMatch(/motivo/i);
   });
 });

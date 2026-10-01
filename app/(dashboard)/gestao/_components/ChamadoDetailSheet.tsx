@@ -62,6 +62,7 @@ import { AttachmentGallery } from '../../meus-chamados/[id]/_components/Attachme
 import { CommentThread } from '../../meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '../../meus-chamados/[id]/_components/HistoryTimeline';
 import { CotacaoApprovalCard } from './CotacaoApprovalCard';
+import { RevisaoIaPainel } from './RevisaoIaPainel';
 
 type TabId = 'detalhes' | 'historico' | 'comentarios' | 'anexos';
 
@@ -147,8 +148,10 @@ interface Props {
   onReatribuir?: (chamado: ChamadoDTO) => void;
   onPausar?: (chamado: ChamadoDTO) => void;
   onRetomar?: (chamado: ChamadoDTO) => void;
-  /** Corrigir a prioridade de um chamado validado, sem técnico atribuído (spec 0007, AC-11). */
+  /** Corrigir a prioridade de um chamado validado ou em atendimento (spec 0007, AC-11; janela alargada pela spec 0009, AC-7). */
   onCorrigirPrioridade?: (chamado: ChamadoDTO) => void;
+  /** Corrigir o serviço de um chamado validado ou em atendimento (spec 0009, AC-11). */
+  onCorrigirServico?: (chamado: ChamadoDTO) => void;
   // Ações de Solicitante
   onCancelar?: (chamado: ChamadoDTO) => void;
   onAvaliar?: (chamado: ChamadoDTO) => void;
@@ -173,6 +176,7 @@ export function ChamadoDetailSheet({
   onPausar,
   onRetomar,
   onCorrigirPrioridade,
+  onCorrigirServico,
   onCancelar,
   onAvaliar,
   onRecusarServico,
@@ -304,9 +308,17 @@ export function ChamadoDetailSheet({
     isManager &&
     (status === 'aguardando_solicitante' || status === 'aguardando_terceiros') &&
     !!onRetomar;
-  // Janela estreita de propósito (spec 0007, AC-12): só validado e sem técnico atribuído.
+  // Janela alargada pela spec 0009 (AC-7): validado ou em atendimento, com ou
+  // sem técnico — quem trava a descida com técnico é a regra de papel (AC-10).
   const showCorrigirPrioridade =
-    isManager && status === 'validado' && !chamado.assignedToUserId && !!onCorrigirPrioridade;
+    isManager && (status === 'validado' || status === 'em atendimento') && !!onCorrigirPrioridade;
+  // Só troca o serviço de um chamado que já tem um (AC-11); sem serviço, quem
+  // resolve isso é a classificação, não a correção.
+  const showCorrigirServico =
+    isManager &&
+    (status === 'validado' || status === 'em atendimento') &&
+    !!chamado.catalogServiceId &&
+    !!onCorrigirServico;
 
   // Ações do Solicitante
   const showCancelar = isSolicitante && status === 'aberto' && !!onCancelar;
@@ -324,6 +336,7 @@ export function ChamadoDetailSheet({
     showPausar ||
     showRetomar ||
     showCorrigirPrioridade ||
+    showCorrigirServico ||
     showCancelar ||
     showAvaliar ||
     showRecusarServico;
@@ -539,6 +552,50 @@ export function ChamadoDetailSheet({
                   </div>
                 </section>
 
+                {/* Decisões da IA — só Preposto e Admin (spec 0009, AC-4) */}
+                {veAtribuicaoAutomatica && (
+                  <>
+                    <Separator className="opacity-60" />
+                    <section aria-labelledby="revisao-ia-heading">
+                      <div className="mb-3 flex items-center gap-2">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-950/40">
+                          <Bot
+                            className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400"
+                            aria-hidden="true"
+                          />
+                        </div>
+                        <h2
+                          id="revisao-ia-heading"
+                          className="text-sm font-semibold text-foreground"
+                        >
+                          Serviço, prioridade e técnico
+                        </h2>
+                      </div>
+                      <RevisaoIaPainel
+                        chamadoId={chamado._id}
+                        podeReatribuirTecnico={showReatribuir}
+                        onReatribuirTecnico={
+                          showReatribuir && onReatribuir
+                            ? () => handleAction(onReatribuir)
+                            : undefined
+                        }
+                        podeCorrigirPrioridade={showCorrigirPrioridade}
+                        onCorrigirPrioridade={
+                          showCorrigirPrioridade && onCorrigirPrioridade
+                            ? () => handleAction(onCorrigirPrioridade)
+                            : undefined
+                        }
+                        podeCorrigirServico={showCorrigirServico}
+                        onCorrigirServico={
+                          showCorrigirServico && onCorrigirServico
+                            ? () => handleAction(onCorrigirServico)
+                            : undefined
+                        }
+                      />
+                    </section>
+                  </>
+                )}
+
                 {/* Material Necessário */}
                 {chamado.materialObservations && chamado.materialObservations.length > 0 && (
                   <>
@@ -709,6 +766,18 @@ export function ChamadoDetailSheet({
                   >
                     <Gauge className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                     Corrigir Prioridade
+                  </Button>
+                )}
+                {showCorrigirServico && onCorrigirServico && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full transition-colors sm:w-auto"
+                    onClick={() => handleAction(onCorrigirServico)}
+                  >
+                    <Wrench className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    Corrigir Serviço
                   </Button>
                 )}
                 {showReatribuir && onReatribuir && (

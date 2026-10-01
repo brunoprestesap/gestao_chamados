@@ -12,6 +12,7 @@ import type {
   TicketClassifiedPayload,
   TicketClosedPayload,
   TicketCommentAddedPayload,
+  TicketCorrectedPayload,
   TicketExecutionRegisteredPayload,
   TicketMaterialObservationPayload,
   TicketNewPayload,
@@ -46,6 +47,7 @@ export type AllowedEmitEvents =
   | 'ticket:quote_approved'
   | 'ticket:quote_rejected'
   | 'ticket:reopened'
+  | 'ticket:corrected'
   | 'sla:warning'
   | 'sla:breach';
 
@@ -74,6 +76,7 @@ export async function emitToRoom(
     | TicketQuoteApprovedPayload
     | TicketQuoteRejectedPayload
     | TicketReopenedPayload
+    | TicketCorrectedPayload
     | SlaWarningPayload
     | SlaBreachPayload,
 ): Promise<boolean> {

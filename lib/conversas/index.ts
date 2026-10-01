@@ -19,6 +19,8 @@ export {
 export {
   aplicarVeredito,
   CAMPOS_OCULTOS,
+  camposPendentesDeConfirmacao,
+  confirmarDecisao,
   decisoesOcultas,
   derivarIaSituacao,
   derivarSituacao,
@@ -27,6 +29,7 @@ export {
   registrarDecisao,
   resolverDecisao,
   temDecisoes,
+  valorParaInput,
 } from './decisoes';
 export { lerLinhaDoTempo } from './linha-do-tempo';
 export {

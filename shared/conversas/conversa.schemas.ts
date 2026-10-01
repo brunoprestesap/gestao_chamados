@@ -147,3 +147,13 @@ export const registrarDecisaoSchema = z.object({
   confianca: z.number().min(0).max(1).nullish(),
 });
 export type RegistrarDecisaoValues = z.infer<typeof registrarDecisaoSchema>;
+
+/**
+ * Confirma uma decisão pendente, ou todas as pendentes do chamado quando
+ * `campos` fica de fora (spec 0009, AC-5).
+ */
+export const confirmarDecisoesIaSchema = z.object({
+  chamadoId: objectIdSchema,
+  campos: z.array(z.enum(DECISAO_CAMPOS)).optional(),
+});
+export type ConfirmarDecisoesIaInput = z.infer<typeof confirmarDecisoesIaSchema>;

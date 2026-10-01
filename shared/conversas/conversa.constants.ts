@@ -76,5 +76,9 @@ export const CONVERSA_FALHAS = [
   'ja_existe',
   'invalida',
   'erro',
+  /** A decisão não está pendente (spec 0009, AC-5): não é `aplicado` + `sem_revisao`, ou já foi confirmada. */
+  'nada_a_confirmar',
+  /** O valor final da decisão não é mais o valor atual do chamado (spec 0009, AC-5). */
+  'divergente',
 ] as const;
 export type ConversaFalha = (typeof CONVERSA_FALHAS)[number];

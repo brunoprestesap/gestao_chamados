@@ -15,7 +15,7 @@ import {
 } from '@/tests/mongo-test-env';
 
 import { LINHA_DO_TEMPO_MAX } from '../config';
-import type { DecisaoEntrada, Viewer } from '../types';
+import type { DecisaoEntrada, ItemLinhaDoTempo, Viewer } from '../types';
 
 /**
  * Leitura combinada, visibilidade por perfil, mensagem depois da abertura e
@@ -405,5 +405,88 @@ rodar('linha do tempo e visibilidade, contra o Mongo', () => {
       ok: false,
       reason: 'sem_permissao',
     });
+  });
+
+  it('correcao_ia e correcao_gestao somem da linha do tempo do solicitante e do técnico, mas ficam para a gestão (spec 0009, AC-13)', async () => {
+    await semear();
+    const criada = await criarConversa(viewer);
+    if (!criada.ok) throw new Error('não criou');
+    await enviarMensagem({
+      viewer,
+      conversaId: criada.conversaId,
+      autor: 'solicitante',
+      tipo: 'texto',
+      texto: 'A lâmpada queimou',
+    });
+    const aberto = await abrirChamadoDaConversa({
+      viewer,
+      conversaId: criada.conversaId,
+      dadosChamado: dadosChamado(),
+      decisoes: [
+        {
+          campo: 'tecnico',
+          decididoPor: 'regra',
+          efeito: 'aplicado',
+          valor: { tecnicoId: String(tecnicoId) } as never,
+          motivo: 'Especialidade e carga.',
+        },
+      ],
+    });
+    if (!aberto.ok) throw new Error('não abriu');
+    const chamadoId = aberto.chamadoId;
+    await ChamadoModel.updateOne(
+      { _id: chamadoId },
+      { $set: { assignedToUserId: tecnicoId, status: 'em atendimento' } },
+    );
+
+    // Corrige o técnico (nasce uma entrada correcao_ia).
+    await resolverDecisao({
+      viewer: preposto,
+      chamadoId,
+      campo: 'tecnico',
+      valor: { tecnicoId: String(outroTecnicoId) } as never,
+      origem: 'gestao',
+      motivo: 'Sobrecarga do técnico original.',
+    });
+    // correcao_gestao só nasce a partir do marco 2/3 (correção de prioridade e
+    // de serviço); aqui só confere que o filtro de visibilidade a esconde.
+    await ChamadoHistoryModel.create({
+      chamadoId,
+      userId: prepostoId,
+      actorType: 'usuario',
+      action: 'correcao_gestao',
+      observacoes: 'técnico: João Técnico → Luís Técnico. Motivo: Sobrecarga do técnico original.',
+    } as never);
+
+    const acoesDe = (itens: ItemLinhaDoTempo[]) =>
+      itens
+        .filter(
+          (i): i is Extract<ItemLinhaDoTempo, { fonte: 'historico' }> => i.fonte === 'historico',
+        )
+        .map((i) => i.dados.action);
+
+    // O técnico ainda atribuído (`tecnicoId`) não vê nenhuma das duas.
+    const doTecnico = await lerLinhaDoTempo(tecnico, chamadoId);
+    expect(doTecnico.ok).toBe(true);
+    if (doTecnico.ok) {
+      expect(acoesDe(doTecnico.itens)).not.toContain('correcao_ia');
+      expect(acoesDe(doTecnico.itens)).not.toContain('correcao_gestao');
+    }
+
+    // O solicitante também não.
+    const doSolicitante = await lerLinhaDoTempo(viewer, chamadoId);
+    expect(doSolicitante.ok).toBe(true);
+    if (doSolicitante.ok) {
+      expect(acoesDe(doSolicitante.itens)).not.toContain('correcao_ia');
+      expect(acoesDe(doSolicitante.itens)).not.toContain('correcao_gestao');
+    }
+
+    // A gestão vê as duas.
+    const doPreposto = await lerLinhaDoTempo(preposto, chamadoId);
+    expect(doPreposto.ok).toBe(true);
+    if (doPreposto.ok) {
+      expect(acoesDe(doPreposto.itens)).toContain('correcao_ia');
+      expect(acoesDe(doPreposto.itens)).toContain('correcao_gestao');
+    }
   });
 });

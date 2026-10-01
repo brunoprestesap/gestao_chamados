@@ -35,6 +35,7 @@ vi.mock('@/lib/conversas', () => ({
 }));
 
 import { GET } from '@/app/api/chamados/[id]/history/route';
+import { ACOES_SO_DA_GESTAO } from '@/shared/chamados/history.constants';
 
 /**
  * Leitura do histórico de um chamado.
@@ -222,15 +223,47 @@ describe('GET /api/chamados/[id]/history · acesso', () => {
 // ── consulta ─────────────────────────────────────────────────────
 
 describe('GET /api/chamados/[id]/history · consulta', () => {
-  it('busca só o histórico daquele chamado', async () => {
+  it('busca o histórico daquele chamado sem as ações só da gestão, para o solicitante (spec 0009, AC-13)', async () => {
+    // Arrange: o beforeEach já deixa a sessão como o Solicitante dono
     // Act
     await GET(...pedido());
 
     // Assert
     expect(mockHistoryFind).toHaveBeenCalledWith({
       chamadoId: new Types.ObjectId(CHAMADO_ID),
+      action: { $nin: ACOES_SO_DA_GESTAO },
     });
   });
+
+  it('busca o histórico daquele chamado sem as ações só da gestão, para o técnico atribuído (spec 0009, AC-13)', async () => {
+    // Arrange
+    mockVerifySession.mockResolvedValue(sessao(TECNICO_ID, 'Técnico'));
+
+    // Act
+    await GET(...pedido());
+
+    // Assert
+    expect(mockHistoryFind).toHaveBeenCalledWith({
+      chamadoId: new Types.ObjectId(CHAMADO_ID),
+      action: { $nin: ACOES_SO_DA_GESTAO },
+    });
+  });
+
+  it.each(['Admin', 'Preposto'])(
+    'busca o histórico completo, sem filtro de ação, para %s (spec 0009, AC-13)',
+    async (role) => {
+      // Arrange
+      mockVerifySession.mockResolvedValue(sessao(ESTRANHO_ID, role));
+
+      // Act
+      await GET(...pedido());
+
+      // Assert
+      expect(mockHistoryFind).toHaveBeenCalledWith({
+        chamadoId: new Types.ObjectId(CHAMADO_ID),
+      });
+    },
+  );
 
   it('pede o mais recente primeiro', async () => {
     // Act

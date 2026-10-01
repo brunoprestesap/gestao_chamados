@@ -27,10 +27,12 @@ import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/Atri
 import { ChamadoDetailSheet } from '@/app/(dashboard)/gestao/_components/ChamadoDetailSheet';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
 import { CorrigirPrioridadeDialog } from '@/app/(dashboard)/gestao/_components/CorrigirPrioridadeDialog';
+import { CorrigirServicoDialog } from '@/app/(dashboard)/gestao/_components/CorrigirServicoDialog';
 import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReabrirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReabrirChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import { RecusarChamadoDialog } from '@/app/(dashboard)/gestao/_components/RecusarChamadoDialog';
+import { RevisaoIaSelect } from '@/app/(dashboard)/gestao/_components/RevisaoIaSelect';
 import { type ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import {
   type ChamadoStatus,
@@ -65,6 +67,10 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateShort } from '@/lib/utils';
 import { CHAMADO_STATUS_LABELS, type FinalPriority } from '@/shared/chamados/chamado.constants';
+import {
+  REVISAO_IA_RECORTE_VAZIO,
+  type RevisaoIaRecorte,
+} from '@/shared/chamados/revisao-ia.constants';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -386,6 +392,7 @@ export default function GestaoPage() {
   const [corrigirPrioridadeChamado, setCorrigirPrioridadeChamado] = useState<ChamadoDTO | null>(
     null,
   );
+  const [corrigirServicoChamado, setCorrigirServicoChamado] = useState<ChamadoDTO | null>(null);
   const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
   const [pausarChamado, setPausarChamado] = useState<ChamadoDTO | null>(null);
   const [cotacaoChamado, setCotacaoChamado] = useState<ChamadoDTO | null>(null);
@@ -405,6 +412,7 @@ export default function GestaoPage() {
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [status, setStatus] = useState<ChamadoStatus[]>([]);
+  const [revisaoIa, setRevisaoIa] = useState<RevisaoIaRecorte | null>(null);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -427,14 +435,21 @@ export default function GestaoPage() {
     setPage(1);
   }, []);
 
+  // Reset to page 1 when the "Revisão da IA" filter changes
+  const setRevisaoIaFilter = useCallback((v: RevisaoIaRecorte | null) => {
+    setRevisaoIa(v);
+    setPage(1);
+  }, []);
+
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
     if (debouncedQ.trim()) p.set('q', debouncedQ.trim());
     if (status.length > 0) p.set('status', status.join(','));
+    if (revisaoIa) p.set('revisaoIa', revisaoIa);
     p.set('page', String(page));
     p.set('limit', String(PAGE_SIZE));
     return p.toString();
-  }, [debouncedQ, status, page]);
+  }, [debouncedQ, status, revisaoIa, page]);
 
   // ---------------------------------------------------------------------------
   // Data fetching
@@ -538,6 +553,15 @@ export default function GestaoPage() {
     fetchChamados();
   }, [fetchChamados]);
 
+  const handleCorrigirServico = useCallback((chamado: ChamadoDTO) => {
+    setCorrigirServicoChamado(chamado);
+  }, []);
+
+  const handleCorrigirServicoSuccess = useCallback(() => {
+    setCorrigirServicoChamado(null);
+    fetchChamados();
+  }, [fetchChamados]);
+
   const handleReatribuir = useCallback((chamado: ChamadoDTO) => {
     setReatribuirChamado(chamado);
   }, []);
@@ -569,13 +593,16 @@ export default function GestaoPage() {
   // Derived state
   // ---------------------------------------------------------------------------
 
-  const hasActiveFilter = q.trim() !== '' || status.length > 0;
-  const activeFilterCount = (q.trim() !== '' ? 1 : 0) + (status.length > 0 ? 1 : 0);
+  const hasActiveFilter = q.trim() !== '' || status.length > 0 || revisaoIa !== null;
+  const activeFilterCount =
+    (q.trim() !== '' ? 1 : 0) + (status.length > 0 ? 1 : 0) + (revisaoIa !== null ? 1 : 0);
 
   const emptyMessage = useMemo(() => {
+    // O recorte "Revisão da IA" tem frase própria por recorte (AC-3).
+    if (revisaoIa) return REVISAO_IA_RECORTE_VAZIO[revisaoIa];
     if (hasActiveFilter) return 'Tente ajustar a busca ou remover os filtros aplicados.';
     return 'Nenhum chamado cadastrado no sistema.';
-  }, [hasActiveFilter]);
+  }, [hasActiveFilter, revisaoIa]);
 
   const actionHandlers: ActionHandlers = useMemo(
     () => ({
@@ -603,6 +630,7 @@ export default function GestaoPage() {
   const clearFilters = useCallback(() => {
     setQ('');
     setStatus([]);
+    setRevisaoIa(null);
     setPage(1);
   }, []);
 
@@ -661,12 +689,19 @@ export default function GestaoPage() {
             />
           </div>
 
-          {/* Desktop: select inline */}
+          {/* Desktop: selects inline */}
           <div className="hidden shrink-0 sm:block">
             <StatusMultiSelect
               value={status}
               onValueChange={setStatusFilter}
               className="w-[200px]"
+            />
+          </div>
+          <div className="hidden shrink-0 sm:block">
+            <RevisaoIaSelect
+              value={revisaoIa}
+              onValueChange={setRevisaoIaFilter}
+              className="w-[220px]"
             />
           </div>
 
@@ -718,6 +753,18 @@ export default function GestaoPage() {
                     Status do chamado
                   </label>
                   <StatusMultiSelect value={status} onValueChange={setStatusFilter} />
+                </div>
+
+                {/* Revisão da IA filter */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Revisão da IA
+                  </label>
+                  <RevisaoIaSelect
+                    value={revisaoIa}
+                    onValueChange={setRevisaoIaFilter}
+                    className="w-full"
+                  />
                 </div>
 
                 {/* Clear filters button */}
@@ -1031,6 +1078,7 @@ export default function GestaoPage() {
         onPausar={handlePausar}
         onRetomar={handleRetomar}
         onCorrigirPrioridade={handleCorrigirPrioridade}
+        onCorrigirServico={handleCorrigirServico}
         userRole={userRole}
       />
 
@@ -1086,7 +1134,20 @@ export default function GestaoPage() {
           }}
           chamadoId={corrigirPrioridadeChamado._id}
           currentPriority={corrigirPrioridadeChamado.finalPriority as FinalPriority | null}
+          hasTechnician={!!corrigirPrioridadeChamado.assignedToUserId}
+          isAdmin={userRole === 'Admin'}
           onSuccess={handleCorrigirPrioridadeSuccess}
+        />
+      )}
+
+      {corrigirServicoChamado && (
+        <CorrigirServicoDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setCorrigirServicoChamado(null);
+          }}
+          chamado={corrigirServicoChamado}
+          onSuccess={handleCorrigirServicoSuccess}
         />
       )}
 

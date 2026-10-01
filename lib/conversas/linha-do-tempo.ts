@@ -6,6 +6,7 @@ import { ChamadoCommentModel } from '@/models/ChamadoComment';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { ConversaModel } from '@/models/Conversa';
 import { ConversaMensagemModel } from '@/models/ConversaMensagem';
+import { ACOES_SO_DA_GESTAO } from '@/shared/chamados/history.constants';
 import type { ConversaAutor, ConversaMensagemTipo } from '@/shared/conversas/conversa.constants';
 import { objectIdSchema } from '@/shared/conversas/conversa.schemas';
 
@@ -62,7 +63,9 @@ export async function lerLinhaDoTempo(viewer: Viewer, chamadoId: string): Promis
         .sort({ createdAt: -1, _id: -1 })
         .limit(LINHA_DO_TEMPO_MAX)
         .lean(),
-      ChamadoHistoryModel.find({ chamadoId })
+      ChamadoHistoryModel.find(
+        gestao ? { chamadoId } : { chamadoId, action: { $nin: ACOES_SO_DA_GESTAO } },
+      )
         .sort({ createdAt: -1, _id: -1 })
         .limit(LINHA_DO_TEMPO_MAX)
         .lean(),
