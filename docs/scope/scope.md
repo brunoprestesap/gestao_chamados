@@ -34,6 +34,10 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 20  | Aviso de chamado duplicado                         | Slice 4       | planned     |
 | 21  | Entrada por voz                                    | Slice 4       | planned     |
 | 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | in-progress |
+| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done        |
+| 24  | Importador SICAM e vistoria em campo               | Ativos        | planned     |
+| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | planned     |
+| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | planned     |
 
 ## Existing (contexto)
 
@@ -270,6 +274,46 @@ spec [0010](../specs/0010-prazo-avaliacao-encerramento-definitivo/index.md) · c
 - [x] Test it: `/test prazo para avaliar e encerramento definitivo`
 - [x] Review it (fresh model): `/check review prazo para avaliar e encerramento definitivo`
 - [ ] Document it: `/document prazo para avaliar e encerramento definitivo`
+
+## Gestão de ativos
+
+Proposta completa em `docs/0009 — Gestão de Ativos.md`. Cada fatia da proposta vira uma funcionalidade.
+
+### 23. Gestão de ativos: cadastro, etiqueta e vínculo · done
+
+O chamado passa a apontar para o equipamento: árvore de locais, categorias, ativo, carga dos 108 do Tier A, leitura de etiqueta e vínculo no formulário e na gestão.
+**Done when:** os 108 ativos estão carregados; ler ou digitar o tombamento abre a ficha; dá para abrir chamado a partir dela, e o chamado aparece no histórico da ficha; a gestão vincula ou corrige o ativo de qualquer chamado aberto.
+spec [0011](../specs/0011-gestao-ativos/index.md) · code in `lib/ativos/`, `app/(dashboard)/ativos/`, `models/Ativo.ts`
+
+- [x] Design it (spec): `/architect gestão de ativos fatia 1`
+- [x] Build it: `/develop gestão de ativos fatia 1`
+  - [x] O fio: modelos, carga do Tier A, leitura digitada, ficha e chamado com ativo · AC-4, AC-8, AC-9, AC-11, AC-13, AC-14, AC-15
+  - [x] Cadastro de verdade: árvore de locais, categorias, CRUD do ativo, status e validação · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7
+  - [x] Uso diário: lista com filtros, câmera, atalho de cadastro e vínculo na gestão · AC-10, AC-11, AC-12, AC-16
+  - [x] Testes de banco real, de permissão e E2E do fio · AC-2, AC-4, AC-5, AC-17
+- [x] Verify it: `/check verify gestão de ativos fatia 1`
+- [x] Test it: `/test gestão de ativos fatia 1`
+
+### 24. Importador SICAM e vistoria em campo · needs a decision
+
+Importar o CSV bruto do SICAM com diferença e revisão, e conduzir a vistoria pelo celular, inclusive sem sinal. from spec 0011
+**Done when:** o Admin sobe o CSV, revisa novos, alterados e sumidos e aplica; a vistoria mostra cobertura por prédio; o cadastro em campo funciona offline e sincroniza; os ativos `MNT-` (elevador, QGBT, SPDA, hidrante) estão cadastrados.
+
+- [ ] Design it (spec): `/architect importador SICAM e vistoria`
+
+### 25. Documentos do ativo e preventiva por categoria · needs a decision
+
+Laudos e certificados com alerta de vencimento, e chamados preventivos gerados por ativo. from spec 0011
+**Done when:** PMOC, AVCB, ART e laudos têm validade e alerta em 90, 60 e 30 dias; o recorrente por categoria gera um chamado por ativo em operação.
+
+- [ ] Design it (spec): `/architect documentos e preventiva por ativo`
+
+### 26. Ativo pela IA no chat e indicadores no IMR · needs a decision
+
+A IA reconhece o equipamento na conversa, e o IMR ganha MTBF, MTTR, reincidência e os ativos mais problemáticos. from spec 0011
+**Done when:** a conversa sugere o ativo (ou pede a escolha entre candidatos) sem passar pelo portão de confiança; o IMR mostra os indicadores de ativo como informativos.
+
+- [ ] Design it (spec): `/architect ativo no chat e indicadores`
 
 ## Deferred
 

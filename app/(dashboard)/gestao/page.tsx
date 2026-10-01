@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import { PauseTicketDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseTicketDialog';
 import { ResumeFromRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/ResumeFromRequesterDialog';
@@ -31,6 +32,7 @@ import { ReabrirChamadoDialog } from '@/app/(dashboard)/gestao/_components/Reabr
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import { RecusarChamadoDialog } from '@/app/(dashboard)/gestao/_components/RecusarChamadoDialog';
 import { RevisaoIaSelect } from '@/app/(dashboard)/gestao/_components/RevisaoIaSelect';
+import { vincularAtivoChamadoAction } from '@/app/(dashboard)/gestao/actions';
 import { type ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
 import {
   type ChamadoStatus,
@@ -64,6 +66,7 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateShort } from '@/lib/utils';
+import type { ItemSeletorAtivo } from '@/shared/ativos/seletor.types';
 import { CHAMADO_STATUS_LABELS, type FinalPriority } from '@/shared/chamados/chamado.constants';
 import {
   REVISAO_IA_RECORTE_VAZIO,
@@ -538,6 +541,27 @@ export default function GestaoPage() {
   const handleCorrigirServico = useCallback((chamado: ChamadoDTO) => {
     setCorrigirServicoChamado(chamado);
   }, []);
+
+  // Equipamento do chamado (spec 0011, AC-16): atualiza o sheet na hora e a lista por baixo.
+  const handleVincularAtivo = useCallback(
+    async (chamado: ChamadoDTO, ativo: ItemSeletorAtivo | null) => {
+      const r = await vincularAtivoChamadoAction({
+        chamadoId: chamado._id,
+        ativoId: ativo?.id ?? null,
+      });
+      if (!r.ok) return r;
+      const resumo = ativo
+        ? { id: ativo.id, codigo: ativo.codigo, descricao: ativo.descricao }
+        : null;
+      setDetailSheetChamado((atual) =>
+        atual && atual._id === chamado._id ? { ...atual, ativo: resumo } : atual,
+      );
+      toast.success(ativo ? `Equipamento ${ativo.codigo} vinculado.` : 'Equipamento removido.');
+      fetchChamados();
+      return r;
+    },
+    [fetchChamados],
+  );
 
   const handleCorrigirServicoSuccess = useCallback(() => {
     setCorrigirServicoChamado(null);
@@ -1058,6 +1082,7 @@ export default function GestaoPage() {
         onRetomar={handleRetomar}
         onCorrigirPrioridade={handleCorrigirPrioridade}
         onCorrigirServico={handleCorrigirServico}
+        onVincularAtivo={handleVincularAtivo}
         userRole={userRole}
       />
 

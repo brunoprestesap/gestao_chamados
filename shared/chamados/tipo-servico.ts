@@ -28,3 +28,19 @@ export function tipoServicoDoNomeDoTipo(nome: string): TipoServico | null {
   if (n.includes('elevador')) return 'Elevador';
   return null;
 }
+
+/**
+ * Id do `ServiceType` de cada opção fixa, pela mesma regra da proposta da IA.
+ * Com dois tipos na mesma opção, vale o último da lista. O seletor de ativo
+ * (spec 0011) repete a conta no servidor com a lista na mesma ordem
+ * (`/api/catalog/types`, por nome), para sugerir só o subtipo que o
+ * formulário vai mostrar.
+ */
+export function buildTypeIdByTipo(types: { id: string; name: string }[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const t of types) {
+    const tipo = tipoServicoDoNomeDoTipo(t.name);
+    if (tipo) m.set(tipo, t.id);
+  }
+  return m;
+}

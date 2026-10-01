@@ -12,8 +12,9 @@ Um arquivo por coleção, com schema manual (sem Prisma) e os índices declarado
 
 ## Convenções
 
-- Um modelo novo apaga o registro antigo antes de registrar, como o `Chamado.ts` faz: `if (mongoose.models.X) { delete mongoose.models.X; }` e depois `mongoose.model('X', XSchema)`. É o padrão de 14 dos 23 modelos.
+- Um modelo novo apaga o registro antigo antes de registrar, como o `Chamado.ts` faz: `if (mongoose.models.X) { delete mongoose.models.X; }` e depois `mongoose.model('X', XSchema)`. É o padrão de 19 dos 28 modelos.
 - Índice que precisa conviver com valores ausentes é parcial: `Chamado.conversaId` é único com `partialFilterExpression: { conversaId: { $type: 'objectId' } }`, para vários chamados sem conversa coexistirem.
+- Os modelos da gestão de ativos (`Ativo`, `AtivoHistory`, `CategoriaAtivo`, `Localizacao`, `Contador`) passam o nome da coleção explícito, de `COLECOES_ATIVOS` (`shared/ativos/ativo.constants.ts`), porque a carga do Tier A escreve direto pelo mongosh e precisa acertar os mesmos nomes.
 - Os índices vêm de `Schema.index(...)` no schema. Teste que precisa do índice único ou do TTL chama `createIndexes()` de propósito (ver `tests/mongo-test-env.ts`).
 
 ## Gotchas

@@ -62,6 +62,7 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateShort } from '@/lib/utils';
+import type { ItemSeletorAtivo } from '@/shared/ativos/seletor.types';
 import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 
 // ---------------------------------------------------------------------------
@@ -70,6 +71,8 @@ import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 
 const DEBOUNCE_MS = 300;
 const PAGE_SIZE = 10;
+/** Abre o formulário com um equipamento (spec 0011, AC-15). */
+const PARAM_ATIVO = 'ativo';
 
 interface Pagination {
   page: number;
@@ -356,6 +359,7 @@ export default function MeusChamadosPage() {
 
   // Dialog state
   const [newTicketDialogOpen, setNewTicketDialogOpen] = useState(false);
+  const [ativoInicial, setAtivoInicial] = useState<ItemSeletorAtivo | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelChamado, setCancelChamado] = useState<ChamadoDTO | null>(null);
   const [avaliarChamado, setAvaliarChamado] = useState<AvaliarChamadoDialogChamado | null>(null);
@@ -363,6 +367,28 @@ export default function MeusChamadosPage() {
     useState<RecusarServicoDialogChamado | null>(null);
   const [detailSheetChamado, setDetailSheetChamado] = useState<ChamadoDTO | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+
+  // "Abrir chamado deste ativo" (spec 0011, AC-15): `?ativo=<id>` abre o
+  // formulário com o equipamento escolhido, uma vez só, e sai da URL.
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const ativoId = query.get(PARAM_ATIVO);
+    if (!ativoId) return;
+    query.delete(PARAM_ATIVO);
+    const resto = query.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${resto ? `?${resto}` : ''}`);
+    fetch(`/api/ativos/${encodeURIComponent(ativoId)}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { item?: ItemSeletorAtivo } | null) => {
+        if (!data?.item) {
+          toast.error('Este equipamento não pode receber chamado.');
+          return;
+        }
+        setAtivoInicial(data.item);
+        setNewTicketDialogOpen(true);
+      })
+      .catch(() => toast.error('Não foi possível carregar o equipamento.'));
+  }, []);
 
   useEffect(() => {
     fetch('/api/session', { cache: 'no-store' })
@@ -939,8 +965,12 @@ export default function MeusChamadosPage() {
       {/* ----------------------------------------------------------------- */}
       <NewTicketDialog
         open={newTicketDialogOpen}
-        onOpenChange={setNewTicketDialogOpen}
+        onOpenChange={(aberto) => {
+          setNewTicketDialogOpen(aberto);
+          if (!aberto) setAtivoInicial(null);
+        }}
         onSuccess={fetchChamados}
+        ativoInicial={ativoInicial}
       />
 
       <CancelTicketDialog

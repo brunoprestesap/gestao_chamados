@@ -159,6 +159,9 @@ const ChamadoSchema = new Schema(
     // Reincidência (spec 0010): o chamado encerrado cujo problema voltou. Só
     // nasce pelo "O problema voltou" do formulário, e nunca muda depois.
     chamadoAnteriorId: { type: Schema.Types.ObjectId, ref: 'Chamado', default: null },
+    // Equipamento do chamado (spec 0011). Tier A ou B no momento do vínculo;
+    // nunca muda o `unitId` (quem pede).
+    ativoId: { type: Schema.Types.ObjectId, ref: 'Ativo', default: null },
     // Observações de material (técnico registra sem fechar o chamado)
     materialObservations: [
       {
@@ -241,6 +244,11 @@ ChamadoSchema.index(
   { chamadoAnteriorId: 1 },
   { partialFilterExpression: { chamadoAnteriorId: { $type: 'objectId' } } },
 );
+// Chamados de um ativo, mais recentes primeiro (ficha, spec 0011).
+ChamadoSchema.index(
+  { ativoId: 1, createdAt: -1 },
+  { partialFilterExpression: { ativoId: { $type: 'objectId' } } },
+);
 // Um chamado pertence a uma única conversa. O parcial deixa vários `null` conviverem.
 ChamadoSchema.index(
   { conversaId: 1 },
@@ -288,6 +296,7 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   rejectedByUserId?: Types.ObjectId;
   originTemplateId?: Types.ObjectId;
   chamadoAnteriorId?: Types.ObjectId | null;
+  ativoId?: Types.ObjectId | null;
   prazoAvaliacaoAte?: Date | null;
   concludedAt?: Date;
   slaPausedAt?: Date;

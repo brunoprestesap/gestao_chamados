@@ -3,6 +3,7 @@
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
+import { vincularAtivoAoChamado } from '@/lib/ativos/vinculo';
 import { notificarAtribuicao } from '@/lib/chamados/notificar-atribuicao';
 import { notificarCorrecaoAoTecnico } from '@/lib/chamados/notificar-correcao';
 import {
@@ -11,7 +12,7 @@ import {
   confirmarDecisao,
   resolverDecisao,
 } from '@/lib/conversas/decisoes';
-import { isAdmin, requireManager } from '@/lib/dal';
+import { canManage, isAdmin, requireManager, verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { logRevisaoIa } from '@/lib/gestao/log-revisao-ia';
@@ -25,6 +26,11 @@ import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { ServiceTypeModel } from '@/models/ServiceType';
 import { SlaEscalationModel } from '@/models/SlaEscalation';
 import { UserModel } from '@/models/user.model';
+import { ERRO_SEM_PERMISSAO } from '@/shared/ativos/ativo.constants';
+import {
+  type VincularAtivoChamadoInput,
+  VincularAtivoChamadoSchema,
+} from '@/shared/ativos/ativo.schemas';
 import {
   type AssignTicketInput,
   AssignTicketSchema,
@@ -1676,5 +1682,40 @@ export async function confirmarDecisoesIaAction(
       ok: false,
       error: e instanceof Error ? e.message : 'Erro ao confirmar decisão. Tente novamente.',
     };
+  }
+}
+
+/**
+ * Vincula, troca ou remove o equipamento de um chamado ainda aberto (spec
+ * 0011, AC-16). `verifySession()` em vez de `requireManager()`: o `redirect()`
+ * lançado dentro do `try` viraria erro genérico, e o perfil sem permissão
+ * precisa receber `ok: false` (AC-17).
+ */
+export async function vincularAtivoChamadoAction(
+  raw: VincularAtivoChamadoInput,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await verifySession();
+  if (!session || !canManage(session.role)) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const parsed = VincularAtivoChamadoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Dados inválidos.' };
+  }
+  try {
+    await dbConnect();
+    const r = await vincularAtivoAoChamado(
+      parsed.data.chamadoId,
+      parsed.data.ativoId,
+      session.userId,
+    );
+    if (!r.ok) return r;
+    if (r.mudou) {
+      revalidatePath('/gestao');
+      revalidatePath(`/meus-chamados/${parsed.data.chamadoId}`);
+      revalidatePath('/ativos', 'layout');
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('vincularAtivoChamadoAction:', e);
+    return { ok: false, error: 'Não foi possível mudar o equipamento agora. Tente de novo.' };
   }
 }

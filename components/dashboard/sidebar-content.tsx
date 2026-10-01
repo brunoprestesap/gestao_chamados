@@ -8,7 +8,7 @@ import { signOut } from 'next-auth/react';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { NavItem } from '@/components/dashboard/nav';
-import { NAV_GROUP_ORDER, NAV_ITEMS } from '@/components/dashboard/nav';
+import { hrefAtivo, NAV_GROUP_ORDER, NAV_ITEMS } from '@/components/dashboard/nav';
 import { SidebarToggle } from '@/components/sidebar/sidebar-toggle';
 import { SigmaLogo } from '@/components/sigma-logo';
 import { Button } from '@/components/ui/button';
@@ -79,6 +79,10 @@ export function SidebarContent({
     const filtered = filterByRole([...NAV_ITEMS], user?.role);
     return groupItems(filtered);
   }, [user?.role]);
+  const ativo = hrefAtivo(
+    pathname,
+    grouped.flatMap(({ items }) => items.map((i) => i.href)),
+  );
 
   const sidebarClasses = inDrawer ? 'bg-sidebar text-sidebar-foreground' : '';
 
@@ -156,10 +160,7 @@ export function SidebarContent({
               </AnimatePresence>
               <div className={cn('space-y-0.5', collapsed && 'flex flex-col items-center gap-0.5')}>
                 {items.map((item) => {
-                  const isActive =
-                    item.href === '/'
-                      ? pathname === '/'
-                      : pathname === item.href || pathname?.startsWith(item.href + '/');
+                  const isActive = item.href === ativo;
                   const Icon = item.icon;
                   const linkContent = (
                     <Link

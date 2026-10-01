@@ -50,10 +50,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDateTime } from '@/lib/utils';
+import { STATUS_SEM_VINCULO_ATIVO } from '@/shared/ativos/ativo.constants';
+import type { ItemSeletorAtivo } from '@/shared/ativos/seletor.types';
 import { textoDaAtribuicaoAutomatica } from '@/shared/chamados/atribuicao-automatica.constants';
 import { SERVICO_A_DEFINIR } from '@/shared/chamados/chamado.constants';
 import { PAUSE_REASON_LABELS, type PauseReason } from '@/shared/chamados/pause-reason.constants';
 
+import { EquipamentoDoChamado } from '../../ativos/_components/EquipamentoDoChamado';
 import type { ChamadoDTO } from '../../meus-chamados/_components/ChamadoCard';
 import {
   CHAMADO_STATUS_LABELS,
@@ -158,6 +161,15 @@ interface Props {
   onCancelar?: (chamado: ChamadoDTO) => void;
   onAvaliar?: (chamado: ChamadoDTO) => void;
   onRecusarServico?: (chamado: ChamadoDTO) => void;
+  /**
+   * Vincular, trocar ou remover o equipamento (spec 0011, AC-16). Só a tela de
+   * gestão passa; o controle depende desta prop, nunca do `isManager`, que
+   * trata `userRole === null` como gestor.
+   */
+  onVincularAtivo?: (
+    chamado: ChamadoDTO,
+    ativo: ItemSeletorAtivo | null,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Papel do usuário logado. Recebido via prop para evitar fetch redundante a /api/session
    *  (a página pai já faz esse fetch uma vez). */
   userRole?: string | null;
@@ -181,6 +193,7 @@ export function ChamadoDetailSheet({
   onCancelar,
   onAvaliar,
   onRecusarServico,
+  onVincularAtivo,
   userRole = null,
 }: Props) {
   const router = useRouter();
@@ -538,6 +551,15 @@ export function ChamadoDetailSheet({
                     {chamado.localExato && (
                       <MetadataRow icon={MapPin} label="Local" value={chamado.localExato} />
                     )}
+                    <EquipamentoDoChamado
+                      key={chamado._id}
+                      ativo={chamado.ativo ?? null}
+                      onVincular={
+                        onVincularAtivo && !STATUS_SEM_VINCULO_ATIVO.includes(chamado.status)
+                          ? (ativo) => onVincularAtivo(chamado, ativo)
+                          : undefined
+                      }
+                    />
                     {userName && <MetadataRow icon={User} label="Solicitante" value={userName} />}
                     {chamado.telefoneContato && (
                       <MetadataRow icon={Phone} label="Telefone" value={chamado.telefoneContato} />

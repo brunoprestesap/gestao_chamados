@@ -174,6 +174,20 @@ describe('NewTicketFormSchema', () => {
     expect(NewTicketFormSchema.safeParse(validInput).success).toBe(true);
   });
 
+  // Equipamento (spec 0011, AC-14)
+  it('ativoId vazio (campo limpo) vira ausente', () => {
+    const result = NewTicketFormSchema.safeParse({ ...validInput, ativoId: '' });
+    expect(result.success && result.data.ativoId).toBeUndefined();
+  });
+
+  it('ativoId válido passa, e inválido é recusado com mensagem própria', () => {
+    const ok = NewTicketFormSchema.safeParse({ ...validInput, ativoId: VALID_ID });
+    expect(ok.success && ok.data.ativoId).toBe(VALID_ID);
+    const ruim = NewTicketFormSchema.safeParse({ ...validInput, ativoId: 'xyz' });
+    expect(ruim.success).toBe(false);
+    if (!ruim.success) expect(ruim.error.issues[0].message).toBe('Equipamento inválido.');
+  });
+
   it('rejeita localExato só com espaços (após trim)', () => {
     const result = NewTicketFormSchema.safeParse({ ...validInput, localExato: '   ' });
     expect(result.success).toBe(false);
