@@ -18,7 +18,8 @@ test.describe('Dashboard Técnico', () => {
     await expect(page.getByText(/minha carga de trabalho/i).first()).toBeVisible();
     await expect(page.getByText(/em atendimento/i).first()).toBeVisible();
     await expect(page.getByText(/prontos para concluir/i).first()).toBeVisible();
-    await expect(page.getByText(/concluídos \(aguardando\)/i).first()).toBeVisible();
+    // Rótulo da spec 0010 (AC-14): o concluído aguarda a avaliação do solicitante.
+    await expect(page.getByText(/aguardando avaliação/i).first()).toBeVisible();
 
     // Verifica a seção de Especialidades
     await expect(page.getByText(/meus serviços \/ especialidades/i).first()).toBeVisible();
