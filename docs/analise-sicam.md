@@ -21,7 +21,11 @@ L;879;879;5218006001;Controle de Constitucionalidade; aspectos jurídicos e pol�
 
 ```ts
 if (campos.length > 39) {
-  campos = [...campos.slice(0, 4), campos.slice(4, campos.length - 34).join(';'), ...campos.slice(-34)]
+  campos = [
+    ...campos.slice(0, 4),
+    campos.slice(4, campos.length - 34).join(';'),
+    ...campos.slice(-34),
+  ];
 }
 ```
 
@@ -29,27 +33,27 @@ Isso tem que entrar no importador. Sem isso, 948 registros entram com as colunas
 
 ### Outras armadilhas
 
-| Problema | Impacto |
-| --- | --- |
-| Encoding **cp1252**, não UTF-8 | `Manutenção` vira `ManutenÃ§Ã£o` se ler errado |
+| Problema                                        | Impacto                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------- |
+| Encoding **cp1252**, não UTF-8                  | `Manutenção` vira `ManutenÃ§Ã£o` se ler errado                |
 | Datas em `DD-MMM-AA` (`16-JAN-26`, `10-JUN-94`) | Ambiguidade de século: corte em 40 → `94` = 1994, `26` = 2026 |
-| Decimal com vírgula (`807,11`) | Parser numérico precisa trocar `,` por `.` |
-| `Ind` e `Saída` são redundantes | `1` = PRESENTE, `2` = SAIU. Usar `Saída` |
+| Decimal com vírgula (`807,11`)                  | Parser numérico precisa trocar `,` por `.`                    |
+| `Ind` e `Saída` são redundantes                 | `1` = PRESENTE, `2` = SAIU. Usar `Saída`                      |
 
 ---
 
 ## 2. Composição da base
 
-| Tipo Tombo | Qtd | O que é |
-| --- | --- | --- |
-| `T` | 11.301 | Bem permanente |
-| `L` | 3.174 | Livro (biblioteca) |
-| `INC` | 136 | Incorporação (software, licenças) |
+| Tipo Tombo | Qtd    | O que é                           |
+| ---------- | ------ | --------------------------------- |
+| `T`        | 11.301 | Bem permanente                    |
+| `L`        | 3.174  | Livro (biblioteca)                |
+| `INC`      | 136    | Incorporação (software, licenças) |
 
-| Saída | Qtd |
-| --- | --- |
+| Saída    | Qtd   |
+| -------- | ----- |
 | PRESENTE | 9.101 |
-| SAIU | 5.506 |
+| SAIU     | 5.506 |
 
 **Universo de trabalho: `Tipo Tombo = T` + `Saída = PRESENTE` → 6.040 bens.**
 
@@ -63,23 +67,23 @@ Dos **6.040** bens presentes, **5.472 (90,6%) não são ativos de manutenção**
 
 Sobraram **568 candidatos**, classificados em quatro tiers:
 
-| Tier | Categoria | Itens | Entra no Sigma? |
-| --- | --- | --- | --- |
-| **A** | climatizacao | 37 | ✅ sim — núcleo da manutenção predial |
-| **A** | energia_nobreak | 43 | ✅ sim |
-| **A** | controle_acesso | 13 | ✅ sim |
-| **A** | combate_incendio | 5 | ✅ sim |
-| **A** | hidraulica_bomba | 4 | ✅ sim |
-| **A** | exaustao_ventilacao | 2 | ✅ sim |
-| **A** | ar_comprimido | 2 | ✅ sim |
-| **A** | energia_gerador | 1 | ✅ sim |
-| **A** | energia_transformador | 1 | ✅ sim |
-| **B** | copa_refrigeracao | 87 | ⚠️ só corretiva (bebedouro, frigobar, geladeira) |
-| **B** | copa_coccao | 13 | ⚠️ só corretiva |
-| **C** | ti_rede | 174 | ❌ contrato de TI, não predial |
-| **C** | ti_cftv | 171 | ❌ contrato de TI |
-| **C** | ti_telefonia | 3 | ❌ contrato de PABX |
-| **D** | veiculo | 12 | ❌ gestão de frota, outro fluxo |
+| Tier  | Categoria             | Itens | Entra no Sigma?                                  |
+| ----- | --------------------- | ----- | ------------------------------------------------ |
+| **A** | climatizacao          | 37    | ✅ sim — núcleo da manutenção predial            |
+| **A** | energia_nobreak       | 43    | ✅ sim                                           |
+| **A** | controle_acesso       | 13    | ✅ sim                                           |
+| **A** | combate_incendio      | 5     | ✅ sim                                           |
+| **A** | hidraulica_bomba      | 4     | ✅ sim                                           |
+| **A** | exaustao_ventilacao   | 2     | ✅ sim                                           |
+| **A** | ar_comprimido         | 2     | ✅ sim                                           |
+| **A** | energia_gerador       | 1     | ✅ sim                                           |
+| **A** | energia_transformador | 1     | ✅ sim                                           |
+| **B** | copa_refrigeracao     | 87    | ⚠️ só corretiva (bebedouro, frigobar, geladeira) |
+| **B** | copa_coccao           | 13    | ⚠️ só corretiva                                  |
+| **C** | ti_rede               | 174   | ❌ contrato de TI, não predial                   |
+| **C** | ti_cftv               | 171   | ❌ contrato de TI                                |
+| **C** | ti_telefonia          | 3     | ❌ contrato de PABX                              |
+| **D** | veiculo               | 12    | ❌ gestão de frota, outro fluxo                  |
 
 **Recomendação para a Fatia 1: importar apenas o Tier A (108 ativos).** É pouco o bastante para a vistoria terminar em semanas e crítico o bastante para o indicador fazer sentido no primeiro mês.
 
@@ -93,15 +97,15 @@ O Tier B entra na Fatia 2. Tier C e D ficam de fora desta spec — são outros c
 
 ### O SICAM não cobre o parque predial
 
-| Sistema predial | Registros na base inteira | Presentes |
-| --- | --- | --- |
-| Elevador | **0** | 0 |
-| Hidrante | **0** | 0 |
-| Sprinkler | **0** | 0 |
-| QGBT / quadro de distribuição | **0** | 0 |
-| Subestação | **0** | 0 |
-| SPDA / para-raios | 1 | **0** |
-| Alarme de incêndio | 1 | 1 |
+| Sistema predial               | Registros na base inteira | Presentes |
+| ----------------------------- | ------------------------- | --------- |
+| Elevador                      | **0**                     | 0         |
+| Hidrante                      | **0**                     | 0         |
+| Sprinkler                     | **0**                     | 0         |
+| QGBT / quadro de distribuição | **0**                     | 0         |
+| Subestação                    | **0**                     | 0         |
+| SPDA / para-raios             | 1                         | **0**     |
+| Alarme de incêndio            | 1                         | 1         |
 
 **Isso não é erro de extração — é como a contabilidade pública funciona.** Elevador, subestação, SPDA, rede de hidrantes e quadros elétricos são **benfeitorias incorporadas ao imóvel**, não bens móveis. Nunca vão aparecer num export de patrimônio mobiliário.
 
@@ -124,14 +128,14 @@ Em qualquer dos dois casos, **37 aparelhos não representam o parque real da SJA
 
 ## 5. Qualidade dos campos (nos 568 extraídos)
 
-| Campo | Preenchido | Leitura |
-| --- | --- | --- |
-| `Data Tombo` | 100% | ✅ serve de proxy para idade do ativo |
-| `Nome Setor` | 88,7% | ✅ base boa para a árvore de localização |
-| `Numero de série` | 34,7% | ⚠️ a vistoria completa o resto |
-| `Dt Fim Garantia` | 15,8% | ⚠️ pouco aproveitável |
-| `Estado de Conservação` | 1,8% | ❌ inutilizável |
-| `Situação` | 0% nos extraídos | ❌ inutilizável |
+| Campo                   | Preenchido       | Leitura                                  |
+| ----------------------- | ---------------- | ---------------------------------------- |
+| `Data Tombo`            | 100%             | ✅ serve de proxy para idade do ativo    |
+| `Nome Setor`            | 88,7%            | ✅ base boa para a árvore de localização |
+| `Numero de série`       | 34,7%            | ⚠️ a vistoria completa o resto           |
+| `Dt Fim Garantia`       | 15,8%            | ⚠️ pouco aproveitável                    |
+| `Estado de Conservação` | 1,8%             | ❌ inutilizável                          |
+| `Situação`              | 0% nos extraídos | ❌ inutilizável                          |
 
 **`Situação` e `Estado de Conservação` são campos livres sem padronização.** Na base inteira há `QUEBRADA`, `QUEBRADO`, `quebrado`, `SUCATEADO`, `SUCATEADA`, `sucateado` — a mesma condição escrita de seis formas. Não dá para derivar `status` do ativo a partir deles. O `status` tem que nascer da vistoria.
 
