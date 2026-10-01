@@ -1,11 +1,13 @@
 'use client';
 
-import { ArrowLeft, ArrowUpRight, Star } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Ban, RotateCcw, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { AvaliarChamadoDialog } from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
+import { PrazoAvaliacao } from '@/app/(dashboard)/meus-chamados/_components/janela-avaliacao-ui';
+import { RecusarServicoDialog } from '@/app/(dashboard)/meus-chamados/_components/RecusarServicoDialog';
 import { STATUS_BADGE } from '@/app/(dashboard)/meus-chamados/_constants';
 import { SeloAberturaChat } from '@/components/chamado/MarcaAberturaChat';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +28,8 @@ import { dataEHora, hora, iso, rotuloDoDia } from './tempo';
 
 /**
  * O chamado acompanhado pela conversa (spec 0003, AC-10; spec 0005): mensagens,
- * comentários e histórico em ordem, com a caixa de comentário e, quando o
- * chamado está encerrado e ainda não avaliado, o convite para avaliar.
+ * comentários e histórico em ordem, com a caixa de comentário e, enquanto o
+ * prazo para avaliar está aberto, o convite para avaliar ou recusar (spec 0010).
  * Chamado aberto pelo formulário, sem conversa ligada, abre exatamente igual,
  * só sem as mensagens.
  */
@@ -105,17 +107,23 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
   const detalhe = `/meus-chamados/${leitura.chamadoId}`;
   const status = leitura.statusChave as ChamadoStatus;
   const [avaliarAberto, setAvaliarAberto] = useState(false);
+  const [recusarAberto, setRecusarAberto] = useState(false);
 
   useEffect(() => {
     titulo.current?.focus();
   }, []);
 
-  // Encerrado, ainda não avaliado e só para o solicitante dono (spec 0005, AC-10).
+  // Concluído com o prazo aberto, ainda não avaliado e só para o solicitante dono
+  // (spec 0010, AC-10). A janela vem da leitura, calculada com a hora do servidor.
   const podeAvaliar =
     leitura.souSolicitante &&
-    leitura.statusChave === 'encerrado' &&
+    leitura.statusChave === 'concluído' &&
+    leitura.janelaAvaliacaoAberta &&
     leitura.avaliacaoRating == null;
-  const jaAvaliado = leitura.statusChave === 'encerrado' && leitura.avaliacaoRating != null;
+  const encerrado = leitura.statusChave === 'encerrado';
+  const jaAvaliado = encerrado && leitura.avaliacaoRating != null;
+  // O encerrado é definitivo: o problema que volta vira chamado novo (AC-11).
+  const podeReincidir = leitura.souSolicitante && encerrado;
 
   return (
     <section
@@ -190,16 +198,37 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
 
       {podeAvaliar ? (
         <div className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 shrink-0 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 md:mx-5">
-          <p className="leading-relaxed">Este chamado foi encerrado. Avalie o atendimento.</p>
-          <button
-            type="button"
-            onClick={() => setAvaliarAberto(true)}
-            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-amber-700 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            <Star aria-hidden="true" className="size-4" />
-            Avaliar atendimento
-          </button>
+          <div className="flex flex-col gap-1">
+            <p className="leading-relaxed">
+              O serviço foi concluído. Avalie ou recuse o atendimento.
+            </p>
+            <PrazoAvaliacao prazoAvaliacaoAte={leitura.prazoAvaliacaoAte} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setRecusarAberto(true)}
+              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border border-orange-300 bg-card px-4 text-sm font-semibold text-orange-800 transition-colors hover:bg-orange-50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/30"
+            >
+              <Ban aria-hidden="true" className="size-4" />
+              Recusar serviço
+            </button>
+            <button
+              type="button"
+              onClick={() => setAvaliarAberto(true)}
+              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-amber-700 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              <Star aria-hidden="true" className="size-4" />
+              Avaliar atendimento
+            </button>
+          </div>
         </div>
+      ) : null}
+
+      {podeReincidir && !jaAvaliado ? (
+        <p className="mx-4 mb-3 shrink-0 rounded-xl border border-border/60 bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground md:mx-5">
+          Encerrado sem avaliação
+        </p>
       ) : null}
 
       {jaAvaliado ? (
@@ -209,6 +238,18 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
             className="size-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400"
           />
           Atendimento avaliado · {leitura.avaliacaoRating}/5
+        </div>
+      ) : null}
+
+      {podeReincidir ? (
+        <div className="mx-4 mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground md:mx-5">
+          <p>Este chamado está encerrado e não reabre.</p>
+          <Link
+            href={`${detalhe}?reincidencia=1`}
+            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border border-input bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <RotateCcw aria-hidden="true" className="size-4" />O problema voltou
+          </Link>
         </div>
       ) : null}
 
@@ -225,6 +266,17 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
           ticket_number: leitura.ticketNumber,
           titulo: leitura.titulo,
           assignedToUserId: leitura.assignedToUserId,
+        }}
+        onSuccess={() => router.refresh()}
+      />
+
+      <RecusarServicoDialog
+        open={recusarAberto}
+        onOpenChange={setRecusarAberto}
+        chamado={{
+          _id: leitura.chamadoId,
+          ticket_number: leitura.ticketNumber,
+          titulo: leitura.titulo,
         }}
         onSuccess={() => router.refresh()}
       />

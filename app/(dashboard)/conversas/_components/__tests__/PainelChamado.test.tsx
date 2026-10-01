@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock('@/app/(dashboard)/meus-chamados/actions', () => ({
   submitTicketEvaluationAction: vi.fn(),
+  refuseServiceAction: vi.fn(),
 }));
 
 import type { LeituraChamado } from '../../_types';
@@ -36,6 +37,8 @@ function leitura(over: Partial<LeituraChamado> = {}): LeituraChamado {
     assignedToUserId: null,
     avaliacaoRating: null,
     souSolicitante: true,
+    prazoAvaliacaoAte: null,
+    janelaAvaliacaoAberta: false,
     ...over,
   };
 }
@@ -287,5 +290,71 @@ describe('PainelChamado · linha do tempo', () => {
 
     // Assert
     expect(screen.getByRole('link', { name: /abrir por formulário/i })).toBeInTheDocument();
+  });
+});
+
+// ── prazo para avaliar · spec 0010, AC-10 e AC-11 ────────────────
+
+describe('PainelChamado · prazo para avaliar', () => {
+  const concluido = {
+    statusChave: 'concluído',
+    situacao: 'Concluído',
+    prazoAvaliacaoAte: '2026-10-03T12:05:00.000Z',
+    janelaAvaliacaoAberta: true,
+  };
+
+  it('no concluído com a janela aberta, oferece avaliar e recusar com o prazo', () => {
+    // Act
+    render(<PainelChamado leitura={leitura(concluido)} />);
+
+    // Assert
+    expect(screen.getByRole('button', { name: /avaliar atendimento/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /recusar serviço/i })).toBeInTheDocument();
+    expect(screen.getByText(/Avalie ou recuse até 03\/10 às 09:05/)).toBeInTheDocument();
+  });
+
+  it('com o prazo vencido, esconde avaliar e recusar', () => {
+    // Act
+    render(<PainelChamado leitura={leitura({ ...concluido, janelaAvaliacaoAberta: false })} />);
+
+    // Assert
+    expect(screen.queryByRole('button', { name: /avaliar atendimento/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /recusar serviço/i })).not.toBeInTheDocument();
+  });
+
+  it('quem não é o solicitante não vê o convite', () => {
+    // Act
+    render(<PainelChamado leitura={leitura({ ...concluido, souSolicitante: false })} />);
+
+    // Assert
+    expect(screen.queryByRole('button', { name: /avaliar atendimento/i })).not.toBeInTheDocument();
+  });
+
+  it('no encerrado sem nota, diz que encerrou sem avaliação e oferece "O problema voltou"', () => {
+    // Act
+    render(
+      <PainelChamado leitura={leitura({ statusChave: 'encerrado', situacao: 'Encerrado' })} />,
+    );
+
+    // Assert
+    expect(screen.getByText('Encerrado sem avaliação')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /avaliar atendimento/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /o problema voltou/i })).toHaveAttribute(
+      'href',
+      `/meus-chamados/${CHAMADO_ID}?reincidencia=1`,
+    );
+  });
+
+  it('no encerrado com nota, mostra a nota', () => {
+    // Act
+    render(
+      <PainelChamado
+        leitura={leitura({ statusChave: 'encerrado', situacao: 'Encerrado', avaliacaoRating: 4 })}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText(/Atendimento avaliado · 4\/5/)).toBeInTheDocument();
+    expect(screen.queryByText('Encerrado sem avaliação')).not.toBeInTheDocument();
   });
 });

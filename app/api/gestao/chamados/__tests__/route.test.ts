@@ -52,6 +52,11 @@ vi.mock('@/lib/gestao/revisao-ia-filtro', () => ({
   idsDoRecorte: (...args: unknown[]) => mockIdsDoRecorte(...args),
 }));
 
+const mockNumerosAnteriores = vi.fn();
+vi.mock('@/lib/chamados/reincidencia', () => ({
+  numerosDosChamadosAnteriores: (...args: unknown[]) => mockNumerosAnteriores(...args),
+}));
+
 // Import after mocks
 import { GET } from '@/app/api/gestao/chamados/route';
 import { CHAMADO_STATUS_NAO_FINALIZADOS } from '@/shared/chamados/chamado.constants';
@@ -103,6 +108,7 @@ beforeEach(() => {
   mockServicoSugerido.mockResolvedValue(new Set());
   mockPrioridadeValidada.mockResolvedValue(new Set());
   mockIdsDoRecorte.mockResolvedValue([]);
+  mockNumerosAnteriores.mockResolvedValue(new Map());
 });
 
 describe('GET /api/gestao/chamados — pagination', () => {
@@ -593,5 +599,60 @@ describe('GET /api/gestao/chamados — atribuição automática (spec 0008, AC-1
     expect(body.items).toHaveLength(2);
     expect(body.items[0].atribuicaoAutomatica).toBeNull();
     expect(body.items[1].atribuicaoAutomatica).toBeNull();
+  });
+});
+
+// covers: AC-4 (a gestão só oferece reabrir com a janela aberta), AC-12 (vínculo na gestão)
+describe('GET /api/gestao/chamados — prazo para avaliar e reincidência (spec 0010)', () => {
+  it('projeta o prazo e o anterior na consulta', async () => {
+    // Act
+    await GET(makeRequest());
+
+    // Assert
+    const [, projecao] = mockFind.mock.calls[0];
+    expect(projecao).toMatchObject({ prazoAvaliacaoAte: 1, chamadoAnteriorId: 1 });
+  });
+
+  it('marca a janela por chamado com a hora do servidor', async () => {
+    // Arrange
+    mockCountDocuments.mockResolvedValue(2);
+    mockLean.mockResolvedValue([
+      makeChamado({
+        _id: 'a'.repeat(24),
+        status: 'concluído',
+        prazoAvaliacaoAte: new Date(Date.now() + 3_600_000),
+      }),
+      makeChamado({
+        _id: 'b'.repeat(24),
+        status: 'concluído',
+        prazoAvaliacaoAte: new Date(Date.now() - 3_600_000),
+      }),
+    ]);
+
+    // Act
+    const body = await (await GET(makeRequest())).json();
+
+    // Assert
+    expect(
+      body.items.map((c: { janelaAvaliacaoAberta: boolean }) => c.janelaAvaliacaoAberta),
+    ).toEqual([true, false]);
+  });
+
+  it('devolve o número do anterior para o vínculo, numa consulta só por página', async () => {
+    // Arrange
+    const anterior = 'd'.repeat(24);
+    mockCountDocuments.mockResolvedValue(1);
+    mockLean.mockResolvedValue([makeChamado({ chamadoAnteriorId: anterior })]);
+    mockNumerosAnteriores.mockResolvedValue(new Map([[anterior, 'CHM-2024-00000']]));
+
+    // Act
+    const body = await (await GET(makeRequest())).json();
+
+    // Assert
+    expect(mockNumerosAnteriores).toHaveBeenCalledOnce();
+    expect(body.items[0]).toMatchObject({
+      chamadoAnteriorId: anterior,
+      chamadoAnteriorNumero: 'CHM-2024-00000',
+    });
   });
 });

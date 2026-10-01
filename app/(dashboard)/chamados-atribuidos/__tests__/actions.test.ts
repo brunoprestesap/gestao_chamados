@@ -14,7 +14,18 @@ vi.mock('@/lib/dal', () => ({
 }));
 
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
-vi.mock('@/lib/realtime-emit', () => ({ emitToRoom: vi.fn().mockResolvedValue(true) }));
+const mockEmitToRoom = vi.fn().mockResolvedValue(true);
+vi.mock('@/lib/realtime-emit', () => ({
+  emitToRoom: (...args: unknown[]) => mockEmitToRoom(...args),
+}));
+const mockSendEmail = vi.fn().mockResolvedValue(true);
+vi.mock('@/lib/email/send-notification-email', () => ({
+  sendNotificationEmail: (...args: unknown[]) => mockSendEmail(...args),
+}));
+const mockGetBusinessCalendarConfig = vi.fn();
+vi.mock('@/lib/expediente-config', () => ({
+  getBusinessCalendarConfig: () => mockGetBusinessCalendarConfig(),
+}));
 
 const mockChamadoFindById = vi.fn();
 const mockChamadoUpdateOne = vi.fn();
@@ -90,6 +101,15 @@ beforeEach(() => {
   mockHistoryCreate.mockResolvedValue({});
   mockNotificationCreate.mockResolvedValue({});
   mockNotificationInsertMany.mockResolvedValue([]);
+  mockEmitToRoom.mockResolvedValue(true);
+  mockSendEmail.mockResolvedValue(true);
+  mockGetBusinessCalendarConfig.mockResolvedValue({
+    timezone: 'America/Belem',
+    workdayStart: '08:00',
+    workdayEnd: '18:00',
+    weekdays: [1, 2, 3, 4, 5],
+    prazoAvaliacaoHoras: 48,
+  });
 });
 
 // ── registerExecutionAction ──────────────────────────────────────
@@ -216,5 +236,80 @@ describe('registerExecutionAction', () => {
     expect(mockNotificationInsertMany).toHaveBeenCalledTimes(1);
     expect(mockNotificationInsertMany.mock.calls[0][0]).toHaveLength(2);
     expect(mockNotificationCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── prazo para avaliar · spec 0010, AC-1 e AC-9 ──────────────────
+
+describe('registerExecutionAction · prazo para avaliar', () => {
+  function prepararSucesso(managers: { _id: Types.ObjectId }[] = []) {
+    mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
+    mockChamadoUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    mockUserFindById.mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve({ name: 'Técnico 1' }) }),
+    });
+    mockUserFind.mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve(managers) }),
+    });
+  }
+
+  it('grava prazoAvaliacaoAte = conclusão + horas da configuração, no mesmo $set', async () => {
+    // Arrange
+    prepararSucesso();
+    mockGetBusinessCalendarConfig.mockResolvedValue({
+      timezone: 'America/Belem',
+      workdayStart: '08:00',
+      workdayEnd: '18:00',
+      weekdays: [1, 2, 3, 4, 5],
+      prazoAvaliacaoHoras: 24,
+    });
+
+    // Act
+    await registerExecutionAction(validInput);
+
+    // Assert
+    const set = mockChamadoUpdateOne.mock.calls[0][1].$set;
+    expect(set.status).toBe('concluído');
+    expect(set.prazoAvaliacaoAte).toBeInstanceOf(Date);
+    expect(set.prazoAvaliacaoAte.getTime() - set.concludedAt.getTime()).toBe(24 * 3_600_000);
+  });
+
+  it('usa 48 horas e não bloqueia a execução quando a configuração falha', async () => {
+    // Arrange
+    prepararSucesso();
+    mockGetBusinessCalendarConfig.mockRejectedValue(new Error('banco fora'));
+
+    // Act
+    const result = await registerExecutionAction(validInput);
+
+    // Assert
+    expect(result).toEqual({ ok: true });
+    const set = mockChamadoUpdateOne.mock.calls[0][1].$set;
+    expect(set.prazoAvaliacaoAte.getTime() - set.concludedAt.getTime()).toBe(48 * 3_600_000);
+  });
+
+  it('o solicitante recebe o prazo no payload e a frase na notificação; os gestores não', async () => {
+    // Arrange
+    const managers = [{ _id: new Types.ObjectId() }];
+    prepararSucesso(managers);
+
+    // Act
+    await registerExecutionAction(validInput);
+
+    // Assert
+    const doSolicitante = mockNotificationCreate.mock.calls[0][0];
+    expect(doSolicitante.data.prazoAvaliacaoAte).toEqual(expect.any(String));
+    expect(doSolicitante.body).toMatch(
+      /Avalie ou recuse o serviço até \d{2}\/\d{2} às \d{2}:\d{2}/,
+    );
+
+    const dosGestores = mockNotificationInsertMany.mock.calls[0][0][0];
+    expect(dosGestores.data.prazoAvaliacaoAte).toBeUndefined();
+    expect(dosGestores.body).toBe('Lâmpada queimada');
+
+    const salaGestores = mockEmitToRoom.mock.calls.find((c) => c[0] === 'managers');
+    expect(salaGestores?.[2].prazoAvaliacaoAte).toBeUndefined();
+    const salaSolicitante = mockEmitToRoom.mock.calls.find((c) => String(c[0]).startsWith('user:'));
+    expect(salaSolicitante?.[2].prazoAvaliacaoTexto).toMatch(/^Avalie ou recuse o serviço até/);
   });
 });

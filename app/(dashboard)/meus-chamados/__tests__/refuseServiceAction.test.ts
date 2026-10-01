@@ -139,7 +139,8 @@ describe('refuseServiceAction — diagnóstico de falha', () => {
         Promise.resolve({
           _id: TICKET_ID,
           solicitanteId: new Types.ObjectId(), // outro userId
-          status: 'encerrado',
+          status: 'concluído',
+          prazoAvaliacaoAte: new Date(Date.now() + 3_600_000),
           evaluation: {},
         }),
     });
@@ -149,7 +150,7 @@ describe('refuseServiceAction — diagnóstico de falha', () => {
     if (!result.ok) expect(result.error).toContain('criador do chamado');
   });
 
-  it('retorna erro se chamado não está encerrado', async () => {
+  it('retorna erro se chamado não está concluído', async () => {
     mockChamadoFindById.mockReturnValue({
       lean: () =>
         Promise.resolve({
@@ -162,7 +163,57 @@ describe('refuseServiceAction — diagnóstico de falha', () => {
 
     const result = await refuseServiceAction(validInput());
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain('Encerrado');
+    if (!result.ok) expect(result.error).toContain('Concluído');
+  });
+
+  it('encerrado é definitivo: recusa devolve "Este chamado já foi encerrado." (spec 0010, AC-2)', async () => {
+    mockChamadoFindById.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          _id: TICKET_ID,
+          solicitanteId: new Types.ObjectId(SOLICITANTE_ID),
+          status: 'encerrado',
+          evaluation: {},
+        }),
+    });
+
+    const result = await refuseServiceAction(validInput());
+    expect(result).toEqual({ ok: false, error: 'Este chamado já foi encerrado.' });
+  });
+
+  it('prazo vencido com o cron atrasado: devolve o erro de prazo (spec 0010, AC-5)', async () => {
+    mockChamadoFindById.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          _id: TICKET_ID,
+          solicitanteId: new Types.ObjectId(SOLICITANTE_ID),
+          status: 'concluído',
+          prazoAvaliacaoAte: new Date(Date.now() - 60_000),
+          evaluation: {},
+        }),
+    });
+
+    const result = await refuseServiceAction(validInput());
+    expect(result).toEqual({
+      ok: false,
+      error: 'O prazo para avaliar este chamado terminou.',
+    });
+  });
+
+  it('quem não é dono de um encerrado recebe o erro de dono (precedência da AC-5)', async () => {
+    mockChamadoFindById.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          _id: TICKET_ID,
+          solicitanteId: new Types.ObjectId(),
+          status: 'encerrado',
+          evaluation: {},
+        }),
+    });
+
+    const result = await refuseServiceAction(validInput());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('criador do chamado');
   });
 
   it('retorna erro se chamado já foi avaliado', async () => {
@@ -171,7 +222,8 @@ describe('refuseServiceAction — diagnóstico de falha', () => {
         Promise.resolve({
           _id: TICKET_ID,
           solicitanteId: new Types.ObjectId(SOLICITANTE_ID),
-          status: 'encerrado',
+          status: 'concluído',
+          prazoAvaliacaoAte: null,
           evaluation: { rating: 4 },
         }),
     });
@@ -196,9 +248,13 @@ describe('refuseServiceAction — sucesso', () => {
     expect(mockChamadoFindOneAndUpdate).toHaveBeenCalledOnce();
     const [filter, update, options] = mockChamadoFindOneAndUpdate.mock.calls[0];
 
-    // Filtro
+    // Filtro: a janela aberta fica dentro da escrita atômica (spec 0010, AC-3 e AC-5)
     expect(filter._id).toBe(TICKET_ID);
-    expect(filter.status).toBe('encerrado');
+    expect(filter.status).toBe('concluído');
+    expect(filter.$or).toEqual([
+      { prazoAvaliacaoAte: { $gt: expect.any(Date) } },
+      { prazoAvaliacaoAte: null },
+    ]);
     expect(filter['evaluation.rating']).toEqual({ $exists: false });
 
     // Update $set
@@ -206,6 +262,7 @@ describe('refuseServiceAction — sucesso', () => {
     expect(update.$set.closedAt).toBeNull();
     expect(update.$set.concludedAt).toBeNull();
     expect(update.$set['sla.resolvedAt']).toBeNull();
+    expect(update.$set.prazoAvaliacaoAte).toBeNull();
 
     // Update $push
     expect(update.$push.serviceRefusals.reason).toBe(validInput().reason);
@@ -220,7 +277,7 @@ describe('refuseServiceAction — sucesso', () => {
     expect(mockHistoryCreate).toHaveBeenCalledOnce();
     const [arg] = mockHistoryCreate.mock.calls[0];
     expect(arg.action).toBe('recusa_servico');
-    expect(arg.statusAnterior).toBe('encerrado');
+    expect(arg.statusAnterior).toBe('concluído');
     expect(arg.statusNovo).toBe('em atendimento');
     expect(arg.observacoes).toContain('Serviço recusado');
   });

@@ -21,6 +21,8 @@ interface TemplatePayload {
   atribuicao?: TicketNewPayload['atribuicao'];
   /** Só em `ticket:assigned`: quem atribuiu; `ATRIBUIDO_POR_SISTEMA` é a atribuição automática (spec 0008, AC-11). */
   assignedBy?: { id: string; name?: string };
+  /** Só no `ticket:execution_registered` do solicitante: a frase do prazo para avaliar (spec 0010, AC-9). */
+  prazoAvaliacaoTexto?: string;
 }
 
 /** Texto digitado por gente (título, local, nome) entra em HTML: nunca cru. */
@@ -77,7 +79,6 @@ const SUBJECT_MAP: Record<string, (p: TemplatePayload) => string> = {
   },
   'ticket:execution_registered': (p) =>
     `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} \u2014 servi\u00e7o registrado`,
-  'ticket:closed': (p) => `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} encerrado`,
   'ticket:rejected': (p) => `Chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} recusado`,
   'sla:warning': (p) =>
     `ALERTA: SLA do chamado ${p.ticketNumber ? `#${p.ticketNumber}` : ''} pr\u00f3ximo do vencimento`,
@@ -112,9 +113,9 @@ const BODY_MAP: Record<string, (p: TemplatePayload) => string> = {
     return `${aberto}; falta atribuir um técnico.`;
   },
   'ticket:execution_registered': (p) =>
-    `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} teve um servi\u00e7o registrado e aguarda encerramento.`,
-  'ticket:closed': (p) =>
-    `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi encerrado. Voc\u00ea pode avali\u00e1-lo na plataforma.`,
+    p.prazoAvaliacaoTexto
+      ? `O servi\u00e7o do chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi conclu\u00eddo. <strong>${escapeHtml(p.prazoAvaliacaoTexto)}</strong>. Depois disso o chamado \u00e9 encerrado automaticamente.`
+      : `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} teve um servi\u00e7o registrado e aguarda encerramento.`,
   'ticket:rejected': (p) =>
     `O chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi recusado na triagem. Verifique os detalhes na plataforma.`,
   'sla:warning': (p) =>

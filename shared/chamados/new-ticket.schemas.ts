@@ -31,6 +31,11 @@ export const NewTicketFormSchema = z.object({
     .transform((v) => (v ?? '').trim() || undefined),
   subtypeId: z.string().min(1, 'Selecione o subtipo de serviço'),
   catalogServiceId: z.string().min(1, 'Selecione o serviço do catálogo'),
+  /** "O problema voltou" (spec 0010, AC-11): o chamado encerrado que deu origem a este. */
+  chamadoAnteriorId: z
+    .string()
+    .regex(/^[a-f\d]{24}$/i, 'Chamado anterior inválido.')
+    .optional(),
 });
 
 export type NewTicketFormInput = z.input<typeof NewTicketFormSchema>;

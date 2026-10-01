@@ -13,7 +13,6 @@ import {
   CorrigirServicoSchema,
   UpdateTicketPrioritySchema,
 } from '@/shared/chamados/chamado.schemas';
-import { CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
 import { RegisterExecutionSchema } from '@/shared/chamados/execution.schemas';
 import { NewTicketFormSchema } from '@/shared/chamados/new-ticket.schemas';
 
@@ -292,32 +291,6 @@ describe('RegisterExecutionSchema', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.evidencePhotos).toEqual([]);
-  });
-});
-
-// ── CloseTicketSchema ────────────────────────────────────────────
-
-describe('CloseTicketSchema', () => {
-  it('aceita input válido', () => {
-    const result = CloseTicketSchema.safeParse({ ticketId: VALID_ID });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejeita closureNotes > 2000 chars', () => {
-    const result = CloseTicketSchema.safeParse({
-      ticketId: VALID_ID,
-      closureNotes: 'x'.repeat(2001),
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('faz trim no closureNotes', () => {
-    const result = CloseTicketSchema.safeParse({
-      ticketId: VALID_ID,
-      closureNotes: '  notas de encerramento  ',
-    });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.closureNotes).toBe('notas de encerramento');
   });
 });
 

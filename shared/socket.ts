@@ -57,15 +57,27 @@ export interface TicketExecutionRegisteredPayload {
   ticketNumber?: string;
   title?: string;
   executedBy: { id: string; name?: string };
+  /**
+   * Só no payload do solicitante (spec 0010, AC-9): até quando ele avalia ou
+   * recusa, em ISO, e a frase já formatada no fuso do `BusinessCalendar`. Os
+   * gestores recebem o payload sem estes campos.
+   */
+  prazoAvaliacaoAte?: string;
+  prazoAvaliacaoTexto?: string;
   at: string;
 }
 
-/** Payload quando Preposto/Admin encerra um chamado (notificação para o Solicitante). */
+/**
+ * Payload do encerramento (spec 0010, AC-9b). Só a sala do solicitante recebe,
+ * para as telas abertas se atualizarem: pela avaliação dele ou pelo cron no
+ * fim do prazo. Nenhuma pessoa encerra mais, então `closedBy` é sempre nulo.
+ */
 export interface TicketClosedPayload {
   ticketId: string;
   ticketNumber?: string;
   title?: string;
-  closedBy: { id: string; name?: string };
+  closedBy: null;
+  motivo: 'avaliacao' | 'automatico';
   at: string;
 }
 
@@ -155,7 +167,7 @@ export interface TicketMaterialObservationPayload {
   at: string;
 }
 
-/** Payload quando solicitante recusa o serviço após encerramento (chamado reaberto para retrabalho). */
+/** Payload quando o solicitante recusa o serviço concluído, dentro do prazo (chamado volta para retrabalho). */
 export interface TicketServiceRefusedPayload {
   ticketId: string;
   ticketNumber?: string;
@@ -165,13 +177,13 @@ export interface TicketServiceRefusedPayload {
   at: string;
 }
 
-/** Payload quando Preposto/Admin reabre um chamado concluído/encerrado. */
+/** Payload quando Preposto/Admin reabre um chamado concluído, dentro do prazo (spec 0010). */
 export interface TicketReopenedPayload {
   ticketId: string;
   ticketNumber?: string;
   title?: string;
   reopenedBy: { id: string; name?: string };
-  fromStatus: 'concluído' | 'encerrado';
+  fromStatus: 'concluído';
   reason: string;
   at: string;
 }

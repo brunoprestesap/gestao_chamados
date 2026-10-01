@@ -14,6 +14,7 @@ import {
   type ChamadoHistoryAction,
   type ChamadoHistoryActorType,
 } from '@/shared/chamados/history.constants';
+import { camposJanelaDTO } from '@/shared/chamados/janela-avaliacao';
 import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
 import { type CartaoPayload, cartaoPayloadSchema } from '@/shared/conversas/conversa.schemas';
 import { marcaDeAbertura } from '@/shared/conversas/marca';
@@ -97,7 +98,7 @@ export async function lerChamadoEmLeitura(
 
   const chamado = await ChamadoModel.findById(chamadoId)
     .select(
-      'ticket_number titulo status createdAt canalAbertura assignedToUserId evaluation.rating',
+      'ticket_number titulo status createdAt canalAbertura assignedToUserId evaluation.rating prazoAvaliacaoAte',
     )
     .lean();
   if (!chamado) return { ok: false, reason: 'nao_encontrada' };
@@ -153,6 +154,9 @@ export async function lerChamadoEmLeitura(
     };
   });
 
+  // A janela com a hora do servidor (spec 0010, AC-10): a tela só lê.
+  const janela = camposJanelaDTO(chamado, new Date());
+
   return {
     ok: true,
     leitura: {
@@ -169,6 +173,8 @@ export async function lerChamadoEmLeitura(
       assignedToUserId: chamado.assignedToUserId ? String(chamado.assignedToUserId) : null,
       avaliacaoRating: chamado.evaluation?.rating ?? null,
       souSolicitante: linha.souSolicitante,
+      prazoAvaliacaoAte: janela.prazoAvaliacaoAte,
+      janelaAvaliacaoAberta: janela.janelaAvaliacaoAberta,
     },
   };
 }

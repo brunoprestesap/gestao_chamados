@@ -268,10 +268,16 @@ export function RealtimeProvider({
     });
 
     socket.on('ticket:closed', (payload: TicketClosedPayload) => {
+      // Só a sala do solicitante recebe (spec 0010, AC-9b). O toast é só do
+      // encerramento automático; na avaliação foi ele mesmo quem encerrou, e um
+      // evento sem motivo (cliente antigo) também só atualiza as telas abertas.
+      if (payload.motivo !== 'automatico') {
+        emitNotificationEvent();
+        return;
+      }
       playNotificationSound();
       const numero = payload.ticketNumber ? `#${payload.ticketNumber}` : '';
       const tituloChamado = (payload.title ?? '').trim();
-      const encerradoPor = payload.closedBy?.name ?? 'Preposto';
       const url = getClosedTicketUrl(payload);
 
       toast.success(`Chamado ${numero} encerrado`, {
@@ -280,7 +286,9 @@ export function RealtimeProvider({
             {tituloChamado && (
               <p className="line-clamp-2 text-sm font-medium text-foreground">{tituloChamado}</p>
             )}
-            <p className="text-xs text-muted-foreground">Encerrado por: {encerradoPor}</p>
+            <p className="text-xs text-muted-foreground">
+              O prazo para avaliar terminou e o chamado foi encerrado automaticamente.
+            </p>
           </div>
         ),
         duration: 6000,

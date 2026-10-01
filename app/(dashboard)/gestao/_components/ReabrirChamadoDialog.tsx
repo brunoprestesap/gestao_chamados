@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { CHAMADO_STATUS_LABELS, type ChamadoStatus } from '@/shared/chamados/chamado.constants';
+import { CHAMADO_STATUS_LABELS } from '@/shared/chamados/chamado.constants';
 
 const formSchema = z.object({
   reason: z
@@ -41,17 +41,10 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   chamadoId: string;
-  chamadoStatus: ChamadoStatus;
   onSuccess: () => void;
 };
 
-export function ReabrirChamadoDialog({
-  open,
-  onOpenChange,
-  chamadoId,
-  chamadoStatus,
-  onSuccess,
-}: Props) {
+export function ReabrirChamadoDialog({ open, onOpenChange, chamadoId, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,12 +116,13 @@ export function ReabrirChamadoDialog({
 
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200 sm:text-sm">
           <p>
-            <span className="font-semibold">{CHAMADO_STATUS_LABELS[chamadoStatus]}</span>
+            <span className="font-semibold">{CHAMADO_STATUS_LABELS['concluído']}</span>
             <span className="mx-2 text-amber-700/80 dark:text-amber-300/70">→</span>
             <span className="font-semibold">Em atendimento</span>
           </p>
           <p className="mt-1 text-amber-800/80 dark:text-amber-200/80">
-            O técnico atribuído permanece. A avaliação (se houver) é preservada como histórico.
+            O técnico atribuído permanece e o prazo para avaliar é cancelado. A próxima execução
+            registrada abre um prazo novo.
           </p>
         </div>
 

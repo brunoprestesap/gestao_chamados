@@ -13,12 +13,12 @@ import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialo
 
 /**
  * Fluxo completo do ciclo de vida de um chamado:
- * aberto → validado → em atendimento → concluído → encerrado
+ * aberto → validado → em atendimento → concluído → encerrado (pela avaliação, spec 0010)
  *
  * Usa test.describe.serial para garantir ordem dos passos.
  * IMPORTANTE: requer que o seed tenha sido executado (users, SLA configs, catálogo).
  */
-test.describe.serial('Fluxo completo: abrir → classificar → atribuir → executar → encerrar', () => {
+test.describe.serial('Fluxo completo: abrir → classificar → atribuir → executar → avaliar', () => {
   test.describe.configure({ timeout: 90_000 });
   const ticketTitle = `E2E completo ${Date.now()}`;
 
@@ -121,35 +121,40 @@ test.describe.serial('Fluxo completo: abrir → classificar → atribuir → exe
     await expect(dialog).not.toBeVisible({ timeout: 30000 });
   });
 
-  test('5. Preposto encerra chamado', async ({ page }) => {
+  test('5. Preposto não vê mais "Encerrar" (spec 0010, AC-8)', async ({ page }) => {
     await login(page, 'preposto');
     await gotoGestaoChamadosReady(page);
 
-    // Localiza chamado concluído
     const card5 = gestaoChamadoCard(page, ticketTitle);
     await expect(card5).toBeVisible({ timeout: 15000 });
-    const encerrarBtn = card5.getByRole('button', { name: /encerrar/i });
-    await expect(encerrarBtn).toBeVisible({ timeout: 5000 });
-    await encerrarBtn.click();
-
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-
-    // Submit do encerramento (Server Action): forçar clique evita overlay/anim
-    // e locator ambíguo com regex larga.
-    const confirmEncerrar = dialog.getByRole('button', { name: /^encerrar$/i });
-    await confirmEncerrar.scrollIntoViewIfNeeded();
-    await confirmEncerrar.click({ force: true });
-    await expect(dialog).not.toBeVisible({ timeout: 30000 });
+    // O concluído com o prazo aberto ainda pode ser reaberto, nunca encerrado à mão.
+    await expect(card5.getByRole('button', { name: /reabrir/i })).toBeVisible({ timeout: 5000 });
+    await expect(card5.getByRole('button', { name: /encerrar/i })).toHaveCount(0);
   });
 
-  test('6. Solicitante vê chamado encerrado', async ({ page }) => {
+  test('6. Solicitante avalia dentro do prazo e o chamado encerra (spec 0010, AC-2, AC-10)', async ({
+    page,
+  }) => {
     await login(page, 'solicitante');
     await page.goto('/meus-chamados');
 
-    // Layout revitalizado: linha de tabela em desktop. Filtrar pela linha com o título do chamado.
+    const row = page.getByRole('row').filter({ hasText: ticketTitle }).first();
+    await expect(row).toBeVisible({ timeout: 15000 });
+    await expect(row.getByText(/Avalie ou recuse até \d{2}\/\d{2} às \d{2}:\d{2}/)).toBeVisible();
+
+    await row.getByRole('button', { name: /^avaliar chamado$/i }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: /^5 estrelas$/i }).click();
+    const enviar = dialog.getByRole('button', { name: /enviar avaliação/i });
+    await enviar.scrollIntoViewIfNeeded();
+    await enviar.click({ force: true });
+    await expect(dialog).not.toBeVisible({ timeout: 30000 });
+
     const closedRow = page.getByRole('row').filter({ hasText: ticketTitle }).first();
-    await expect(closedRow).toBeVisible({ timeout: 15000 });
-    await expect(closedRow.getByText('Encerrado').first()).toBeVisible({ timeout: 10000 });
+    await expect(closedRow.getByText('Encerrado').first()).toBeVisible({ timeout: 15000 });
+    // O encerrado é definitivo: nada de avaliar nem recusar, só "O problema voltou" (AC-11).
+    await expect(closedRow.getByRole('button', { name: /^avaliar chamado$/i })).toHaveCount(0);
+    await expect(closedRow.getByRole('button', { name: /o problema voltou/i })).toBeVisible();
   });
 });

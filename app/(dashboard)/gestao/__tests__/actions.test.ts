@@ -121,7 +121,6 @@ vi.mock('@/models/ServiceType', () => ({
 import {
   assignTicketAction,
   classificarChamadoAction,
-  closeTicketAction,
   confirmarDecisoesIaAction,
   corrigirServicoAction,
   reassignTicketAction,
@@ -1370,57 +1369,6 @@ describe('corrigirServicoAction', () => {
     expect(ultimoLogRevisaoIa(warn)?.resultado).toBe('parcial:aviso');
     erro.mockRestore();
     warn.mockRestore();
-  });
-});
-
-// ── closeTicketAction ────────────────────────────────────────────
-
-describe('closeTicketAction', () => {
-  const validInput = { ticketId: VALID_ID, closureNotes: '' };
-
-  it('retorna erro se role não pode encerrar', async () => {
-    mockCanManage.mockReturnValue(false);
-    mockRequireSession.mockResolvedValue({ ...SESSION, role: 'Solicitante' });
-    const result = await closeTicketAction(validInput);
-    expect(result.ok).toBe(false);
-  });
-
-  it('retorna erro se chamado não encontrado (update retorna null)', async () => {
-    mockChamadoFindOneAndUpdate.mockResolvedValue(null);
-    mockChamadoFindById.mockReturnValue({ lean: () => Promise.resolve(null) });
-
-    const result = await closeTicketAction(validInput);
-    expect(result.ok).toBe(false);
-  });
-
-  it('retorna erro se chamado não está concluído', async () => {
-    mockChamadoFindOneAndUpdate.mockResolvedValue(null);
-    mockChamadoFindById.mockReturnValue({
-      lean: () => Promise.resolve({ _id: VALID_ID, status: 'em atendimento' }),
-    });
-
-    const result = await closeTicketAction(validInput);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain('Concluído');
-  });
-
-  it('encerra com sucesso', async () => {
-    const updatedDoc = {
-      _id: VALID_ID,
-      status: 'encerrado',
-      ticket_number: 'T-001',
-      titulo: 'Teste',
-      solicitanteId: new Types.ObjectId(),
-    };
-    mockChamadoFindOneAndUpdate.mockResolvedValue(updatedDoc);
-    mockUserFindById.mockReturnValue({
-      select: () => ({ lean: () => Promise.resolve({ name: 'Admin' }) }),
-    });
-
-    const result = await closeTicketAction(validInput);
-    expect(result).toEqual({ ok: true });
-    expect(mockHistoryCreate).toHaveBeenCalledOnce();
-    expect(mockNotificationCreate).toHaveBeenCalledOnce();
   });
 });
 

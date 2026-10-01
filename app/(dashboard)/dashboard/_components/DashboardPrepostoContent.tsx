@@ -139,12 +139,12 @@ export function DashboardPrepostoContent({ data }: Props) {
 
         <MetricCard
           href="/gestao"
-          title="Aguardando Encerramento"
+          title="Aguardando avaliação"
           value={data.aguardandoEncerramento}
           helper={
             data.aguardandoEncerramento === 1
-              ? '1 chamado aguarda encerramento'
-              : `${data.aguardandoEncerramento} chamados aguardam encerramento`
+              ? '1 chamado concluído aguarda a avaliação do solicitante'
+              : `${data.aguardandoEncerramento} chamados concluídos aguardam a avaliação do solicitante`
           }
           icon={CheckCircle2}
           iconClassName="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"

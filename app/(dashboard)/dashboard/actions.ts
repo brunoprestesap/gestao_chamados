@@ -7,6 +7,7 @@ import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ServiceSubTypeModel } from '@/models/ServiceSubType';
 import { UserModel } from '@/models/user.model';
+import { filtroJanelaAberta } from '@/shared/chamados/janela-avaliacao';
 
 const STATUS_EM_ANDAMENTO = ['aberto', 'em atendimento'] as const;
 
@@ -414,10 +415,12 @@ export async function getDashboardSolicitanteData(): Promise<DashboardSolicitant
           { $match: { status: { $in: [...STATUS_EM_ANDAMENTO] } } },
           { $count: 'total' },
         ],
+        // Concluídos com o prazo para avaliar aberto (spec 0010, AC-15): o
+        // encerrado não aceita mais avaliação.
         avaliacoesPendentes: [
           {
             $match: {
-              status: 'encerrado',
+              ...filtroJanelaAberta(new Date()),
               $nor: [{ 'evaluation.rating': { $gte: 1, $lte: 5 } }],
             },
           },

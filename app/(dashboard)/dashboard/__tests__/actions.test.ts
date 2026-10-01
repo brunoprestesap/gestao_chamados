@@ -38,7 +38,10 @@ vi.mock('@/models/ServiceSubType', () => ({
   },
 }));
 
-import { getDashboardTecnicoData } from '@/app/(dashboard)/dashboard/actions';
+import {
+  getDashboardSolicitanteData,
+  getDashboardTecnicoData,
+} from '@/app/(dashboard)/dashboard/actions';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -135,5 +138,49 @@ describe('getDashboardTecnicoData', () => {
     expect(data).toBeDefined();
     expect(data?.cargaAtiva).toBe(0);
     expect(data?.maxAssignedTickets).toBe(5);
+  });
+});
+
+// covers: AC-15 (avaliações pendentes = concluídos com a janela aberta)
+describe('getDashboardSolicitanteData · avaliações pendentes (spec 0010)', () => {
+  beforeEach(() => {
+    mockChamadoAggregate.mockResolvedValue([
+      {
+        emAndamento: [{ total: 1 }],
+        avaliacoesPendentes: [{ total: 2 }],
+        ultimosChamados: [],
+        encerradosTotal: [{ total: 5 }],
+        encerradosAvaliados: [{ total: 3 }],
+      },
+    ]);
+  });
+
+  it('conta só os concluídos com a janela aberta e sem nota', async () => {
+    // Act
+    await getDashboardSolicitanteData();
+
+    // Assert
+    const [pipeline] = mockChamadoAggregate.mock.calls[0];
+    const filtro = pipeline[1].$facet.avaliacoesPendentes[0].$match;
+    expect(filtro.status).toBe('concluído');
+    expect(filtro.$or).toEqual([
+      { prazoAvaliacaoAte: { $gt: expect.any(Date) } },
+      { prazoAvaliacaoAte: null },
+    ]);
+    expect(filtro.$nor).toEqual([{ 'evaluation.rating': { $gte: 1, $lte: 5 } }]);
+  });
+
+  it('encerrados e encerrados avaliados continuam como antes', async () => {
+    // Act
+    const data = await getDashboardSolicitanteData();
+
+    // Assert
+    expect(data).toMatchObject({
+      avaliacoesPendentes: 2,
+      encerradosTotal: 5,
+      encerradosAvaliados: 3,
+    });
+    const [pipeline] = mockChamadoAggregate.mock.calls[0];
+    expect(pipeline[1].$facet.encerradosTotal[0].$match).toEqual({ status: 'encerrado' });
   });
 });

@@ -135,6 +135,10 @@ const ChamadoSchema = new Schema(
     closedAt: { type: Date, required: false },
     closedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     closureNotes: { type: String, default: '', trim: true },
+    // Prazo para avaliar ou recusar (spec 0010). Gravado na conclusão a partir
+    // da configuração vigente; limpo na recusa e na reabertura. Ausente conta
+    // como janela aberta (chamado concluído antes do deploy, até o cron preencher).
+    prazoAvaliacaoAte: { type: Date, default: null },
     // Avaliação pelo solicitante (gancho mínimo: "já avaliado")
     evaluation: {
       rating: { type: Number, required: false },
@@ -152,6 +156,9 @@ const ChamadoSchema = new Schema(
     ],
     // Rastreabilidade — chamado gerado por agendamento recorrente
     originTemplateId: { type: Schema.Types.ObjectId, ref: 'RecurringTicket', required: false },
+    // Reincidência (spec 0010): o chamado encerrado cujo problema voltou. Só
+    // nasce pelo "O problema voltou" do formulário, e nunca muda depois.
+    chamadoAnteriorId: { type: Schema.Types.ObjectId, ref: 'Chamado', default: null },
     // Observações de material (técnico registra sem fechar o chamado)
     materialObservations: [
       {
@@ -224,6 +231,16 @@ ChamadoSchema.index({ status: 1, updatedAt: -1 });
 ChamadoSchema.index({ unitId: 1, tipoServico: 1, subtypeId: 1, status: 1, concludedAt: -1 });
 // Relatório IMR: filtra { status: 'encerrado', closedAt: { $gte, $lte } } por janela de tempo
 ChamadoSchema.index({ status: 1, closedAt: 1 }, { sparse: true });
+// Encerramento automático (spec 0010): o cron só varre os concluídos pelo prazo
+ChamadoSchema.index(
+  { status: 1, prazoAvaliacaoAte: 1 },
+  { partialFilterExpression: { status: 'concluído' } },
+);
+// Reincidências de um chamado (spec 0010). O parcial ignora os sem vínculo.
+ChamadoSchema.index(
+  { chamadoAnteriorId: 1 },
+  { partialFilterExpression: { chamadoAnteriorId: { $type: 'objectId' } } },
+);
 // Um chamado pertence a uma única conversa. O parcial deixa vários `null` conviverem.
 ChamadoSchema.index(
   { conversaId: 1 },
@@ -270,6 +287,8 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   assignedByUserId?: Types.ObjectId;
   rejectedByUserId?: Types.ObjectId;
   originTemplateId?: Types.ObjectId;
+  chamadoAnteriorId?: Types.ObjectId | null;
+  prazoAvaliacaoAte?: Date | null;
   concludedAt?: Date;
   slaPausedAt?: Date;
   totalPausedMinutes?: number;

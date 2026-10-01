@@ -127,12 +127,12 @@ export function DashboardTecnicoContent({ data }: Props) {
         <StaggerItem>
           <StatCard
             href={CHAMADOS_ATRIBUIDOS_HREF}
-            title="Concluídos (Aguardando)"
+            title="Aguardando avaliação"
             value={data.concluidosAguardandoEncerramento}
             helper={
               data.concluidosAguardandoEncerramento === 0
-                ? 'Nenhum aguardando encerramento'
-                : 'aguardando encerramento pelo Admin'
+                ? 'Nenhum aguardando avaliação'
+                : 'aguardando a avaliação do solicitante'
             }
             icon={CheckCircle2}
             iconClassName="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"

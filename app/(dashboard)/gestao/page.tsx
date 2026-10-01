@@ -2,7 +2,6 @@
 
 import {
   Ban,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -28,7 +27,6 @@ import { ChamadoDetailSheet } from '@/app/(dashboard)/gestao/_components/Chamado
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
 import { CorrigirPrioridadeDialog } from '@/app/(dashboard)/gestao/_components/CorrigirPrioridadeDialog';
 import { CorrigirServicoDialog } from '@/app/(dashboard)/gestao/_components/CorrigirServicoDialog';
-import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReabrirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReabrirChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import { RecusarChamadoDialog } from '@/app/(dashboard)/gestao/_components/RecusarChamadoDialog';
@@ -112,7 +110,7 @@ interface ActionDef {
   label: string;
   icon: LucideIcon;
   iconColor: string;
-  canShow: (status: string) => boolean;
+  canShow: (chamado: Pick<ChamadoDTO, 'status' | 'janelaAvaliacaoAberta'>) => boolean;
 }
 
 const ACTION_DEFS: ActionDef[] = [
@@ -121,63 +119,57 @@ const ACTION_DEFS: ActionDef[] = [
     label: 'Classificar',
     icon: ClipboardList,
     iconColor: 'text-teal-600 dark:text-teal-400',
-    canShow: (s) => s === 'aberto',
+    canShow: ({ status: s }) => s === 'aberto',
   },
   {
     key: 'recusar',
     label: 'Recusar',
     icon: Ban,
     iconColor: 'text-rose-500 dark:text-rose-400',
-    canShow: (s) => s === 'aberto',
+    canShow: ({ status: s }) => s === 'aberto',
   },
   {
     key: 'atribuir',
     label: 'Atribuir',
     icon: UserCheck,
     iconColor: 'text-indigo-600 dark:text-indigo-400',
-    canShow: (s) => s === 'validado',
+    canShow: ({ status: s }) => s === 'validado',
   },
   {
     key: 'reatribuir',
     label: 'Reatribuir',
     icon: UserCheck,
     iconColor: 'text-violet-600 dark:text-violet-400',
-    canShow: (s) => s === 'em atendimento',
+    canShow: ({ status: s }) => s === 'em atendimento',
   },
   {
-    key: 'encerrar',
-    label: 'Encerrar',
-    icon: CheckCircle2,
-    iconColor: 'text-emerald-600 dark:text-emerald-400',
-    canShow: (s) => s === 'concluído',
-  },
-  {
+    // Só o concluído com o prazo para avaliar aberto; o encerrado é definitivo (spec 0010, AC-4).
     key: 'reabrir',
     label: 'Reabrir',
     icon: RotateCcw,
     iconColor: 'text-amber-600 dark:text-amber-400',
-    canShow: (s) => s === 'concluído' || s === 'encerrado',
+    canShow: (c) => c.status === 'concluído' && c.janelaAvaliacaoAberta === true,
   },
   {
     key: 'pausar',
     label: 'Pausar',
     icon: PauseCircle,
     iconColor: 'text-amber-600 dark:text-amber-400',
-    canShow: (s) => s === 'em atendimento',
+    canShow: ({ status: s }) => s === 'em atendimento',
   },
   {
     key: 'retomar',
     label: 'Retomar',
     icon: Play,
     iconColor: 'text-sky-600 dark:text-sky-400',
-    canShow: (s) => s === 'aguardando_solicitante' || s === 'aguardando_terceiros',
+    canShow: ({ status: s }) => s === 'aguardando_solicitante' || s === 'aguardando_terceiros',
   },
 ];
 
 type ActionHandlers = Record<string, (c: ChamadoDTO) => void>;
 
-function getVisibleActions(status: string) {
-  return ACTION_DEFS.filter((a) => a.canShow(status));
+function getVisibleActions(chamado: Pick<ChamadoDTO, 'status' | 'janelaAvaliacaoAberta'>) {
+  return ACTION_DEFS.filter((a) => a.canShow(chamado));
 }
 
 // ---------------------------------------------------------------------------
@@ -266,7 +258,7 @@ function ActionButtons({
   handlers: ActionHandlers;
   size?: 'sm' | 'md';
 }) {
-  const visible = getVisibleActions(chamado.status);
+  const visible = getVisibleActions(chamado);
   if (visible.length === 0) return null;
 
   const btnClass = size === 'sm' ? 'h-8 w-8' : 'h-11 w-11';
@@ -387,7 +379,6 @@ export default function GestaoPage() {
   const [classificarDialogOpen, setClassificarDialogOpen] = useState(false);
   const [recusarDialogOpen, setRecusarDialogOpen] = useState(false);
   const [atribuirDialogOpen, setAtribuirDialogOpen] = useState(false);
-  const [encerrarChamadoId, setEncerrarChamadoId] = useState<string | null>(null);
   const [reabrirChamado, setReabrirChamado] = useState<ChamadoDTO | null>(null);
   const [corrigirPrioridadeChamado, setCorrigirPrioridadeChamado] = useState<ChamadoDTO | null>(
     null,
@@ -526,15 +517,6 @@ export default function GestaoPage() {
     [closeDialogFor],
   );
 
-  const handleEncerrar = useCallback((chamado: ChamadoDTO) => {
-    setEncerrarChamadoId(chamado._id);
-  }, []);
-
-  const handleEncerrarSuccess = useCallback(() => {
-    setEncerrarChamadoId(null);
-    fetchChamados();
-  }, [fetchChamados]);
-
   const handleReabrir = useCallback((chamado: ChamadoDTO) => {
     setReabrirChamado(chamado);
   }, []);
@@ -610,7 +592,6 @@ export default function GestaoPage() {
       recusar: handleRecusar,
       atribuir: handleAtribuir,
       reatribuir: handleReatribuir,
-      encerrar: handleEncerrar,
       reabrir: handleReabrir,
       pausar: handlePausar,
       retomar: handleRetomar,
@@ -620,7 +601,6 @@ export default function GestaoPage() {
       handleRecusar,
       handleAtribuir,
       handleReatribuir,
-      handleEncerrar,
       handleReabrir,
       handlePausar,
       handleRetomar,
@@ -1072,7 +1052,6 @@ export default function GestaoPage() {
         onClassificar={handleClassificar}
         onRecusar={handleRecusar}
         onAtribuir={handleAtribuir}
-        onEncerrar={handleEncerrar}
         onReabrir={handleReabrir}
         onReatribuir={handleReatribuir}
         onPausar={handlePausar}
@@ -1103,17 +1082,6 @@ export default function GestaoPage() {
         onSuccess={fetchChamados}
       />
 
-      {encerrarChamadoId && (
-        <EncerrarChamadoDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setEncerrarChamadoId(null);
-          }}
-          chamadoId={encerrarChamadoId}
-          onSuccess={handleEncerrarSuccess}
-        />
-      )}
-
       {reabrirChamado && (
         <ReabrirChamadoDialog
           open
@@ -1121,7 +1089,6 @@ export default function GestaoPage() {
             if (!open) setReabrirChamado(null);
           }}
           chamadoId={reabrirChamado._id}
-          chamadoStatus={reabrirChamado.status as ChamadoStatus}
           onSuccess={handleReabrirSuccess}
         />
       )}

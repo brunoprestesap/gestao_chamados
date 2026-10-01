@@ -3,13 +3,12 @@
 import {
   ArrowLeft,
   Ban,
-  CheckCircle2,
   Clock,
   FileText,
   Gavel,
   Package,
   RefreshCw,
-  ShieldCheck,
+  RotateCcw,
   Star,
   Timer,
 } from 'lucide-react';
@@ -18,10 +17,14 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { CotacaoApprovalCard } from '@/app/(dashboard)/gestao/_components/CotacaoApprovalCard';
-import { EncerrarChamadoDialog } from '@/app/(dashboard)/gestao/_components/EncerrarChamadoDialog';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import { AvaliarChamadoDialog } from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
 import type { ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
+import {
+  PrazoAvaliacao,
+  VinculoReincidencia,
+} from '@/app/(dashboard)/meus-chamados/_components/janela-avaliacao-ui';
+import { NewTicketDialog } from '@/app/(dashboard)/meus-chamados/_components/NewTicketDialog';
 import { RecusarServicoDialog } from '@/app/(dashboard)/meus-chamados/_components/RecusarServicoDialog';
 import {
   CHAMADO_STATUS_LABELS,
@@ -126,7 +129,15 @@ type ChamadoDetailDTO = {
     createdByUserId?: string | null;
   } | null;
   sla?: SlaDetailDTO;
+  /** Spec 0010: prazo gravado e janela calculada pela rota com a hora do servidor. */
+  prazoAvaliacaoAte?: string | null;
+  janelaAvaliacaoAberta?: boolean;
+  chamadoAnteriorId?: string | null;
+  chamadoAnteriorNumero?: string | null;
 };
+
+/** Link de "O problema voltou" vindo da lista ou da conversa (`?reincidencia=1`). */
+const PARAM_REINCIDENCIA = 'reincidencia';
 
 /* ─── InfoField helper ─── */
 
@@ -227,7 +238,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [chamado, setChamado] = useState<ChamadoDetailDTO | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [encerrarDialogOpen, setEncerrarDialogOpen] = useState(false);
+  const [reincidenciaDialogOpen, setReincidenciaDialogOpen] = useState(false);
   const [reatribuirDialogOpen, setReatribuirDialogOpen] = useState(false);
   const [avaliarDialogOpen, setAvaliarDialogOpen] = useState(false);
   const [recusarServicoDialogOpen, setRecusarServicoDialogOpen] = useState(false);
@@ -269,7 +280,20 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
 
       if (sessionRes.ok && chamadoItem) {
         const sessionData = await sessionRes.json().catch(() => ({}));
-        setIsOwner(String(chamadoItem.solicitanteId) === sessionData.userId);
+        const dono = String(chamadoItem.solicitanteId) === sessionData.userId;
+        setIsOwner(dono);
+        // "O problema voltou" pedido de outra tela: abre o formulário uma vez só.
+        const query = new URLSearchParams(window.location.search);
+        if (query.has(PARAM_REINCIDENCIA)) {
+          query.delete(PARAM_REINCIDENCIA);
+          const resto = query.toString();
+          window.history.replaceState(
+            null,
+            '',
+            `${window.location.pathname}${resto ? `?${resto}` : ''}`,
+          );
+          if (dono && chamadoItem.status === 'encerrado') setReincidenciaDialogOpen(true);
+        }
         setCanManageChamado(sessionData.role === 'Admin' || sessionData.role === 'Preposto');
         setUserRole(sessionData.role ?? null);
       }
@@ -347,9 +371,12 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
     chamado.status !== 'concluído' &&
     chamado.status !== 'encerrado';
   const showReatribuir = canManageChamado && chamado.status === 'em atendimento';
-  const showEncerrar = canManageChamado && chamado.status === 'concluído';
-  const showEvaluation = isOwner && chamado.status === 'encerrado';
-  const hasRightColumn = showOwnerCancel || showReatribuir || showEncerrar || showEvaluation;
+  // Spec 0010: avaliar e recusar no concluído com a janela aberta (AC-10); no
+  // encerrado, a nota ou "Encerrado sem avaliação" e "O problema voltou" (AC-11).
+  const janelaAberta = chamado.status === 'concluído' && chamado.janelaAvaliacaoAberta === true;
+  const showEvaluation =
+    isOwner && (chamado.status === 'concluído' || chamado.status === 'encerrado');
+  const hasRightColumn = showOwnerCancel || showReatribuir || showEvaluation;
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
@@ -385,6 +412,11 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                   <CardTitle className="mt-1 wrap-break-word text-xl" title={chamado.titulo}>
                     {chamado.titulo}
                   </CardTitle>
+                  <VinculoReincidencia
+                    chamadoAnteriorId={chamado.chamadoAnteriorId}
+                    chamadoAnteriorNumero={chamado.chamadoAnteriorNumero}
+                    className="mt-2"
+                  />
                   <MarcaAberturaChat
                     canalAbertura={chamado.canalAbertura}
                     servicoSugeridoIa={chamado.servicoSugeridoIa}
@@ -677,33 +709,6 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
               </Card>
             )}
 
-            {/* Manager encerrar */}
-            {showEncerrar && (
-              <Card className="group relative overflow-hidden rounded-2xl border-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/4">
-                <div className="h-[3px] bg-linear-to-r from-emerald-500 to-green-500 opacity-60 transition-opacity group-hover:opacity-100" />
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 transition-transform group-hover:scale-105 dark:bg-emerald-900/30">
-                      <CheckCircle2
-                        className="h-5 w-5 text-emerald-600 dark:text-emerald-400"
-                        aria-hidden
-                      />
-                    </div>
-                    <CardTitle className="text-base">Ações (Gestão)</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button
-                    onClick={() => setEncerrarDialogOpen(true)}
-                    className="w-full justify-start bg-linear-to-r from-emerald-600 to-green-600 shadow-sm shadow-emerald-500/20 hover:from-emerald-700 hover:to-green-700"
-                  >
-                    <ShieldCheck className="mr-2 h-4 w-4" aria-hidden />
-                    Encerrar Chamado
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Evaluation */}
             {showEvaluation && (
               <Card className="group relative overflow-hidden rounded-2xl border-border/50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/4">
@@ -717,21 +722,47 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {hasValidEvaluation(chamado.evaluation) ? (
-                    <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-2 dark:border-emerald-800 dark:bg-emerald-950/20">
-                      <Star
-                        className="h-4 w-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400"
-                        aria-hidden
-                      />
-                      <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
-                        Avaliado
-                        {chamado.evaluation?.rating != null && ` · ${chamado.evaluation.rating}/5`}
-                      </span>
-                    </div>
+                  {chamado.status === 'encerrado' ? (
+                    <>
+                      {hasValidEvaluation(chamado.evaluation) ? (
+                        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-2 dark:border-emerald-800 dark:bg-emerald-950/20">
+                          <Star
+                            className="h-4 w-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400"
+                            aria-hidden
+                          />
+                          <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                            Avaliado
+                            {chamado.evaluation?.rating != null &&
+                              ` · ${chamado.evaluation.rating}/5`}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                          Encerrado sem avaliação
+                        </p>
+                      )}
+                      <p className="pt-1 text-xs text-muted-foreground">
+                        Este chamado está encerrado e não reabre. Se o problema voltou, abra um
+                        chamado novo ligado a este.
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start gap-2"
+                        onClick={() => setReincidenciaDialogOpen(true)}
+                      >
+                        <RotateCcw className="h-4 w-4" aria-hidden />O problema voltou
+                      </Button>
+                    </>
+                  ) : !janelaAberta ? (
+                    <p className="text-sm text-muted-foreground">
+                      O prazo para avaliar terminou. O chamado será encerrado automaticamente.
+                    </p>
                   ) : (
                     <>
+                      <PrazoAvaliacao prazoAvaliacaoAte={chamado.prazoAvaliacaoAte} />
                       <p className="text-sm text-muted-foreground">
-                        Avalie o atendimento ou recuse caso o problema persista.
+                        Avalie o atendimento ou recuse caso o problema persista. Sem resposta no
+                        prazo, o chamado é encerrado automaticamente.
                       </p>
                       <Button
                         className="w-full justify-start gap-2 bg-linear-to-r from-amber-500 to-amber-600 shadow-sm shadow-amber-500/20 hover:from-amber-600 hover:to-amber-700"
@@ -764,14 +795,22 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
         onCancel={handleCancel}
       />
 
-      {chamadoId && (
-        <EncerrarChamadoDialog
-          open={encerrarDialogOpen}
-          onOpenChange={setEncerrarDialogOpen}
-          chamadoId={chamadoId}
-          onSuccess={async () => {
-            await fetchChamado(chamadoId);
-            setHistoryRefreshTrigger((prev) => prev + 1);
+      {chamado && isOwner && chamado.status === 'encerrado' && (
+        <NewTicketDialog
+          open={reincidenciaDialogOpen}
+          onOpenChange={setReincidenciaDialogOpen}
+          reincidencia={{
+            chamadoAnteriorId: chamado._id,
+            chamadoAnteriorNumero: chamado.ticket_number,
+            unitId: chamado.unitId,
+            localExato: chamado.localExato,
+            tipoServico: chamado.tipoServico,
+            subtypeId: chamado.subtypeId,
+            catalogServiceId: chamado.catalogServiceId,
+          }}
+          onSuccess={(novoId) => {
+            toast.success('Chamado aberto e ligado ao anterior');
+            router.push(`/meus-chamados/${novoId}`);
           }}
         />
       )}

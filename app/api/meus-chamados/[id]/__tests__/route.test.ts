@@ -17,6 +17,11 @@ vi.mock('@/lib/conversas', () => ({
   servicoSugeridoPelaIa: (...a: unknown[]) => mockServicoSugerido(...a),
 }));
 
+const mockNumerosAnteriores = vi.fn();
+vi.mock('@/lib/chamados/reincidencia', () => ({
+  numerosDosChamadosAnteriores: (...a: unknown[]) => mockNumerosAnteriores(...a),
+}));
+
 import { GET } from '@/app/api/meus-chamados/[id]/route';
 
 /**
@@ -48,6 +53,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockVerifySession.mockResolvedValue({ userId: SOLICITANTE_ID, role: 'Solicitante' });
   mockServicoSugerido.mockResolvedValue(new Set());
+  mockNumerosAnteriores.mockResolvedValue(new Map());
 });
 
 describe('GET /api/meus-chamados/[id] · marca do chat', () => {
@@ -88,5 +94,60 @@ describe('GET /api/meus-chamados/[id] · marca do chat', () => {
     // Assert
     expect(corpo.item.catalogServiceId).toBeNull();
     expect(corpo.item.subtypeId).toBeNull();
+  });
+});
+
+// covers: AC-10 (prazo e janela calculada no servidor), AC-12 (vínculo com o anterior)
+describe('GET /api/meus-chamados/[id] · prazo para avaliar e reincidência (spec 0010)', () => {
+  it('devolve o prazo e a janela aberta no concluído dentro do prazo', async () => {
+    // Arrange
+    const prazo = new Date(Date.now() + 3_600_000);
+    mockFindById.mockResolvedValue(chamado({ status: 'concluído', prazoAvaliacaoAte: prazo }));
+
+    // Act
+    const { item } = await (await GET(...pedido())).json();
+
+    // Assert
+    expect(item.prazoAvaliacaoAte).toBe(prazo.toISOString());
+    expect(item.janelaAvaliacaoAberta).toBe(true);
+  });
+
+  it('fecha a janela com o prazo vencido, mesmo com o status concluído', async () => {
+    // Arrange
+    mockFindById.mockResolvedValue(
+      chamado({ status: 'concluído', prazoAvaliacaoAte: new Date(Date.now() - 60_000) }),
+    );
+
+    // Act
+    const { item } = await (await GET(...pedido())).json();
+
+    // Assert
+    expect(item.janelaAvaliacaoAberta).toBe(false);
+  });
+
+  it('devolve o número do chamado anterior para o vínculo', async () => {
+    // Arrange
+    const anterior = new Types.ObjectId();
+    mockFindById.mockResolvedValue(chamado({ chamadoAnteriorId: anterior }));
+    mockNumerosAnteriores.mockResolvedValue(new Map([[String(anterior), 'CHM-2026-00010']]));
+
+    // Act
+    const { item } = await (await GET(...pedido())).json();
+
+    // Assert
+    expect(item.chamadoAnteriorId).toBe(String(anterior));
+    expect(item.chamadoAnteriorNumero).toBe('CHM-2026-00010');
+  });
+
+  it('sem anterior, o vínculo vem nulo', async () => {
+    // Arrange
+    mockFindById.mockResolvedValue(chamado());
+
+    // Act
+    const { item } = await (await GET(...pedido())).json();
+
+    // Assert
+    expect(item.chamadoAnteriorId).toBeNull();
+    expect(item.chamadoAnteriorNumero).toBeNull();
   });
 });

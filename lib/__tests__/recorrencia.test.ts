@@ -63,6 +63,28 @@ describe('findChamadosRecorrentes', () => {
     });
   });
 
+  describe('reincidência (spec 0010, AC-16)', () => {
+    it('não lista o chamado que já é o anterior do chamado em triagem', async () => {
+      // Arrange
+      const anterior = 'ant000000000000000000000dd';
+
+      // Act
+      await findChamadosRecorrentes({ ...ALVO, chamadoAnteriorId: anterior }, { agora: AGORA });
+
+      // Assert
+      const filter = mockFind.mock.calls[0][0];
+      expect(filter._id).toEqual({ $nin: [ALVO._id, anterior] });
+    });
+
+    it('sem anterior, exclui só o próprio chamado', async () => {
+      // Act
+      await findChamadosRecorrentes({ ...ALVO, chamadoAnteriorId: null }, { agora: AGORA });
+
+      // Assert
+      expect(mockFind.mock.calls[0][0]._id).toEqual({ $ne: ALVO._id });
+    });
+  });
+
   describe('construção da query', () => {
     it('filtra por mesmo defeito, status fechados e janela de 30 dias', async () => {
       // Arrange

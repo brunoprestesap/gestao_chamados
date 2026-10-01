@@ -709,3 +709,51 @@ describe('lerChamadoEmLeitura · campos novos (spec 0005)', () => {
     expect(r.leitura.avaliacaoRating).toBe(5);
   });
 });
+
+// covers: AC-10 (o painel da conversa lê a janela calculada no servidor)
+describe('lerChamadoEmLeitura · prazo para avaliar (spec 0010)', () => {
+  function concluido(prazo: Date | undefined) {
+    mockChamadoFindById.mockReturnValue(
+      cadeia({
+        ticket_number: 'CHM-2026-00412',
+        titulo: 'Lâmpada queimada',
+        status: 'concluído',
+        createdAt: new Date('2026-09-17T11:40:00.000Z'),
+        ...(prazo && { prazoAvaliacaoAte: prazo }),
+      }),
+    );
+  }
+
+  it('janela aberta com o prazo no futuro', async () => {
+    // Arrange
+    const prazo = new Date(Date.now() + 3_600_000);
+    concluido(prazo);
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    expect(r.ok && r.leitura.prazoAvaliacaoAte).toBe(prazo.toISOString());
+    expect(r.ok && r.leitura.janelaAvaliacaoAberta).toBe(true);
+  });
+
+  it('janela fechada com o prazo vencido', async () => {
+    // Arrange
+    concluido(new Date(Date.now() - 60_000));
+
+    // Act
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    expect(r.ok && r.leitura.janelaAvaliacaoAberta).toBe(false);
+  });
+
+  it('fora do concluído, a janela fica fechada e o prazo nulo', async () => {
+    // Act (o chamado padrão do beforeEach está em atendimento)
+    const r = await lerChamadoEmLeitura(VIEWER, CHAMADO_ID);
+
+    // Assert
+    expect(r.ok && r.leitura.janelaAvaliacaoAberta).toBe(false);
+    expect(r.ok && r.leitura.prazoAvaliacaoAte).toBeNull();
+  });
+});
