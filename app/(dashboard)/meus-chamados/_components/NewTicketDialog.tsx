@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { SeletorAtivo } from '@/app/(dashboard)/ativos/_components/SeletorAtivo';
 import {
   buildTypeIdByTipo,
   CARD_BASE_CLASS,
@@ -64,6 +65,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import type { ItemSeletorAtivo } from '@/shared/ativos/seletor.types';
 import {
   GRAU_URGENCIA_OPTIONS,
   NATUREZA_OPTIONS,
@@ -117,7 +119,12 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   onSuccess?: (ticketId: string) => void;
   reincidencia?: ReincidenciaPreenchimento | null;
+  /** Equipamento já escolhido ao abrir (ficha do ativo ou reincidência, spec 0011). */
+  ativoInicial?: ItemSeletorAtivo | null;
 };
+
+/** Campos que o equipamento sugere; o resto do formulário é escolha da pessoa. */
+type PreenchidoPeloAtivo = { localExato?: string; tipoServico?: string; subtypeId?: string };
 
 const defaultValues = {
   unitId: '',
@@ -129,9 +136,16 @@ const defaultValues = {
   telefoneContato: '',
   subtypeId: '',
   catalogServiceId: '',
+  ativoId: '',
 } as unknown as NewTicketFormInput;
 
-export function NewTicketDialog({ open, onOpenChange, onSuccess, reincidencia = null }: Props) {
+export function NewTicketDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  reincidencia = null,
+  ativoInicial = null,
+}: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
@@ -158,11 +172,70 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess, reincidencia = 
   // carregar; os efeitos abaixo os aplicam no lugar do valor vazio.
   const pendenteRef = useRef<{ subtypeId: string; catalogServiceId: string } | null>(null);
 
+  // Equipamento (spec 0011, AC-14): o que o ativo atual preencheu, para trocar
+  // de ativo sobrescrever só isso. Limpar o ativo não desfaz nada.
+  const [ativo, setAtivo] = useState<ItemSeletorAtivo | null>(null);
+  const preenchidoRef = useRef<PreenchidoPeloAtivo>({});
+
+  function aplicarAtivo(novo: ItemSeletorAtivo | null) {
+    setAtivo(novo);
+    form.setValue('ativoId', novo?.id ?? '');
+    if (!novo) return;
+
+    const atual = form.getValues();
+    const antes = preenchidoRef.current;
+    // Campo livre: vazio, ou ainda com o valor que o ativo anterior pôs.
+    const livre = (campo: keyof PreenchidoPeloAtivo, valor: string | undefined) =>
+      !valor || (antes[campo] !== undefined && antes[campo] === valor);
+    const depois: PreenchidoPeloAtivo = {};
+
+    if (novo.caminho && livre('localExato', atual.localExato)) {
+      form.setValue('localExato', novo.caminho, { shouldValidate: !!atual.localExato });
+      depois.localExato = novo.caminho;
+    } else if (antes.localExato && atual.localExato === antes.localExato) {
+      depois.localExato = antes.localExato;
+    }
+
+    let tipoFinal = atual.tipoServico as string | undefined;
+    if (novo.tipoServico && livre('tipoServico', tipoFinal)) {
+      depois.tipoServico = novo.tipoServico;
+      if (tipoFinal !== novo.tipoServico) {
+        // O tipo muda: o subtipo sugerido espera a lista do tipo novo carregar.
+        pendenteRef.current = { subtypeId: novo.subtypeId ?? '', catalogServiceId: '' };
+        form.setValue('tipoServico', novo.tipoServico as NewTicketFormInput['tipoServico']);
+        if (novo.subtypeId) depois.subtypeId = novo.subtypeId;
+        preenchidoRef.current = depois;
+        return;
+      }
+      tipoFinal = novo.tipoServico;
+    }
+
+    // O subtipo só vale para o tipo que o servidor usou na sugestão.
+    if (
+      novo.subtypeId &&
+      tipoFinal === novo.tipoServico &&
+      livre('subtypeId', atual.subtypeId) &&
+      atual.subtypeId !== novo.subtypeId
+    ) {
+      form.setValue('subtypeId', novo.subtypeId);
+      depois.subtypeId = novo.subtypeId;
+    }
+    preenchidoRef.current = depois;
+  }
+
+  // O equipamento herdado pode chegar depois de o formulário abrir (reincidência).
+  useEffect(() => {
+    if (open && ativoInicial && !form.getValues('ativoId')) aplicarAtivo(ativoInicial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativoInicial]);
+
   useEffect(() => {
     if (!open) return;
+    preenchidoRef.current = {};
     if (!reincidencia) {
       pendenteRef.current = null;
       form.reset(defaultValues);
+      aplicarAtivo(ativoInicial);
       return;
     }
     const tipoValido = (TIPO_SERVICO_OPTIONS as readonly string[]).includes(
@@ -182,6 +255,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess, reincidencia = 
       subtypeId: pendenteRef.current.subtypeId,
       catalogServiceId: pendenteRef.current.catalogServiceId,
     });
+    aplicarAtivo(ativoInicial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -401,6 +475,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess, reincidencia = 
       subtypeId: values.subtypeId,
       catalogServiceId: values.catalogServiceId,
       ...(reincidencia && { chamadoAnteriorId: reincidencia.chamadoAnteriorId }),
+      ...(ativo && { ativoId: ativo.id }),
     };
     const result = await createTicketAction(payload);
     if (!result.ok) {
@@ -465,6 +540,23 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess, reincidencia = 
           >
             {/* Template selector */}
             <TemplateSelector onSelect={handleTemplateSelect} refreshKey={templateRefreshKey} />
+
+            <div className="space-y-2">
+              <label htmlFor="novo-chamado-ativo" className="text-sm font-medium leading-none">
+                Equipamento <span className="font-normal text-muted-foreground">(opcional)</span>
+              </label>
+              <SeletorAtivo
+                id="novo-chamado-ativo"
+                descricaoId="novo-chamado-ativo-ajuda"
+                valor={ativo}
+                onChange={aplicarAtivo}
+                disabled={submitting}
+              />
+              <p id="novo-chamado-ativo-ajuda" className="text-xs text-muted-foreground">
+                Busque pelo tombamento da etiqueta. O equipamento sugere o local e o tipo de serviço
+                nos campos ainda vazios.
+              </p>
+            </div>
 
             <div className={FORM_GRID_CLASS}>
               <FormField

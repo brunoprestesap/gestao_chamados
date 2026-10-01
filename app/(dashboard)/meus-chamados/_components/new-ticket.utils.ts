@@ -1,16 +1,6 @@
-import { normalizeTypeName, tipoServicoDoNomeDoTipo } from '@/shared/chamados/tipo-servico';
+import { buildTypeIdByTipo, normalizeTypeName } from '@/shared/chamados/tipo-servico';
 
-export { normalizeTypeName };
-
-/** Id do `ServiceType` de cada opção fixa, pela mesma regra da proposta da IA. */
-export function buildTypeIdByTipo(types: { id: string; name: string }[]): Map<string, string> {
-  const m = new Map<string, string>();
-  for (const t of types) {
-    const tipo = tipoServicoDoNomeDoTipo(t.name);
-    if (tipo) m.set(tipo, t.id);
-  }
-  return m;
-}
+export { buildTypeIdByTipo, normalizeTypeName };
 
 export const NATUREZA_DESCRIPTIONS: Record<'Padrão' | 'Urgente', string> = {
   Padrão:

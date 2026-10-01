@@ -57,6 +57,12 @@ vi.mock('@/lib/chamados/reincidencia', () => ({
   numerosDosChamadosAnteriores: (...args: unknown[]) => mockNumerosAnteriores(...args),
 }));
 
+const mockResumos = vi.fn();
+vi.mock('@/lib/ativos/resumo', async () => {
+  const real = await vi.importActual<typeof import('@/lib/ativos/resumo')>('@/lib/ativos/resumo');
+  return { ...real, resumosDosAtivos: (...args: unknown[]) => mockResumos(...args) };
+});
+
 // Import after mocks
 import { GET } from '@/app/api/gestao/chamados/route';
 import { CHAMADO_STATUS_NAO_FINALIZADOS } from '@/shared/chamados/chamado.constants';
@@ -109,6 +115,7 @@ beforeEach(() => {
   mockPrioridadeValidada.mockResolvedValue(new Set());
   mockIdsDoRecorte.mockResolvedValue([]);
   mockNumerosAnteriores.mockResolvedValue(new Map());
+  mockResumos.mockResolvedValue(new Map());
 });
 
 describe('GET /api/gestao/chamados — pagination', () => {
@@ -654,5 +661,33 @@ describe('GET /api/gestao/chamados — prazo para avaliar e reincidência (spec 
       chamadoAnteriorId: anterior,
       chamadoAnteriorNumero: 'CHM-2024-00000',
     });
+  });
+});
+
+describe('GET /api/gestao/chamados — equipamento (spec 0011, AC-16)', () => {
+  it('pede ativoId na projeção', async () => {
+    await GET(makeRequest());
+    expect(mockFind.mock.calls[0][1]).toMatchObject({ ativoId: 1 });
+  });
+
+  it('devolve ativo { id, codigo, descricao } ou null, numa consulta só por página', async () => {
+    // Arrange
+    const ativoId = 'f'.repeat(24);
+    mockCountDocuments.mockResolvedValue(2);
+    mockLean.mockResolvedValue([
+      makeChamado({ _id: '1'.repeat(24), ativoId }),
+      makeChamado({ _id: '2'.repeat(24) }),
+    ]);
+    mockResumos.mockResolvedValue(
+      new Map([[ativoId, { id: ativoId, codigo: '11997', descricao: 'Split' }]]),
+    );
+
+    // Act
+    const body = await (await GET(makeRequest())).json();
+
+    // Assert
+    expect(mockResumos).toHaveBeenCalledOnce();
+    expect(body.items[0].ativo).toEqual({ id: ativoId, codigo: '11997', descricao: 'Split' });
+    expect(body.items[1].ativo).toBeNull();
   });
 });

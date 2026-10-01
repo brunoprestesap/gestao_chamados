@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
+import { resumoDoChamado, resumosDosAtivos } from '@/lib/ativos/resumo';
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
@@ -45,6 +46,7 @@ const LIST_PROJECTION = {
   sla: 1,
   prazoAvaliacaoAte: 1,
   chamadoAnteriorId: 1,
+  ativoId: 1,
   createdAt: 1,
   updatedAt: 1,
 } as const;
@@ -219,8 +221,9 @@ export async function GET(req: Request) {
   const totalPages = Math.ceil(total / limit);
 
   const agora = new Date();
+  const ativos = await resumosDosAtivos(items);
   return NextResponse.json({
-    items: items.map((c) => normalizeChamado(c, agora)),
+    items: items.map((c) => ({ ...normalizeChamado(c, agora), ativo: resumoDoChamado(c, ativos) })),
     pagination: { page, limit, total, totalPages },
   });
 }

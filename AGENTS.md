@@ -39,10 +39,12 @@ npm test                 # Vitest (unitários, single run)
 npm run test:watch       # Vitest em modo watch
 npm run test:coverage    # Vitest com cobertura
 npm run test:e2e         # Playwright (E2E)
+npm run zxing:wasm       # Copia o motor de leitura da câmera para public/zxing/ (depois de atualizar barcode-detector)
+npx tsx scripts/gerar-carga-ativos.ts  # Gera scripts/carga-ativos.generated.js (carga do Tier A, spec 0011)
 pm2 start ecosystem.config.cjs  # Produção (Next + Socket)
 ```
 
-Testes configurados: **Vitest** (unitários, ~1400 testes em `__tests__/` e `*.test.ts`) e **Playwright** (E2E em `e2e/`).
+Testes configurados: **Vitest** (unitários, ~3300 testes em `__tests__/` e `*.test.ts`) e **Playwright** (E2E em `e2e/`).
 
 ## Lint & Formatação
 
@@ -194,6 +196,13 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Desde a spec 0008, a última mensagem do chat diz também o resultado da atribuição ("o técnico X já foi designado" ou "um Preposto vai designar o técnico"), sem nunca revelar o motivo. A leitura reconhece as quatro frases de abertura por `ehFraseDeChamadoAberto` (`lib/assistente/mensagens.ts`); frase nova sem passar por ele cai no cartão amarelo de "a IA falhou"
 - Detalhes da tela e das rotas: `app/(dashboard)/conversas/AGENTS.md`. Detalhes do assistente e da abertura pela IA: `lib/assistente/AGENTS.md`. Specs: `docs/specs/0003-tela-chat-chamados/`, `docs/specs/0004-abertura-chamado-ia/`, `docs/specs/0005-andamento-conversa-tecnico/`
 
+### Gestão de ativos (`/ativos`)
+
+- Desde a spec 0011, o chamado pode apontar para o equipamento (`Chamado.ativoId`). Modelos `Ativo`, `AtivoHistory`, `CategoriaAtivo`, `Localizacao` (árvore com `caminho` materializado) e `Contador` (`MNT-####`); regras e telas em `lib/ativos/AGENTS.md`
+- Só ativo Tier A ou B e não `baixado` recebe chamado (`lib/ativos/seletor.ts`); o servidor confere na abertura e no vínculo, nunca só a tela
+- `camposPatrimoniais` (nome e matrícula do responsável, LGPD) só sai do servidor para Admin e Preposto; `docs/ativos_sicam.csv`, `docs/localizacoes_sicam.csv` e `scripts/carga-ativos.generated.js` ficam fora do git
+- Toda troca de ativo num chamado aberto gera `ChamadoHistory` `vinculo_ativo`; só a gestão vincula (`vincularAtivoChamadoAction`)
+
 ### Validação
 
 - Schemas Zod em `shared/<domain>/*.schemas.ts` (co-localizados por domínio)
@@ -298,6 +307,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Andamento do chamado na conversa | `lib/conversas/linha-do-tempo.ts` (`podeComentarInterno`, `souSolicitante`), `lib/chamados/comentarios.ts`, `app/api/conversas/chamado/[chamadoId]/comentarios/route.ts`, `components/realtime/RealtimeProvider.tsx`, `docs/specs/0005-andamento-conversa-tecnico/`                                                 |
 | Calibração da confiança da IA    | `lib/ia-confianca/AGENTS.md`, `lib/ia-confianca/calibragem.ts` (relatório), `lib/ia-confianca/config.ts` (documento único), `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`, `docs/specs/0006-calibracao-trava-confianca/`                                                             |
 | Prioridade e SLA automáticos     | `lib/assistente/portao.ts` (portão de confiança), `lib/assistente/confirmar.ts`, `lib/sla-snapshot.ts` (`montarSnapshotSla`), `app/(dashboard)/gestao/actions.ts` (`updateTicketPriorityAction`), `docs/specs/0007-prioridade-sla-automaticos/`                                                                     |
+| Gestão de ativos                 | `lib/ativos/` (regras, ver `lib/ativos/AGENTS.md`), `app/(dashboard)/ativos/` (lista, ficha, leitura, cadastro, localizações), `app/(dashboard)/configuracoes/categorias-ativo/`, `app/api/ativos/`, `shared/ativos/`, `docs/specs/0011-gestao-ativos/`                                                             |
 | Atribuição automática ao técnico | `lib/chamados/atribuicao-automatica.ts` (`tentarAtribuicaoAutomatica`), `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `shared/chamados/aviso-atribuicao.ts`, `docs/specs/0008-atribuicao-automatica-tecnico/`                                                                      |
 
 ## CI/CD
@@ -323,6 +333,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - **Seed**: `docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js`
 - **Re-semear**: limpar collections antes (seed usa `insertMany` ordered, para no primeiro duplicado)
 - **Variáveis**: `.env` na raiz (não versionado) — `AUTH_SECRET`, `SOCKET_INTERNAL_SECRET`, `NEXT_PUBLIC_SOCKET_URL`, `SOCKET_CORS_ORIGIN`, `AUTH_URL`
+- **Carga do Tier A** (uma vez, spec 0011): gerar com `npx tsx scripts/gerar-carga-ativos.ts` e rodar `docker exec -i severino-mongodb-1 mongosh manutencao < scripts/carga-ativos.generated.js`; só cria, nunca altera ativo existente, e pode rodar de novo
 - **IA local**: `sudo bash /opt/severino/scripts/update-llm-env.sh` grava as `LLM_*` no `.env`, recria o `next-app` e confere o vLLM de dentro do container (`docker compose restart` não recarrega o `.env`)
 
 ### PM2 (alternativa sem Docker)
@@ -355,6 +366,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 
 - [vitest](.agents/skills/vitest/): `antfu/skills`, o runner de teste do projeto (API compatível com Jest, mocks, cobertura, filtro de teste e o ambiente jsdom)
 - MCP servers: nenhum para as ferramentas de teste (`@testing-library/*`, `jsdom`); são de desenvolvimento local e não têm servidor público. Busca feita em 18/09/2026, não vale repetir.
+- Declined: `barcode-detector` (leitura da câmera em `/ativos/ler`, spec 0011)
 
 ## Context files
 
@@ -366,3 +378,4 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - [lib/ia-confianca/AGENTS.md](lib/ia-confianca/AGENTS.md): a tela de calibração da confiança da IA (Admin) — medição de acurácia contra `DecisaoIa`, sugestão de corte e o documento único de configuração
 - [socket-server/AGENTS.md](socket-server/AGENTS.md): o servidor Socket.IO em processo separado, com comandos próprios, as barreiras do `POST /emit` e as listas de eventos que precisam andar juntas
 - [models/AGENTS.md](models/AGENTS.md): os schemas Mongoose, os dois padrões de registro do modelo e os índices parciais
+- [lib/ativos/AGENTS.md](lib/ativos/AGENTS.md): a gestão de ativos, com árvore de locais, cadastro e histórico, regras do seletor, carga do Tier A e leitura de etiqueta

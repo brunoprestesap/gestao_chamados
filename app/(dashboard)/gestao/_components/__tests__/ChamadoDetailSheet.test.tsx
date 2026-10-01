@@ -280,3 +280,76 @@ describe('ChamadoDetailSheet · atribuição automática (spec 0008, AC-15, AC-1
     },
   );
 });
+
+/**
+ * O equipamento no painel (spec 0011, AC-16): o controle de vincular só
+ * aparece quando a tela passa `onVincularAtivo` (só a gestão passa), nunca
+ * pelo `isManager`, e nunca em chamado encerrado, cancelado ou recusado.
+ */
+describe('ChamadoDetailSheet · equipamento (spec 0011, AC-16)', () => {
+  const ativo = { id: 'b'.repeat(24), codigo: '11997', descricao: 'Split 12000' };
+
+  it('sem onVincularAtivo só mostra o equipamento, mesmo com userRole null', () => {
+    render(
+      <ChamadoDetailSheet
+        chamado={chamado({ ativo })}
+        open
+        onOpenChange={vi.fn()}
+        userRole={null}
+      />,
+    );
+    expect(screen.getByRole('link', { name: '11997' })).toHaveAttribute(
+      'href',
+      `/ativos/${ativo.id}`,
+    );
+    expect(screen.queryByRole('button', { name: /^(Trocar|Vincular)$/ })).not.toBeInTheDocument();
+  });
+
+  it('com onVincularAtivo e chamado aberto, oferece trocar', () => {
+    render(
+      <ChamadoDetailSheet
+        chamado={chamado({ ativo })}
+        open
+        onOpenChange={vi.fn()}
+        onVincularAtivo={vi.fn()}
+        userRole="Preposto"
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Trocar/ })).toBeInTheDocument();
+  });
+
+  it.each(['encerrado', 'cancelado', 'recusado'] as const)(
+    'chamado %s não oferece vincular',
+    (status) => {
+      render(
+        <ChamadoDetailSheet
+          chamado={chamado({ ativo, status })}
+          open
+          onOpenChange={vi.fn()}
+          onVincularAtivo={vi.fn()}
+          userRole="Admin"
+        />,
+      );
+      expect(screen.getByText('11997')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^(Trocar|Vincular)$/ })).not.toBeInTheDocument();
+    },
+  );
+
+  it('remover repassa o chamado e null', async () => {
+    const user = userEvent.setup();
+    const onVincularAtivo = vi.fn().mockResolvedValue({ ok: true });
+    const c = chamado({ ativo });
+    render(
+      <ChamadoDetailSheet
+        chamado={c}
+        open
+        onOpenChange={vi.fn()}
+        onVincularAtivo={onVincularAtivo}
+        userRole="Admin"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /Trocar/ }));
+    await user.click(screen.getByRole('button', { name: 'Remover equipamento' }));
+    await waitFor(() => expect(onVincularAtivo).toHaveBeenCalledWith(c, null));
+  });
+});

@@ -36,6 +36,11 @@ export const NewTicketFormSchema = z.object({
     .string()
     .regex(/^[a-f\d]{24}$/i, 'Chamado anterior inválido.')
     .optional(),
+  /** Equipamento do chamado (spec 0011, AC-14). `''` (campo limpo) vira ausente. */
+  ativoId: z
+    .union([z.literal(''), z.string().regex(/^[a-f\d]{24}$/i, 'Equipamento inválido.')])
+    .transform((v) => v || undefined)
+    .optional(),
 });
 
 export type NewTicketFormInput = z.input<typeof NewTicketFormSchema>;

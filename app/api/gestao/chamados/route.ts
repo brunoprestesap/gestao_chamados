@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
+import { resumoDoChamado, resumosDosAtivos } from '@/lib/ativos/resumo';
 import { numerosDosChamadosAnteriores } from '@/lib/chamados/reincidencia';
 import { prioridadeValidadaPelaIa, servicoSugeridoPelaIa } from '@/lib/conversas';
 import { requireManager } from '@/lib/dal';
@@ -50,6 +51,7 @@ const LIST_PROJECTION = {
   atribuicaoAutomatica: 1,
   prazoAvaliacaoAte: 1,
   chamadoAnteriorId: 1,
+  ativoId: 1,
   createdAt: 1,
   updatedAt: 1,
 } as const;
@@ -250,13 +252,15 @@ export async function GET(req: Request) {
     .filter((c) => (c as { canalAbertura?: string }).canalAbertura === 'chat')
     .map((c) => String(c._id));
   const todosIds = items.map((c) => String(c._id));
-  const [sugeridos, validadosPelaIa, numerosAnteriores] = await Promise.all([
+  const [sugeridos, validadosPelaIa, numerosAnteriores, ativos] = await Promise.all([
     servicoSugeridoPelaIa(doChat),
     // O selo "Validado automaticamente" (spec 0007, AC-15) não se limita ao
     // canal chat: a decisão `campo: 'prioridade', efeito: 'aplicado'` decide.
     prioridadeValidadaPelaIa(todosIds),
     // "Reincidência do chamado #N" (spec 0010, AC-12): uma consulta só por página.
     numerosDosChamadosAnteriores(items),
+    // Equipamento do chamado (spec 0011, AC-16): uma consulta só por página.
+    resumosDosAtivos(items),
   ]);
   const agora = new Date();
 
@@ -285,6 +289,7 @@ export async function GET(req: Request) {
       chamadoAnteriorNumero: c.chamadoAnteriorId
         ? (numerosAnteriores.get(String(c.chamadoAnteriorId)) ?? null)
         : null,
+      ativo: resumoDoChamado(c, ativos),
       servicoSugeridoIa: sugeridos.has(String(c._id)),
       validadoPelaIa: validadosPelaIa.has(String(c._id)),
       atribuicaoAutomatica: normalizeAtribuicaoAutomatica(

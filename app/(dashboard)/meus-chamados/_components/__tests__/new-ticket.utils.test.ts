@@ -62,6 +62,16 @@ describe('buildTypeIdByTipo', () => {
     const map = buildTypeIdByTipo([]);
     expect(map.size).toBe(0);
   });
+
+  // O seletor de ativo (spec 0011) repete esta conta no servidor: com dois tipos
+  // na mesma opção, vale o último da lista, e o subtipo sugerido segue isso.
+  it('com dois tipos na mesma opção, vale o último da lista', () => {
+    const map = buildTypeIdByTipo([
+      { id: '1', name: 'Ar Condicionado' },
+      { id: '2', name: 'Ar-Condicionado Central' },
+    ]);
+    expect(map.get('Ar-Condicionado')).toBe('2');
+  });
 });
 
 // ── optionalSelectValue ──────────────────────────────────────────

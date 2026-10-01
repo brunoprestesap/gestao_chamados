@@ -67,3 +67,8 @@ socket-server/dist/
 # Skills instaladas pelo `npx skills`: os arquivos ficam em .agents/skills/ e
 # o .claude/skills/<nome> e so um atalho com caminho absoluto desta maquina
 .claude/skills/vitest
+
+# Gestão de ativos (spec 0011): dados do SICAM com nome e matrícula (LGPD)
+docs/ativos_sicam.csv
+docs/localizacoes_sicam.csv
+scripts/carga-ativos.generated.js

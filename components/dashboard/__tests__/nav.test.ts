@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { NAV_GROUP_ORDER, NAV_ITEMS } from '../nav';
+import { hrefAtivo, NAV_GROUP_ORDER, NAV_ITEMS } from '../nav';
 
 /**
  * O item `Conversas` no menu (spec 0003). A regra é simples: a tela é dos
@@ -95,5 +95,50 @@ describe('NAV_ITEMS', () => {
   it('mantém `Meus Chamados` no menu, porque a entrada antiga continua', () => {
     // Assert: a spec 0003 acrescenta uma entrada, não troca a que existe
     expect(NAV_ITEMS.some((i) => i.href === '/meus-chamados')).toBe(true);
+  });
+});
+
+/**
+ * Os itens da gestão de ativos (spec 0011): a lista e a leitura são dos quatro
+ * perfis; localizações é da gestão; categorias é só do Admin (AC-3, AC-10).
+ */
+describe('NAV_ITEMS · ativos', () => {
+  const item = (href: string) => NAV_ITEMS.find((i) => i.href === href);
+
+  it('"Ativos" aparece para todos os perfis', () => {
+    expect(item('/ativos')?.label).toBe('Ativos');
+    expect(item('/ativos')?.allowedRoles).toBeUndefined();
+  });
+
+  it('"Localizações" só para Admin e Preposto', () => {
+    expect([...(item('/ativos/localizacoes')?.allowedRoles ?? [])].sort()).toEqual([
+      'Admin',
+      'Preposto',
+    ]);
+  });
+
+  it('"Categorias de ativo" só para Admin', () => {
+    expect(item('/configuracoes/categorias-ativo')?.allowedRoles).toEqual(['Admin']);
+  });
+});
+
+describe('hrefAtivo', () => {
+  const hrefs = ['/dashboard', '/ativos', '/ativos/localizacoes', '/gestao', '/gestao/recurring'];
+
+  it('marca só o item mais específico', () => {
+    expect(hrefAtivo('/ativos/localizacoes', hrefs)).toBe('/ativos/localizacoes');
+    expect(hrefAtivo('/gestao/recurring', hrefs)).toBe('/gestao/recurring');
+  });
+
+  it('subpágina sem item próprio marca o pai', () => {
+    expect(hrefAtivo('/ativos/abc/editar', hrefs)).toBe('/ativos');
+  });
+
+  it('não confunde prefixo de nome com segmento', () => {
+    expect(hrefAtivo('/ativosx', hrefs)).toBeNull();
+  });
+
+  it('sem rota, nada marcado', () => {
+    expect(hrefAtivo(null, hrefs)).toBeNull();
   });
 });

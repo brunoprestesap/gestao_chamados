@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
+import { resumoDoChamado, resumosDosAtivos } from '@/lib/ativos/resumo';
 import { numerosDosChamadosAnteriores } from '@/lib/chamados/reincidencia';
 import { servicoSugeridoPelaIa } from '@/lib/conversas';
 import { verifySession } from '@/lib/dal';
@@ -146,11 +147,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     ? (anteriores.get(String(chamado.chamadoAnteriorId)) ?? null)
     : null;
 
+  // Equipamento do chamado (spec 0011).
+  const ativo = resumoDoChamado(chamado, await resumosDosAtivos([chamado]));
+
   return NextResponse.json({
     item: {
       ...normalizeChamado(chamado, new Date()),
       servicoSugeridoIa,
       chamadoAnteriorNumero,
+      ativo,
     },
   });
 }

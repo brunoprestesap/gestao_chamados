@@ -17,6 +17,7 @@ const protectedPrefixes = [
   '/usuarios',
   '/sla',
   '/configuracoes',
+  '/ativos',
 ];
 
 const ADMIN_ONLY = ['/usuarios', '/catalogo', '/unidades', '/configuracoes'];

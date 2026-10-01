@@ -8,10 +8,13 @@ import {
   FileText,
   Gauge,
   LayoutDashboard,
+  MapPinned,
   MessagesSquare,
+  PackageSearch,
   Repeat,
   Settings,
   Sparkles,
+  Tags,
   Ticket,
   TicketCheck,
   TrendingDown,
@@ -60,6 +63,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     group: 'Principal',
   },
   {
+    label: 'Ativos',
+    href: '/ativos',
+    icon: PackageSearch,
+    group: 'Principal',
+  },
+  {
     label: 'Chamados Atribuídos',
     href: '/chamados-atribuidos',
     icon: TicketCheck,
@@ -77,6 +86,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Chamados Recorrentes',
     href: '/gestao/recurring',
     icon: Repeat,
+    group: 'Gestão',
+    allowedRoles: ['Admin', 'Preposto'],
+  },
+  {
+    label: 'Localizações',
+    href: '/ativos/localizacoes',
+    icon: MapPinned,
     group: 'Gestão',
     allowedRoles: ['Admin', 'Preposto'],
   },
@@ -150,4 +166,27 @@ export const NAV_ITEMS: readonly NavItem[] = [
     group: 'Admin',
     allowedRoles: ['Admin'],
   },
+  {
+    label: 'Categorias de ativo',
+    href: '/configuracoes/categorias-ativo',
+    icon: Tags,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
 ];
+
+/**
+ * O item do menu que corresponde à rota: o de `href` mais específico entre os
+ * que casam (a própria rota ou um prefixo seguido de `/`). Assim, em
+ * `/ativos/localizacoes` só "Localizações" fica marcado, não "Ativos" junto.
+ */
+export function hrefAtivo(pathname: string | null, hrefs: readonly string[]): string | null {
+  if (!pathname) return null;
+  let melhor: string | null = null;
+  for (const href of hrefs) {
+    const casa =
+      href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
+    if (casa && (!melhor || href.length > melhor.length)) melhor = href;
+  }
+  return melhor;
+}

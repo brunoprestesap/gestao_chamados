@@ -12,6 +12,7 @@ import {
   Star,
   Timer,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -46,6 +47,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { MaterialObservationNormalized } from '@/lib/dto-normalizers';
 import { formatDate, formatDateTime } from '@/lib/utils';
+import type { ItemSeletorAtivo, ResumoAtivoChamado } from '@/shared/ativos/seletor.types';
 import { ATTENDANCE_NATURE_LABELS, SERVICO_A_DEFINIR } from '@/shared/chamados/chamado.constants';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
 
@@ -134,6 +136,8 @@ type ChamadoDetailDTO = {
   janelaAvaliacaoAberta?: boolean;
   chamadoAnteriorId?: string | null;
   chamadoAnteriorNumero?: string | null;
+  /** Equipamento do chamado (spec 0011). */
+  ativo?: ResumoAtivoChamado | null;
 };
 
 /** Link de "O problema voltou" vindo da lista ou da conversa (`?reincidencia=1`). */
@@ -239,6 +243,8 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
   const [chamado, setChamado] = useState<ChamadoDetailDTO | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [reincidenciaDialogOpen, setReincidenciaDialogOpen] = useState(false);
+  // A reincidência herda o equipamento do anterior, se ainda pode receber chamado (spec 0011, AC-15).
+  const [ativoReincidencia, setAtivoReincidencia] = useState<ItemSeletorAtivo | null>(null);
   const [reatribuirDialogOpen, setReatribuirDialogOpen] = useState(false);
   const [avaliarDialogOpen, setAvaliarDialogOpen] = useState(false);
   const [recusarServicoDialogOpen, setRecusarServicoDialogOpen] = useState(false);
@@ -247,6 +253,26 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
   const [isOwner, setIsOwner] = useState(false);
   const [canManageChamado, setCanManageChamado] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+
+  const ativoAnteriorId =
+    chamado && isOwner && chamado.status === 'encerrado' ? (chamado.ativo?.id ?? null) : null;
+  useEffect(() => {
+    if (!ativoAnteriorId) return;
+    // Resposta que chega depois de trocar de chamado não vale mais.
+    let valido = true;
+    // `/api/ativos/[id]` aplica as regras do seletor: `baixado` ou Tier C/D não herda.
+    fetch(`/api/ativos/${ativoAnteriorId}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { item?: ItemSeletorAtivo } | null) => {
+        if (valido) setAtivoReincidencia(data?.item ?? null);
+      })
+      .catch(() => {
+        if (valido) setAtivoReincidencia(null);
+      });
+    return () => {
+      valido = false;
+    };
+  }, [ativoAnteriorId]);
 
   useEffect(() => {
     (async () => {
@@ -488,6 +514,19 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
                     : `${chamado.tipoServico} · ${SERVICO_A_DEFINIR}`}
                 </InfoField>
                 <InfoField label="Local Exato">{chamado.localExato}</InfoField>
+                {chamado.ativo && (
+                  <InfoField label="Equipamento">
+                    <Link
+                      href={`/ativos/${chamado.ativo.id}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      <span className="font-mono">{chamado.ativo.codigo}</span>
+                    </Link>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {chamado.ativo.descricao}
+                    </span>
+                  </InfoField>
+                )}
                 <InfoField label="Natureza solicitada">
                   {chamado.requestedAttendanceNature
                     ? ATTENDANCE_NATURE_LABELS[
@@ -799,6 +838,7 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
         <NewTicketDialog
           open={reincidenciaDialogOpen}
           onOpenChange={setReincidenciaDialogOpen}
+          ativoInicial={ativoReincidencia}
           reincidencia={{
             chamadoAnteriorId: chamado._id,
             chamadoAnteriorNumero: chamado.ticket_number,

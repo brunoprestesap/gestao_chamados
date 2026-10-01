@@ -3,6 +3,7 @@
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
+import { buscarAtivoVinculavel } from '@/lib/ativos/seletor';
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { criarComentario } from '@/lib/chamados/comentarios';
 import { notificarNovoChamado } from '@/lib/chamados/novo-chamado';
@@ -85,6 +86,14 @@ export async function createTicketAction(
       if (!anterior) return { ok: false, error: 'Chamado anterior inválido.' };
     }
 
+    // Equipamento (spec 0011, AC-14): só Tier A ou B e não `baixado`, mesmo
+    // enviado à mão. O ativo nunca muda o `unitId` (quem pede).
+    let ativo: { _id: Types.ObjectId; codigo: string } | null = null;
+    if (data.ativoId) {
+      ativo = await buscarAtivoVinculavel(data.ativoId);
+      if (!ativo) return { ok: false, error: 'Equipamento inválido para abrir chamado.' };
+    }
+
     // Gera título automático
     const titulo = generateTitulo(data);
 
@@ -112,6 +121,7 @@ export async function createTicketAction(
       status: 'aberto' as const,
       solicitanteId: new Types.ObjectId(session.userId),
       ...(anterior && { chamadoAnteriorId: anterior._id }),
+      ...(ativo && { ativoId: ativo._id }),
     };
 
     // Cria o documento do chamado
@@ -131,9 +141,13 @@ export async function createTicketAction(
       action: 'abertura',
       statusAnterior: null,
       statusNovo: 'aberto',
-      observacoes: anterior
-        ? `Chamado criado: ${titulo}. Reincidência do chamado #${anterior.ticket_number}`
-        : `Chamado criado: ${titulo}`,
+      observacoes: [
+        `Chamado criado: ${titulo}`,
+        anterior && `Reincidência do chamado #${anterior.ticket_number}`,
+        ativo && `Equipamento ${ativo.codigo}`,
+      ]
+        .filter(Boolean)
+        .join('. '),
     });
 
     // Notificação para Preposto e Admin: a mesma função da abertura pela conversa
@@ -146,6 +160,7 @@ export async function createTicketAction(
 
     revalidatePath('/meus-chamados');
     revalidatePath('/gestao');
+    if (ativo) revalidatePath(`/ativos/${String(ativo._id)}`);
 
     return { ok: true, ticketId: String(doc._id) };
   } catch (error) {

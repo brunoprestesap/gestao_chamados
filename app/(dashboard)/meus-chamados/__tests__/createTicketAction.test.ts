@@ -28,6 +28,10 @@ vi.mock('@/models/Chamado', () => ({
     create: (...args: unknown[]) => mockCreate(...args),
   },
 }));
+const mockBuscarAtivoVinculavel = vi.fn();
+vi.mock('@/lib/ativos/seletor', () => ({
+  buscarAtivoVinculavel: (...args: unknown[]) => mockBuscarAtivoVinculavel(...args),
+}));
 const mockHistoryCreate = vi.fn();
 vi.mock('@/models/ChamadoHistory', () => ({
   ChamadoHistoryModel: { create: (...args: unknown[]) => mockHistoryCreate(...args) },
@@ -134,5 +138,42 @@ describe('createTicketAction · reincidência', () => {
     expect(mockFindOne).not.toHaveBeenCalled();
     expect(mockCreate.mock.calls[0][0]).not.toHaveProperty('chamadoAnteriorId');
     expect(mockHistoryCreate.mock.calls[0][0].observacoes).not.toContain('Reincidência');
+  });
+});
+
+/**
+ * Equipamento na abertura (spec 0011, AC-14): o servidor recusa ativo que não
+ * passa nas regras do seletor (inexistente, `baixado` ou Tier C/D), mesmo
+ * enviado à mão, e cita o código na observação da `abertura`.
+ */
+describe('createTicketAction · equipamento', () => {
+  const ATIVO_ID = new Types.ObjectId();
+
+  it('grava o ativoId e cita o código na abertura', async () => {
+    mockBuscarAtivoVinculavel.mockResolvedValue({ _id: ATIVO_ID, codigo: '11997' });
+
+    const r = await createTicketAction({ ...FORMULARIO, ativoId: String(ATIVO_ID) });
+
+    expect(r.ok).toBe(true);
+    expect(mockBuscarAtivoVinculavel).toHaveBeenCalledWith(String(ATIVO_ID));
+    expect(String(mockCreate.mock.calls[0][0].ativoId)).toBe(String(ATIVO_ID));
+    expect(mockHistoryCreate.mock.calls[0][0].observacoes).toContain('Equipamento 11997');
+  });
+
+  it('recusa ativo fora das regras do seletor e não cria o chamado', async () => {
+    mockBuscarAtivoVinculavel.mockResolvedValue(null);
+
+    const r = await createTicketAction({ ...FORMULARIO, ativoId: String(ATIVO_ID) });
+
+    expect(r).toEqual({ ok: false, error: 'Equipamento inválido para abrir chamado.' });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('campo limpo ("") abre sem equipamento e sem consultar', async () => {
+    const r = await createTicketAction({ ...FORMULARIO, ativoId: '' as unknown as undefined });
+
+    expect(r.ok).toBe(true);
+    expect(mockBuscarAtivoVinculavel).not.toHaveBeenCalled();
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty('ativoId');
   });
 });
