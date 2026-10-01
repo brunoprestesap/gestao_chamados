@@ -131,7 +131,8 @@ describe('emitToRoom', () => {
     const emitToRoom = await loadModule();
     await emitToRoom('managers', 'ticket:closed', {
       ticketId: '42',
-      closedBy: { id: '1', name: 'Admin' },
+      closedBy: null,
+      motivo: 'automatico',
       at: '2024-01-01T00:00:00Z',
     });
 
@@ -141,7 +142,8 @@ describe('emitToRoom', () => {
       event: 'ticket:closed',
       payload: {
         ticketId: '42',
-        closedBy: { id: '1', name: 'Admin' },
+        closedBy: null,
+        motivo: 'automatico',
         at: '2024-01-01T00:00:00Z',
       },
     });

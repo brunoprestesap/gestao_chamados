@@ -26,6 +26,11 @@ import {
   SubmitEvaluationSchema,
 } from '@/shared/chamados/evaluation.schemas';
 import {
+  erroForaDaJanela,
+  filtroJanelaAberta,
+  MSG_CHAMADO_JA_ENCERRADO,
+} from '@/shared/chamados/janela-avaliacao';
+import {
   NewTicketFormSchema,
   type NewTicketFormValues,
 } from '@/shared/chamados/new-ticket.schemas';
@@ -33,6 +38,7 @@ import {
   type RefuseServiceInput,
   RefuseServiceSchema,
 } from '@/shared/chamados/service-refusal.schemas';
+import type { TicketClosedPayload } from '@/shared/socket';
 
 /**
  * Gera um título automático para o chamado baseado nos dados do formulário.
@@ -65,6 +71,20 @@ export async function createTicketAction(
     const session = await requireSession();
     await dbConnect();
 
+    // "O problema voltou" (spec 0010, AC-11): o anterior precisa ser do mesmo
+    // solicitante e estar encerrado. Nada do anterior é herdado além do vínculo.
+    let anterior: { _id: Types.ObjectId; ticket_number: string } | null = null;
+    if (data.chamadoAnteriorId) {
+      anterior = await ChamadoModel.findOne({
+        _id: data.chamadoAnteriorId,
+        solicitanteId: new Types.ObjectId(session.userId),
+        status: 'encerrado',
+      })
+        .select('_id ticket_number')
+        .lean<{ _id: Types.ObjectId; ticket_number: string }>();
+      if (!anterior) return { ok: false, error: 'Chamado anterior inválido.' };
+    }
+
     // Gera título automático
     const titulo = generateTitulo(data);
 
@@ -91,6 +111,7 @@ export async function createTicketAction(
       catalogServiceId: new Types.ObjectId(data.catalogServiceId),
       status: 'aberto' as const,
       solicitanteId: new Types.ObjectId(session.userId),
+      ...(anterior && { chamadoAnteriorId: anterior._id }),
     };
 
     // Cria o documento do chamado
@@ -110,7 +131,9 @@ export async function createTicketAction(
       action: 'abertura',
       statusAnterior: null,
       statusNovo: 'aberto',
-      observacoes: `Chamado criado: ${titulo}`,
+      observacoes: anterior
+        ? `Chamado criado: ${titulo}. Reincidência do chamado #${anterior.ticket_number}`
+        : `Chamado criado: ${titulo}`,
     });
 
     // Notificação para Preposto e Admin: a mesma função da abertura pela conversa
@@ -144,8 +167,9 @@ export async function createTicketAction(
 export type SubmitEvaluationResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Registra avaliação do chamado pelo solicitante (criador).
- * Apenas chamados encerrados, ainda não avaliados; só o criador pode avaliar.
+ * Registra avaliação do chamado pelo solicitante (criador) e encerra o chamado
+ * na mesma escrita (spec 0010, AC-2). Só no `concluído` com a janela aberta;
+ * o `encerrado` é definitivo e não aceita mais avaliação.
  */
 export async function submitTicketEvaluationAction(
   raw: SubmitEvaluationInput,
@@ -164,22 +188,27 @@ export async function submitTicketEvaluationAction(
     await dbConnect();
 
     const userId = new Types.ObjectId(session.userId);
+    const now = new Date();
 
     const updated = await ChamadoModel.findOneAndUpdate(
       {
         _id: ticketId,
-        status: 'encerrado',
         solicitanteId: userId,
         'evaluation.rating': { $exists: false },
+        ...filtroJanelaAberta(now),
       },
       {
         $set: {
           evaluation: {
             rating,
             notes: (comment ?? '').trim() || '',
-            createdAt: new Date(),
+            createdAt: now,
             createdByUserId: userId,
           },
+          status: 'encerrado',
+          closedAt: now,
+          closedByUserId: null,
+          closureNotes: '',
         },
       },
       { new: true },
@@ -188,13 +217,16 @@ export async function submitTicketEvaluationAction(
     if (!updated) {
       const existing = await ChamadoModel.findById(ticketId).lean();
       if (!existing) return { ok: false, error: 'Chamado não encontrado.' };
+      // Dono primeiro: quem não é dono não descobre o estado do chamado alheio.
       if (String(existing.solicitanteId) !== session.userId) {
         return { ok: false, error: 'Apenas o criador do chamado pode avaliar.' };
       }
-      if (existing.status !== 'encerrado') {
+      const foraDaJanela = erroForaDaJanela(existing.status, existing.prazoAvaliacaoAte, now);
+      if (foraDaJanela) return { ok: false, error: foraDaJanela };
+      if (existing.status !== 'concluído') {
         return {
           ok: false,
-          error: 'Somente chamados com status "Encerrado" podem ser avaliados.',
+          error: 'Somente chamados com status "Concluído" podem ser avaliados.',
         };
       }
       if (existing.evaluation?.rating != null) {
@@ -203,17 +235,36 @@ export async function submitTicketEvaluationAction(
       return { ok: false, error: 'Não foi possível registrar a avaliação. Tente novamente.' };
     }
 
-    await ChamadoHistoryModel.create({
-      chamadoId: updated._id,
-      userId,
-      action: 'avaliado',
-      statusAnterior: 'encerrado',
-      statusNovo: 'encerrado',
-      observacoes: `Avaliação: ${rating}/5`,
-    });
+    // A avaliação já valeu e o chamado já está encerrado: uma falha no
+    // histórico não pode virar erro para o solicitante, que ao tentar de novo
+    // receberia "já foi encerrado". Mesmo tratamento do cron.
+    try {
+      await ChamadoHistoryModel.create({
+        chamadoId: updated._id,
+        userId,
+        action: 'encerramento_por_avaliacao',
+        statusAnterior: 'concluído',
+        statusNovo: 'encerrado',
+        observacoes: `Avaliação: ${rating}/5`,
+      });
+    } catch (err) {
+      console.error('submitTicketEvaluationAction: histórico não gravado:', err);
+    }
+
+    // Só a sala do solicitante, para as outras telas abertas dele (AC-9b).
+    const closedPayload: TicketClosedPayload = {
+      ticketId: String(updated._id),
+      ticketNumber: updated.ticket_number ?? undefined,
+      title: updated.titulo ?? undefined,
+      closedBy: null,
+      motivo: 'avaliacao',
+      at: now.toISOString(),
+    };
+    await emitToRoom(`user:${session.userId}`, 'ticket:closed', closedPayload);
 
     revalidatePath('/meus-chamados');
     revalidatePath(`/meus-chamados/${ticketId}`);
+    revalidatePath('/gestao');
 
     return { ok: true };
   } catch (e) {
@@ -422,9 +473,10 @@ export async function notifyAttachmentAction(
 export type RefuseServiceResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Recusa o serviço de um chamado encerrado pelo solicitante (criador).
- * O chamado volta para "em atendimento" com o mesmo técnico para retrabalho.
- * Apenas chamados encerrados e ainda não avaliados podem ser recusados.
+ * Recusa o serviço de um chamado concluído pelo solicitante (criador), dentro
+ * do prazo para avaliar (spec 0010, AC-3). O chamado volta para "em
+ * atendimento" com o mesmo técnico para retrabalho, e o prazo é limpo: a
+ * próxima execução grava outro.
  */
 export async function refuseServiceAction(raw: RefuseServiceInput): Promise<RefuseServiceResult> {
   try {
@@ -445,9 +497,9 @@ export async function refuseServiceAction(raw: RefuseServiceInput): Promise<Refu
     const updated = await ChamadoModel.findOneAndUpdate(
       {
         _id: ticketId,
-        status: 'encerrado',
         solicitanteId: userId,
         'evaluation.rating': { $exists: false },
+        ...filtroJanelaAberta(now),
       },
       {
         $set: {
@@ -457,6 +509,7 @@ export async function refuseServiceAction(raw: RefuseServiceInput): Promise<Refu
           closureNotes: '',
           concludedAt: null,
           'sla.resolvedAt': null,
+          prazoAvaliacaoAte: null,
         },
         $push: {
           serviceRefusals: {
@@ -472,13 +525,21 @@ export async function refuseServiceAction(raw: RefuseServiceInput): Promise<Refu
     if (!updated) {
       const existing = await ChamadoModel.findById(ticketId).lean();
       if (!existing) return { ok: false, error: 'Chamado não encontrado.' };
+      // Dono primeiro: quem não é dono não descobre o estado do chamado alheio.
       if (String(existing.solicitanteId) !== session.userId) {
         return { ok: false, error: 'Apenas o criador do chamado pode recusar o serviço.' };
       }
-      if (existing.status !== 'encerrado') {
+      const foraDaJanela = erroForaDaJanela(
+        existing.status,
+        existing.prazoAvaliacaoAte,
+        now,
+        MSG_CHAMADO_JA_ENCERRADO,
+      );
+      if (foraDaJanela) return { ok: false, error: foraDaJanela };
+      if (existing.status !== 'concluído') {
         return {
           ok: false,
-          error: 'Somente chamados com status "Encerrado" podem ter o serviço recusado.',
+          error: 'Somente chamados com status "Concluído" podem ter o serviço recusado.',
         };
       }
       if (existing.evaluation?.rating != null) {
@@ -492,7 +553,7 @@ export async function refuseServiceAction(raw: RefuseServiceInput): Promise<Refu
       chamadoId: updated._id,
       userId,
       action: 'recusa_servico',
-      statusAnterior: 'encerrado',
+      statusAnterior: 'concluído',
       statusNovo: 'em atendimento',
       observacoes: `Serviço recusado pelo solicitante. Motivo: ${reason.length > 200 ? reason.slice(0, 200) + '…' : reason}`,
     });

@@ -44,6 +44,7 @@ export async function PUT(req: Request) {
         first.workdayStart?.[0] ??
         first.workdayEnd?.[0] ??
         first.weekdays?.[0] ??
+        first.prazoAvaliacaoHoras?.[0] ??
         'Dados inválidos. Verifique os campos.';
       return NextResponse.json({ error: Array.isArray(msg) ? msg[0] : msg }, { status: 400 });
     }
@@ -59,6 +60,9 @@ export async function PUT(req: Request) {
           workdayStart: parsed.data.workdayStart,
           workdayEnd: parsed.data.workdayEnd,
           weekdays: parsed.data.weekdays,
+          ...(parsed.data.prazoAvaliacaoHoras !== undefined && {
+            prazoAvaliacaoHoras: parsed.data.prazoAvaliacaoHoras,
+          }),
           updatedByUserId: userId,
         },
       },

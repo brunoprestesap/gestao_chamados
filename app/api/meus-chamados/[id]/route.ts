@@ -1,12 +1,14 @@
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
+import { numerosDosChamadosAnteriores } from '@/lib/chamados/reincidencia';
 import { servicoSugeridoPelaIa } from '@/lib/conversas';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
 import { ChamadoModel } from '@/models/Chamado';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
+import { camposJanelaDTO } from '@/shared/chamados/janela-avaliacao';
 
 function normalizeChamado(
   c: Record<string, unknown> & {
@@ -18,6 +20,7 @@ function normalizeChamado(
     createdAt: Date;
     updatedAt: Date;
   },
+  agora: Date,
 ) {
   const ev = c.evaluation as
     | {
@@ -100,6 +103,7 @@ function normalizeChamado(
     materialObservations: normalizeMaterialObservations(c.materialObservations),
     evaluation,
     sla: slaNormalized,
+    ...camposJanelaDTO(c, agora),
   };
 }
 
@@ -136,5 +140,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const doChat = (chamado as { canalAbertura?: string }).canalAbertura === 'chat';
   const servicoSugeridoIa = doChat ? (await servicoSugeridoPelaIa([id])).has(id) : false;
 
-  return NextResponse.json({ item: { ...normalizeChamado(chamado), servicoSugeridoIa } });
+  // "Reincidência do chamado #N" (spec 0010, AC-12).
+  const anteriores = await numerosDosChamadosAnteriores([chamado]);
+  const chamadoAnteriorNumero = chamado.chamadoAnteriorId
+    ? (anteriores.get(String(chamado.chamadoAnteriorId)) ?? null)
+    : null;
+
+  return NextResponse.json({
+    item: {
+      ...normalizeChamado(chamado, new Date()),
+      servicoSugeridoIa,
+      chamadoAnteriorNumero,
+    },
+  });
 }

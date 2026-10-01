@@ -12,6 +12,11 @@ export type ChamadoRecorrenciaAlvo = {
   unitId: Types.ObjectId | string;
   tipoServico: string;
   subtypeId: Types.ObjectId | string;
+  /**
+   * O chamado que este já declara como anterior ("O problema voltou", spec
+   * 0010, AC-16): ele aparece como vínculo, então a dica não o repete.
+   */
+  chamadoAnteriorId?: Types.ObjectId | string | null;
 };
 
 export type RecorrenciaItem = {
@@ -46,7 +51,9 @@ export async function findChamadosRecorrentes(
   const desde = new Date(agora.getTime() - dias * MS_PER_DAY);
 
   const docs = await ChamadoModel.find({
-    _id: { $ne: chamado._id },
+    _id: chamado.chamadoAnteriorId
+      ? { $nin: [chamado._id, chamado.chamadoAnteriorId] }
+      : { $ne: chamado._id },
     unitId: chamado.unitId,
     tipoServico: chamado.tipoServico,
     subtypeId: chamado.subtypeId,

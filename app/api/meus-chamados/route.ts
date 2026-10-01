@@ -11,6 +11,7 @@ import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { toAttendanceNature } from '@/shared/chamados/chamado.constants';
 import { ChamadoCreateSchema, ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
 import { hasValidEvaluation } from '@/shared/chamados/evaluation.utils';
+import { camposJanelaDTO } from '@/shared/chamados/janela-avaliacao';
 
 const LIST_PROJECTION = {
   ticket_number: 1,
@@ -42,6 +43,8 @@ const LIST_PROJECTION = {
   materialObservations: 1,
   evaluation: 1,
   sla: 1,
+  prazoAvaliacaoAte: 1,
+  chamadoAnteriorId: 1,
   createdAt: 1,
   updatedAt: 1,
 } as const;
@@ -84,6 +87,7 @@ function normalizeChamado(
     createdAt: Date;
     updatedAt: Date;
   },
+  agora: Date = new Date(),
 ) {
   const ev = c.evaluation as
     | {
@@ -153,6 +157,7 @@ function normalizeChamado(
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     evaluation,
+    ...camposJanelaDTO(c, agora),
   };
 }
 
@@ -213,8 +218,9 @@ export async function GET(req: Request) {
 
   const totalPages = Math.ceil(total / limit);
 
+  const agora = new Date();
   return NextResponse.json({
-    items: items.map(normalizeChamado),
+    items: items.map((c) => normalizeChamado(c, agora)),
     pagination: { page, limit, total, totalPages },
   });
 }
@@ -294,5 +300,5 @@ export async function POST(req: Request) {
     ticket_number: docObject.ticket_number,
   });
 
-  return NextResponse.json(normalizeChamado(docObject), { status: 201 });
+  return NextResponse.json(normalizeChamado(docObject, new Date()), { status: 201 });
 }

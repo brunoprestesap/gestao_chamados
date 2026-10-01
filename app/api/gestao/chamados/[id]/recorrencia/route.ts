@@ -21,12 +21,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
   }
 
-  const alvo = await ChamadoModel.findById(id).select('unitId tipoServico subtypeId').lean<{
-    _id: Types.ObjectId;
-    unitId?: Types.ObjectId;
-    tipoServico?: string;
-    subtypeId?: Types.ObjectId;
-  }>();
+  const alvo = await ChamadoModel.findById(id)
+    .select('unitId tipoServico subtypeId chamadoAnteriorId')
+    .lean<{
+      _id: Types.ObjectId;
+      unitId?: Types.ObjectId;
+      tipoServico?: string;
+      subtypeId?: Types.ObjectId;
+      chamadoAnteriorId?: Types.ObjectId | null;
+    }>();
 
   if (!alvo || !alvo.unitId || !alvo.tipoServico || !alvo.subtypeId) {
     return NextResponse.json({ items: [] });
@@ -37,6 +40,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     unitId: alvo.unitId,
     tipoServico: alvo.tipoServico,
     subtypeId: alvo.subtypeId,
+    chamadoAnteriorId: alvo.chamadoAnteriorId ?? null,
   });
 
   return NextResponse.json({ items });

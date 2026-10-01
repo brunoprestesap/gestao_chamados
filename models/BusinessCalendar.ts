@@ -15,6 +15,8 @@ const BusinessCalendarSchema = new Schema(
         message: 'weekdays deve ter pelo menos 1 dia (0=Dom..6=Sab)',
       },
     },
+    /** Horas corridas para o solicitante avaliar ou recusar depois da conclusão (spec 0010). */
+    prazoAvaliacaoHoras: { type: Number, default: 48, min: 1, max: 720 },
     updatedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   },
   { timestamps: true },

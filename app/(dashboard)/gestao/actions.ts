@@ -11,7 +11,7 @@ import {
   confirmarDecisao,
   resolverDecisao,
 } from '@/lib/conversas/decisoes';
-import { canManage, isAdmin, requireManager, requireSession } from '@/lib/dal';
+import { isAdmin, requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { logRevisaoIa } from '@/lib/gestao/log-revisao-ia';
@@ -46,7 +46,11 @@ import {
   type UpdateTicketPriorityInput,
   UpdateTicketPrioritySchema,
 } from '@/shared/chamados/chamado.schemas';
-import { type CloseTicketInput, CloseTicketSchema } from '@/shared/chamados/close-ticket.schemas';
+import {
+  erroForaDaJanela,
+  filtroJanelaAberta,
+  MSG_ENCERRADO_DEFINITIVO,
+} from '@/shared/chamados/janela-avaliacao';
 import { type RejectTicketInput, RejectTicketSchema } from '@/shared/chamados/rejection.schemas';
 import {
   type ReopenTicketInput,
@@ -63,7 +67,6 @@ export type ClassificarResult = { ok: true } | { ok: false; error: string };
 export type UpdateTicketPriorityResult = { ok: true } | { ok: false; error: string };
 export type CorrigirServicoResult = { ok: true } | { ok: false; error: string };
 export type UpdateTicketCatalogResult = { ok: true } | { ok: false; error: string };
-export type CloseTicketResult = { ok: true } | { ok: false; error: string };
 export type RejectTicketResult = { ok: true } | { ok: false; error: string };
 export type ReopenTicketResult = { ok: true } | { ok: false; error: string };
 export type AssignTicketResult =
@@ -854,110 +857,9 @@ export async function updateTicketCatalogAction(
 }
 
 /**
- * Encerra um chamado (Admin ou Preposto). Pré-condição: status "Concluído".
- * Update atômico para evitar encerramento duplo.
- */
-export async function closeTicketAction(raw: CloseTicketInput): Promise<CloseTicketResult> {
-  try {
-    const session = await requireSession();
-    if (!canManage(session.role)) {
-      return { ok: false, error: 'Apenas administradores e prepostos podem encerrar chamados.' };
-    }
-
-    const parsed = CloseTicketSchema.safeParse(raw);
-    if (!parsed.success) {
-      const first = parsed.error.flatten().fieldErrors;
-      const msg =
-        first.ticketId?.[0] ?? first.closureNotes?.[0] ?? 'Dados inválidos. Verifique os campos.';
-      return { ok: false, error: msg };
-    }
-
-    const { ticketId, closureNotes } = parsed.data;
-    await dbConnect();
-
-    const now = new Date();
-    const userId = new Types.ObjectId(session.userId);
-
-    const updated = await ChamadoModel.findOneAndUpdate(
-      { _id: ticketId, status: 'concluído' },
-      {
-        $set: {
-          status: 'encerrado',
-          closedAt: now,
-          closedByUserId: userId,
-          closureNotes: (closureNotes ?? '').trim() || '',
-        },
-      },
-      { new: true },
-    );
-
-    if (!updated) {
-      const existing = await ChamadoModel.findById(ticketId).lean();
-      if (!existing) return { ok: false, error: 'Chamado não encontrado.' };
-      if (existing.status !== 'concluído') {
-        return {
-          ok: false,
-          error: `Encerramento permitido apenas para chamados com status "Concluído". Status atual: ${existing.status}.`,
-        };
-      }
-      return { ok: false, error: 'Não foi possível encerrar o chamado. Tente novamente.' };
-    }
-
-    const obsParts = ['Status alterado para Encerrado.'];
-    if ((closureNotes ?? '').trim()) obsParts.push(`Observações: ${(closureNotes ?? '').trim()}`);
-    await ChamadoHistoryModel.create({
-      chamadoId: updated._id,
-      userId,
-      action: 'encerramento',
-      statusAnterior: 'concluído',
-      statusNovo: 'encerrado',
-      observacoes: obsParts.join(' '),
-    });
-
-    // Notificação para o Solicitante: chamado encerrado por Preposto/Admin
-    const closedByUser = await UserModel.findById(session.userId).select('name').lean();
-    const ticketClosedPayload = {
-      ticketId: String(ticketId),
-      ticketNumber: updated.ticket_number,
-      title: updated.titulo,
-      closedBy: { id: session.userId, name: closedByUser?.name ?? undefined },
-      at: now.toISOString(),
-    };
-    const notificationTitle = updated.ticket_number
-      ? `Chamado #${updated.ticket_number} encerrado`
-      : 'Chamado encerrado';
-    await NotificationModel.create({
-      userId: updated.solicitanteId,
-      type: 'ticket:closed',
-      title: notificationTitle,
-      body: updated.titulo ?? '',
-      data: ticketClosedPayload,
-      readAt: null,
-    });
-    sendNotificationEmail(
-      String(updated.solicitanteId),
-      'ticket:closed',
-      ticketClosedPayload,
-    ).catch(() => {});
-    await emitToRoom(`user:${String(updated.solicitanteId)}`, 'ticket:closed', ticketClosedPayload);
-
-    revalidatePath('/gestao');
-    revalidatePath(`/meus-chamados/${ticketId}`);
-
-    return { ok: true };
-  } catch (e) {
-    console.error('closeTicketAction:', e);
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : 'Erro ao encerrar chamado. Tente novamente.',
-    };
-  }
-}
-
-/**
- * Reabre um chamado (Admin ou Preposto) que está em status "concluído" ou "encerrado".
- * O chamado volta para "em atendimento" mantendo o técnico atribuído.
- * Avaliação existente é preservada como histórico imutável.
+ * Reabre um chamado (Admin ou Preposto) concluído, só dentro do prazo para
+ * avaliar (spec 0010, AC-4). O chamado volta para "em atendimento" mantendo o
+ * técnico atribuído, e o prazo é limpo. O `encerrado` é definitivo: nunca reabre.
  */
 export async function reopenTicketAction(raw: ReopenTicketInput): Promise<ReopenTicketResult> {
   try {
@@ -977,10 +879,9 @@ export async function reopenTicketAction(raw: ReopenTicketInput): Promise<Reopen
     const now = new Date();
     const userId = new Types.ObjectId(session.userId);
 
-    // Update atômico — só transita se status atual ∈ {concluído, encerrado}.
-    // `new: false` retorna o documento ANTES do update, dando acesso ao status original.
+    // Update atômico: só transita com a janela aberta (concluído e prazo não vencido).
     const previous = await ChamadoModel.findOneAndUpdate(
-      { _id: ticketId, status: { $in: ['concluído', 'encerrado'] } },
+      { _id: ticketId, ...filtroJanelaAberta(now) },
       {
         $set: {
           status: 'em atendimento',
@@ -989,6 +890,7 @@ export async function reopenTicketAction(raw: ReopenTicketInput): Promise<Reopen
           closedByUserId: null,
           closureNotes: '',
           'sla.resolvedAt': null,
+          prazoAvaliacaoAte: null,
         },
       },
       { new: false },
@@ -997,13 +899,20 @@ export async function reopenTicketAction(raw: ReopenTicketInput): Promise<Reopen
     if (!previous) {
       const existing = await ChamadoModel.findById(ticketId).lean();
       if (!existing) return { ok: false, error: 'Chamado não encontrado.' };
+      const foraDaJanela = erroForaDaJanela(
+        existing.status,
+        existing.prazoAvaliacaoAte,
+        now,
+        MSG_ENCERRADO_DEFINITIVO,
+      );
+      if (foraDaJanela) return { ok: false, error: foraDaJanela };
       return {
         ok: false,
-        error: `Reabertura permitida apenas para chamados Concluídos ou Encerrados. Status atual: ${existing.status}.`,
+        error: `Reabertura permitida apenas para chamados Concluídos, dentro do prazo para avaliar. Status atual: ${existing.status}.`,
       };
     }
 
-    const fromStatus = previous.status as 'concluído' | 'encerrado';
+    const fromStatus = 'concluído' as const;
 
     // Histórico (auditoria)
     await ChamadoHistoryModel.create({

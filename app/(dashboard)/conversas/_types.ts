@@ -107,4 +107,8 @@ export type LeituraChamado = {
   avaliacaoRating: number | null;
   /** Só o solicitante dono vê o convite para avaliar (spec 0005, AC-10). */
   souSolicitante: boolean;
+  /** ISO do prazo para avaliar; nulo fora do `concluído` (spec 0010). */
+  prazoAvaliacaoAte: string | null;
+  /** Janela aberta, calculada com a hora do servidor na leitura (spec 0010, AC-10). */
+  janelaAvaliacaoAberta: boolean;
 };

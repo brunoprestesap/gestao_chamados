@@ -168,6 +168,13 @@ export type ChamadoDTO = {
   pauseDetails?: string | null;
   materialObservations?: MaterialObservationNormalized[];
   sla?: SlaDTO;
+  /** Até quando o solicitante avalia ou recusa (spec 0010). */
+  prazoAvaliacaoAte?: string | null;
+  /** Janela aberta, calculada pela rota com a hora do servidor (spec 0010, AC-10). */
+  janelaAvaliacaoAberta?: boolean;
+  /** O chamado encerrado cujo problema voltou (spec 0010, AC-12). */
+  chamadoAnteriorId?: string | null;
+  chamadoAnteriorNumero?: string | null;
 };
 
 type Props = {
@@ -176,8 +183,6 @@ type Props = {
   onClassificar?: (chamado: ChamadoDTO) => void;
   /** Quando fornecido, exibe botão "Atribuir" e chama ao clicar. */
   onAtribuir?: (chamado: ChamadoDTO) => void;
-  /** Quando fornecido e status "Concluído", exibe botão "Encerrar Chamado" (Preposto/Admin). */
-  onEncerrar?: (chamado: ChamadoDTO) => void;
   /** Quando fornecido e status "Em atendimento", exibe botão "Reatribuir" (Preposto/Admin). */
   onReatribuir?: (chamado: ChamadoDTO) => void;
   /** Quando fornecido e status "aberto", exibe botão "Recusar" (Preposto/Admin). */
@@ -190,7 +195,7 @@ type Props = {
   onCardClick?: (chamado: ChamadoDTO) => void;
   /** Se true, card e título não navegam para detalhe (ex.: módulo gestão). */
   hideDetailLink?: boolean;
-  /** Se true, exibe "Avaliar" ou "Avaliado" para chamados encerrados (solicitante). */
+  /** Se true, exibe "Avaliar" no concluído com o prazo aberto e "Avaliado" no encerrado (solicitante). */
   showAvaliar?: boolean;
   /** Se true, exibe versão compacta (ex.: Kanban gestão) com padding e textos menores. */
   compact?: boolean;
@@ -268,7 +273,6 @@ export function ChamadoCard({
   chamado,
   onClassificar,
   onAtribuir,
-  onEncerrar,
   onReatribuir,
   onRecusar,
   onRegistrarExecucao,
@@ -432,14 +436,6 @@ export function ChamadoCard({
     [onAtribuir, chamado],
   );
 
-  const handleEncerrarClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onEncerrar?.(chamado);
-    },
-    [onEncerrar, chamado],
-  );
-
   const handleReatribuirClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -465,7 +461,12 @@ export function ChamadoCard({
   );
 
   const evaluated = hasValidEvaluation(chamado.evaluation);
-  const showAvaliarBtn = showAvaliar && chamado.status === 'encerrado' && !evaluated;
+  // Spec 0010 (AC-10): avaliar só com a janela aberta, calculada pela rota no servidor.
+  const showAvaliarBtn =
+    showAvaliar &&
+    chamado.status === 'concluído' &&
+    chamado.janelaAvaliacaoAberta === true &&
+    !evaluated;
   const showAvaliadoBadge = showAvaliar && chamado.status === 'encerrado' && evaluated;
   const hasActionButtons =
     showAvaliarBtn ||
@@ -473,7 +474,6 @@ export function ChamadoCard({
     onClassificar ||
     onRecusar ||
     onAtribuir ||
-    (onEncerrar && chamado.status === 'concluído') ||
     (onReatribuir && chamado.status === 'em atendimento') ||
     (onRegistrarExecucao && chamado.status === 'em atendimento' && chamado.assignedToUserId);
 
@@ -776,22 +776,6 @@ export function ChamadoCard({
                     >
                       <UserCheck className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
                       Atribuir
-                    </Button>
-                  )}
-                  {onEncerrar && chamado.status === 'concluído' && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      title="Encerrar chamado"
-                      className={cn(
-                        'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700',
-                        compact && 'h-8 sm:h-7 gap-1 px-2.5 sm:px-2 text-xs',
-                      )}
-                      onClick={handleEncerrarClick}
-                    >
-                      <CheckCircle2 className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
-                      Encerrar Chamado
                     </Button>
                   )}
                   {onReatribuir && chamado.status === 'em atendimento' && (

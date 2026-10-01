@@ -5,7 +5,6 @@ import {
   Ban,
   Bot,
   Building2,
-  CheckCircle2,
   ClipboardList,
   Clock,
   ExternalLink,
@@ -30,6 +29,10 @@ import {
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import {
+  PrazoAvaliacao,
+  VinculoReincidencia,
+} from '@/app/(dashboard)/meus-chamados/_components/janela-avaliacao-ui';
 import { MaterialObservationsList } from '@/components/chamado/MaterialObservationsList';
 import { SeloValidadoIa } from '@/components/chamado/SeloValidadoIa';
 import { useInstitutionalTimezone } from '@/components/config/expediente-provider';
@@ -143,7 +146,6 @@ interface Props {
   onClassificar?: (chamado: ChamadoDTO) => void;
   onRecusar?: (chamado: ChamadoDTO) => void;
   onAtribuir?: (chamado: ChamadoDTO) => void;
-  onEncerrar?: (chamado: ChamadoDTO) => void;
   onReabrir?: (chamado: ChamadoDTO) => void;
   onReatribuir?: (chamado: ChamadoDTO) => void;
   onPausar?: (chamado: ChamadoDTO) => void;
@@ -170,7 +172,6 @@ export function ChamadoDetailSheet({
   onClassificar,
   onRecusar,
   onAtribuir,
-  onEncerrar,
   onReabrir,
   onReatribuir,
   onPausar,
@@ -300,9 +301,9 @@ export function ChamadoDetailSheet({
   const showRecusar = isManager && status === 'aberto' && !!onRecusar;
   const showAtribuir = isManager && status === 'validado' && !!onAtribuir;
   const showReatribuir = isManager && status === 'em atendimento' && !!onReatribuir;
-  const showEncerrar = isManager && status === 'concluído' && !!onEncerrar;
-  const showReabrir =
-    isManager && (status === 'concluído' || status === 'encerrado') && !!onReabrir;
+  // O encerrado é definitivo; reabrir só no concluído com o prazo aberto (spec 0010, AC-4).
+  const janelaAberta = status === 'concluído' && chamado.janelaAvaliacaoAberta === true;
+  const showReabrir = isManager && janelaAberta && !!onReabrir;
   const showPausar = isManager && status === 'em atendimento' && !!onPausar;
   const showRetomar =
     isManager &&
@@ -322,16 +323,15 @@ export function ChamadoDetailSheet({
 
   // Ações do Solicitante
   const showCancelar = isSolicitante && status === 'aberto' && !!onCancelar;
-  const showAvaliar = isSolicitante && status === 'encerrado' && !chamado.evaluation && !!onAvaliar;
-  const showRecusarServico =
-    isSolicitante && (status === 'concluído' || status === 'encerrado') && !!onRecusarServico;
+  // Avaliar e recusar só com a janela aberta (spec 0010, AC-10).
+  const showAvaliar = isSolicitante && janelaAberta && !chamado.evaluation && !!onAvaliar;
+  const showRecusarServico = isSolicitante && janelaAberta && !!onRecusarServico;
 
   const hasActions =
     showClassificar ||
     showRecusar ||
     showAtribuir ||
     showReatribuir ||
-    showEncerrar ||
     showReabrir ||
     showPausar ||
     showRetomar ||
@@ -382,6 +382,18 @@ export function ChamadoDetailSheet({
               <p className="mt-1 text-sm font-medium leading-snug text-foreground line-clamp-2">
                 {chamado.titulo || 'Sem título'}
               </p>
+              <VinculoReincidencia
+                chamadoAnteriorId={chamado.chamadoAnteriorId}
+                chamadoAnteriorNumero={chamado.chamadoAnteriorNumero}
+                className="mt-1.5"
+              />
+              {janelaAberta && (
+                <PrazoAvaliacao
+                  prazoAvaliacaoAte={chamado.prazoAvaliacaoAte}
+                  texto={isSolicitante ? 'Avalie ou recuse até' : 'Aguardando avaliação até'}
+                  className="mt-1.5"
+                />
+              )}
             </div>
 
             {/* Expand to full page */}
@@ -813,17 +825,6 @@ export function ChamadoDetailSheet({
                   >
                     <Play className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                     Retomar
-                  </Button>
-                )}
-                {showEncerrar && onEncerrar && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="w-full bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 transition-colors hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 sm:w-auto"
-                    onClick={() => handleAction(onEncerrar)}
-                  >
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                    Encerrar Chamado
                   </Button>
                 )}
                 {showReabrir && onReabrir && (

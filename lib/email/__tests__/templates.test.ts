@@ -375,3 +375,43 @@ describe('renderNotificationEmail, ticket:assigned (spec 0008, AC-11)', () => {
     expect(email.html).not.toContain('undefined');
   });
 });
+
+// covers: AC-9 (aviso de execução com o prazo para o solicitante; gestores sem mudança)
+describe('renderNotificationEmail, ticket:execution_registered (spec 0010)', () => {
+  const base = { ticketId: 'x', ticketNumber: 'T-42', title: 'Lâmpada' };
+
+  it('o solicitante lê a frase do prazo e o aviso do encerramento automático', () => {
+    // Act
+    const { html } = renderNotificationEmail(
+      'ticket:execution_registered',
+      { ...base, prazoAvaliacaoTexto: 'Avalie ou recuse o serviço até 03/10 às 09:05' },
+      'Maria',
+    );
+
+    // Assert
+    expect(html).toContain('Avalie ou recuse o serviço até 03/10 às 09:05');
+    expect(html).toContain('encerrado automaticamente');
+  });
+
+  it('os gestores, sem o prazo no payload, recebem o texto de antes', () => {
+    // Act
+    const { html } = renderNotificationEmail('ticket:execution_registered', base, 'Ana');
+
+    // Assert
+    expect(html).toContain('aguarda encerramento');
+    expect(html).not.toContain('Avalie ou recuse');
+  });
+
+  it('escapa a frase do prazo antes de pôr no HTML', () => {
+    // Act
+    const { html } = renderNotificationEmail(
+      'ticket:execution_registered',
+      { ...base, prazoAvaliacaoTexto: '<script>x</script>' },
+      'Maria',
+    );
+
+    // Assert
+    expect(html).not.toContain('<script>x</script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+});

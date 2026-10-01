@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
+import { numerosDosChamadosAnteriores } from '@/lib/chamados/reincidencia';
 import { prioridadeValidadaPelaIa, servicoSugeridoPelaIa } from '@/lib/conversas';
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
@@ -12,6 +13,7 @@ import { UserModel } from '@/models/user.model';
 import type { AtribuicaoAutomaticaGestao } from '@/shared/chamados/atribuicao-automatica.constants';
 import { CHAMADO_STATUS_NAO_FINALIZADOS } from '@/shared/chamados/chamado.constants';
 import { ChamadoListQuerySchema } from '@/shared/chamados/chamado.schemas';
+import { camposJanelaDTO } from '@/shared/chamados/janela-avaliacao';
 
 // Projection — only the fields needed by the table/cards UI
 const LIST_PROJECTION = {
@@ -46,6 +48,8 @@ const LIST_PROJECTION = {
   canalAbertura: 1,
   // Só a gestão lê: o resultado e o motivo da atribuição automática (spec 0008, AC-16).
   atribuicaoAutomatica: 1,
+  prazoAvaliacaoAte: 1,
+  chamadoAnteriorId: 1,
   createdAt: 1,
   updatedAt: 1,
 } as const;
@@ -246,12 +250,15 @@ export async function GET(req: Request) {
     .filter((c) => (c as { canalAbertura?: string }).canalAbertura === 'chat')
     .map((c) => String(c._id));
   const todosIds = items.map((c) => String(c._id));
-  const [sugeridos, validadosPelaIa] = await Promise.all([
+  const [sugeridos, validadosPelaIa, numerosAnteriores] = await Promise.all([
     servicoSugeridoPelaIa(doChat),
     // O selo "Validado automaticamente" (spec 0007, AC-15) não se limita ao
     // canal chat: a decisão `campo: 'prioridade', efeito: 'aplicado'` decide.
     prioridadeValidadaPelaIa(todosIds),
+    // "Reincidência do chamado #N" (spec 0010, AC-12): uma consulta só por página.
+    numerosDosChamadosAnteriores(items),
   ]);
+  const agora = new Date();
 
   // Os nomes dos técnicos que a atribuição automática escolheu: uma consulta só por página.
   const tecnicoIds = [
@@ -274,6 +281,10 @@ export async function GET(req: Request) {
   return NextResponse.json({
     items: items.map((c) => ({
       ...normalizeChamado(c),
+      ...camposJanelaDTO(c, agora),
+      chamadoAnteriorNumero: c.chamadoAnteriorId
+        ? (numerosAnteriores.get(String(c.chamadoAnteriorId)) ?? null)
+        : null,
       servicoSugeridoIa: sugeridos.has(String(c._id)),
       validadoPelaIa: validadosPelaIa.has(String(c._id)),
       atribuicaoAutomatica: normalizeAtribuicaoAutomatica(

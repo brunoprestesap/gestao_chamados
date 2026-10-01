@@ -20,6 +20,11 @@ import {
   RegisterExecutionSchema,
 } from '@/shared/chamados/execution.schemas';
 import {
+  calcularPrazoAvaliacao,
+  frasePrazoAvaliacao,
+  PRAZO_AVALIACAO_HORAS_PADRAO,
+} from '@/shared/chamados/janela-avaliacao';
+import {
   type MaterialObservationInput,
   MaterialObservationSchema,
 } from '@/shared/chamados/material-observation.schemas';
@@ -34,6 +39,7 @@ import {
   ResumeTicketSchema,
 } from '@/shared/chamados/pause.schemas';
 import { PAUSE_REASON_LABELS, type PauseReason } from '@/shared/chamados/pause-reason.constants';
+import type { TicketExecutionRegisteredPayload } from '@/shared/socket';
 
 export type ActionResult = { ok: true } | { ok: false; error: string; code?: string };
 export type RegisterExecutionResult = ActionResult;
@@ -118,10 +124,24 @@ export async function registerExecutionAction(
       doc.sla?.resolvedAt ?? null,
     );
 
+    // Prazo para avaliar (spec 0010, AC-1 e AC-9): lido da configuração vigente
+    // agora e gravado no chamado. Falha na leitura nunca bloqueia a execução.
+    let prazoAvaliacaoHoras = PRAZO_AVALIACAO_HORAS_PADRAO;
+    let timezone: string | undefined;
+    try {
+      const expediente = await getBusinessCalendarConfig();
+      prazoAvaliacaoHoras = expediente.prazoAvaliacaoHoras;
+      timezone = expediente.timezone;
+    } catch (err) {
+      console.error('registerExecutionAction: prazo para avaliar no padrão:', err);
+    }
+    const prazoAvaliacaoAte = calcularPrazoAvaliacao(now, prazoAvaliacaoHoras);
+
     const updatePayload: Record<string, unknown> = {
       status: 'concluído',
       concludedAt: now,
       'sla.resolvedAt': now,
+      prazoAvaliacaoAte,
     };
     if (resolutionBreachedAt) {
       updatePayload['sla.resolutionBreachedAt'] = resolutionBreachedAt;
@@ -156,12 +176,19 @@ export async function registerExecutionAction(
 
     // Notificação para Preposto, Admin e Solicitante: execução registrada pelo técnico
     const technicianUser = await UserModel.findById(session.userId).select('name').lean();
-    const payload = {
+    const payload: TicketExecutionRegisteredPayload = {
       ticketId: String(ticketId),
       ticketNumber: doc.ticket_number,
       title: doc.titulo,
       executedBy: { id: session.userId, name: technicianUser?.name ?? undefined },
       at: now.toISOString(),
+    };
+    // O solicitante recebe o próprio payload, com o prazo; o dos gestores não muda.
+    const prazoAvaliacaoTexto = frasePrazoAvaliacao(prazoAvaliacaoAte, timezone);
+    const payloadSolicitante: TicketExecutionRegisteredPayload = {
+      ...payload,
+      prazoAvaliacaoAte: prazoAvaliacaoAte.toISOString(),
+      prazoAvaliacaoTexto,
     };
     const managers = await UserModel.find({
       role: { $in: ['Preposto', 'Admin'] },
@@ -193,15 +220,21 @@ export async function registerExecutionAction(
       userId: doc.solicitanteId,
       type: 'ticket:execution_registered',
       title: notificationTitle,
-      body: doc.titulo ?? '',
-      data: payload,
+      body: doc.titulo ? `${doc.titulo}. ${prazoAvaliacaoTexto}` : prazoAvaliacaoTexto,
+      data: payloadSolicitante,
       readAt: null,
     });
-    sendNotificationEmail(String(doc.solicitanteId), 'ticket:execution_registered', payload).catch(
-      () => {},
-    );
+    sendNotificationEmail(
+      String(doc.solicitanteId),
+      'ticket:execution_registered',
+      payloadSolicitante,
+    ).catch(() => {});
     await emitToRoom('managers', 'ticket:execution_registered', payload);
-    await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:execution_registered', payload);
+    await emitToRoom(
+      `user:${String(doc.solicitanteId)}`,
+      'ticket:execution_registered',
+      payloadSolicitante,
+    );
 
     revalidateTicketPaths(String(ticketId));
 

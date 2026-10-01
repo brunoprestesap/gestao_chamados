@@ -25,6 +25,8 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'correcao_ia',
   'confirmacao_ia',
   'correcao_gestao',
+  'encerramento_por_avaliacao',
+  'encerramento_automatico',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
@@ -81,4 +83,6 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   correcao_ia: 'Correção de Decisão da IA',
   confirmacao_ia: 'Confirmação de Decisão da IA',
   correcao_gestao: 'Correção pela Gestão',
+  encerramento_por_avaliacao: 'Encerrado pela Avaliação',
+  encerramento_automatico: 'Encerrado Automaticamente (prazo vencido)',
 };

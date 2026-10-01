@@ -143,3 +143,19 @@ describe('CHAMADO_HISTORY_ACTOR_LABELS (AC-11)', () => {
     }
   });
 });
+
+// covers: AC-2, AC-6 (as duas entradas novas do histórico, spec 0010)
+describe('ações do encerramento (spec 0010)', () => {
+  it('registra o encerramento pela avaliação e o automático, com rótulo', () => {
+    expect(CHAMADO_HISTORY_ACTIONS).toContain('encerramento_por_avaliacao');
+    expect(CHAMADO_HISTORY_ACTIONS).toContain('encerramento_automatico');
+    expect(CHAMADO_HISTORY_ACTION_LABELS.encerramento_por_avaliacao).toBe(
+      'Encerrado pela Avaliação',
+    );
+    expect(CHAMADO_HISTORY_ACTION_LABELS.encerramento_automatico).toMatch(/prazo vencido/);
+  });
+
+  it('mantém `avaliado` no enum para o histórico antigo', () => {
+    expect(CHAMADO_HISTORY_ACTIONS).toContain('avaliado');
+  });
+});

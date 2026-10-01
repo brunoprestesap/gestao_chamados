@@ -138,7 +138,12 @@ services:
     command:
       - -c
       - |
-        echo "*/30 * * * * curl -sf -X POST -H 'x-cron-secret: $$CRON_SECRET' http://next-app:3000/api/cron/recurring-tickets >> /proc/1/fd/1 2>&1" | crontab -
+        # Todos os jobs num bloco só: um segundo `| crontab -` apagaria os anteriores.
+        printf '%s\n' \
+          "*/30 * * * * curl -sf --max-time 60 -X POST -H 'x-cron-secret: $$CRON_SECRET' http://next-app:3000/api/cron/recurring-tickets >> /proc/1/fd/1 2>&1" \
+          "*/15 * * * * curl -sf --max-time 60 -X POST -H 'x-cron-secret: $$CRON_SECRET' http://next-app:3000/api/cron/encerramento-automatico >> /proc/1/fd/1 2>&1" \
+          "*/15 * * * * curl -sf --max-time 60 -X POST -H 'x-cron-secret: $$CRON_SECRET' http://next-app:3000/api/cron/sla-monitor >> /proc/1/fd/1 2>&1" \
+          | crontab -
         apk add --no-cache curl > /dev/null 2>&1
         crond -f -l 6
     environment:

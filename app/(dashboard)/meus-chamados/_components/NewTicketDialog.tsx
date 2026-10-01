@@ -1,8 +1,17 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertTriangle, ArrowUpDown, BookmarkPlus, Clock, List, Wind, Wrench } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  ArrowUpDown,
+  BookmarkPlus,
+  Clock,
+  History,
+  List,
+  Wind,
+  Wrench,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import {
@@ -75,10 +84,39 @@ type CatalogServiceOption = {
   priorityDefault?: string;
 };
 
+/**
+ * "O problema voltou" (spec 0010, AC-11): o formulário abre com o tipo, o
+ * serviço, a unidade e o local do chamado encerrado, e a descrição em branco.
+ * Campo ausente no anterior fica em branco, e o formulário o exige como sempre.
+ */
+export type ReincidenciaPreenchimento = {
+  chamadoAnteriorId: string;
+  chamadoAnteriorNumero: string;
+  unitId?: string | null;
+  localExato?: string | null;
+  tipoServico?: string | null;
+  subtypeId?: string | null;
+  catalogServiceId?: string | null;
+};
+
+/**
+ * O `Select` do Radix chama `onValueChange("")` sozinho quando o valor
+ * controlado ainda não está entre as opções. Na cascata de tipo, subtipo e
+ * serviço as opções chegam depois do valor (reincidência e template), e esse
+ * `""` apagava o que já tinha sido preenchido. A pessoa nunca escolhe uma
+ * opção vazia, então o vazio vindo do `Select` é ignorado.
+ */
+function ignorarVazio(onChange: (valor: string) => void) {
+  return (valor: string) => {
+    if (valor) onChange(valor);
+  };
+}
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (ticketId: string) => void;
+  reincidencia?: ReincidenciaPreenchimento | null;
 };
 
 const defaultValues = {
@@ -93,7 +131,7 @@ const defaultValues = {
   catalogServiceId: '',
 } as unknown as NewTicketFormInput;
 
-export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
+export function NewTicketDialog({ open, onOpenChange, onSuccess, reincidencia = null }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
@@ -116,9 +154,34 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
   const catalogServiceId = form.watch('catalogServiceId');
   const unitId = form.watch('unitId');
 
+  // Subtipo e serviço da reincidência esperam a cascata de tipo e subtipo
+  // carregar; os efeitos abaixo os aplicam no lugar do valor vazio.
+  const pendenteRef = useRef<{ subtypeId: string; catalogServiceId: string } | null>(null);
+
   useEffect(() => {
     if (!open) return;
-    form.reset(defaultValues);
+    if (!reincidencia) {
+      pendenteRef.current = null;
+      form.reset(defaultValues);
+      return;
+    }
+    const tipoValido = (TIPO_SERVICO_OPTIONS as readonly string[]).includes(
+      reincidencia.tipoServico ?? '',
+    );
+    pendenteRef.current = {
+      subtypeId: reincidencia.subtypeId ?? '',
+      catalogServiceId: reincidencia.catalogServiceId ?? '',
+    };
+    form.reset({
+      ...defaultValues,
+      unitId: reincidencia.unitId ?? '',
+      localExato: reincidencia.localExato ?? '',
+      tipoServico: tipoValido
+        ? (reincidencia.tipoServico as NewTicketFormInput['tipoServico'])
+        : undefined,
+      subtypeId: pendenteRef.current.subtypeId,
+      catalogServiceId: pendenteRef.current.catalogServiceId,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -157,8 +220,9 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
       if (sessionData.role) setSessionRole(sessionData.role);
       if (sessionData.userId) setSessionUserId(sessionData.userId);
 
-      // Preenche unitId automaticamente com a unidade de lotação do usuário
-      if (sessionData.unitId) {
+      // Preenche unitId automaticamente com a unidade de lotação do usuário,
+      // salvo na reincidência, que já veio com a unidade do chamado anterior.
+      if (sessionData.unitId && !reincidencia?.unitId) {
         const userUnitId = String(sessionData.unitId);
         // Verifica se a unidade existe na lista antes de preencher
         const unitExists = normalizedUnits.some((u) => u.id === userUnitId);
@@ -241,8 +305,8 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
       form.setValue('catalogServiceId', '');
       return;
     }
-    form.setValue('subtypeId', '');
-    form.setValue('catalogServiceId', '');
+    form.setValue('subtypeId', pendenteRef.current?.subtypeId ?? '');
+    form.setValue('catalogServiceId', pendenteRef.current?.catalogServiceId ?? '');
     fetchSubtypes(currentTypeId);
     // catalog fetch happens in the subtype effect
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,7 +319,10 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
     } else {
       fetchCatalogServices(currentTypeId);
     }
-    form.setValue('catalogServiceId', '');
+    const pendente = pendenteRef.current;
+    form.setValue('catalogServiceId', pendente?.catalogServiceId ?? '');
+    // O subtipo da reincidência já chegou: dali em diante a cascata volta ao normal.
+    if (pendente && pendente.subtypeId === (subtypeId ?? '')) pendenteRef.current = null;
     form.setValue('grauUrgencia', 'Normal'); // Reset para padrão quando muda tipo/subtipo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTypeId, subtypeId]);
@@ -333,6 +400,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
       telefoneContato: values.telefoneContato?.trim() || undefined,
       subtypeId: values.subtypeId,
       catalogServiceId: values.catalogServiceId,
+      ...(reincidencia && { chamadoAnteriorId: reincidencia.chamadoAnteriorId }),
     };
     const result = await createTicketAction(payload);
     if (!result.ok) {
@@ -363,7 +431,7 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
 
     setSubmitting(false);
     onOpenChange(false);
-    onSuccess?.();
+    onSuccess?.(result.ticketId);
   }
 
   return (
@@ -375,7 +443,16 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
         )}
       >
         <DialogHeader className="shrink-0 text-center">
-          <DialogTitle className="text-base sm:text-lg">Novo Chamado de Manutenção</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg">
+            {reincidencia ? 'O problema voltou' : 'Novo Chamado de Manutenção'}
+          </DialogTitle>
+          {reincidencia && (
+            <p className="mx-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+              <History className="h-3.5 w-3.5" aria-hidden="true" />
+              Reincidência do chamado #{reincidencia.chamadoAnteriorNumero}. Descreva o que voltou a
+              acontecer.
+            </p>
+          )}
         </DialogHeader>
 
         <Form {...form}>
@@ -492,7 +569,10 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                   render={({ field }) => (
                     <FormItem className={FORM_ITEM_MIN_CLASS}>
                       <FormLabel>Subtipo *</FormLabel>
-                      <Select value={field.value || undefined} onValueChange={field.onChange}>
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={ignorarVazio(field.onChange)}
+                      >
                         <FormControl>
                           <SelectTrigger className={SELECT_TRIGGER_FULL_CLASS}>
                             <SelectValue placeholder="Selecione o subtipo" />
@@ -517,7 +597,10 @@ export function NewTicketDialog({ open, onOpenChange, onSuccess }: Props) {
                   render={({ field }) => (
                     <FormItem className={FORM_ITEM_MIN_CLASS}>
                       <FormLabel>Serviço *</FormLabel>
-                      <Select value={field.value || undefined} onValueChange={field.onChange}>
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={ignorarVazio(field.onChange)}
+                      >
                         <FormControl>
                           <SelectTrigger className={SELECT_TRIGGER_FULL_CLASS}>
                             <SelectValue placeholder="Selecione o serviço" />

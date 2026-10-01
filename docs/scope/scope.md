@@ -33,6 +33,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 19  | Fotos no chat                                      | Slice 4    | planned     |
 | 20  | Aviso de chamado duplicado                         | Slice 4    | planned     |
 | 21  | Entrada por voz                                    | Slice 4    | planned     |
+| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | in-progress |
 
 ## Existing (contexto)
 
@@ -249,6 +250,26 @@ Ditar o problema em vez de digitar, com a transcrição acontecendo dentro da re
 **Done when:** o usuário grava, vê o texto transcrito e pode editar antes de enviar; o áudio não sai da rede interna; sem microfone ou sem permissão, digitar continua funcionando.
 
 - [ ] Design it (spec): `/architect entrada por voz`
+
+## Ciclo de vida do chamado
+
+### 22. Prazo para avaliar e encerramento definitivo · in-progress · GA
+
+Pedido de stakeholder (modelo do e-SOSTI): depois da conclusão, o solicitante tem um prazo para avaliar ou recusar; passado o prazo o chamado encerra sozinho e não reabre mais, e o problema que volta vira chamado novo ligado ao anterior. Mexe no tempo de atendimento e no SLA medidos pelo IMR (glosa), por isso GA.
+**Done when:** a conclusão grava o prazo (48 horas, configurável pelo Admin); avaliar encerra na hora; o cron encerra o que venceu; nenhum perfil reabre um encerrado; o encerramento manual sai da Gestão; "O problema voltou" abre um chamado novo com o vínculo visível.
+spec [0010](../specs/0010-prazo-avaliacao-encerramento-definitivo/index.md) · code in `app/(dashboard)/meus-chamados/`, `app/(dashboard)/gestao/`, `app/(dashboard)/chamados-atribuidos/actions.ts`, `app/(dashboard)/conversas/`, `app/api/cron/encerramento-automatico/`, `lib/chamados/encerramento-automatico.ts`, `shared/chamados/janela-avaliacao.ts`, `models/Chamado.ts`
+
+- [x] Design it (spec): `/architect prazo para avaliar e encerramento definitivo`
+- [x] Build it: `/develop prazo para avaliar e encerramento definitivo`
+  - [x] O fio: concluir grava o prazo, avaliar encerra, e o detalhe do solicitante mostra o prazo · AC-1, AC-2, AC-5, AC-10
+  - [x] As travas: recusa e reabertura só na janela, encerrado terminal, encerramento manual removido · AC-3, AC-4, AC-5, AC-8
+  - [x] Encerramento pelo sistema: cron, preenchimento do legado, crontab num bloco só, `ticket:closed` para o solicitante · AC-6, AC-7, AC-9b
+  - [x] Configuração e aviso: prazo em `/configuracoes/expediente`, aviso de conclusão com o prazo · AC-9, AC-13
+  - [x] Reincidência e demais telas: "O problema voltou", vínculo, dica de recorrência, chat, cards e painéis · AC-11, AC-12, AC-14, AC-15, AC-16
+- [x] Verify it: `/check verify prazo para avaliar e encerramento definitivo`
+- [x] Test it: `/test prazo para avaliar e encerramento definitivo`
+- [x] Review it (fresh model): `/check review prazo para avaliar e encerramento definitivo`
+- [ ] Document it: `/document prazo para avaliar e encerramento definitivo`
 
 ## Deferred
 

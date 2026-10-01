@@ -9,6 +9,7 @@ import {
   Filter,
   type LucideIcon,
   Plus,
+  RotateCcw,
   Search,
   Star,
   Ticket,
@@ -25,6 +26,7 @@ import {
   type AvaliarChamadoDialogChamado,
 } from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
 import { type ChamadoDTO } from '@/app/(dashboard)/meus-chamados/_components/ChamadoCard';
+import { PrazoAvaliacao } from '@/app/(dashboard)/meus-chamados/_components/janela-avaliacao-ui';
 import { NewTicketDialog } from '@/app/(dashboard)/meus-chamados/_components/NewTicketDialog';
 import {
   RecusarServicoDialog,
@@ -102,6 +104,8 @@ interface ActionDef {
   label: string;
   icon: LucideIcon;
   iconColor: string;
+  /** Nome acessível quando "<rótulo> chamado" não forma frase. */
+  ariaLabel?: string;
   canShow: (status: string, chamado: ChamadoDTO) => boolean;
 }
 
@@ -113,19 +117,30 @@ const ACTION_DEFS: ActionDef[] = [
     iconColor: 'text-rose-500 dark:text-rose-400',
     canShow: (s) => s === 'aberto',
   },
+  // Avaliar e recusar só no concluído com o prazo aberto; a janela vem da rota,
+  // calculada com a hora do servidor (spec 0010, AC-10).
   {
     key: 'avaliar',
     label: 'Avaliar',
     icon: Star,
     iconColor: 'text-amber-500 dark:text-amber-400',
-    canShow: (s, c) => s === 'encerrado' && !c.evaluation,
+    canShow: (s, c) => s === 'concluído' && c.janelaAvaliacaoAberta === true && !c.evaluation,
   },
   {
     key: 'recusarServico',
     label: 'Recusar Serviço',
     icon: Ban,
     iconColor: 'text-orange-600 dark:text-orange-400',
-    canShow: (s) => s === 'concluído' || s === 'encerrado',
+    canShow: (s, c) => s === 'concluído' && c.janelaAvaliacaoAberta === true,
+  },
+  {
+    // O encerrado é definitivo: o problema que volta vira um chamado novo (AC-11).
+    key: 'problemaVoltou',
+    label: 'O problema voltou',
+    ariaLabel: 'O problema voltou: abrir chamado novo ligado a este',
+    icon: RotateCcw,
+    iconColor: 'text-indigo-600 dark:text-indigo-400',
+    canShow: (s) => s === 'encerrado',
   },
 ];
 
@@ -242,7 +257,7 @@ function ActionButtons({
                   'touch-manipulation rounded-lg transition-all duration-200 hover:scale-110',
                 )}
                 onClick={() => handlers[def.key]?.(chamado)}
-                aria-label={`${def.label} chamado`}
+                aria-label={def.ariaLabel ?? `${def.label} chamado`}
               >
                 <Icon className={cn(iconClass, def.iconColor)} />
               </Button>
@@ -449,6 +464,14 @@ export default function MeusChamadosPage() {
     });
   }, []);
 
+  // "O problema voltou" abre o formulário já preenchido no detalhe do anterior (spec 0010, AC-11).
+  const handleProblemaVoltou = useCallback(
+    (chamado: ChamadoDTO) => {
+      router.push(`/meus-chamados/${chamado._id}?reincidencia=1`);
+    },
+    [router],
+  );
+
   const handleConfirmCancel = useCallback(
     async (observacoes?: string) => {
       if (!cancelChamado) return;
@@ -487,8 +510,9 @@ export default function MeusChamadosPage() {
       cancelar: handleCancelar,
       avaliar: handleAvaliar,
       recusarServico: handleRecusarServico,
+      problemaVoltou: handleProblemaVoltou,
     }),
-    [handleCancelar, handleAvaliar, handleRecusarServico],
+    [handleCancelar, handleAvaliar, handleRecusarServico, handleProblemaVoltou],
   );
 
   const clearFilters = useCallback(() => {
@@ -714,6 +738,12 @@ export default function MeusChamadosPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3.5">
                       <StatusBadge status={row.status} />
+                      {row.janelaAvaliacaoAberta && (
+                        <PrazoAvaliacao
+                          prazoAvaliacaoAte={row.prazoAvaliacaoAte}
+                          className="mt-1 whitespace-nowrap"
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="px-4 py-3.5">
                       <PriorityBadge priority={row.finalPriority} />
@@ -780,6 +810,9 @@ export default function MeusChamadosPage() {
                           </span>
                           <StatusBadge status={row.status} />
                         </div>
+                        {row.janelaAvaliacaoAberta && (
+                          <PrazoAvaliacao prazoAvaliacaoAte={row.prazoAvaliacaoAte} />
+                        )}
 
                         {/* Row 2: title */}
                         <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">

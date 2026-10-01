@@ -16,6 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  PRAZO_AVALIACAO_HORAS_MAX,
+  PRAZO_AVALIACAO_HORAS_MIN,
+  PRAZO_AVALIACAO_HORAS_PADRAO,
+} from '@/shared/chamados/janela-avaliacao';
 import { IANA_TIMEZONES_BR } from '@/shared/config/expediente.schemas';
 
 const WEEKDAY_LABELS: Record<number, string> = {
@@ -33,6 +38,8 @@ type ConfigState = {
   workdayStart: string;
   workdayEnd: string;
   weekdays: number[];
+  /** Texto do campo; o servidor valida o inteiro de 1 a 720 (spec 0010, AC-13). */
+  prazoAvaliacaoHoras: string;
 };
 
 export default function ExpedientePage() {
@@ -45,6 +52,7 @@ export default function ExpedientePage() {
     workdayStart: '08:00',
     workdayEnd: '18:00',
     weekdays: [1, 2, 3, 4, 5],
+    prazoAvaliacaoHoras: String(PRAZO_AVALIACAO_HORAS_PADRAO),
   });
 
   const fetchConfig = useCallback(async () => {
@@ -70,6 +78,7 @@ export default function ExpedientePage() {
         workdayStart: data.workdayStart ?? '08:00',
         workdayEnd: data.workdayEnd ?? '18:00',
         weekdays: Array.isArray(data.weekdays) ? data.weekdays : [1, 2, 3, 4, 5],
+        prazoAvaliacaoHoras: String(data.prazoAvaliacaoHoras ?? PRAZO_AVALIACAO_HORAS_PADRAO),
       });
     } catch {
       setError('Erro ao carregar configuração');
@@ -102,7 +111,10 @@ export default function ExpedientePage() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify(config),
+          body: JSON.stringify({
+            ...config,
+            prazoAvaliacaoHoras: Number(config.prazoAvaliacaoHoras),
+          }),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -214,6 +226,32 @@ export default function ExpedientePage() {
                 Selecione pelo menos um dia. O expediente considera apenas os dias marcados.
               </p>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Avaliação do chamado</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label htmlFor="prazoAvaliacaoHoras">Prazo para avaliar (horas)</Label>
+            <Input
+              id="prazoAvaliacaoHoras"
+              type="number"
+              inputMode="numeric"
+              min={PRAZO_AVALIACAO_HORAS_MIN}
+              max={PRAZO_AVALIACAO_HORAS_MAX}
+              step={1}
+              className="max-w-40"
+              value={config.prazoAvaliacaoHoras}
+              onChange={(e) => setConfig((p) => ({ ...p, prazoAvaliacaoHoras: e.target.value }))}
+              aria-describedby="prazoAvaliacaoHoras-ajuda"
+            />
+            <p id="prazoAvaliacaoHoras-ajuda" className="text-xs text-muted-foreground">
+              Horas corridas, de {PRAZO_AVALIACAO_HORAS_MIN} a {PRAZO_AVALIACAO_HORAS_MAX}, que o
+              solicitante tem para avaliar ou recusar depois da conclusão. Passado o prazo, o
+              chamado é encerrado automaticamente. Vale só para as próximas conclusões.
+            </p>
           </CardContent>
         </Card>
 

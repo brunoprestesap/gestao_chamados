@@ -63,6 +63,7 @@ describe('montarSnapshotSla', () => {
       workdayStart: '08:00',
       workdayEnd: '18:00',
       weekdays: [1, 2, 3, 4, 5],
+      prazoAvaliacaoHoras: 48,
     });
     vi.mocked(getActiveHolidaysForRange).mockResolvedValue(new Set());
   });
@@ -168,6 +169,7 @@ describe('montarSnapshotCorrecao', () => {
       workdayStart: '08:00',
       workdayEnd: '18:00',
       weekdays: [1, 2, 3, 4, 5],
+      prazoAvaliacaoHoras: 48,
     });
     vi.mocked(getActiveHolidaysForRange).mockResolvedValue(new Set());
     mockSlaFindOne.mockImplementation(({ priority }: { priority: string }) => ({
