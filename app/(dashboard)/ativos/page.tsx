@@ -6,6 +6,7 @@ import {
   PackageSearch,
   Plus,
   ScanLine,
+  Tags,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -83,12 +84,20 @@ export default async function AtivosPage({ searchParams }: { searchParams: Promi
               </Link>
             </Button>
             {isAdmin(sessao.role) && (
-              <Button asChild variant="outline">
-                <Link href="/ativos/importar">
-                  <FileUp className="h-4 w-4" aria-hidden />
-                  Importar SICAM
-                </Link>
-              </Button>
+              <>
+                <Button asChild variant="outline">
+                  <Link href="/configuracoes/categorias-ativo">
+                    <Tags className="h-4 w-4" aria-hidden />
+                    Categorias
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/ativos/importar">
+                    <FileUp className="h-4 w-4" aria-hidden />
+                    Importar SICAM
+                  </Link>
+                </Button>
+              </>
             )}
             {gestao && (
               <>
