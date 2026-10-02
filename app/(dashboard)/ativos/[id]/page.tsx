@@ -31,6 +31,7 @@ import {
   ORIGEM_CODIGO_LABELS,
   TIERS_VINCULAVEIS,
 } from '@/shared/ativos/ativo.constants';
+import { PAPEL_AUTOR_LABELS } from '@/shared/vistoria/vistoria.constants';
 
 import { STATUS_BADGE } from '../../meus-chamados/_constants';
 import { AcoesGestaoAtivo } from '../_components/AcoesGestaoAtivo';
@@ -191,12 +192,28 @@ export default async function FichaAtivoPage({ params }: { params: Promise<{ id:
                   : 'Ainda não validado'
               }
             />
+            <Campo
+              rotulo="Última vistoria"
+              valor={
+                ficha.ultimaConferencia
+                  ? `${ficha.ultimaConferencia.campanha}: ${ficha.ultimaConferencia.autorNome} (${PAPEL_AUTOR_LABELS[ficha.ultimaConferencia.papelAutor]}), ${formatDateTime(ficha.ultimaConferencia.conferidoEm)}`
+                  : 'Ainda não conferido em vistoria'
+              }
+            />
           </dl>
         </CardSecao>
 
         {p ? (
           <CardSecao titulo="Patrimônio (SICAM)" icone={Landmark}>
             <dl className="grid gap-4">
+              {p.ausenteNoSicamDesde && (
+                <p
+                  role="note"
+                  className="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+                >
+                  Ausente do SICAM desde {formatDate(p.ausenteNoSicamDesde)}
+                </p>
+              )}
               <Campo rotulo="Lotação" valor={p.lotacao} />
               <Campo rotulo="Setor" valor={p.setor} />
               <Campo

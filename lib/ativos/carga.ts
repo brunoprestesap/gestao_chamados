@@ -4,11 +4,12 @@
  * (`scripts/gerar-carga-ativos.ts`) escreve num script mongosh.
  *
  * Imports relativos, sem o alias `@/` e sem `server-only`: roda pelo `tsx`,
- * fora do Next. Descartável: a fatia 2 troca isto por um importador do CSV
- * bruto do SICAM.
+ * fora do Next. Os normalizadores moram em `patrimonial.ts`, os mesmos do
+ * importador do CSV bruto (spec 0012).
  */
 import type { Criticidade } from '../../shared/ativos/ativo.constants';
 import { normalizarCodigo } from './codigo';
+import { ILEGIVEL, lerDataIso, lerNumero, texto } from './patrimonial';
 
 /** As 9 categorias da carga. A criticidade é ponto de partida; o Admin ajusta. */
 export const CATEGORIAS_CARGA: readonly {
@@ -120,29 +121,20 @@ export function lerRegistros(texto: string): Record<string, string>[] {
   });
 }
 
-function texto(v: string | undefined): string | undefined {
-  const t = (v ?? '').trim();
-  return t.length > 0 ? t : undefined;
-}
-
 /** `AAAA-MM-DD` vira Date ao meio dia UTC (não muda de dia no fuso de Belém). */
 function data(v: string | undefined, coluna: string, codigo: string): Date | undefined {
-  const t = texto(v);
-  if (!t) return undefined;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) {
-    throw new ErroCarga(`Ativo ${codigo}: data inválida em ${coluna} ("${t}").`);
+  const d = lerDataIso(v);
+  if (d === ILEGIVEL) {
+    throw new ErroCarga(`Ativo ${codigo}: data inválida em ${coluna} ("${texto(v)}").`);
   }
-  return new Date(`${t}T12:00:00Z`);
+  return d;
 }
 
 /** `8700,9`, `1.234,5` ou `8700.9` vira number. */
 function numero(v: string | undefined, coluna: string, codigo: string): number | undefined {
-  const t = texto(v);
-  if (!t) return undefined;
-  // Com vírgula, o ponto é separador de milhar (`1.234,5`); sem vírgula, é decimal.
-  const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t);
-  if (!Number.isFinite(n)) {
-    throw new ErroCarga(`Ativo ${codigo}: número inválido em ${coluna} ("${t}").`);
+  const n = lerNumero(v);
+  if (n === ILEGIVEL) {
+    throw new ErroCarga(`Ativo ${codigo}: número inválido em ${coluna} ("${texto(v)}").`);
   }
   return n;
 }

@@ -20,7 +20,7 @@ const protectedPrefixes = [
   '/ativos',
 ];
 
-const ADMIN_ONLY = ['/usuarios', '/catalogo', '/unidades', '/configuracoes'];
+const ADMIN_ONLY = ['/usuarios', '/catalogo', '/unidades', '/configuracoes', '/ativos/importar'];
 
 function isProtected(pathname: string) {
   return protectedPrefixes.some((p) => pathname === p || pathname.startsWith(p + '/'));

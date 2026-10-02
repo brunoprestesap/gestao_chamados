@@ -1,4 +1,12 @@
-import { ChevronLeft, ChevronRight, MapPinned, PackageSearch, Plus, ScanLine } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileUp,
+  MapPinned,
+  PackageSearch,
+  Plus,
+  ScanLine,
+} from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
@@ -14,7 +22,7 @@ import {
 } from '@/components/ui/table';
 import { ITENS_POR_PAGINA, listarAtivos, listarPredios } from '@/lib/ativos/lista';
 import { listarCategoriasAtivas } from '@/lib/ativos/opcoes';
-import { canManage, requireSession } from '@/lib/dal';
+import { canManage, isAdmin, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { SEM_LOCAL } from '@/shared/ativos/ativo.constants';
 import { FiltrosListaAtivosSchema } from '@/shared/ativos/ativo.schemas';
@@ -74,6 +82,14 @@ export default async function AtivosPage({ searchParams }: { searchParams: Promi
                 Ler etiqueta
               </Link>
             </Button>
+            {isAdmin(sessao.role) && (
+              <Button asChild variant="outline">
+                <Link href="/ativos/importar">
+                  <FileUp className="h-4 w-4" aria-hidden />
+                  Importar SICAM
+                </Link>
+              </Button>
+            )}
             {gestao && (
               <>
                 <Button asChild variant="outline">

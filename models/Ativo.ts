@@ -27,6 +27,8 @@ const CamposPatrimoniaisSchema = new Schema(
     fornecedor: String,
     numeroSerie: String,
     importadoEm: { type: Date, required: true },
+    // Escrito só pelo importador (spec 0012); o pacote da vistoria leva só um booleano.
+    ausenteNoSicamDesde: Date,
   },
   { _id: false },
 );
@@ -55,6 +57,9 @@ const AtivoSchema = new Schema(
     validadoPor: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     validadoEm: { type: Date, default: null },
     camposPatrimoniais: { type: CamposPatrimoniaisSchema, default: undefined },
+    // O `clientOpId` do cadastro em campo que criou o ativo (spec 0012): o
+    // reenvio depois de uma queda acha o ativo por aqui, sem criar outro.
+    origemOpId: { type: String, default: undefined },
   },
   { timestamps: true },
 );
@@ -64,6 +69,10 @@ AtivoSchema.index({ categoriaId: 1, status: 1 });
 AtivoSchema.index({ localizacaoId: 1 });
 AtivoSchema.index({ statusCadastro: 1 });
 AtivoSchema.index({ tierManutencao: 1, status: 1 });
+AtivoSchema.index(
+  { origemOpId: 1 },
+  { unique: true, partialFilterExpression: { origemOpId: { $type: 'string' } } },
+);
 
 export type Ativo = InferSchemaType<typeof AtivoSchema>;
 

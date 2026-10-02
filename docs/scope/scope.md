@@ -28,16 +28,16 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 14  | Calibração da trava de confiança                   | Slice 3       | done        |
 | 15  | Prioridade e SLA automáticos                       | Slice 3       | done        |
 | 16  | Atribuição automática ao técnico                   | Slice 3       | done        |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | in-progress |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done        |
+| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done        |
+| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done        |
+| 24  | Importador SICAM e vistoria em campo               | Ativos        | in-progress |
+| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | planned     |
+| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | planned     |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned     |
 | 19  | Fotos no chat                                      | Slice 4       | planned     |
 | 20  | Aviso de chamado duplicado                         | Slice 4       | planned     |
 | 21  | Entrada por voz                                    | Slice 4       | planned     |
-| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | in-progress |
-| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done        |
-| 24  | Importador SICAM e vistoria em campo               | Ativos        | planned     |
-| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | planned     |
-| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | planned     |
 
 ## Existing (contexto)
 
@@ -208,7 +208,7 @@ spec [0008](../specs/0008-atribuicao-automatica-tecnico/index.md) · code in `li
 - [x] Review it (fresh model): `/check review atribuição automática ao técnico`
 - [x] Document it: `/document atribuição automática ao técnico`
 
-### 17. Revisão das decisões da IA pelo Preposto · in-progress · GA
+### 17. Revisão das decisões da IA pelo Preposto · done · GA
 
 Na Gestão, o Preposto separa o que a IA decidiu do que aguarda triagem e corrige serviço, prioridade ou técnico quando precisar. Cada correção alimenta a métrica principal. Mexe em prazo contratual e glosa do IMR (a regra de SLA para corrigir a prioridade com o atendimento em curso), por isso GA.
 **Done when:** o Preposto filtra chamados decididos pela IA e pendentes de triagem; os pendentes abrem com a sugestão da IA já preenchida; corrigir registra o que mudou; corrigir a prioridade de um chamado com SLA já iniciado segue uma regra definida e registrada.
@@ -223,7 +223,78 @@ spec [0009](../specs/0009-revisao-decisoes-ia-preposto/index.md) · code in `app
 - [x] Verify it: `/check verify revisão das decisões da IA pelo Preposto`
 - [x] Test it: `/test revisão das decisões da IA pelo Preposto`
 - [x] Review it (fresh model): `/check review revisão das decisões da IA pelo Preposto`
-- [ ] Document it: `/document revisão das decisões da IA pelo Preposto`
+- [x] Document it: `/document revisão das decisões da IA pelo Preposto` · pulado
+
+## Ciclo de vida do chamado
+
+### 22. Prazo para avaliar e encerramento definitivo · done · GA
+
+Pedido de stakeholder (modelo do e-SOSTI): depois da conclusão, o solicitante tem um prazo para avaliar ou recusar; passado o prazo o chamado encerra sozinho e não reabre mais, e o problema que volta vira chamado novo ligado ao anterior. Mexe no tempo de atendimento e no SLA medidos pelo IMR (glosa), por isso GA.
+**Done when:** a conclusão grava o prazo (48 horas, configurável pelo Admin); avaliar encerra na hora; o cron encerra o que venceu; nenhum perfil reabre um encerrado; o encerramento manual sai da Gestão; "O problema voltou" abre um chamado novo com o vínculo visível.
+spec [0010](../specs/0010-prazo-avaliacao-encerramento-definitivo/index.md) · code in `app/(dashboard)/meus-chamados/`, `app/(dashboard)/gestao/`, `app/(dashboard)/chamados-atribuidos/actions.ts`, `app/(dashboard)/conversas/`, `app/api/cron/encerramento-automatico/`, `lib/chamados/encerramento-automatico.ts`, `shared/chamados/janela-avaliacao.ts`, `models/Chamado.ts`
+
+- [x] Design it (spec): `/architect prazo para avaliar e encerramento definitivo`
+- [x] Build it: `/develop prazo para avaliar e encerramento definitivo`
+  - [x] O fio: concluir grava o prazo, avaliar encerra, e o detalhe do solicitante mostra o prazo · AC-1, AC-2, AC-5, AC-10
+  - [x] As travas: recusa e reabertura só na janela, encerrado terminal, encerramento manual removido · AC-3, AC-4, AC-5, AC-8
+  - [x] Encerramento pelo sistema: cron, preenchimento do legado, crontab num bloco só, `ticket:closed` para o solicitante · AC-6, AC-7, AC-9b
+  - [x] Configuração e aviso: prazo em `/configuracoes/expediente`, aviso de conclusão com o prazo · AC-9, AC-13
+  - [x] Reincidência e demais telas: "O problema voltou", vínculo, dica de recorrência, chat, cards e painéis · AC-11, AC-12, AC-14, AC-15, AC-16
+- [x] Verify it: `/check verify prazo para avaliar e encerramento definitivo`
+- [x] Test it: `/test prazo para avaliar e encerramento definitivo`
+- [x] Review it (fresh model): `/check review prazo para avaliar e encerramento definitivo`
+- [x] Document it: `/document prazo para avaliar e encerramento definitivo` · pulado
+
+## Gestão de ativos
+
+Proposta completa em `docs/0009 — Gestão de Ativos.md`. Cada fatia da proposta vira uma funcionalidade.
+
+### 23. Gestão de ativos: cadastro, etiqueta e vínculo · done
+
+O chamado passa a apontar para o equipamento: árvore de locais, categorias, ativo, carga dos 108 do Tier A, leitura de etiqueta e vínculo no formulário e na gestão.
+**Done when:** os 108 ativos estão carregados; ler ou digitar o tombamento abre a ficha; dá para abrir chamado a partir dela, e o chamado aparece no histórico da ficha; a gestão vincula ou corrige o ativo de qualquer chamado aberto.
+spec [0011](../specs/0011-gestao-ativos/index.md) · code in `lib/ativos/`, `app/(dashboard)/ativos/`, `models/Ativo.ts`
+
+- [x] Design it (spec): `/architect gestão de ativos fatia 1`
+- [x] Build it: `/develop gestão de ativos fatia 1`
+  - [x] O fio: modelos, carga do Tier A, leitura digitada, ficha e chamado com ativo · AC-4, AC-8, AC-9, AC-11, AC-13, AC-14, AC-15
+  - [x] Cadastro de verdade: árvore de locais, categorias, CRUD do ativo, status e validação · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7
+  - [x] Uso diário: lista com filtros, câmera, atalho de cadastro e vínculo na gestão · AC-10, AC-11, AC-12, AC-16
+  - [x] Testes de banco real, de permissão e E2E do fio · AC-2, AC-4, AC-5, AC-17
+- [x] Verify it: `/check verify gestão de ativos fatia 1`
+- [x] Test it: `/test gestão de ativos fatia 1`
+
+### 24. Importador SICAM e vistoria em campo · in-progress
+
+Importar o CSV bruto do SICAM com diferença e revisão, e conduzir a vistoria pelo celular, inclusive sem sinal. from spec 0011
+**Done when:** o Admin sobe o CSV, revisa novos, alterados e sumidos e aplica; a vistoria mostra cobertura por prédio; o cadastro em campo funciona offline e sincroniza; os ativos `MNT-` (elevador, QGBT, SPDA, hidrante) estão cadastrados.
+spec [0012](../specs/0012-importador-sicam-vistoria/index.md) · code in `lib/vistoria/`, `lib/vistoria-offline/`, `app/(dashboard)/ativos/vistoria/`, `app/api/vistoria/`, `lib/ativos/importacao/`, `app/(dashboard)/ativos/importar/`, `app/api/ativos/importacoes/`
+
+- [x] Design it (spec): `/architect importador SICAM e vistoria`
+- [ ] Build it: `/develop importador SICAM e vistoria`
+  - [x] Vistoria, o fio e sem sinal: campanha, pacote, fila no IndexedDB, sincronização em lote, primeira que chega · AC-1, AC-3 a AC-10, AC-15
+  - [x] Vistoria, cadastro em campo e cobertura: cadastro patrimoniado e MNT offline, local em campo, cobertura por prédio, ficha · AC-2, AC-11 a AC-14
+  - [x] Importador, parse e diferença: CSV bruto cp1252, classificação, novos, alterados e sumidos · AC-17 a AC-20, AC-26
+  - [x] Importador, revisão e aplicação: seleção, categorias, aplicação repetível, enxugamento LGPD, permissões · AC-21 a AC-25, AC-27
+  - [ ] Operação: categorias novas e cadastro dos MNT em campo · AC-16
+- [ ] Verify it: `/check verify importador SICAM e vistoria`
+- [ ] Test it: `/test importador SICAM e vistoria`
+
+### 25. Documentos do ativo e preventiva por categoria · needs a decision
+
+Laudos e certificados com alerta de vencimento, e chamados preventivos gerados por ativo. from spec 0011
+**Done when:** PMOC, AVCB, ART e laudos têm validade e alerta em 90, 60 e 30 dias; o recorrente por categoria gera um chamado por ativo em operação.
+
+- [ ] Design it (spec): `/architect documentos e preventiva por ativo`
+
+### 26. Ativo pela IA no chat e indicadores no IMR · needs a decision
+
+A IA reconhece o equipamento na conversa, e o IMR ganha MTBF, MTTR, reincidência e os ativos mais problemáticos. from spec 0011
+**Done when:** a conversa sugere o ativo (ou pede a escolha entre candidatos) sem passar pelo portão de confiança; o IMR mostra os indicadores de ativo como informativos.
+
+- [ ] Design it (spec): `/architect ativo no chat e indicadores`
+
+## Slice 3: fechamento
 
 ### 18. Painel de acurácia da IA · needs a decision
 
@@ -255,66 +326,6 @@ Ditar o problema em vez de digitar, com a transcrição acontecendo dentro da re
 
 - [ ] Design it (spec): `/architect entrada por voz`
 
-## Ciclo de vida do chamado
-
-### 22. Prazo para avaliar e encerramento definitivo · in-progress · GA
-
-Pedido de stakeholder (modelo do e-SOSTI): depois da conclusão, o solicitante tem um prazo para avaliar ou recusar; passado o prazo o chamado encerra sozinho e não reabre mais, e o problema que volta vira chamado novo ligado ao anterior. Mexe no tempo de atendimento e no SLA medidos pelo IMR (glosa), por isso GA.
-**Done when:** a conclusão grava o prazo (48 horas, configurável pelo Admin); avaliar encerra na hora; o cron encerra o que venceu; nenhum perfil reabre um encerrado; o encerramento manual sai da Gestão; "O problema voltou" abre um chamado novo com o vínculo visível.
-spec [0010](../specs/0010-prazo-avaliacao-encerramento-definitivo/index.md) · code in `app/(dashboard)/meus-chamados/`, `app/(dashboard)/gestao/`, `app/(dashboard)/chamados-atribuidos/actions.ts`, `app/(dashboard)/conversas/`, `app/api/cron/encerramento-automatico/`, `lib/chamados/encerramento-automatico.ts`, `shared/chamados/janela-avaliacao.ts`, `models/Chamado.ts`
-
-- [x] Design it (spec): `/architect prazo para avaliar e encerramento definitivo`
-- [x] Build it: `/develop prazo para avaliar e encerramento definitivo`
-  - [x] O fio: concluir grava o prazo, avaliar encerra, e o detalhe do solicitante mostra o prazo · AC-1, AC-2, AC-5, AC-10
-  - [x] As travas: recusa e reabertura só na janela, encerrado terminal, encerramento manual removido · AC-3, AC-4, AC-5, AC-8
-  - [x] Encerramento pelo sistema: cron, preenchimento do legado, crontab num bloco só, `ticket:closed` para o solicitante · AC-6, AC-7, AC-9b
-  - [x] Configuração e aviso: prazo em `/configuracoes/expediente`, aviso de conclusão com o prazo · AC-9, AC-13
-  - [x] Reincidência e demais telas: "O problema voltou", vínculo, dica de recorrência, chat, cards e painéis · AC-11, AC-12, AC-14, AC-15, AC-16
-- [x] Verify it: `/check verify prazo para avaliar e encerramento definitivo`
-- [x] Test it: `/test prazo para avaliar e encerramento definitivo`
-- [x] Review it (fresh model): `/check review prazo para avaliar e encerramento definitivo`
-- [ ] Document it: `/document prazo para avaliar e encerramento definitivo`
-
-## Gestão de ativos
-
-Proposta completa em `docs/0009 — Gestão de Ativos.md`. Cada fatia da proposta vira uma funcionalidade.
-
-### 23. Gestão de ativos: cadastro, etiqueta e vínculo · done
-
-O chamado passa a apontar para o equipamento: árvore de locais, categorias, ativo, carga dos 108 do Tier A, leitura de etiqueta e vínculo no formulário e na gestão.
-**Done when:** os 108 ativos estão carregados; ler ou digitar o tombamento abre a ficha; dá para abrir chamado a partir dela, e o chamado aparece no histórico da ficha; a gestão vincula ou corrige o ativo de qualquer chamado aberto.
-spec [0011](../specs/0011-gestao-ativos/index.md) · code in `lib/ativos/`, `app/(dashboard)/ativos/`, `models/Ativo.ts`
-
-- [x] Design it (spec): `/architect gestão de ativos fatia 1`
-- [x] Build it: `/develop gestão de ativos fatia 1`
-  - [x] O fio: modelos, carga do Tier A, leitura digitada, ficha e chamado com ativo · AC-4, AC-8, AC-9, AC-11, AC-13, AC-14, AC-15
-  - [x] Cadastro de verdade: árvore de locais, categorias, CRUD do ativo, status e validação · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7
-  - [x] Uso diário: lista com filtros, câmera, atalho de cadastro e vínculo na gestão · AC-10, AC-11, AC-12, AC-16
-  - [x] Testes de banco real, de permissão e E2E do fio · AC-2, AC-4, AC-5, AC-17
-- [x] Verify it: `/check verify gestão de ativos fatia 1`
-- [x] Test it: `/test gestão de ativos fatia 1`
-
-### 24. Importador SICAM e vistoria em campo · needs a decision
-
-Importar o CSV bruto do SICAM com diferença e revisão, e conduzir a vistoria pelo celular, inclusive sem sinal. from spec 0011
-**Done when:** o Admin sobe o CSV, revisa novos, alterados e sumidos e aplica; a vistoria mostra cobertura por prédio; o cadastro em campo funciona offline e sincroniza; os ativos `MNT-` (elevador, QGBT, SPDA, hidrante) estão cadastrados.
-
-- [ ] Design it (spec): `/architect importador SICAM e vistoria`
-
-### 25. Documentos do ativo e preventiva por categoria · needs a decision
-
-Laudos e certificados com alerta de vencimento, e chamados preventivos gerados por ativo. from spec 0011
-**Done when:** PMOC, AVCB, ART e laudos têm validade e alerta em 90, 60 e 30 dias; o recorrente por categoria gera um chamado por ativo em operação.
-
-- [ ] Design it (spec): `/architect documentos e preventiva por ativo`
-
-### 26. Ativo pela IA no chat e indicadores no IMR · needs a decision
-
-A IA reconhece o equipamento na conversa, e o IMR ganha MTBF, MTTR, reincidência e os ativos mais problemáticos. from spec 0011
-**Done when:** a conversa sugere o ativo (ou pede a escolha entre candidatos) sem passar pelo portão de confiança; o IMR mostra os indicadores de ativo como informativos.
-
-- [ ] Design it (spec): `/architect ativo no chat e indicadores`
-
 ## Deferred
 
 Fora desta passada, guardado para o plano continuar honesto.
@@ -340,6 +351,12 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Reconciliar decisão divergente**: chamado corrigido cuja `DecisaoIa` ficou `sem_revisao` (falha entre os dois passos, sem transação); hoje o painel avisa e a confirmação é recusada, falta uma ação "registrar a correção já feita" · from spec 0009
 - **`classificationNotes` chega ao solicitante**: `/api/meus-chamados` devolve as observações da classificação manual do Preposto; decidir se isso é aceitável (a 0009 só fecha o vazamento do motivo das correções) · from spec 0009
 - **Contadores no controle "Revisão da IA"**: mostrar quantos chamados há em cada recorte, se a fila ficar grande · from spec 0009
+- **Aviso de cron parado**: indicador para o Admin com a contagem de chamados `concluído` de prazo vencido há mais de 1 hora, sinal de que o container `cron` parou · from spec 0010
+- **Reincidências no chamado anterior**: mostrar no chamado anterior a lista dos chamados abertos por "O problema voltou" (o índice `chamadoAnteriorId` já existe) · from spec 0010
+- **Reincidência no IMR ou no painel**: quantos chamados nasceram de "O problema voltou", por serviço e unidade · from spec 0010
+- **48 horas corridas ou úteis**: reavaliar o prazo para avaliar depois de um mês de uso, se vencer em fim de semana gerar reclamação · from spec 0010
+- **TLS na produção**: ligar `nginx/default.tls.conf` e `AUTH_COOKIE_SECURE=true`; sem HTTPS a câmera de `/ativos/ler` não funciona (já está na auditoria de 25/05/2026) · from spec 0011
+- **Reativar local ou categoria de ativo**: hoje uma localização ou categoria desativada só volta pelo banco · from spec 0011
 
 ## Legend
 

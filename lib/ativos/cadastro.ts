@@ -95,9 +95,16 @@ async function localAtivo(id: string) {
     .lean<{ _id: Types.ObjectId; caminho: string }>();
 }
 
+/**
+ * Cadastro em campo da vistoria (spec 0012, AC-11): o ativo nasce `validado`
+ * por quem cadastrou e guarda o `clientOpId` da operação em `origemOpId`.
+ */
+export type OpcoesCriarAtivo = { origemOpId?: string; validado?: boolean; observacao?: string };
+
 export async function criarAtivo(
   dados: CriarAtivoDados,
   autorId: string,
+  opcoes: OpcoesCriarAtivo = {},
 ): Promise<Resultado<{ id: string; codigo: string }>> {
   const categoria = await categoriaAtiva(dados.categoriaId);
   if (!categoria) return falha('Categoria inexistente ou desativada.');
@@ -133,7 +140,14 @@ export async function criarAtivo(
       criticidade: dados.criticidade ?? categoria.criticidadePadrao,
       tierManutencao: dados.tierManutencao,
       status: 'em_operacao',
-      statusCadastro: 'em_vistoria',
+      ...(opcoes.validado
+        ? {
+            statusCadastro: 'validado',
+            validadoPor: new Types.ObjectId(autorId),
+            validadoEm: new Date(),
+          }
+        : { statusCadastro: 'em_vistoria' }),
+      ...(opcoes.origemOpId && { origemOpId: opcoes.origemOpId }),
     });
     id = doc._id;
   } catch (e) {
@@ -150,7 +164,7 @@ export async function criarAtivo(
         actorType: 'usuario',
         autorId: new Types.ObjectId(autorId),
         para: codigo,
-        observacao: 'Cadastro manual',
+        observacao: opcoes.observacao ?? 'Cadastro manual',
       }),
     () => AtivoModel.deleteOne({ _id: id }),
   );
