@@ -4,6 +4,7 @@ import {
   Building2,
   Calendar,
   CalendarClock,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   Gauge,
@@ -67,6 +68,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: '/ativos',
     icon: PackageSearch,
     group: 'Principal',
+  },
+  {
+    label: 'Vistoria',
+    href: '/ativos/vistoria',
+    icon: ClipboardCheck,
+    group: 'Principal',
+    allowedRoles: ['Admin', 'Preposto', 'Técnico'],
   },
   {
     label: 'Chamados Atribuídos',

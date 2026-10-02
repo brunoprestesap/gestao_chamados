@@ -5,8 +5,10 @@ import { Types } from 'mongoose';
 import { canManage, type SessionLike } from '@/lib/dal';
 import { AtivoModel } from '@/models/Ativo';
 import { AtivoHistoryModel } from '@/models/AtivoHistory';
+import { CampanhaVistoriaModel } from '@/models/CampanhaVistoria';
 import { CategoriaAtivoModel } from '@/models/CategoriaAtivo';
 import { ChamadoModel } from '@/models/Chamado';
+import { ConferenciaVistoriaModel } from '@/models/ConferenciaVistoria';
 import { LocalizacaoModel } from '@/models/Localizacao';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
@@ -20,6 +22,7 @@ import type {
   TierManutencao,
 } from '@/shared/ativos/ativo.constants';
 import { CHAMADO_STATUS_LABELS, type ChamadoStatus } from '@/shared/chamados/chamado.constants';
+import type { PapelAutor } from '@/shared/vistoria/vistoria.constants';
 
 /** Quantos chamados vinculados a ficha mostra (os mais recentes). */
 export const LIMITE_CHAMADOS_FICHA = 50;
@@ -40,6 +43,8 @@ export type CamposPatrimoniaisFicha = {
   fornecedor?: string;
   numeroSerie?: string;
   importadoEm?: string;
+  /** Marca do importador (spec 0012, AC-26): o ativo saiu do export do SICAM. */
+  ausenteNoSicamDesde?: string;
 };
 
 export type ChamadoDaFicha = {
@@ -67,6 +72,15 @@ export type EntradaHistoricoAtivo = {
   em: string;
 };
 
+/** A última conferência da vistoria (spec 0012), vista pelos quatro perfis. */
+export type UltimaConferenciaFicha = {
+  campanha: string;
+  autorNome: string;
+  papelAutor: PapelAutor;
+  /** Hora do aparelho de quem conferiu. */
+  conferidoEm: string;
+};
+
 export type FichaAtivo = {
   id: string;
   codigo: string;
@@ -87,6 +101,7 @@ export type FichaAtivo = {
   validadoEm: string | null;
   /** O bloco nunca chega ao cliente para Solicitante e Técnico (LGPD). */
   camposPatrimoniais?: CamposPatrimoniaisFicha;
+  ultimaConferencia: UltimaConferenciaFicha | null;
   historico: EntradaHistoricoAtivo[];
   chamados: ChamadoDaFicha[];
 };
@@ -166,7 +181,7 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
 
   const gestao = canManage(sessao.role);
 
-  const [categoria, local, historicoDocs, chamadosDocs] = await Promise.all([
+  const [categoria, local, historicoDocs, chamadosDocs, conferencia] = await Promise.all([
     CategoriaAtivoModel.findById(ativo.categoriaId).select('nome').lean(),
     ativo.localizacaoId
       ? LocalizacaoModel.findById(ativo.localizacaoId).select('caminho').lean()
@@ -182,10 +197,25 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
         'ticket_number status tipoServico catalogServiceId createdAt closedAt descricao solicitanteId assignedToUserId',
       )
       .lean<ChamadoLean[]>(),
+    ConferenciaVistoriaModel.findOne({ ativoId: ativo._id })
+      .sort({ conferidoEm: -1 })
+      .select('campanhaId autorId papelAutor conferidoEm')
+      .lean<{
+        campanhaId: Types.ObjectId;
+        autorId: Types.ObjectId;
+        papelAutor: PapelAutor;
+        conferidoEm: Date;
+      }>(),
   ]);
+  const campanha = conferencia
+    ? await CampanhaVistoriaModel.findById(conferencia.campanhaId)
+        .select('nome')
+        .lean<{ nome: string }>()
+    : null;
 
   const userIds = new Set<string>();
   if (ativo.validadoPor) userIds.add(String(ativo.validadoPor));
+  if (conferencia) userIds.add(String(conferencia.autorId));
   for (const h of historicoDocs) if (h.autorId) userIds.add(String(h.autorId));
   if (gestao)
     for (const c of chamadosDocs) if (c.solicitanteId) userIds.add(String(c.solicitanteId));
@@ -277,6 +307,14 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
       ativo.camposPatrimoniais && {
         camposPatrimoniais: serializarPatrimoniais(ativo.camposPatrimoniais),
       }),
+    ultimaConferencia: conferencia
+      ? {
+          campanha: campanha?.nome ?? '—',
+          autorNome: nomeUsuario.get(String(conferencia.autorId)) || 'Usuário removido',
+          papelAutor: conferencia.papelAutor,
+          conferidoEm: conferencia.conferidoEm.toISOString(),
+        }
+      : null,
     historico,
     chamados,
   };

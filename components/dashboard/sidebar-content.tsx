@@ -12,11 +12,21 @@ import { hrefAtivo, NAV_GROUP_ORDER, NAV_ITEMS } from '@/components/dashboard/na
 import { SidebarToggle } from '@/components/sidebar/sidebar-toggle';
 import { SigmaLogo } from '@/components/sigma-logo';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type SessionUser = {
+  userId: string;
   name: string;
   role: string;
   username: string;
@@ -66,6 +76,7 @@ export function SidebarContent({
       .then((data) => {
         if (data?.userId) {
           setUser({
+            userId: data.userId,
             name: data.name ?? data.username,
             role: data.role ?? '—',
             username: data.username ?? '',
@@ -74,6 +85,39 @@ export function SidebarContent({
       })
       .catch(() => {});
   }, []);
+
+  // Vistoria em campo (spec 0012, AC-15): avisa das conferências ainda no
+  // aparelho e apaga o pacote da pessoa; a fila fica para o próximo login dela.
+  const [pendentesAoSair, setPendentesAoSair] = useState(0);
+
+  async function sairDeVez() {
+    if (user?.userId) {
+      try {
+        const { apagarPacote } = await import('@/lib/vistoria-offline');
+        await apagarPacote(user.userId);
+      } catch {
+        // Sem IndexedDB não há pacote a apagar.
+      }
+    }
+    await signOut({ callbackUrl: '/login' });
+  }
+
+  async function sair() {
+    let pendentes = 0;
+    if (user?.userId) {
+      try {
+        const { contarPendentes } = await import('@/lib/vistoria-offline');
+        pendentes = await contarPendentes(user.userId);
+      } catch {
+        pendentes = 0;
+      }
+    }
+    if (pendentes > 0) {
+      setPendentesAoSair(pendentes);
+      return;
+    }
+    await sairDeVez();
+  }
 
   const grouped = useMemo(() => {
     const filtered = filterByRole([...NAV_ITEMS], user?.role);
@@ -275,7 +319,7 @@ export function SidebarContent({
                     'h-8 w-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-hover',
                     collapsed && 'h-9 w-9',
                   )}
-                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  onClick={() => void sair()}
                 >
                   <LogOut className="h-4 w-4" aria-hidden />
                 </Button>
@@ -287,6 +331,29 @@ export function SidebarContent({
           </div>
         </div>
       </div>
+      <Dialog
+        open={pendentesAoSair > 0}
+        onOpenChange={(aberto) => !aberto && setPendentesAoSair(0)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Há conferências aguardando envio</DialogTitle>
+            <DialogDescription>
+              {pendentesAoSair === 1
+                ? '1 conferência da vistoria ainda não subiu.'
+                : `${pendentesAoSair} conferências da vistoria ainda não subiram.`}{' '}
+              Elas ficam guardadas neste aparelho e sobem quando você entrar de novo e abrir o
+              campo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Ficar</Button>
+            </DialogClose>
+            <Button onClick={() => void sairDeVez()}>Sair mesmo assim</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

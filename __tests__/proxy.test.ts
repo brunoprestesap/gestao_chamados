@@ -69,3 +69,19 @@ describe('proxy · /configuracoes/categorias-ativo', () => {
     expect(destino(res)).toBeNull();
   });
 });
+
+describe('proxy · /ativos/importar (spec 0012, AC-27)', () => {
+  it.each(['Preposto', 'Solicitante', 'Técnico'])('%s é mandado embora', async (role) => {
+    logado(role);
+    for (const path of ['/ativos/importar', '/ativos/importar/abc']) {
+      const res = await proxy(req(path));
+      expect(destino(res)).toBe('/');
+    }
+  });
+
+  it('Admin entra', async () => {
+    logado('Admin');
+    const res = await proxy(req('/ativos/importar'));
+    expect(destino(res)).toBeNull();
+  });
+});
