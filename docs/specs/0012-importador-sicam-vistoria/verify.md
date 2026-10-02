@@ -165,10 +165,20 @@ _AC-16 é operacional: não tem código novo, é conferido no banco de produçã
 
 ### UI / manual (em produção)
 
-- [ ] Como Admin, em `/configuracoes/categorias-ativo`, criar: chave `elevador`, nome "Elevador", criticidade Crítica; chave `spda`, nome "SPDA (para-raios)", criticidade Alta; chave `copa_refrigeracao`, nome "Copa: refrigeração", criticidade Baixa; chave `copa_coccao`, nome "Copa: cocção", criticidade Baixa → AC-16
-- [ ] Como Preposto ou Admin, abrir a campanha "Vistoria inicial" em `/ativos/vistoria` (se ainda não existir) → AC-16
-- [ ] Em campo, pelo celular, "Cadastrar sem tombo" em cada elevador (categoria Elevador), QGBT (categoria Transformador, `energia_transformador`), SPDA (categoria SPDA) e hidrante (categoria Combate a incêndio), cada um na sala ou área técnica onde está; etiquetar com o `MNT-####` que a tela mostra → AC-16
+- [x] Como Admin, em `/configuracoes/categorias-ativo`, criar: chave `elevador`, nome "Elevador", criticidade Crítica; chave `spda`, nome "SPDA (para-raios)", criticidade Alta; chave `copa_refrigeracao`, nome "Copa: refrigeração", criticidade Baixa; chave `copa_coccao`, nome "Copa: cocção", criticidade Baixa → AC-16
+- [x] Como Preposto ou Admin, abrir a campanha "Vistoria inicial" em `/ativos/vistoria` (se ainda não existir) → AC-16
+- [x] Em campo, pelo celular, "Cadastrar sem tombo" em cada elevador (categoria Elevador), QGBT (categoria Transformador, `energia_transformador`), SPDA (categoria SPDA) e hidrante (categoria Combate a incêndio), cada um na sala ou área técnica onde está; etiquetar com o `MNT-####` que a tela mostra → AC-16
 
 ### Commands
 
-- [ ] Na VPS: `sudo docker exec -i severino-mongodb-1 mongosh manutencao --quiet < ~/conferir-ac16.js` (depois de copiar `scripts/conferir-ac16.js` com `scp`) → termina com "AC-16: tudo certo." e lista os MNT com local e "conferido" → AC-16
+- [x] Na VPS: `sudo docker exec -i severino-mongodb-1 mongosh manutencao --quiet < ~/conferir-ac16.js` (depois de copiar `scripts/conferir-ac16.js` com `scp`) → termina com "AC-16: tudo certo." e lista os MNT com local e "conferido" → AC-16
+
+### Última verificação deste marco
+
+`/check verify` em 02/10/2026, em produção: "AC-16: tudo certo." A conferência rodou só lendo, pelo `scripts/conferir-ac16.js`, através de um túnel SSH até o Mongo da VPS (o `sudo docker exec` pede senha e o prompt `!` não tinha terminal). Resultado:
+
+- Categorias: `elevador` (Crítica), `spda` (Alta), `copa_refrigeracao` (Baixa) e `copa_coccao` (Baixa), todas ativas.
+- Campanha aberta como "Vistoria Inicial" (com I maiúsculo; o script passou a aceitar o nome sem diferenciar maiúsculas, PR #40).
+- `MNT-0001` elevador, `MNT-0002` QGBT, `MNT-0003` SPDA e `MNT-0004` hidrante: `validado`, Tier A, com local e conferidos na campanha; nenhum `PROV-` no banco; 4 conferências.
+
+Pendências que não travam o AC: os quatro estão com local "Sede" (o prédio), e vale conferir de novo cada um na sala ou área técnica; a descrição do `MNT-0004` tem um erro de digitação ("Hidratante 2ª andar").
