@@ -4,8 +4,8 @@ _Passos tirados dos critérios de aceite da spec 0012. O `/check verify` roda es
 
 ## UI / manual
 
-- [ ] Como Preposto, abrir `/ativos/vistoria` sem campanha → ver "Nenhuma campanha aberta" e o formulário; abrir "Vistoria inicial" → a campanha aparece como Aberta → AC-1
-- [ ] Com uma campanha aberta, chamar `abrirCampanhaAction` com outro nome → "Já existe uma campanha aberta: Vistoria inicial" → AC-1
+- [x] Como Preposto, abrir `/ativos/vistoria` sem campanha → ver "Nenhuma campanha aberta" e o formulário; abrir "Vistoria inicial" → a campanha aparece como Aberta → AC-1
+- [x] Com uma campanha aberta, chamar `abrirCampanhaAction` com outro nome → "Já existe uma campanha aberta: Vistoria inicial" → AC-1
 - [x] "Encerrar campanha" → confirmação → a página mostra "Última campanha", Encerrada, com a hora; no banco, `encerradaPor` e `encerradaEm` preenchidos; não há botão para reabrir → AC-1
 - [x] Como Técnico, abrir `/ativos/vistoria` sem campanha → "Nenhuma campanha aberta", sem formulário → AC-1, permissões
 - [x] Abrir `/ativos/vistoria/campo` com sinal → mostra o nome da campanha, "Pacote baixado em <hora>" e "Atualizar pacote"; sem campanha aberta → "Nenhuma campanha aberta" → AC-3
@@ -53,7 +53,7 @@ _Passos tirados dos critérios de aceite da spec 0012. O `/check verify` roda es
 - [x] Como Preposto, em `/ativos/vistoria` com campanha aberta → cada prédio mostra "N de M" e o percentual com a barra; à parte, o bloco "vistoriáveis sem local" → AC-2
 - [x] Conferir em campo um ativo sem local numa sala → a cobertura do prédio sobe 1 e o "sem local" desce 1 → AC-2
 - [x] Mudar para `baixado` um ativo já conferido → ele sai do total e dos conferidos do prédio; o percentual nunca passa de 100% → AC-2
-- [ ] Encerrar a campanha → a página continua mostrando a cobertura da última encerrada; como Técnico sem nenhuma campanha → "Nenhuma campanha aberta" → AC-2
+- [x] Encerrar a campanha → a página continua mostrando a cobertura da última encerrada; como Técnico sem nenhuma campanha → "Nenhuma campanha aberta" → AC-2
 - [x] Em campo, digitar um tombo que não está no pacote → aviso com "Cadastrar aqui"; o formulário abre como Patrimoniado com o tombo preenchido, Tier A marcado → AC-11
 - [x] Digitar um código `MNT-` que não está no pacote → explica que pode estar baixado ou fora dos tiers, sem "Cadastrar aqui" → AC-11
 - [x] "Cadastrar sem tombo" com sinal → o item aparece na sala riscado com o `MNT-####` definitivo e o painel mostra "Etiquete como MNT-####" → AC-11, AC-12
@@ -76,11 +76,11 @@ _Passos tirados dos critérios de aceite da spec 0012. O `/check verify` roda es
 
 - [x] Cobertura, total por prédio: ativo Tier C ou `baixado` dentro do prédio não conta; ativo num local desativado abaixo do prédio conta → cobertura total
 - [x] Cobertura, conferidos: conferência de ativo que mudou de prédio conta só no prédio novo, se ele estiver lá hoje → cobertura conferidos
-- [ ] Cobertura, qual campanha: com uma aberta mostra a aberta; sem ela, a de maior `encerradaEm` → cobertura campanha
+- [x] Cobertura, qual campanha: com uma aberta mostra a aberta; sem ela, a de maior `encerradaEm` → cobertura campanha
 - [x] Cadastro, `codigo`: tombo `0042` grava `42`; interno usa o próximo `MNT-` do contador → cadastro `codigo`
 - [x] Cadastro, `criticidade`: igual à `criticidadePadrao` da categoria escolhida → cadastro `criticidade`
 - [x] Código provisório: só no aparelho; o corpo do POST de sincronização não leva `PROV-` → código provisório
-- [ ] Ficha, última conferência: com duas campanhas, mostra a de `conferidoEm` mais recente, com o nome de quem conferiu e o papel → ficha última conferência
+- [x] Ficha, última conferência: com duas campanhas, mostra a de `conferidoEm` mais recente, com o nome de quem conferiu e o papel → ficha última conferência
 
 ### Coverage
 
@@ -136,7 +136,7 @@ _Passos dos critérios AC-17 a AC-27. Use um CSV fictício em cp1252 (o export r
 - [x] Bloqueio: cadastrar a categoria `copa_coccao` depois do upload e recarregar a revisão → o aviso some e a categoria já vem escolhida → AC-22
 - [x] Grupo: ativo `interno` (`MNT-`) e patrimoniado cadastrado em campo sem `importadoEm` nunca aparecem como sumidos → AC-20
 - [x] Continuam ausentes: um ativo já marcado que segue fora do arquivo soma em "Continuam ausentes" e não vira item → AC-20
-- [ ] Aviso de muitos sumidos: base são só os patrimoniados com `importadoEm`; um patrimoniado sem ela não muda o percentual → AC-22
+- [x] Aviso de muitos sumidos: base são só os patrimoniados com `importadoEm`; um patrimoniado sem ela não muda o percentual → AC-22
 - [x] Local do sumido: ativo com local mostra o caminho; sem local, "sem local" → AC-22
 - [x] Nome de quem subiu a pendente: o aviso do segundo upload traz o `name` do Admin que enviou a primeira → AC-21
 - [x] Categoria e criticidade do novo: escolher outra categoria na revisão → o ativo nasce com ela e com a criticidade padrão dela → AC-23
@@ -182,3 +182,16 @@ _AC-16 é operacional: não tem código novo, é conferido no banco de produçã
 - `MNT-0001` elevador, `MNT-0002` QGBT, `MNT-0003` SPDA e `MNT-0004` hidrante: `validado`, Tier A, com local e conferidos na campanha; nenhum `PROV-` no banco; 4 conferências.
 
 Pendências que não travam o AC: os quatro estão com local "Sede" (o prédio), e vale conferir de novo cada um na sala ou área técnica; a descrição do `MNT-0004` tem um erro de digitação ("Hidratante 2ª andar").
+
+## Passos que estavam bloqueados · 02/10/2026
+
+`/check verify` num banco descartável (`severino_verif_0012`, cópia do banco de desenvolvimento sem campanhas, conferências e importações), com o app na porta 3002: 14 de 14 passaram, e o banco foi apagado depois.
+
+- Tela sem nenhuma campanha: o Técnico vê "Nenhuma campanha aberta" sem formulário; o Preposto vê o formulário e abre "Vistoria inicial", que aparece como Aberta.
+- `abrirCampanhaAction` com uma já aberta (uma aba antiga tentando abrir outra): "Já existe uma campanha aberta: Vistoria inicial", e o banco continua com uma campanha só.
+- Encerrar: a página mostra "Última campanha", Encerrada, com a mesma cobertura de antes (1 de 6 no prédio do ativo conferido), e não há botão para reabrir.
+- Qual campanha: com uma aberta mostra a aberta ("Segunda rodada", 0 de 6); com duas encerradas mostra a de maior `encerradaEm`.
+- Ficha com duas campanhas: "Segunda rodada: Técnico 01 E2E (Contratada)", a conferência mais recente, vista pelo Solicitante.
+- Base do aviso de muitos sumidos: com 4 patrimoniados vistos pelo SICAM e 2 sem `importadoEm` fora do arquivo, 1 sumido mostra o aviso (25%; com os 2 na base seria 16,7%, sem aviso). Contraprova: com 5 vistos, 1 sumido (20%) não mostra.
+
+Continua sem marcar só a câmera (UI 16 do marco V3 e V4): pede um aparelho com câmera em HTTPS ou localhost.
