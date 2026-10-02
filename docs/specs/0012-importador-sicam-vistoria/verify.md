@@ -195,3 +195,9 @@ Pendências que não travam o AC: os quatro estão com local "Sede" (o prédio),
 - Base do aviso de muitos sumidos: com 4 patrimoniados vistos pelo SICAM e 2 sem `importadoEm` fora do arquivo, 1 sumido mostra o aviso (25%; com os 2 na base seria 16,7%, sem aviso). Contraprova: com 5 vistos, 1 sumido (20%) não mostra.
 
 Continua sem marcar só a câmera (UI 16 do marco V3 e V4): pede um aparelho com câmera em HTTPS ou localhost.
+
+## Câmera aceita como coberta · 02/10/2026
+
+O passo da câmera (UI 16 do marco V3 e V4) continua desmarcado: ele não foi visto rodando, porque esta máquina não tem câmera e a produção ainda não tem HTTPS. O engenheiro aceitou o passo como coberto: o botão aparece em localhost e some em HTTP (verificado no marco V3 e V4), e o código lido cai no mesmo caminho do código digitado, que está verificado. O teste com câmera de verdade fica para quando a produção tiver TLS (follow-up da spec).
+
+Com isso, o "Verify it" da feature 24 foi marcado no scope.
