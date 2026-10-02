@@ -271,13 +271,13 @@ Importar o CSV bruto do SICAM com diferença e revisão, e conduzir a vistoria p
 spec [0012](../specs/0012-importador-sicam-vistoria/index.md) · code in `lib/vistoria/`, `lib/vistoria-offline/`, `app/(dashboard)/ativos/vistoria/`, `app/api/vistoria/`, `lib/ativos/importacao/`, `app/(dashboard)/ativos/importar/`, `app/api/ativos/importacoes/`
 
 - [x] Design it (spec): `/architect importador SICAM e vistoria`
-- [ ] Build it: `/develop importador SICAM e vistoria`
+- [x] Build it: `/develop importador SICAM e vistoria`
   - [x] Vistoria, o fio e sem sinal: campanha, pacote, fila no IndexedDB, sincronização em lote, primeira que chega · AC-1, AC-3 a AC-10, AC-15
   - [x] Vistoria, cadastro em campo e cobertura: cadastro patrimoniado e MNT offline, local em campo, cobertura por prédio, ficha · AC-2, AC-11 a AC-14
   - [x] Importador, parse e diferença: CSV bruto cp1252, classificação, novos, alterados e sumidos · AC-17 a AC-20, AC-26
   - [x] Importador, revisão e aplicação: seleção, categorias, aplicação repetível, enxugamento LGPD, permissões · AC-21 a AC-25, AC-27
-  - [ ] Operação: categorias novas e cadastro dos MNT em campo · AC-16
-- [ ] Verify it: `/check verify importador SICAM e vistoria`
+  - [x] Operação: categorias novas e cadastro dos MNT em campo · AC-16
+- [x] Verify it: `/check verify importador SICAM e vistoria` (câmera aceita como coberta, ver `verify.md`)
 - [ ] Test it: `/test importador SICAM e vistoria`
 
 ### 25. Documentos do ativo e preventiva por categoria · needs a decision

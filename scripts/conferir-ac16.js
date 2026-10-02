@@ -41,11 +41,14 @@ for (const chave of CATEGORIAS_NOVAS) {
 
 print('');
 print(`== Campanha "${NOME_CAMPANHA}" ==`);
-const campanha = db.getCollection('campanhavistorias').findOne({ nome: NOME_CAMPANHA });
+// Sem diferenciar maiúsculas nem espaços nas pontas: "Vistoria Inicial" também vale.
+const campanha = db
+  .getCollection('campanhavistorias')
+  .findOne({ nome: { $regex: `^\\s*${NOME_CAMPANHA}\\s*$`, $options: 'i' } });
 linha(
   !!campanha,
   campanha
-    ? `status ${campanha.status}, aberta em ${campanha.abertaEm.toISOString()}`
+    ? `"${campanha.nome}", status ${campanha.status}, aberta em ${campanha.abertaEm.toISOString()}`
     : 'não existe',
 );
 
