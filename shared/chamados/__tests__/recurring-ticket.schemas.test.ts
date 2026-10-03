@@ -496,3 +496,54 @@ describe('UpdateRecurringTicketSchema', () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ── Escopo por categoria de ativo (spec 0013, AC-16) ──────────────
+
+describe('CreateRecurringTicketSchema — escopo', () => {
+  it('sem escopo, vale chamado único e os campos novos somem', () => {
+    const result = CreateRecurringTicketSchema.safeParse({
+      ...validBase(),
+      categoriaAtivoId: VALID_OBJECT_ID,
+      finalPriority: 'ALTA',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.escopo).toBe('template');
+    expect(result.data.categoriaAtivoId).toBeUndefined();
+    expect(result.data.finalPriority).toBeUndefined();
+  });
+
+  it('por categoria exige categoria e prioridade', () => {
+    const semCategoria = CreateRecurringTicketSchema.safeParse({
+      ...validBase(),
+      escopo: 'categoria_ativo',
+      finalPriority: 'BAIXA',
+    });
+    expect(semCategoria.success).toBe(false);
+    const semPrioridade = CreateRecurringTicketSchema.safeParse({
+      ...validBase(),
+      escopo: 'categoria_ativo',
+      categoriaAtivoId: VALID_OBJECT_ID,
+      finalPriority: '',
+    });
+    expect(semPrioridade.success).toBe(false);
+  });
+
+  it('por categoria aceita local opcional e guarda os três campos', () => {
+    const result = CreateRecurringTicketSchema.safeParse({
+      ...validBase(),
+      escopo: 'categoria_ativo',
+      categoriaAtivoId: VALID_OBJECT_ID,
+      localizacaoId: '',
+      finalPriority: 'BAIXA',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data).toMatchObject({
+      escopo: 'categoria_ativo',
+      categoriaAtivoId: VALID_OBJECT_ID,
+      finalPriority: 'BAIXA',
+    });
+    expect(result.data.localizacaoId).toBeUndefined();
+  });
+});

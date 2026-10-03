@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,9 @@ export type CategoriaLinha = {
 
 export type OpcaoSubtipo = { id: string; rotulo: string };
 
+/** Tipo de documento (spec 0013): a categoria guarda a chave. */
+export type OpcaoTipoDocumento = { chave: string; nome: string; isActive: boolean };
+
 const SEM_SUBTIPO = '__sem_subtipo__';
 
 type Rascunho = {
@@ -66,7 +70,7 @@ type Rascunho = {
   nome: string;
   criticidadePadrao: Criticidade;
   periodicidade: string;
-  documentos: string;
+  documentos: string[];
   vidaUtil: string;
   subtipo: string;
 };
@@ -76,7 +80,7 @@ const VAZIO: Rascunho = {
   nome: '',
   criticidadePadrao: 'media',
   periodicidade: '',
-  documentos: '',
+  documentos: [],
   vidaUtil: '',
   subtipo: '',
 };
@@ -85,9 +89,11 @@ const VAZIO: Rascunho = {
 export function GerirCategorias({
   categorias,
   subtipos,
+  tiposDocumento = [],
 }: {
   categorias: CategoriaLinha[];
   subtipos: OpcaoSubtipo[];
+  tiposDocumento?: OpcaoTipoDocumento[];
 }) {
   const router = useRouter();
   const [editando, setEditando] = useState<CategoriaLinha | 'nova' | null>(null);
@@ -97,6 +103,17 @@ export function GerirCategorias({
   const [desativando, setDesativando] = useState<string | null>(null);
 
   const rotuloSubtipo = new Map(subtipos.map((s) => [s.id, s.rotulo]));
+  const tipoPorChave = new Map(tiposDocumento.map((t) => [t.chave, t]));
+  const tiposAtivos = tiposDocumento.filter((t) => t.isActive);
+
+  function alternarDocumento(chave: string, marcado: boolean) {
+    setR((a) => ({
+      ...a,
+      documentos: marcado
+        ? [...a.documentos.filter((c) => c !== chave), chave]
+        : a.documentos.filter((c) => c !== chave),
+    }));
+  }
 
   function abrir(c: CategoriaLinha | 'nova') {
     setEditando(c);
@@ -111,7 +128,7 @@ export function GerirCategorias({
             periodicidade: c.periodicidadePreventivaDias
               ? String(c.periodicidadePreventivaDias)
               : '',
-            documentos: c.exigeDocumento.join(', '),
+            documentos: [...c.exigeDocumento],
             vidaUtil: c.vidaUtilAnos ? String(c.vidaUtilAnos) : '',
             subtipo: c.serviceSubTypeId ?? '',
           },
@@ -126,7 +143,7 @@ export function GerirCategorias({
       nome: r.nome,
       criticidadePadrao: r.criticidadePadrao,
       periodicidadePreventivaDias: r.periodicidade,
-      exigeDocumento: r.documentos.split(','),
+      exigeDocumento: r.documentos,
       vidaUtilAnos: r.vidaUtil,
       serviceSubTypeId: r.subtipo,
     };
@@ -214,8 +231,12 @@ export function GerirCategorias({
                         ? `a cada ${c.periodicidadePreventivaDias} dias`
                         : '—'}
                     </TableCell>
-                    <TableCell className="max-w-[12rem]">
-                      {c.exigeDocumento.length ? c.exigeDocumento.join(', ') : '—'}
+                    <TableCell className="max-w-[14rem]">
+                      {c.exigeDocumento.length ? (
+                        <ChavesDocumento chaves={c.exigeDocumento} tipoPorChave={tipoPorChave} />
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                     <TableCell>
                       {c.serviceSubTypeId ? (rotuloSubtipo.get(c.serviceSubTypeId) ?? '—') : '—'}
@@ -351,19 +372,42 @@ export function GerirCategorias({
                 onChange={(e) => set('vidaUtil', e.target.value)}
               />
             </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="cat-docs">Documentos exigidos</Label>
-              <Input
-                id="cat-docs"
-                value={r.documentos}
-                onChange={(e) => set('documentos', e.target.value)}
-                placeholder="PMOC, ART"
-                aria-describedby="cat-docs-ajuda"
-              />
+            <fieldset className="space-y-2 sm:col-span-2" aria-describedby="cat-docs-ajuda">
+              <legend className="text-sm font-medium">Documentos exigidos</legend>
+              {tiposAtivos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum tipo de documento ativo. Cadastre em Tipos de documento.
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {tiposAtivos.map((t) => (
+                    <label
+                      key={t.chave}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
+                    >
+                      <Checkbox
+                        checked={r.documentos.includes(t.chave)}
+                        onCheckedChange={(v) => alternarDocumento(t.chave, v === true)}
+                      />
+                      {t.nome}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {r.documentos.some((c) => !tipoPorChave.get(c)?.isActive) && (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  Também gravados:
+                  <ChavesDocumento
+                    chaves={r.documentos.filter((c) => !tipoPorChave.get(c)?.isActive)}
+                    tipoPorChave={tipoPorChave}
+                  />
+                </div>
+              )}
               <p id="cat-docs-ajuda" className="text-xs text-muted-foreground">
-                Separe por vírgula.
+                Ativo desta categoria sem documento vigente destes tipos (nele ou nos locais acima)
+                aparece em Faltando. Valor não reconhecido sai ao salvar.
               </p>
-            </div>
+            </fieldset>
             {erro && (
               <p role="alert" className="text-sm text-destructive sm:col-span-2">
                 {erro}
@@ -382,5 +426,43 @@ export function GerirCategorias({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * As chaves de `exigeDocumento` com o nome do tipo. Chave sem tipo leva o selo
+ * "não reconhecido"; tipo desativado, o selo "desativado" (spec 0013, AC-2).
+ */
+function ChavesDocumento({
+  chaves,
+  tipoPorChave,
+}: {
+  chaves: string[];
+  tipoPorChave: ReadonlyMap<string, OpcaoTipoDocumento>;
+}) {
+  return (
+    <span className="flex flex-wrap gap-1">
+      {chaves.map((chave) => {
+        const tipo = tipoPorChave.get(chave);
+        return (
+          <span key={chave} className="inline-flex items-center gap-1">
+            <span>{tipo?.nome ?? chave}</span>
+            {!tipo && (
+              <Badge
+                variant="outline"
+                className="rounded-full border-amber-300 text-[10px] text-amber-800 dark:border-amber-700 dark:text-amber-200"
+              >
+                não reconhecido
+              </Badge>
+            )}
+            {tipo && !tipo.isActive && (
+              <Badge variant="outline" className="rounded-full text-[10px]">
+                desativado
+              </Badge>
+            )}
+          </span>
+        );
+      })}
+    </span>
   );
 }

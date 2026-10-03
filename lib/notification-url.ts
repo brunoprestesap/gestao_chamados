@@ -1,3 +1,8 @@
+/** Id vindo do `data` da notificação: só texto hexadecimal entra na URL. */
+function texto(v: unknown): string {
+  return typeof v === 'string' && /^[a-f\d]{24}$/i.test(v) ? v : '';
+}
+
 export function getNotificationUrl(type: string, data?: Record<string, unknown> | null): string {
   const rawId = data?.ticketId;
   const ticketId = typeof rawId === 'string' && rawId.length > 0 ? rawId : '';
@@ -13,6 +18,15 @@ export function getNotificationUrl(type: string, data?: Record<string, unknown> 
     case 'sla:warning':
     case 'sla:breach':
       return '/gestao';
+    case 'documento:vencimento': {
+      // Spec 0013, AC-12: documento de ativo vai à ficha; de local, ao painel filtrado pelo prédio.
+      const ativoId = texto(data?.ativoId);
+      if (ativoId) return `/ativos/${ativoId}`;
+      const predioId = texto(data?.predioId);
+      return predioId ? `/ativos/documentos?predio=${predioId}` : '/ativos/documentos';
+    }
+    case 'preventiva:lote':
+      return '/gestao/recurring';
     default:
       return '/meus-chamados';
   }

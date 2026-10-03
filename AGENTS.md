@@ -68,6 +68,7 @@ Testes configurados: **Vitest** (unitários, ~3300 testes em `__tests__/` e `*.t
 - DAL centralizada em `lib/dal.ts` com `verifySession()` usando `React.cache()` para memoização por request
 - Guards: `requireSession()`, `requireManager()`, `requireTechnician()`, `requireAdmin()` — redirecionam para `/dashboard` se não autorizado
 - `proxy.ts` (o Next 16 usa proxy no lugar de middleware) manda anônimo para `/login` e barra quem não é Admin em `/usuarios`, `/catalogo`, `/unidades` e `/configuracoes`. Ele ignora `/api`, então cada rota de API faz a própria checagem. A lista `protectedPrefixes` não cobre `/conversas` nem `/sla-dashboard`: quem protege essas telas é o `requireSession()` de `app/(dashboard)/layout.tsx`
+- O `matcher` do `proxy.ts` deixa `api/ativos/documentos` de fora: com o proxy rodando, o Next guarda o corpo só até 10 MB e corta o resto sem erro, e o documento aceita até 20 MB (spec 0013). Rota nova com corpo grande precisa da mesma exceção e de um bloco próprio no nginx
 - 4 roles: **Admin**, **Preposto**, **Solicitante**, **Técnico**
 - Workaround de tipo em `auth.ts` (NextAuth v5 beta não exporta `NextAuthConfig` corretamente)
 
@@ -126,6 +127,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - A atribuição automática (spec 0008) sai com `assignedBy: ATRIBUIDO_POR_SISTEMA` (`shared/socket.ts`), e técnico e gestão leem textos próprios. Os títulos desses avisos moram em `shared/chamados/aviso-atribuicao.ts`, um só para a `Notification`, o email e o toast: canal novo ou texto novo chama essas funções em vez de reescrever a frase
 - Comunicação interna autenticada por header `x-internal-secret` (`SOCKET_INTERNAL_SECRET`)
 - Fallback para MongoDB (model Notification) se socket offline
+- `documento:vencimento` e `preventiva:lote` (spec 0013) só existem em `Notification`, sem evento do Socket.IO: aparecem no sino na próxima leitura, e `getNotificationUrl`/`getNotificationMeta` precisam conhecer o tipo
 
 ### SLA
 
@@ -157,6 +159,8 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **SlaConfig** — Configuração SLA por prioridade
 - **ServiceCatalog/ServiceType/ServiceSubType** — Catálogo hierárquico de serviços (tipos: Manutenção Predial, Ar-Condicionado, Elevador)
 - **RecurringTicket** — Agendamentos recorrentes de chamados (manutenção preventiva), com recorrência semanal/mensal/custom e campo `originTemplateId` no Chamado para rastreabilidade
+- **RecurringTicket** com `escopo: 'categoria_ativo'` (spec 0013): gera um chamado `validado` por ativo Tier A em operação da categoria, por `lib/chamados/preventiva-categoria.ts`; o ramo `template` não lê nem escreve os campos novos
+- **TipoDocumento / DocumentoAtivo**: laudos e certificados (PMOC, AVCB...) presos a um ativo ou a um local, com validade e marcas de aviso; regras em `lib/ativos/AGENTS.md`
 - **Notification** — Notificações persistentes (fallback do Socket.IO)
 - **Unit** — Unidades/departamentos
 - **Holiday/BusinessCalendar** — Feriados e horário de expediente
@@ -202,6 +206,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Só ativo Tier A ou B e não `baixado` recebe chamado (`lib/ativos/seletor.ts`); o servidor confere na abertura e no vínculo, nunca só a tela
 - `camposPatrimoniais` (nome e matrícula do responsável, LGPD) só sai do servidor para Admin e Preposto; `docs/ativos_sicam.csv`, `docs/localizacoes_sicam.csv` e `scripts/carga-ativos.generated.js` ficam fora do git
 - Toda troca de ativo num chamado aberto gera `ChamadoHistory` `vinculo_ativo`; só a gestão vincula (`vincularAtivoChamadoAction`)
+- Desde a spec 0013, ativo e local têm documentos (`/ativos/documentos`, `/configuracoes/tipos-documento`), com aviso diário de vencimento pelo cron; `CategoriaAtivo.exigeDocumento` guarda chaves de `TipoDocumento` e alimenta a aba Faltando
 
 ### Validação
 
@@ -246,6 +251,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `BOOTSTRAP_TOKEN` — protege endpoint `/api/bootstrap`
 - `CRON_SECRET` — protege endpoint `/api/cron/recurring-tickets` (chamados recorrentes)
 - `CRON_SECRET` também protege `/api/cron/sla-monitor`; os dois endpoints de cron esperam o header `x-cron-secret` e recusam tudo se a variável estiver vazia
+- `CRON_SECRET` protege também `/api/cron/documentos-vencimento` (spec 0013), chamado uma vez por dia às 11:00 UTC (08:00 em Belém)
 - `AUTH_COOKIE_SECURE`: `true` só depois de habilitar TLS (ver `nginx/default.tls.conf`); no compose o padrão é `false`
 
 ### LDAP/AD (opcional — `/.env.local` ou `.env` na VPS)
@@ -309,6 +315,8 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Prioridade e SLA automáticos     | `lib/assistente/portao.ts` (portão de confiança), `lib/assistente/confirmar.ts`, `lib/sla-snapshot.ts` (`montarSnapshotSla`), `app/(dashboard)/gestao/actions.ts` (`updateTicketPriorityAction`), `docs/specs/0007-prioridade-sla-automaticos/`                                                                     |
 | Gestão de ativos                 | `lib/ativos/` (regras, ver `lib/ativos/AGENTS.md`), `app/(dashboard)/ativos/` (lista, ficha, leitura, cadastro, localizações), `app/(dashboard)/configuracoes/categorias-ativo/`, `app/api/ativos/`, `shared/ativos/`, `docs/specs/0011-gestao-ativos/`                                                             |
 | Atribuição automática ao técnico | `lib/chamados/atribuicao-automatica.ts` (`tentarAtribuicaoAutomatica`), `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `shared/chamados/aviso-atribuicao.ts`, `docs/specs/0008-atribuicao-automatica-tecnico/`                                                                      |
+| Documentos do ativo              | `lib/ativos/documentos/` (gravar, situação, painel, job), `app/api/ativos/documentos/` (upload e download), `app/(dashboard)/ativos/documentos/`, `app/(dashboard)/configuracoes/tipos-documento/`, `app/api/cron/documentos-vencimento/`, `docs/specs/0013-documentos-preventiva-ativo/`                           |
+| Preventiva por categoria         | `lib/chamados/preventiva-categoria.ts` (`gerarLotePreventiva`), `lib/recurring-job.ts`, `app/(dashboard)/gestao/recurring/`, `docs/specs/0013-documentos-preventiva-ativo/`                                                                                                                                         |
 
 ## CI/CD
 
@@ -326,6 +334,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 
 - **VPS**: `/opt/severino` — 5 containers: next-app, socket-server, mongodb, nginx, cron (chama `/api/cron/recurring-tickets` a cada 30min)
+- **Documentos (spec 0013)**: o crontab do container `cron` chama também `documentos-vencimento` uma vez por dia; o nginx tem um bloco `location /api/ativos/documentos` com `client_max_body_size 21M` (repetido em `default.tls.conf`); a carga dos tipos roda uma vez com `sudo docker exec -i severino-mongodb-1 mongosh manutencao < scripts/carga-tipos-documento.js` (idempotente, sem dado pessoal)
 - Todos os 5 containers têm `healthcheck` no `docker-compose.yml`; nginx expõe `/healthz`
 - **Nginx** como proxy reverso na porta 80 (`/` → Next, `/socket.io/` → Socket)
 - **Deploy automático**: push na `main` dispara CI/CD (ver seção CI/CD acima)

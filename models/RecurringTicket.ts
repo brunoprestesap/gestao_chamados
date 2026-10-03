@@ -1,7 +1,29 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
-import { RECURRENCE_TYPES } from '@/shared/chamados/recurring-ticket.schemas';
+import {
+  ESCOPOS_RECORRENTE,
+  RECURRENCE_TYPES,
+  SITUACOES_LOTE,
+} from '@/shared/chamados/recurring-ticket.schemas';
+
+/**
+ * Resumo da última rodada de um modelo por categoria (spec 0013, AC-21).
+ * `em_andamento` há mais de 1 hora quer dizer que o processo caiu no meio.
+ */
+const UltimoLoteSchema = new Schema(
+  {
+    situacao: { type: String, enum: SITUACOES_LOTE, required: true },
+    em: { type: Date, required: true },
+    gerados: { type: Number, default: 0 },
+    pulados: { type: Number, default: 0 },
+    semSla: { type: Number, default: 0 },
+    erros: { type: Number, default: 0 },
+    motivo: { type: String, default: null },
+  },
+  { _id: false },
+);
 
 const RecurringTicketSchema = new Schema(
   {
@@ -34,6 +56,14 @@ const RecurringTicketSchema = new Schema(
     nextRunAt: { type: Date, required: true },
     lastRunAt: { type: Date, required: false },
     totalGenerated: { type: Number, default: 0 },
+
+    // Preventiva por categoria de ativo (spec 0013). O ramo `template` não lê
+    // nem escreve nenhum destes campos.
+    escopo: { type: String, enum: ESCOPOS_RECORRENTE, default: 'template', immutable: true },
+    categoriaAtivoId: { type: Schema.Types.ObjectId, ref: 'CategoriaAtivo', default: null },
+    localizacaoId: { type: Schema.Types.ObjectId, ref: 'Localizacao', default: null },
+    finalPriority: { type: String, enum: [...FINAL_PRIORITY_VALUES, null], default: null },
+    ultimoLote: { type: UltimoLoteSchema, default: null },
 
     // Campos de controle
     isActive: { type: Boolean, default: true },

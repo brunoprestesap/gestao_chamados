@@ -32,7 +32,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done     |
 | 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done     |
 | 24  | Importador SICAM e vistoria em campo               | Ativos        | done     |
-| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | planned  |
+| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done     |
 | 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | planned  |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
 | 19  | Fotos no chat                                      | Slice 4       | planned  |
@@ -280,12 +280,20 @@ spec [0012](../specs/0012-importador-sicam-vistoria/index.md) · code in `lib/vi
 - [x] Verify it: `/check verify importador SICAM e vistoria` (câmera aceita como coberta, ver `verify.md`)
 - [x] Test it: `/test importador SICAM e vistoria`
 
-### 25. Documentos do ativo e preventiva por categoria · needs a decision
+### 25. Documentos do ativo e preventiva por categoria · done
 
 Laudos e certificados com alerta de vencimento, e chamados preventivos gerados por ativo. from spec 0011
 **Done when:** PMOC, AVCB, ART e laudos têm validade e alerta em 90, 60 e 30 dias; o recorrente por categoria gera um chamado por ativo em operação.
+spec [0013](../specs/0013-documentos-preventiva-ativo/index.md) · code in `lib/ativos/documentos/`, `app/(dashboard)/ativos/documentos/`, `app/api/ativos/documentos/`, `lib/chamados/preventiva-categoria.ts`, `app/(dashboard)/gestao/recurring/`
 
-- [ ] Design it (spec): `/architect documentos e preventiva por ativo`
+- [x] Design it (spec): `/architect documentos e preventiva por ativo`
+- [x] Build it: `/develop documentos e preventiva por ativo`
+  - [x] Documentos, o fio: modelos, carga dos tipos, upload, download, seção na ficha, nginx · AC-1, AC-3, AC-8, AC-10, AC-15
+  - [x] Documentos, ciclo e cobertura: substituição, correção, exclusão, histórico, documento de local e herança, tipos e exigência, painel com Faltando · AC-2, AC-4 a AC-9
+  - [x] Documentos, alerta: job diário, marca por limite, sino e e-mail · AC-11 a AC-14
+  - [x] Preventiva por categoria: escopo novo, lote validado com SLA, pulados, reserva, pausa, aviso de lote e tela · AC-16 a AC-25
+- [x] Verify it: `/check verify documentos e preventiva por ativo` (nginx de 21M aceito para conferir depois do deploy, ver `verify.md`)
+- [x] Test it: `/test documentos e preventiva por ativo`
 
 ### 26. Ativo pela IA no chat e indicadores no IMR · needs a decision
 
@@ -357,6 +365,8 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **48 horas corridas ou úteis**: reavaliar o prazo para avaliar depois de um mês de uso, se vencer em fim de semana gerar reclamação · from spec 0010
 - **TLS na produção**: ligar `nginx/default.tls.conf` e `AUTH_COOKIE_SECURE=true`; sem HTTPS a câmera de `/ativos/ler` não funciona (já está na auditoria de 25/05/2026) · from spec 0011
 - **Reativar local ou categoria de ativo**: hoje uma localização ou categoria desativada só volta pelo banco · from spec 0011
+- **Reserva atômica no recorrente comum**: o ramo `template` de `processRecurringTickets` pode gerar duas vezes se duas execuções do cron se cruzarem; aplicar a mesma reserva do ramo por categoria · from spec 0013
+- **Distribuição em lote da preventiva**: se o Preposto passar a distribuir sempre do mesmo jeito, avaliar rodízio entre técnicos em vez da menor carga da 0008 · from spec 0013
 
 ## Legend
 

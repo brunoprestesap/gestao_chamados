@@ -253,3 +253,67 @@ export async function listarLocaisAtivos(): Promise<NoArvore[]> {
   visitar(null);
   return ordem;
 }
+
+export type NoAncestral = {
+  _id: Types.ObjectId;
+  nome: string;
+  tipo: LocalizacaoTipo;
+  parentId: Types.ObjectId | null;
+  caminho: string;
+  isActive: boolean;
+};
+
+/**
+ * Sobe pelo `parentId` num mapa já carregado: o próprio local primeiro, depois
+ * o pai, até a raiz. Inclui locais desativados. Para em ciclo (não acontece pela
+ * regra, mas a guarda evita laço infinito).
+ */
+export function subirArvore(
+  porId: ReadonlyMap<string, NoAncestral>,
+  localId: string | Types.ObjectId | null | undefined,
+): NoAncestral[] {
+  const cadeia: NoAncestral[] = [];
+  const vistos = new Set<string>();
+  let atual = localId ? porId.get(String(localId)) : undefined;
+  while (atual && !vistos.has(String(atual._id))) {
+    vistos.add(String(atual._id));
+    cadeia.push(atual);
+    atual = atual.parentId ? porId.get(String(atual.parentId)) : undefined;
+  }
+  return cadeia;
+}
+
+/** Prédio de uma cadeia: o próprio local ou o ancestral mais próximo com `tipo: 'predio'`. */
+export function predioDaCadeia(cadeia: readonly NoAncestral[]): NoAncestral | null {
+  return cadeia.find((n) => n.tipo === 'predio') ?? null;
+}
+
+/**
+ * O local e todos os de cima (sala, andar, prédio), lidos do banco um nível por
+ * vez pelo `parentId`. Inclui locais desativados (spec 0013).
+ */
+export async function ancestraisDe(
+  localId: string | Types.ObjectId | null | undefined,
+): Promise<NoAncestral[]> {
+  const cadeia: NoAncestral[] = [];
+  const vistos = new Set<string>();
+  let proximo = localId && Types.ObjectId.isValid(String(localId)) ? String(localId) : null;
+  while (proximo && !vistos.has(proximo) && cadeia.length < 20) {
+    vistos.add(proximo);
+    const no = await LocalizacaoModel.findById(proximo)
+      .select('nome tipo parentId caminho isActive')
+      .lean<NoAncestral>();
+    if (!no) break;
+    cadeia.push({ ...no, parentId: no.parentId ?? null });
+    proximo = no.parentId ? String(no.parentId) : null;
+  }
+  return cadeia;
+}
+
+/** Todos os locais (inclusive desativados) num mapa por id, para subir a árvore em memória. */
+export async function mapaDeLocais(): Promise<Map<string, NoAncestral>> {
+  const docs = await LocalizacaoModel.find({})
+    .select('nome tipo parentId caminho isActive')
+    .lean<NoAncestral[]>();
+  return new Map(docs.map((d) => [String(d._id), { ...d, parentId: d.parentId ?? null }]));
+}

@@ -8,7 +8,7 @@ import {
 import type { ServerToClientEvents, TicketNewPayload } from '@/shared/socket';
 import { textoSemPontuacaoFinal } from '@/shared/texto';
 
-const APP_URL =
+export const APP_URL =
   process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3000';
 
 interface TemplatePayload {
@@ -26,7 +26,7 @@ interface TemplatePayload {
 }
 
 /** Texto digitado por gente (título, local, nome) entra em HTML: nunca cru. */
-function escapeHtml(texto: string): string {
+export function escapeHtml(texto: string): string {
   return texto
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -134,7 +134,16 @@ const BODY_MAP: Record<string, (p: TemplatePayload) => string> = {
     `O atendimento do chamado${p.ticketNumber ? ` <strong>#${p.ticketNumber}</strong>` : ''} foi retomado.`,
 };
 
-function buildHtml(recipientName: string, bodyHtml: string, ticketUrl: string | null): string {
+/**
+ * Moldura do e-mail. `recipientName` e `bodyHtml` já chegam escapados.
+ * `rotuloBotao` muda o texto do botão (o padrão é o do chamado).
+ */
+export function buildHtml(
+  recipientName: string,
+  bodyHtml: string,
+  ticketUrl: string | null,
+  rotuloBotao = 'Ver Chamado',
+): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"></head>
@@ -159,7 +168,7 @@ function buildHtml(recipientName: string, bodyHtml: string, ticketUrl: string | 
                 ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
               <tr>
                 <td style="background:linear-gradient(135deg,#4f46e5,#3b82f6);border-radius:8px;">
-                  <a href="${ticketUrl}" target="_blank" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;">Ver Chamado</a>
+                  <a href="${ticketUrl}" target="_blank" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;">${rotuloBotao}</a>
                 </td>
               </tr>
             </table>`

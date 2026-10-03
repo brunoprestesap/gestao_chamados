@@ -81,6 +81,10 @@ export const ATIVO_HISTORY_ACOES = [
   'importacao_patrimonial',
   'ausente_sicam',
   'retorno_sicam',
+  'documento_cadastrado',
+  'documento_substituido',
+  'documento_corrigido',
+  'documento_excluido',
 ] as const;
 export type AtivoHistoryAcao = (typeof ATIVO_HISTORY_ACOES)[number];
 
@@ -95,6 +99,10 @@ export const ATIVO_HISTORY_ACAO_LABELS: Record<AtivoHistoryAcao, string> = {
   importacao_patrimonial: 'Dados do SICAM atualizados',
   ausente_sicam: 'Ausente do SICAM',
   retorno_sicam: 'Voltou ao SICAM',
+  documento_cadastrado: 'Documento cadastrado',
+  documento_substituido: 'Documento substituído',
+  documento_corrigido: 'Documento corrigido',
+  documento_excluido: 'Documento excluído',
 };
 
 export const ATIVO_HISTORY_ACTOR_TYPES = ['usuario', 'sistema'] as const;
@@ -111,6 +119,8 @@ export const COLECOES_ATIVOS = {
   historico: 'ativohistorico',
   contadores: 'contadores',
   importacoes: 'importacoespatrimoniais',
+  tiposDocumento: 'tiposdocumento',
+  documentos: 'documentosativo',
 } as const;
 
 /** Chave do contador dos códigos internos `MNT-####`. */

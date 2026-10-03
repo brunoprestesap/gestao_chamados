@@ -5,6 +5,12 @@ import path from 'path';
 
 import { canManage, verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import {
+  detectMimeType,
+  montarNomeEmDisco,
+  resolverCaminhoSeguro,
+  UPLOADS_ROOT,
+} from '@/lib/uploads/arquivo';
 import { AttachmentModel } from '@/models/Attachment';
 import { ChamadoModel } from '@/models/Chamado';
 import {
@@ -15,51 +21,7 @@ import {
 } from '@/shared/chamados/attachment.schemas';
 
 /** Base directory for uploads — outside public/ to require auth for serving. */
-const UPLOADS_BASE = path.resolve(process.cwd(), 'data', 'uploads', 'chamados');
-
-/** Magic bytes signatures for allowed file types. */
-const MAGIC_BYTES: Record<string, { offset: number; bytes: number[] }[]> = {
-  'image/jpeg': [{ offset: 0, bytes: [0xff, 0xd8, 0xff] }],
-  'image/png': [{ offset: 0, bytes: [0x89, 0x50, 0x4e, 0x47] }],
-  'image/webp': [
-    // RIFF....WEBP
-    { offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] },
-    { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
-  ],
-  'application/pdf': [{ offset: 0, bytes: [0x25, 0x50, 0x44, 0x46] }],
-};
-
-function detectMimeType(buffer: Uint8Array): string | null {
-  for (const [mime, signatures] of Object.entries(MAGIC_BYTES)) {
-    const allMatch = signatures.every((sig) =>
-      sig.bytes.every((byte, i) => buffer[sig.offset + i] === byte),
-    );
-    if (allMatch) return mime;
-  }
-  return null;
-}
-
-function sanitizeFilename(name: string): string {
-  // Normaliza separadores Windows para POSIX antes do basename — `path.basename`
-  // nativo não reconhece `\` no Linux, deixando passar path traversal cross-platform.
-  const normalized = name.replace(/\\/g, '/');
-  const base = path.posix.basename(normalized);
-  return base
-    .replace(/\0/g, '')
-    .replace(/[/\\:*?"<>|]/g, '')
-    .replace(/\s+/g, '_')
-    .slice(0, 200);
-}
-
-function mimeToExt(mime: string): string {
-  const map: Record<string, string> = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/webp': '.webp',
-    'application/pdf': '.pdf',
-  };
-  return map[mime] ?? '';
-}
+const UPLOADS_BASE = path.resolve(UPLOADS_ROOT, 'chamados');
 
 export async function POST(request: NextRequest) {
   try {
@@ -155,23 +117,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Sanitize filename and create unique name
-    const sanitized = sanitizeFilename(file.name) || 'arquivo';
-    const ext = path.extname(sanitized) || mimeToExt(detectedMime);
-    const baseName = path.basename(sanitized, ext) || 'arquivo';
-    const timestamp = Date.now();
-    const filename = `${timestamp}-${baseName}${ext}`;
+    const filename = montarNomeEmDisco(file.name, detectedMime);
 
     // Build upload directory and verify no path traversal
-    const uploadDir = path.resolve(UPLOADS_BASE, chamadoId);
-    if (!uploadDir.startsWith(UPLOADS_BASE + path.sep) && uploadDir !== UPLOADS_BASE) {
+    const destino = resolverCaminhoSeguro(UPLOADS_BASE, chamadoId);
+    if (!destino) {
       return NextResponse.json({ ok: false, error: 'Caminho inválido.' }, { status: 400 });
     }
+    const uploadDir = destino.dir;
 
     await fs.mkdir(uploadDir, { recursive: true });
 
     // Build file path and verify no path traversal
-    const filePath = path.resolve(uploadDir, filename);
-    if (!filePath.startsWith(uploadDir + path.sep)) {
+    const filePath = resolverCaminhoSeguro(UPLOADS_BASE, chamadoId, filename)?.arquivo;
+    if (!filePath) {
       return NextResponse.json({ ok: false, error: 'Nome de arquivo inválido.' }, { status: 400 });
     }
 

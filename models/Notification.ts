@@ -18,6 +18,9 @@ const NOTIFICATION_TYPES = [
   'ticket:corrected',
   'sla:warning',
   'sla:breach',
+  // Spec 0013: só gravados (sem Socket.IO), aparecem no sino na próxima leitura.
+  'documento:vencimento',
+  'preventiva:lote',
 ] as const;
 
 const NotificationSchema = new Schema(

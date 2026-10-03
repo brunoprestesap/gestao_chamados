@@ -37,15 +37,35 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { FINAL_PRIORITY_LABELS, FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
 import {
   type CreateRecurringTicketInput,
   CreateRecurringTicketSchema,
   DAY_OF_WEEK_LABELS,
+  ESCOPO_RECORRENTE_LABELS,
+  type EscopoRecorrente,
+  ESCOPOS_RECORRENTE,
   RECURRENCE_TYPE_LABELS,
   type RecurrenceType,
 } from '@/shared/chamados/recurring-ticket.schemas';
+import { buildTypeIdByTipo } from '@/shared/chamados/tipo-servico';
 
 type UnitOption = { id: string; name: string };
+type CatalogOption = { id: string; name: string };
+
+/** Opções do escopo por categoria (spec 0013, AC-16), montadas no servidor. */
+export type OpcoesPreventiva = {
+  categorias: {
+    id: string;
+    nome: string;
+    subtypeId: string | null;
+    tipoServico: string | null;
+    periodicidadeDias: number | null;
+  }[];
+  locais: { id: string; caminho: string }[];
+};
+
+const TODOS_OS_LOCAIS = '__todos__';
 type UserOption = { id: string; name: string; username: string };
 
 const TIPO_SERVICO_DISPLAY = ['Manutenção Predial', 'Ar-Condicionado', 'Elevador'] as const;
@@ -57,6 +77,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   editingItem: RecurringItem | null;
   onSuccess: () => void;
+  opcoes?: OpcoesPreventiva;
 }
 
 const emptyDefaults: CreateRecurringTicketInput = {
@@ -74,13 +95,26 @@ const emptyDefaults: CreateRecurringTicketInput = {
   intervalDays: undefined,
   subtypeId: '',
   catalogServiceId: '',
+  escopo: 'template',
+  categoriaAtivoId: '',
+  localizacaoId: '',
+  finalPriority: 'BAIXA',
 };
 
-export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSuccess }: Props) {
+export function RecurringTicketDialog({
+  open,
+  onOpenChange,
+  editingItem,
+  onSuccess,
+  opcoes = { categorias: [], locais: [] },
+}: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [types, setTypes] = useState<{ id: string; name: string }[]>([]);
+  const [subtypes, setSubtypes] = useState<CatalogOption[]>([]);
+  const [services, setServices] = useState<CatalogOption[]>([]);
   const [loading, setLoading] = useState(false);
 
   const isEditing = !!editingItem;
@@ -94,6 +128,72 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
   const dayOfWeek = form.watch('dayOfWeek');
   const dayOfMonth = form.watch('dayOfMonth');
   const intervalDays = form.watch('intervalDays');
+  const escopo = (form.watch('escopo') ?? 'template') as EscopoRecorrente;
+  const tipoServico = form.watch('tipoServico');
+  const subtypeId = form.watch('subtypeId');
+  const typeId = useMemo(
+    () => (tipoServico ? (buildTypeIdByTipo(types).get(tipoServico) ?? '') : ''),
+    [types, tipoServico],
+  );
+
+  // Subtipos do tipo escolhido.
+  useEffect(() => {
+    if (!open || !typeId) return;
+    const controller = new AbortController();
+    fetch(`/api/catalog/subtypes?typeId=${typeId}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const list = (data.items ?? []) as { _id: string; name: string; isActive?: boolean }[];
+        setSubtypes(
+          list
+            .filter((st) => st.isActive !== false)
+            .map((st) => ({ id: String(st._id), name: st.name })),
+        );
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [open, typeId]);
+
+  // Serviços do catálogo do tipo e do subtipo escolhidos.
+  useEffect(() => {
+    if (!open || !typeId || !subtypeId) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ typeId, subtypeId });
+    fetch(`/api/catalog/services?${params}`, { cache: 'no-store', signal: controller.signal })
+      .then((r) => r.json())
+      .then((data) => {
+        const list = (data.items ?? []) as { _id: string; code?: string; name?: string }[];
+        setServices(
+          list.map((sv) => ({
+            id: String(sv._id),
+            name: [sv.code, sv.name].filter(Boolean).join(' · '),
+          })),
+        );
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [open, typeId, subtypeId]);
+
+  /** Escolher a categoria preenche subtipo e intervalo (AC-16); os dois seguem editáveis. */
+  function escolherCategoria(id: string) {
+    form.setValue('categoriaAtivoId', id, { shouldValidate: true });
+    const cat = opcoes.categorias.find((c) => c.id === id);
+    if (!cat) return;
+    if (cat.subtypeId) {
+      if (cat.tipoServico) {
+        form.setValue('tipoServico', cat.tipoServico as (typeof TIPO_SERVICO_DISPLAY)[number]);
+      }
+      form.setValue('subtypeId', cat.subtypeId);
+      form.setValue('catalogServiceId', '');
+    }
+    if (cat.periodicidadeDias) {
+      form.setValue('recurrenceType', 'custom');
+      form.setValue('intervalDays', cat.periodicidadeDias);
+    }
+  }
 
   // Load dependencies when dialog opens
   useEffect(() => {
@@ -107,8 +207,14 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
       fetch('/api/users?active=true', { cache: 'no-store', signal: controller.signal }).then((r) =>
         r.json(),
       ),
+      fetch('/api/catalog/types', { cache: 'no-store', signal: controller.signal }).then((r) =>
+        r.json(),
+      ),
     ])
-      .then(([unitsData, usersData]) => {
+      .then(([unitsData, usersData, typesData]) => {
+        const typesList = (typesData.items ?? []) as { _id: string; name: string }[];
+        setTypes(typesList.map((t) => ({ id: String(t._id), name: t.name })));
+
         const unitsList = (unitsData.items ?? []) as {
           _id?: string;
           id?: string;
@@ -168,6 +274,12 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
         intervalDays: editingItem.intervalDays,
         subtypeId: editingItem.subtypeId ?? '',
         catalogServiceId: editingItem.catalogServiceId ?? '',
+        escopo: editingItem.escopo,
+        categoriaAtivoId: editingItem.categoriaAtivoId ?? '',
+        localizacaoId: editingItem.localizacaoId ?? '',
+        finalPriority:
+          (editingItem.finalPriority as (typeof FINAL_PRIORITY_VALUES)[number] | undefined) ??
+          'BAIXA',
       });
     } else {
       form.reset(emptyDefaults);
@@ -365,6 +477,156 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                   </div>
 
                   <div className="space-y-5 sm:space-y-4">
+                    {/* Escopo (spec 0013): não muda depois de criado. */}
+                    <FormField
+                      control={form.control}
+                      name="escopo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Escopo</FormLabel>
+                          <div
+                            role="radiogroup"
+                            aria-label="Escopo do agendamento"
+                            className="grid gap-2 sm:grid-cols-2"
+                          >
+                            {ESCOPOS_RECORRENTE.map((op) => {
+                              const marcado = (field.value ?? 'template') === op;
+                              return (
+                                <button
+                                  key={op}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={marcado}
+                                  disabled={isEditing}
+                                  onClick={() => field.onChange(op)}
+                                  className={`rounded-xl border px-3 py-2.5 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed ${
+                                    marcado
+                                      ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-100'
+                                      : 'border-border text-muted-foreground hover:border-indigo-300'
+                                  } ${isEditing && !marcado ? 'opacity-50' : ''}`}
+                                >
+                                  <span className="block font-medium">
+                                    {ESCOPO_RECORRENTE_LABELS[op]}
+                                  </span>
+                                  <span className="block text-xs">
+                                    {op === 'template'
+                                      ? 'Um chamado aberto por rodada, para a triagem.'
+                                      : 'Um chamado já validado, com prazo, para cada equipamento Tier A em operação.'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {isEditing && (
+                            <FormDescription className="text-xs">
+                              O escopo não muda depois de criado.
+                            </FormDescription>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {escopo === 'categoria_ativo' && (
+                      <div className="grid gap-5 rounded-xl border border-indigo-200/70 bg-indigo-50/40 p-3 sm:grid-cols-2 sm:gap-4 dark:border-indigo-900/60 dark:bg-indigo-950/20">
+                        <FormField
+                          control={form.control}
+                          name="categoriaAtivoId"
+                          render={({ field }) => (
+                            <FormItem className="sm:col-span-2">
+                              <FormLabel>
+                                Categoria de ativo <span className="text-destructive">*</span>
+                              </FormLabel>
+                              <Select onValueChange={escolherCategoria} value={field.value ?? ''}>
+                                <FormControl>
+                                  <SelectTrigger className="w-full min-h-11 sm:min-h-10">
+                                    <SelectValue placeholder="Selecione a categoria..." />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {opcoes.categorias.map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                      {c.nome}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription className="text-xs">
+                                Preenche o subtipo e o intervalo da categoria; os dois continuam
+                                editáveis.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="localizacaoId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Local (opcional)</FormLabel>
+                              <Select
+                                onValueChange={(v) =>
+                                  field.onChange(v === TODOS_OS_LOCAIS ? '' : v)
+                                }
+                                value={field.value || TODOS_OS_LOCAIS}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="w-full min-h-11 sm:min-h-10">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent
+                                  className="max-h-[min(60vh,18rem)]"
+                                  position="popper"
+                                >
+                                  <SelectItem value={TODOS_OS_LOCAIS}>Todos os locais</SelectItem>
+                                  {opcoes.locais.map((l) => (
+                                    <SelectItem key={l.id} value={l.id}>
+                                      {l.caminho}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription className="text-xs">
+                                Só os equipamentos deste local e dos de baixo.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="finalPriority"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                Prioridade <span className="text-destructive">*</span>
+                              </FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || 'BAIXA'}>
+                                <FormControl>
+                                  <SelectTrigger className="w-full min-h-11 sm:min-h-10">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {FINAL_PRIORITY_VALUES.map((p) => (
+                                    <SelectItem key={p} value={p}>
+                                      {FINAL_PRIORITY_LABELS[p]}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription className="text-xs">
+                                Define o prazo de SLA de cada chamado gerado.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
                     {/* Nome — full width */}
                     <FormField
                       control={form.control}
@@ -713,7 +975,15 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                             <FormLabel>
                               Tipo de serviço <span className="text-destructive">*</span>
                             </FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                            <Select
+                              onValueChange={(v) => {
+                                if (v === field.value) return;
+                                field.onChange(v);
+                                form.setValue('subtypeId', '');
+                                form.setValue('catalogServiceId', '');
+                              }}
+                              value={field.value ?? ''}
+                            >
                               <FormControl>
                                 <SelectTrigger className="w-full min-h-11 sm:min-h-10">
                                   <SelectValue placeholder="Selecione..." />
@@ -780,6 +1050,91 @@ export function RecurringTicketDialog({ open, onOpenChange, editingItem, onSucce
                                     {opt}
                                   </SelectItem>
                                 ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Subtipo + serviço do catálogo (obrigatórios no modelo) */}
+                    <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+                      <FormField
+                        control={form.control}
+                        name="subtypeId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Subtipo de serviço <span className="text-destructive">*</span>
+                            </FormLabel>
+                            <Select
+                              onValueChange={(v) => {
+                                // O Radix manda '' quando o valor chega antes da lista
+                                // de opções (categoria, edição); não é escolha da pessoa.
+                                if (!v || v === field.value) return;
+                                field.onChange(v);
+                                form.setValue('catalogServiceId', '');
+                              }}
+                              value={field.value ?? ''}
+                              disabled={!typeId}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="w-full min-h-11 sm:min-h-10">
+                                  <SelectValue
+                                    placeholder={
+                                      typeId ? 'Selecione...' : 'Escolha o tipo de serviço antes'
+                                    }
+                                  />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {subtypes.map((st) => (
+                                  <SelectItem key={st.id} value={st.id}>
+                                    {st.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="catalogServiceId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Serviço do catálogo <span className="text-destructive">*</span>
+                            </FormLabel>
+                            <Select
+                              onValueChange={(v) => v && field.onChange(v)}
+                              value={field.value ?? ''}
+                              disabled={!subtypeId}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="w-full min-h-11 sm:min-h-10">
+                                  <SelectValue
+                                    placeholder={
+                                      subtypeId ? 'Selecione...' : 'Escolha o subtipo antes'
+                                    }
+                                  />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="max-h-[min(60vh,18rem)]" position="popper">
+                                {services.length === 0 ? (
+                                  <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                                    Nenhum serviço para este subtipo.
+                                  </div>
+                                ) : (
+                                  services.map((sv) => (
+                                    <SelectItem key={sv.id} value={sv.id}>
+                                      {sv.name}
+                                    </SelectItem>
+                                  ))
+                                )}
                               </SelectContent>
                             </Select>
                             <FormMessage />

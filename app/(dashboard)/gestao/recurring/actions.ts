@@ -7,16 +7,62 @@ import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { calculateNextRunAt } from '@/lib/recurring-utils';
+import { CategoriaAtivoModel } from '@/models/CategoriaAtivo';
+import { LocalizacaoModel } from '@/models/Localizacao';
 import { RecurringTicketModel } from '@/models/RecurringTicket';
 import {
   type CreateRecurringTicketInput,
   CreateRecurringTicketSchema,
+  type CreateRecurringTicketValues,
   type RecurrenceType,
   type UpdateRecurringTicketInput,
   UpdateRecurringTicketSchema,
 } from '@/shared/chamados/recurring-ticket.schemas';
 
 type Result<T = void> = { ok: true; data?: T } | { ok: false; error: string };
+
+/**
+ * Escopo por categoria (spec 0013, AC-16): categoria ativa e local existente.
+ * Devolve os três campos prontos para gravar, ou o erro. No escopo `template`
+ * os campos ficam vazios.
+ */
+async function camposDoEscopo(data: CreateRecurringTicketValues): Promise<
+  | {
+      ok: true;
+      campos: {
+        categoriaAtivoId: Types.ObjectId | null;
+        localizacaoId: Types.ObjectId | null;
+        finalPriority: string | null;
+      };
+    }
+  | { ok: false; error: string }
+> {
+  if (data.escopo !== 'categoria_ativo') {
+    return {
+      ok: true,
+      campos: { categoriaAtivoId: null, localizacaoId: null, finalPriority: null },
+    };
+  }
+  const categoria = await CategoriaAtivoModel.findOne({
+    _id: data.categoriaAtivoId,
+    isActive: true,
+  })
+    .select('_id')
+    .lean();
+  if (!categoria) return { ok: false, error: 'Categoria de ativo inexistente ou desativada.' };
+  if (data.localizacaoId) {
+    const local = await LocalizacaoModel.exists({ _id: data.localizacaoId });
+    if (!local) return { ok: false, error: 'Local inexistente.' };
+  }
+  return {
+    ok: true,
+    campos: {
+      categoriaAtivoId: new Types.ObjectId(data.categoriaAtivoId),
+      localizacaoId: data.localizacaoId ? new Types.ObjectId(data.localizacaoId) : null,
+      finalPriority: data.finalPriority ?? null,
+    },
+  };
+}
 
 /**
  * Cria um novo agendamento de chamado recorrente.
@@ -36,6 +82,9 @@ export async function createRecurringTemplateAction(
 
     const data = parsed.data;
     await dbConnect();
+
+    const escopo = await camposDoEscopo(data);
+    if (!escopo.ok) return { ok: false, error: escopo.error };
 
     const { weekdays } = await getBusinessCalendarConfig();
     const nextRunAt = calculateNextRunAt(
@@ -67,6 +116,8 @@ export async function createRecurringTemplateAction(
       nextRunAt,
       isActive: true,
       createdByUserId: new Types.ObjectId(session.userId),
+      escopo: data.escopo,
+      ...escopo.campos,
     });
 
     revalidatePath('/gestao/recurring');
@@ -98,6 +149,13 @@ export async function updateRecurringTemplateAction(
 
     const existing = await RecurringTicketModel.findById(id);
     if (!existing) return { ok: false, error: 'Agendamento não encontrado.' };
+
+    // O escopo não muda depois de criado (spec 0013, AC-16).
+    if ((existing.escopo ?? 'template') !== data.escopo) {
+      return { ok: false, error: 'O escopo do agendamento não muda depois de criado.' };
+    }
+    const escopo = await camposDoEscopo(data);
+    if (!escopo.ok) return { ok: false, error: escopo.error };
 
     // Recalcular nextRunAt se recorrência mudou
     const recurrenceChanged =
@@ -141,6 +199,8 @@ export async function updateRecurringTemplateAction(
           dayOfMonth: data.dayOfMonth,
           intervalDays: data.intervalDays,
           nextRunAt,
+          // No escopo `template` os campos novos não são tocados.
+          ...(data.escopo === 'categoria_ativo' ? escopo.campos : {}),
         },
       },
     );

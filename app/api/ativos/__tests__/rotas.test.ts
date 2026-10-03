@@ -24,6 +24,7 @@ vi.mock('@/models/Ativo', () => ({
 vi.mock('@/lib/ativos/seletor', () => ({
   buscarAtivosSeletor: (...a: unknown[]) => buscar(...a),
   itemSeletorPorId: (...a: unknown[]) => porId(...a),
+  FILTRO_RECEBE_DOCUMENTO: { status: { $ne: 'baixado' } },
 }));
 
 import { GET as getPorId } from '../[id]/route';
@@ -99,8 +100,21 @@ describe('GET /api/ativos/busca (AC-14)', () => {
   it('repassa a busca com limite padrão 20 e devolve os itens', async () => {
     buscar.mockResolvedValueOnce([{ id: ID, codigo: '11997' }]);
     const r = await getBusca(req('/api/ativos/busca?q=%20119%20'));
-    expect(buscar).toHaveBeenCalledWith('119', 20);
+    expect(buscar).toHaveBeenCalledWith('119', 20, undefined);
     expect(await r.json()).toEqual({ items: [{ id: ID, codigo: '11997' }] });
+  });
+
+  it('com escopo=documentos busca qualquer tier, ainda sem baixado (spec 0013)', async () => {
+    sessao.atual = { userId: ID, role: 'Preposto' };
+    buscar.mockResolvedValueOnce([]);
+    await getBusca(req('/api/ativos/busca?q=11&escopo=documentos'));
+    expect(buscar).toHaveBeenCalledWith('11', 20, { status: { $ne: 'baixado' } });
+  });
+
+  it('Solicitante não usa o escopo de documentos (spec 0013, AC-10)', async () => {
+    const r = await getBusca(req('/api/ativos/busca?q=11&escopo=documentos'));
+    expect(r.status).toBe(403);
+    expect(buscar).not.toHaveBeenCalled();
   });
 
   it('recusa limite acima de 50', async () => {

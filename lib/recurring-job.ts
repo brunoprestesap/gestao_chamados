@@ -3,6 +3,7 @@ import 'server-only';
 import { Types } from 'mongoose';
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
+import { gerarLotePreventiva, type ModeloPreventiva } from '@/lib/chamados/preventiva-categoria';
 import { dbConnect } from '@/lib/db';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { emitToRoom } from '@/lib/realtime-emit';
@@ -53,6 +54,35 @@ export async function processRecurringTickets(): Promise<RecurringJobReport> {
 
   for (const template of templates) {
     report.processed++;
+
+    // Preventiva por categoria de ativo (spec 0013): ramo próprio, com reserva
+    // atômica. O ramo `template` abaixo não muda (AC-24).
+    if (template.escopo === 'categoria_ativo') {
+      try {
+        const lote = await gerarLotePreventiva(template as unknown as ModeloPreventiva, {
+          agora: new Date(),
+          weekdays,
+          gestores: managers,
+        });
+        if (lote.situacao === 'nao_reservado') {
+          report.details.push(`PULADO: ${template.name} — já reservado por outra execução`);
+        } else {
+          report.created += lote.gerados;
+          report.details.push(
+            lote.pausado
+              ? `PAUSADO: ${template.name} — ${lote.motivo}`
+              : `LOTE: ${template.name} → ${lote.gerados} gerados, ${lote.pulados} pulados, ${lote.semSla} sem SLA, ${lote.erros} com erro`,
+          );
+        }
+      } catch (err) {
+        report.errors++;
+        const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+        report.details.push(`ERRO: ${template.name} — ${msg}`);
+        console.error(`[recurring-job] Erro no lote do template ${String(template._id)}:`, err);
+      }
+      continue;
+    }
+
     try {
       // Validar solicitante ativo antes de criar chamado
       const solicitante = await UserModel.findById(template.solicitanteId)
