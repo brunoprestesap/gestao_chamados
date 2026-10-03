@@ -44,13 +44,15 @@ _Passos tirados dos critérios de aceite da spec 0013. O `/check verify` roda es
 - [x] `curl -X POST -H "x-cron-secret: $CRON_SECRET" http://localhost:3000/api/cron/recurring-tickets` → os `details` trazem `LOTE: <nome> → N gerados, M pulados, ...` → AC-17, AC-21
 - [x] Duas chamadas simultâneas do comando acima com o modelo vencido → um lote só (contar chamados por `originTemplateId`) → AC-22
 - [x] Modelo com `nextRunAt` três períodos no passado → um lote só e `nextRunAt` novo no futuro → AC-22
-- [ ] Na VPS, depois do deploy: `docker exec severino-cron-1 crontab -l` mostra a linha `0 11 * * * ... documentos-vencimento` junto das outras três → AC-11
-- [ ] Na VPS: `curl -s -o /dev/null -w '%{http_code}'` com um PDF de 15 MB para `/api/ativos/documentos` passa pelo nginx (sem 413 do nginx); um de 22 MB recebe 413 do nginx → AC-15
+- [x] Na VPS, depois do deploy: `docker exec severino-cron-1 crontab -l` mostra a linha `0 11 * * * ... documentos-vencimento` junto das outras três → AC-11
+- [x] Na VPS: `curl -s -o /dev/null -w '%{http_code}'` com um PDF de 15 MB para `/api/ativos/documentos` passa pelo nginx (sem 413 do nginx); um de 22 MB recebe 413 do nginx → AC-15
 - [x] `MONGO_TEST_URI=mongodb://127.0.0.1:27018/severino_test npx vitest run lib/ativos/documentos lib/chamados/__tests__/preventiva-categoria.db.test.ts` → todos passam (corrida de gravação, job em paralelo, reserva do lote) → AC-4, AC-13, AC-22
 
 ## Pendente depois do deploy
 
 O engenheiro aceitou em 03/10/2026 fechar a verificação sem os dois passos da VPS (crontab do container `cron` e limite de 21M do nginx em `/api/ativos/documentos`). A parte da tela e da rota do AC-15 foi provada localmente. Recomendo rodar os dois passos logo depois do primeiro deploy e marcá-los aqui.
+
+Feito em 03/10/2026, depois do deploy de `d1be57f`: o crontab mostra a linha das 11:00 UTC; 15 MB passa pelo nginx (401 do Next, sem sessão) e 22 MB recebe 413 do nginx. O nginx só pegou o limite novo depois de `docker compose up -d --force-recreate nginx`, porque o deploy não recria esse container.
 
 ## Value sourcing
 
