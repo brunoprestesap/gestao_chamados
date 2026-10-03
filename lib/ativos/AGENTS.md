@@ -1,21 +1,22 @@
 # lib/ativos: gestão de ativos
 
-As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadastro do ativo com histórico, o seletor do chamado, a ficha, a lista, o vínculo com chamado e a carga do Tier A. As telas estão em `app/(dashboard)/ativos/` e `app/(dashboard)/configuracoes/categorias-ativo/`; as rotas de leitura, em `app/api/ativos/`. Spec: `docs/specs/0011-gestao-ativos/`.
+As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadastro do ativo com histórico, o seletor do chamado, a ficha, a lista, o vínculo com chamado e a carga do Tier A. As telas estão em `app/(dashboard)/ativos/` e `app/(dashboard)/configuracoes/categorias-ativo/`; as rotas de leitura, em `app/api/ativos/`. Specs: `docs/specs/0011-gestao-ativos/` e, para documentos, `docs/specs/0013-documentos-preventiva-ativo/`.
 
 ## Arquivos principais
 
-| Arquivo                              | O que tem                                                                                                                                                  |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `localizacao.ts`                     | Criar, editar, mover e desativar local; `recalcularSubarvore` (idempotente); `idsDaSubarvore` (filtro por prédio); `listarLocaisAtivos` em ordem de árvore |
-| `cadastro.ts`                        | `criarAtivo`, `editarAtivo`, `alterarStatusAtivo`, `validarAtivo`, `proximoCodigoInterno` (`MNT-####`)                                                     |
-| `categoria.ts`                       | Categorias de ativo (só Admin)                                                                                                                             |
-| `seletor.ts`                         | `FILTRO_VINCULAVEL`, a busca do seletor e `buscarAtivoVinculavel`, com o tipo e o subtipo sugeridos                                                        |
-| `vinculo.ts`                         | `vincularAtivoAoChamado`, usado por `vincularAtivoChamadoAction` na gestão                                                                                 |
-| `ficha.ts`                           | `carregarFicha`, já recortada pelo perfil; `destinoDoChamado`                                                                                              |
-| `lista.ts`, `opcoes.ts`, `resumo.ts` | A lista de `/ativos`, as opções dos formulários e o `ativo` do DTO do chamado                                                                              |
-| `auditoria.ts`                       | `gravarHistoricoOuDesfazer`                                                                                                                                |
-| `codigo.ts`                          | `normalizarCodigo` (sem `server-only`: o cliente também usa)                                                                                               |
-| `carga.ts`, `carga-script.ts`        | Parser do CSV e o script mongosh da carga (gerado por `scripts/gerar-carga-ativos.ts`)                                                                     |
+| Arquivo                              | O que tem                                                                                                                                                                                                  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `localizacao.ts`                     | Criar, editar, mover e desativar local; `recalcularSubarvore` (idempotente); `idsDaSubarvore` (filtro por prédio); `listarLocaisAtivos` em ordem de árvore                                                 |
+| `cadastro.ts`                        | `criarAtivo`, `editarAtivo`, `alterarStatusAtivo`, `validarAtivo`, `proximoCodigoInterno` (`MNT-####`)                                                                                                     |
+| `categoria.ts`                       | Categorias de ativo (só Admin)                                                                                                                                                                             |
+| `seletor.ts`                         | `FILTRO_VINCULAVEL`, a busca do seletor e `buscarAtivoVinculavel`, com o tipo e o subtipo sugeridos                                                                                                        |
+| `vinculo.ts`                         | `vincularAtivoAoChamado`, usado por `vincularAtivoChamadoAction` na gestão                                                                                                                                 |
+| `ficha.ts`                           | `carregarFicha`, já recortada pelo perfil; `destinoDoChamado`                                                                                                                                              |
+| `lista.ts`, `opcoes.ts`, `resumo.ts` | A lista de `/ativos`, as opções dos formulários e o `ativo` do DTO do chamado                                                                                                                              |
+| `auditoria.ts`                       | `gravarHistoricoOuDesfazer`                                                                                                                                                                                |
+| `codigo.ts`                          | `normalizarCodigo` (sem `server-only`: o cliente também usa)                                                                                                                                               |
+| `carga.ts`, `carga-script.ts`        | Parser do CSV e o script mongosh da carga (gerado por `scripts/gerar-carga-ativos.ts`)                                                                                                                     |
+| `documentos/`                        | Documentos do ativo e do local (spec 0013): `gravar.ts` (cadastro com substituição, correção, exclusão), `situacao.ts` (datas e limites), `ficha.ts`, `painel.ts`, `alerta-job.ts`, `aviso.ts`, `tipos.ts` |
 
 ## Convenções
 
@@ -27,11 +28,20 @@ As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadas
 - `camposPatrimoniais` só sai do servidor para Admin e Preposto (`carregarFicha` recorta antes de devolver).
 - `caminho` do local é materializado: depois de mudar nome ou pai, chame `recalcularSubarvore`, que recalcula tudo a partir do banco.
 - Arquivos usados pela carga (`carga.ts`, `carga-script.ts`, `codigo.ts`) importam por caminho relativo, sem o alias `@/`, porque rodam pelo `tsx` fora do Next.
+- Documento (spec 0013): no máximo um `vigente` por tipo e alvo, garantido pelos índices únicos parciais de `DocumentoAtivo`. Sem transação, a substituição marca o anterior pelo `_id` lido e desfaz a marca se o novo não entrar. Documento nunca é apagado do banco nem do disco: o fim é `excluido`.
+- Datas de documento são dia sem hora, gravadas como meia noite UTC; "hoje" é sempre `hojeEmBelem()` e os dias saem de `diasRestantes`/`situacaoDoDocumento` (`documentos/situacao.ts`), nunca de `validadeAte - new Date()`. A situação (vencido, vence em N dias) é calculada na leitura, nunca gravada.
+- O aviso de vencimento marca cada limite (`90`, `60`, `30`, `vencido`) em `alertasEnviados` por atualização condicional; só quem grava a marca cria a `Notification` e manda o e-mail. Corrigir a validade apaga as marcas que a data nova ainda não alcança.
+- Documento herdado sobe a árvore pelo `parentId` (`ancestraisDe` no banco, `subirArvore` com `mapaDeLocais` em memória); o prédio de um local é ele mesmo ou o ancestral `predio` mais próximo (`predioDaCadeia`). Nada reimplementa esse percurso.
+- Ler documento e baixar o arquivo: Admin, Preposto e Técnico (`podeVerDocumentos`); escrever: Admin e Preposto; tipo de documento: só Admin. O download responde `Cache-Control: no-store`, para a checagem valer a cada pedido.
+- `TipoDocumento.chave` nunca muda (categorias e documentos guardam a chave). Ao salvar a categoria, `exigeDocumento` guarda só chaves que existem em `TipoDocumento`, ativas ou não.
+- O upload de documento é a rota `POST /api/ativos/documentos` (multipart, até 20 MB), nunca Server Action, e fica fora do matcher do `proxy.ts`. A checagem de tipo e o nome em disco vêm de `lib/uploads/arquivo.ts`, o mesmo apoio dos anexos de chamado.
+- A busca do seletor com `escopo=documentos` usa `FILTRO_RECEBE_DOCUMENTO` (qualquer tier, nunca `baixado`); para chamado continua só `FILTRO_VINCULAVEL`.
 
 ## Comandos
 
 ```bash
 npx tsx scripts/gerar-carga-ativos.ts [csv] [saída]   # gera o script mongosh da carga do Tier A (na máquina de dev; o passo a passo na VPS está no AGENTS.md raiz, seção Deploy)
+mongosh manutencao < scripts/carga-tipos-documento.js   # cria os cinco tipos de documento que faltarem (idempotente); a lista bate com seed.js e com TIPOS_DOCUMENTO_INICIAIS por teste
 npm run zxing:wasm                                    # recopia o .wasm da câmera depois de atualizar barcode-detector
 MONGO_TEST_URI=mongodb://localhost:27018/severino_test npx vitest run lib/ativos   # inclui os testes de banco real
 ```
