@@ -1,60 +1,11 @@
-import path from 'path';
 import { describe, expect, it } from 'vitest';
 
-/**
- * Testes para as funções utilitárias de upload.
- *
- * As funções sanitizeFilename e detectMimeType são internas ao route.ts,
- * por isso são reimplementadas aqui com base no código-fonte para garantir
- * cobertura das regras de negócio críticas de segurança.
- *
- * Se futuramente essas funções forem extraídas para um módulo utilitário
- * (ex: lib/upload-utils.ts), os testes podem ser atualizados para importar
- * diretamente desse módulo.
- */
-
-// ── Reimplementação das funções internas (espelham o route.ts) ────
+import { detectMimeType, sanitizeFilename } from '@/lib/uploads/arquivo';
 
 /**
- * Sanitiza o nome de arquivo: remove path traversal, null bytes,
- * caracteres especiais e espaços, limitando a 200 chars.
+ * Testes das funções de upload, extraídas para `lib/uploads/arquivo.ts`
+ * (spec 0013): sanitização de nome e checagem por bytes iniciais.
  */
-function sanitizeFilename(name: string): string {
-  const normalized = name.replace(/\\/g, '/');
-  const base = path.posix.basename(normalized);
-  return base
-    .replace(/\0/g, '')
-    .replace(/[/\\:*?"<>|]/g, '')
-    .replace(/\s+/g, '_')
-    .slice(0, 200);
-}
-
-/**
- * Magic bytes signatures — mesmo mapeamento do route.ts.
- */
-const MAGIC_BYTES: Record<string, { offset: number; bytes: number[] }[]> = {
-  'image/jpeg': [{ offset: 0, bytes: [0xff, 0xd8, 0xff] }],
-  'image/png': [{ offset: 0, bytes: [0x89, 0x50, 0x4e, 0x47] }],
-  'image/webp': [
-    { offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] },
-    { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
-  ],
-  'application/pdf': [{ offset: 0, bytes: [0x25, 0x50, 0x44, 0x46] }],
-};
-
-/**
- * Detecta o tipo MIME pelo conteúdo do buffer (magic bytes).
- * Retorna null se não reconhecido.
- */
-function detectMimeType(buffer: Uint8Array): string | null {
-  for (const [mime, signatures] of Object.entries(MAGIC_BYTES)) {
-    const allMatch = signatures.every((sig) =>
-      sig.bytes.every((byte, i) => buffer[sig.offset + i] === byte),
-    );
-    if (allMatch) return mime;
-  }
-  return null;
-}
 
 // ── Helpers para criar buffers de teste ───────────────────────────
 

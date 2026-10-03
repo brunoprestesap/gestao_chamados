@@ -21,11 +21,14 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DAY_OF_WEEK_LABELS,
+  ESCOPO_RECORRENTE_LABELS,
+  type EscopoRecorrente,
+  LOTE_INTERROMPIDO_MS,
   RECURRENCE_TYPE_LABELS,
   type RecurrenceType,
 } from '@/shared/chamados/recurring-ticket.schemas';
 
-import { RecurringTicketDialog } from './RecurringTicketDialog';
+import { type OpcoesPreventiva, RecurringTicketDialog } from './RecurringTicketDialog';
 
 export type RecurringItem = {
   _id: string;
@@ -47,7 +50,40 @@ export type RecurringItem = {
   solicitanteId: string;
   subtypeId: string;
   catalogServiceId: string;
+  /** Spec 0013: escopo do modelo e, no por categoria, os campos dele. */
+  escopo: EscopoRecorrente;
+  categoriaAtivoId?: string;
+  categoriaNome?: string;
+  localizacaoId?: string;
+  localCaminho?: string;
+  finalPriority?: string;
+  ultimoLote?: {
+    situacao: 'em_andamento' | 'concluido';
+    em: string;
+    gerados: number;
+    pulados: number;
+    semSla: number;
+    erros: number;
+    motivo: string | null;
+  };
 };
+
+/** Resumo do último lote (AC-21): `em_andamento` há mais de 1 hora é "interrompido". */
+export function resumoDoLote(
+  lote: NonNullable<RecurringItem['ultimoLote']>,
+  agora: number = Date.now(),
+): string {
+  if (lote.situacao === 'em_andamento') {
+    return agora - new Date(lote.em).getTime() > LOTE_INTERROMPIDO_MS
+      ? 'interrompido (os ativos que faltaram entram no próximo período)'
+      : 'gerando agora';
+  }
+  if (lote.motivo) return `pausado, ${lote.motivo}`;
+  const partes = [`${lote.gerados} gerados`, `${lote.pulados} pulados`];
+  if (lote.semSla) partes.push(`${lote.semSla} sem SLA`);
+  if (lote.erros) partes.push(`${lote.erros} com erro`);
+  return partes.join(', ');
+}
 
 function formatRecurrence(item: RecurringItem): string {
   const type = item.recurrenceType as RecurrenceType;
@@ -79,9 +115,10 @@ function formatDate(iso?: string): string {
 
 interface Props {
   items: RecurringItem[];
+  opcoes: OpcoesPreventiva;
 }
 
-export function RecurringTicketsClient({ items: initialItems }: Props) {
+export function RecurringTicketsClient({ items: initialItems, opcoes }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -191,6 +228,23 @@ export function RecurringTicketsClient({ items: initialItems }: Props) {
                           <p className="text-xs text-muted-foreground truncate md:hidden">
                             {item.tipoServico}
                           </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            <Badge variant="outline" className="rounded-full font-normal">
+                              {ESCOPO_RECORRENTE_LABELS[item.escopo]}
+                            </Badge>
+                            {item.escopo === 'categoria_ativo' && (
+                              <span className="truncate">
+                                {item.categoriaNome ?? 'categoria removida'}
+                                {' · '}
+                                {item.localCaminho ?? 'todos os locais'}
+                              </span>
+                            )}
+                          </div>
+                          {item.ultimoLote && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Último lote: {resumoDoLote(item.ultimoLote)}
+                            </p>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm">
@@ -295,6 +349,7 @@ export function RecurringTicketsClient({ items: initialItems }: Props) {
         onOpenChange={setDialogOpen}
         editingItem={editingItem}
         onSuccess={handleRefresh}
+        opcoes={opcoes}
       />
     </div>
   );

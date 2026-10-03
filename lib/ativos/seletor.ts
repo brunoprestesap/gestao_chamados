@@ -117,12 +117,22 @@ export async function montarItensSeletor(ativos: AtivoParaItem[]): Promise<ItemS
   });
 }
 
+/**
+ * Quem recebe documento (spec 0013): qualquer tier, nunca `baixado`. Não serve
+ * para chamado, que continua só com `FILTRO_VINCULAVEL`.
+ */
+export const FILTRO_RECEBE_DOCUMENTO: QueryFilter<Ativo> = { status: { $ne: 'baixado' } };
+
 /** Busca do seletor: prefixo do código (usa o índice único) ou trecho da descrição. */
-export async function buscarAtivosSeletor(q: string, limite: number): Promise<ItemSeletorAtivo[]> {
+export async function buscarAtivosSeletor(
+  q: string,
+  limite: number,
+  filtro: QueryFilter<Ativo> = FILTRO_VINCULAVEL,
+): Promise<ItemSeletorAtivo[]> {
   const codigo = escapeRegex(normalizarCodigo(q));
   const trecho = new RegExp(escapeRegex(q.trim()), 'i');
   const ativos = await AtivoModel.find({
-    ...FILTRO_VINCULAVEL,
+    ...filtro,
     $or: [{ codigo: { $regex: `^${codigo}` } }, { descricao: trecho }],
   })
     .select(PROJECAO_ITEM)

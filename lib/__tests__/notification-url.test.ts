@@ -131,3 +131,30 @@ describe('getNotificationUrl', () => {
     });
   });
 });
+
+describe('getNotificationUrl · spec 0013', () => {
+  const ID = 'a'.repeat(24);
+  const PREDIO = 'b'.repeat(24);
+
+  it('documento de ativo leva à ficha; de local, ao painel filtrado pelo prédio', () => {
+    expect(getNotificationUrl('documento:vencimento', { ativoId: ID, predioId: PREDIO })).toBe(
+      `/ativos/${ID}`,
+    );
+    expect(
+      getNotificationUrl('documento:vencimento', { localizacaoId: ID, predioId: PREDIO }),
+    ).toBe(`/ativos/documentos?predio=${PREDIO}`);
+    expect(getNotificationUrl('documento:vencimento', { localizacaoId: ID })).toBe(
+      '/ativos/documentos',
+    );
+  });
+
+  it('id fora do formato não entra na URL', () => {
+    expect(getNotificationUrl('documento:vencimento', { ativoId: '../x' })).toBe(
+      '/ativos/documentos',
+    );
+  });
+
+  it('aviso de lote da preventiva leva aos recorrentes', () => {
+    expect(getNotificationUrl('preventiva:lote', { recurringId: ID })).toBe('/gestao/recurring');
+  });
+});

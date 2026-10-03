@@ -47,7 +47,28 @@ beforeEach(() => {
   Element.prototype.scrollIntoView ??= () => {};
 });
 
+const TIPOS_DOCUMENTO = [
+  { chave: 'pmoc', nome: 'PMOC', isActive: true },
+  { chave: 'art', nome: 'ART', isActive: true },
+  { chave: 'laudo_spda', nome: 'Laudo de SPDA', isActive: true },
+  { chave: 'garantia', nome: 'Garantia', isActive: false },
+];
+
 describe('GerirCategorias', () => {
+  it('valor antigo sem tipo leva o selo "não reconhecido" (spec 0013, AC-2)', () => {
+    render(
+      <GerirCategorias
+        categorias={[{ ...CLIMA, exigeDocumento: ['pmoc', 'Laudo velho', 'garantia'] }]}
+        subtipos={SUBTIPOS}
+        tiposDocumento={TIPOS_DOCUMENTO}
+      />,
+    );
+    const linha = screen.getByRole('row', { name: /Climatização/ });
+    expect(linha).toHaveTextContent('PMOC');
+    expect(within(linha).getByText('não reconhecido')).toBeInTheDocument();
+    expect(within(linha).getByText('desativado')).toBeInTheDocument();
+  });
+
   it('lista a categoria com preventiva, documentos, subtipo e total de ativos', () => {
     render(<GerirCategorias categorias={[CLIMA]} subtipos={SUBTIPOS} />);
     const linha = screen.getByRole('row', { name: /Climatização/ });
@@ -64,23 +85,28 @@ describe('GerirCategorias', () => {
     expect(within(linha).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('criar envia os documentos separados por vírgula e campos vazios como vazio', async () => {
+  it('criar envia as chaves dos tipos marcados e campos vazios como vazio', async () => {
     const user = userEvent.setup();
     acoes.criarCategoriaAtivoAction.mockResolvedValue({ ok: true, id: 'n' });
-    render(<GerirCategorias categorias={[]} subtipos={SUBTIPOS} />);
+    render(
+      <GerirCategorias categorias={[]} subtipos={SUBTIPOS} tiposDocumento={TIPOS_DOCUMENTO} />,
+    );
     await user.click(screen.getByRole('button', { name: /Nova categoria/ }));
     const d = screen.getByRole('dialog');
     expect(within(d).getByLabelText('Chave')).not.toHaveAttribute('readonly');
     await user.type(within(d).getByLabelText('Chave'), 'nobreak');
     await user.type(within(d).getByLabelText('Nome'), 'Nobreak');
-    await user.type(within(d).getByLabelText('Documentos exigidos'), 'ART, laudo');
+    await user.click(within(d).getByRole('checkbox', { name: 'ART' }));
+    await user.click(within(d).getByRole('checkbox', { name: 'Laudo de SPDA' }));
+    // Tipo desativado não aparece para marcar.
+    expect(within(d).queryByRole('checkbox', { name: 'Garantia' })).not.toBeInTheDocument();
     await user.click(within(d).getByRole('button', { name: 'Salvar' }));
     expect(acoes.criarCategoriaAtivoAction).toHaveBeenCalledWith({
       chave: 'nobreak',
       nome: 'Nobreak',
       criticidadePadrao: 'media',
       periodicidadePreventivaDias: '',
-      exigeDocumento: ['ART', ' laudo'],
+      exigeDocumento: ['art', 'laudo_spda'],
       vidaUtilAnos: '',
       serviceSubTypeId: '',
     });

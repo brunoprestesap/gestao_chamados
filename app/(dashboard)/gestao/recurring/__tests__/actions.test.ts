@@ -607,3 +607,28 @@ describe('createRecurringTemplateAction — subtypeId e catalogServiceId obrigat
     expect(result.ok).toBe(false);
   });
 });
+
+describe('updateRecurringTemplateAction — escopo (spec 0013, AC-16)', () => {
+  it('recusa trocar o escopo de um modelo existente', async () => {
+    vi.mocked(RecurringTicketModel.findById).mockResolvedValue({
+      escopo: 'template',
+      recurrenceType: 'weekly',
+      dayOfWeek: 1,
+      nextRunAt: new Date('2024-03-18T11:00:00Z'),
+    } as never);
+
+    const result = await updateRecurringTemplateAction({
+      id: VALID_OID,
+      ...validCreateInput(),
+      escopo: 'categoria_ativo',
+      categoriaAtivoId: VALID_OID_2,
+      finalPriority: 'BAIXA',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'O escopo do agendamento não muda depois de criado.',
+    });
+    expect(RecurringTicketModel.updateOne).not.toHaveBeenCalled();
+  });
+});

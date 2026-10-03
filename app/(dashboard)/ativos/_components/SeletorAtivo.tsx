@@ -19,12 +19,15 @@ export function SeletorAtivo({
   id,
   disabled,
   descricaoId,
+  escopo,
 }: {
   valor: ItemSeletorAtivo | null;
   onChange: (item: ItemSeletorAtivo | null) => void;
   id?: string;
   disabled?: boolean;
   descricaoId?: string;
+  /** `documentos`: qualquer tier, ainda sem `baixado` (spec 0013). */
+  escopo?: 'documentos';
 }) {
   const gerado = useId();
   const inputId = id ?? `seletor-ativo-${gerado}`;
@@ -56,10 +59,13 @@ export function SeletorAtivo({
       setCarregando(true);
       setErro(null);
       try {
-        const res = await fetch(`/api/ativos/busca?q=${encodeURIComponent(termo)}&limite=20`, {
-          cache: 'no-store',
-          signal: controle.signal,
-        });
+        const res = await fetch(
+          `/api/ativos/busca?q=${encodeURIComponent(termo)}&limite=20${escopo ? `&escopo=${escopo}` : ''}`,
+          {
+            cache: 'no-store',
+            signal: controle.signal,
+          },
+        );
         const data = (await res.json().catch(() => ({}))) as { items?: ItemSeletorAtivo[] };
         if (!res.ok) throw new Error();
         setItens(data.items ?? []);
@@ -79,7 +85,7 @@ export function SeletorAtivo({
       controle.abort();
       window.clearTimeout(t);
     };
-  }, [termo, buscavel]);
+  }, [termo, buscavel, escopo]);
 
   function escolher(item: ItemSeletorAtivo) {
     onChange(item);

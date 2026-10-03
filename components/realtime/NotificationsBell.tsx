@@ -5,8 +5,10 @@ import {
   AlertTriangle,
   Bell,
   BellOff,
+  CalendarClock,
   CheckCheck,
   ClipboardCheck,
+  FileWarning,
   Loader2,
   MessageSquare,
   OctagonAlert,
@@ -98,6 +100,20 @@ function getNotificationMeta(type: string): NotificationMeta {
         iconBg: 'bg-red-100 dark:bg-red-500/20',
         iconColor: 'text-red-600 dark:text-red-400',
         label: 'SLA estourou',
+      };
+    case 'documento:vencimento':
+      return {
+        icon: FileWarning,
+        iconBg: 'bg-orange-100 dark:bg-orange-500/20',
+        iconColor: 'text-orange-600 dark:text-orange-400',
+        label: 'Documento vencendo',
+      };
+    case 'preventiva:lote':
+      return {
+        icon: CalendarClock,
+        iconBg: 'bg-teal-100 dark:bg-teal-500/20',
+        iconColor: 'text-teal-600 dark:text-teal-400',
+        label: 'Preventiva gerada',
       };
     default:
       return {

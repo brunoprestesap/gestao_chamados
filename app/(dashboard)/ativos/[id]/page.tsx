@@ -22,6 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { carregarDocumentosDoAtivo } from '@/lib/ativos/documentos/ficha';
+import { podeVerDocumentos } from '@/lib/ativos/documentos/permissao';
 import { carregarFicha, LIMITE_CHAMADOS_FICHA, LIMITE_HISTORICO_FICHA } from '@/lib/ativos/ficha';
 import { canManage, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
@@ -40,6 +42,7 @@ import {
   StatusAtivoBadge,
   StatusCadastroBadge,
 } from '../_components/ativo-badges';
+import { SecaoDocumentosAtivo } from '../documentos/_components/SecaoDocumentosAtivo';
 
 const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -91,6 +94,10 @@ export default async function FichaAtivoPage({ params }: { params: Promise<{ id:
   if (!ficha) notFound();
 
   const gestao = canManage(sessao.role);
+  // Documentos (spec 0013, AC-8 e AC-10): o Solicitante não recebe nada.
+  const documentos = podeVerDocumentos(sessao.role)
+    ? await carregarDocumentosDoAtivo(ficha.id)
+    : null;
   // As mesmas regras do seletor (AC-14): só Tier A ou B e não baixado recebem chamado.
   const tierRecebeChamado = TIERS_VINCULAVEIS.includes(ficha.tierManutencao);
   const recebeChamado = ficha.status !== 'baixado' && tierRecebeChamado;
@@ -257,6 +264,14 @@ export default async function FichaAtivoPage({ params }: { params: Promise<{ id:
         )}
       </div>
 
+      {documentos && (
+        <SecaoDocumentosAtivo
+          dados={documentos}
+          gestao={gestao}
+          ativo={{ id: ficha.id, codigo: ficha.codigo }}
+        />
+      )}
+
       <CardSecao
         titulo="Chamados deste equipamento"
         icone={ClipboardList}
@@ -359,7 +374,7 @@ export default async function FichaAtivoPage({ params }: { params: Promise<{ id:
                   {(h.de || h.para) && (
                     <span className="font-normal text-muted-foreground">
                       {': '}
-                      {h.de ?? '—'} → {h.para ?? '—'}
+                      {h.de ? `${h.de} → ${h.para ?? '—'}` : h.para}
                     </span>
                   )}
                 </p>

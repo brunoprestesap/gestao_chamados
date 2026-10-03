@@ -947,6 +947,31 @@ db.holidays.insertMany([
   },
 ]);
 
+// ─── Tipos de documento do ativo (spec 0013) ──────────────────────────────
+// Idempotente, igual a scripts/carga-tipos-documento.js.
+print('--- Criando tipos de documento ---');
+for (const t of [
+  { chave: 'pmoc', nome: 'PMOC' },
+  { chave: 'avcb', nome: 'AVCB' },
+  { chave: 'art', nome: 'ART' },
+  { chave: 'laudo_spda', nome: 'Laudo de SPDA' },
+  { chave: 'garantia', nome: 'Garantia' },
+]) {
+  db.tiposdocumento.updateOne(
+    { chave: t.chave },
+    {
+      $setOnInsert: {
+        chave: t.chave,
+        nome: t.nome,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    },
+    { upsert: true },
+  );
+}
+
 print('');
 print('=== SEED CONCLUÍDO ===');
 print('');
