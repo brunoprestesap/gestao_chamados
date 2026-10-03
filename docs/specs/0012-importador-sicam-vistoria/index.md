@@ -1,7 +1,7 @@
 # 0012. Importador SICAM e vistoria em campo
 
 **Date**: 2026-10-02
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

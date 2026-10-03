@@ -10,34 +10,34 @@ _São recomendações para manter a construção organizada, não obrigações. 
 
 ## At a glance
 
-| #   | Feature                                            | Phase         | Status      |
-| --- | -------------------------------------------------- | ------------- | ----------- |
-| 1   | Autenticação LDAP e perfis                         | Contexto      | existing    |
-| 2   | Unidades e usuários                                | Contexto      | existing    |
-| 3   | Catálogo de serviços                               | Contexto      | existing    |
-| 4   | Abertura de chamado por formulário                 | Contexto      | existing    |
-| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto      | existing    |
-| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto      | existing    |
-| 7   | SLA, expediente e pausas                           | Contexto      | existing    |
-| 8   | Notificações em tempo real                         | Contexto      | existing    |
-| 9   | Integração com a IA local                          | Foundation    | done        |
-| 10  | Conversa e decisões da IA no banco                 | Foundation    | done        |
-| 11  | Tela de chat de chamados                           | Slice 1       | done        |
-| 12  | Abertura do chamado pela IA                        | Slice 1       | done        |
-| 13  | Andamento e conversa com o técnico                 | Slice 2       | done        |
-| 14  | Calibração da trava de confiança                   | Slice 3       | done        |
-| 15  | Prioridade e SLA automáticos                       | Slice 3       | done        |
-| 16  | Atribuição automática ao técnico                   | Slice 3       | done        |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done        |
-| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done        |
-| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done        |
-| 24  | Importador SICAM e vistoria em campo               | Ativos        | in-progress |
-| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | planned     |
-| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | planned     |
-| 18  | Painel de acurácia da IA                           | Slice 3       | planned     |
-| 19  | Fotos no chat                                      | Slice 4       | planned     |
-| 20  | Aviso de chamado duplicado                         | Slice 4       | planned     |
-| 21  | Entrada por voz                                    | Slice 4       | planned     |
+| #   | Feature                                            | Phase         | Status   |
+| --- | -------------------------------------------------- | ------------- | -------- |
+| 1   | Autenticação LDAP e perfis                         | Contexto      | existing |
+| 2   | Unidades e usuários                                | Contexto      | existing |
+| 3   | Catálogo de serviços                               | Contexto      | existing |
+| 4   | Abertura de chamado por formulário                 | Contexto      | existing |
+| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto      | existing |
+| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto      | existing |
+| 7   | SLA, expediente e pausas                           | Contexto      | existing |
+| 8   | Notificações em tempo real                         | Contexto      | existing |
+| 9   | Integração com a IA local                          | Foundation    | done     |
+| 10  | Conversa e decisões da IA no banco                 | Foundation    | done     |
+| 11  | Tela de chat de chamados                           | Slice 1       | done     |
+| 12  | Abertura do chamado pela IA                        | Slice 1       | done     |
+| 13  | Andamento e conversa com o técnico                 | Slice 2       | done     |
+| 14  | Calibração da trava de confiança                   | Slice 3       | done     |
+| 15  | Prioridade e SLA automáticos                       | Slice 3       | done     |
+| 16  | Atribuição automática ao técnico                   | Slice 3       | done     |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done     |
+| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done     |
+| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done     |
+| 24  | Importador SICAM e vistoria em campo               | Ativos        | done     |
+| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | planned  |
+| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | planned  |
+| 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
+| 19  | Fotos no chat                                      | Slice 4       | planned  |
+| 20  | Aviso de chamado duplicado                         | Slice 4       | planned  |
+| 21  | Entrada por voz                                    | Slice 4       | planned  |
 
 ## Existing (contexto)
 
@@ -264,7 +264,7 @@ spec [0011](../specs/0011-gestao-ativos/index.md) · code in `lib/ativos/`, `app
 - [x] Verify it: `/check verify gestão de ativos fatia 1`
 - [x] Test it: `/test gestão de ativos fatia 1`
 
-### 24. Importador SICAM e vistoria em campo · in-progress
+### 24. Importador SICAM e vistoria em campo · done
 
 Importar o CSV bruto do SICAM com diferença e revisão, e conduzir a vistoria pelo celular, inclusive sem sinal. from spec 0011
 **Done when:** o Admin sobe o CSV, revisa novos, alterados e sumidos e aplica; a vistoria mostra cobertura por prédio; o cadastro em campo funciona offline e sincroniza; os ativos `MNT-` (elevador, QGBT, SPDA, hidrante) estão cadastrados.
@@ -278,7 +278,7 @@ spec [0012](../specs/0012-importador-sicam-vistoria/index.md) · code in `lib/vi
   - [x] Importador, revisão e aplicação: seleção, categorias, aplicação repetível, enxugamento LGPD, permissões · AC-21 a AC-25, AC-27
   - [x] Operação: categorias novas e cadastro dos MNT em campo · AC-16
 - [x] Verify it: `/check verify importador SICAM e vistoria` (câmera aceita como coberta, ver `verify.md`)
-- [ ] Test it: `/test importador SICAM e vistoria`
+- [x] Test it: `/test importador SICAM e vistoria`
 
 ### 25. Documentos do ativo e preventiva por categoria · needs a decision
 
