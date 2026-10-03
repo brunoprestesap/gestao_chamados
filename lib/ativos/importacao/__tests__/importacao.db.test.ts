@@ -24,6 +24,7 @@ const rodar = temMongoDeTeste ? describe : describe.skip;
 rodar('importador do SICAM, contra o Mongo', () => {
   let pendente: typeof import('../pendente');
   let aplicar: typeof import('../aplicar');
+  let revisao: typeof import('../revisao');
   let AtivoModel: typeof import('@/models/Ativo').AtivoModel;
   let AtivoHistoryModel: typeof import('@/models/AtivoHistory').AtivoHistoryModel;
   let CategoriaAtivoModel: typeof import('@/models/CategoriaAtivo').CategoriaAtivoModel;
@@ -37,6 +38,7 @@ rodar('importador do SICAM, contra o Mongo', () => {
   beforeAll(async () => {
     pendente = await import('../pendente');
     aplicar = await import('../aplicar');
+    revisao = await import('../revisao');
     ({ AtivoModel } = await import('@/models/Ativo'));
     ({ AtivoHistoryModel } = await import('@/models/AtivoHistory'));
     ({ CategoriaAtivoModel } = await import('@/models/CategoriaAtivo'));
@@ -471,5 +473,123 @@ rodar('importador do SICAM, contra o Mongo', () => {
     const lista = await pendente.listarImportacoes(1);
     expect(lista.itens.map((i) => i.id)).toEqual([id2, id1]);
     expect(lista.total).toBe(2);
+  });
+
+  // covers: AC-22, AC-25 (a tela de revisão e a de resultado)
+  describe('carregarImportacao', () => {
+    it('pendente: monta os três grupos com o antes e o depois já formatados', async () => {
+      await ativoDaCarga('700', { camposPatrimoniais: { setor: 'SETOR VELHO' } });
+      await ativoDaCarga('701');
+      const id = await subirOk([
+        { 'Número Tombo': '700', 'Nome Setor': 'SETOR NOVO', 'Data Tombo': '16-JAN-21' },
+        { 'Número Tombo': '702', 'Descrição Material': 'SPLIT NOVO' },
+      ]);
+      const tela = await revisao.carregarImportacao(id);
+
+      expect(tela?.status).toBe('pendente');
+      expect(tela?.resultado).toBeNull();
+      const itens = tela?.revisao?.itens ?? [];
+      expect(itens.find((i) => i.codigo === '702')).toMatchObject({
+        grupo: 'novo',
+        categoriaSugeridaId: climatizacaoId,
+        bloqueio: null,
+      });
+      const alterado = itens.find((i) => i.codigo === '700');
+      expect(alterado).toMatchObject({ grupo: 'alterado', retornou: false });
+      expect(alterado && 'campos' in alterado ? alterado.campos : []).toEqual(
+        expect.arrayContaining([
+          { campo: 'setor', rotulo: 'setor', antes: 'SETOR VELHO', depois: 'SETOR NOVO' },
+          {
+            campo: 'dataTombo',
+            rotulo: 'data do tombo',
+            antes: '15/01/2020',
+            depois: '16/01/2021',
+          },
+        ]),
+      );
+      expect(itens.find((i) => i.codigo === '701')).toMatchObject({
+        grupo: 'sumido',
+        local: 'sem local',
+      });
+      expect(tela?.revisao?.categorias.map((c) => c.id)).toContain(climatizacaoId);
+    });
+
+    it('categoria cadastrada depois do upload tira o bloqueio na revisão', async () => {
+      const id = await subirOk([{ 'Número Tombo': '710', 'Descrição Material': 'FORNO ELÉTRICO' }]);
+      const antes = await revisao.carregarImportacao(id);
+      expect(antes?.revisao?.itens[0]).toMatchObject({
+        categoriaSugeridaId: null,
+        bloqueio: 'Categoria copa_coccao não cadastrada',
+      });
+
+      const copa = await CategoriaAtivoModel.create({
+        chave: 'copa_coccao',
+        nome: 'Copa: cocção',
+        criticidadePadrao: 'baixa',
+      });
+      const depois = await revisao.carregarImportacao(id);
+      expect(depois?.revisao?.itens[0]).toMatchObject({
+        categoriaSugeridaId: String(copa._id),
+        bloqueio: null,
+      });
+    });
+
+    it('marca muitos sumidos acima de 20% dos vistos pelo SICAM', async () => {
+      for (const c of ['720', '721', '722', '723']) await ativoDaCarga(c);
+      const umDeQuatro = await subirOk(['720', '721', '722'].map((c) => ({ 'Número Tombo': c })));
+      expect((await revisao.carregarImportacao(umDeQuatro))?.revisao?.muitosSumidos).toBe(true);
+      await pendente.descartarImportacao(umDeQuatro, admin);
+
+      await ativoDaCarga('724');
+      const umDeCinco = await subirOk(
+        ['720', '721', '722', '724'].map((c) => ({ 'Número Tombo': c })),
+      );
+      expect((await revisao.carregarImportacao(umDeCinco))?.revisao?.muitosSumidos).toBe(false);
+    });
+
+    it('depois de uma queda no meio, os já resolvidos saem da lista e são contados', async () => {
+      await ativoDaCarga('730');
+      const id = await subirOk([
+        { 'Número Tombo': '730', 'Nome Setor': 'NOVO' },
+        { 'Número Tombo': '731', 'Descrição Material': 'SPLIT X' },
+      ]);
+      await ImportacaoPatrimonialModel.updateOne(
+        { _id: id },
+        { $set: { 'itens.$[i].aplicado': true } },
+        { arrayFilters: [{ 'i.codigo': '730' }] },
+      );
+      const tela = await revisao.carregarImportacao(id);
+      expect(tela?.revisao?.itens.map((i) => i.codigo)).toEqual(['731']);
+      expect(tela?.revisao?.jaResolvidos).toEqual([
+        { grupo: 'alterado', codigo: '730', aplicado: true, motivoPulo: null },
+      ]);
+    });
+
+    it('fechada: devolve só o resultado por item, sem nenhum detalhe da revisão', async () => {
+      await ativoDaCarga('740', { camposPatrimoniais: { responsavelNome: 'PESSOA FICTICIA' } });
+      const id = await subirOk([
+        { 'Número Tombo': '740', 'Nome Responsável Termo': 'OUTRA PESSOA FICTICIA' },
+        { 'Número Tombo': '741', 'Descrição Material': 'SPLIT Y' },
+      ]);
+      await tudo(id, { alterados: ['740'] });
+      const tela = await revisao.carregarImportacao(id);
+
+      expect(tela?.status).toBe('aplicada');
+      expect(tela?.revisao).toBeNull();
+      expect(tela?.resultado).toEqual(
+        expect.arrayContaining([
+          { grupo: 'alterado', codigo: '740', aplicado: true, motivoPulo: null },
+          { grupo: 'novo', codigo: '741', aplicado: false, motivoPulo: 'Não marcado na revisão' },
+        ]),
+      );
+      expect(tela?.contagens.aplicados).toMatchObject({ alterados: 1 });
+      expect(tela?.contagens.pulados).toMatchObject({ novos: 1 });
+      expect(JSON.stringify(tela)).not.toContain('PESSOA FICTICIA');
+    });
+
+    it('id malformado ou inexistente devolve null', async () => {
+      expect(await revisao.carregarImportacao('nao-e-id')).toBeNull();
+      expect(await revisao.carregarImportacao(new Types.ObjectId().toString())).toBeNull();
+    });
   });
 });

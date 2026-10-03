@@ -541,6 +541,41 @@ rodar('ativos, contra o Mongo', () => {
       expect(daGestao?.chamados.every((c) => c.href?.startsWith('/meus-chamados/'))).toBe(true);
       expect(daGestao?.chamados[0].descricao).toBe('Descrição sigilosa');
     });
+
+    // covers: AC-26 (spec 0012)
+    it('a data de ausente do SICAM só chega para Admin e Preposto', async () => {
+      const ausenteDesde = new Date('2026-09-01T15:00:00.000Z');
+      const ativo = await AtivoModel.create({
+        codigo: '601',
+        origemCodigo: 'patrimonio',
+        tombamento: '601',
+        descricao: 'Split sumido',
+        categoriaId,
+        criticidade: 'media',
+        tierManutencao: 'A',
+        statusCadastro: 'importado',
+        camposPatrimoniais: { importadoEm: new Date(), ausenteNoSicamDesde: ausenteDesde },
+      });
+      const sessao = (role: string, userId: unknown) => ({
+        userId: String(userId),
+        username: 'u',
+        role: role as 'Admin',
+        isActive: true,
+      });
+
+      for (const role of ['Admin', 'Preposto']) {
+        const f = await ficha.carregarFicha(String(ativo._id), sessao(role, autor));
+        expect(f?.camposPatrimoniais?.ausenteNoSicamDesde).toBe(ausenteDesde.toISOString());
+      }
+      for (const [role, id] of [
+        ['Técnico', tecnicoId],
+        ['Solicitante', solicitanteId],
+      ] as const) {
+        const f = await ficha.carregarFicha(String(ativo._id), sessao(role, id));
+        expect(f?.camposPatrimoniais).toBeUndefined();
+        expect(JSON.stringify(f)).not.toContain(ausenteDesde.toISOString());
+      }
+    });
   });
 
   /**
