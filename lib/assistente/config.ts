@@ -28,3 +28,7 @@ export const MOTIVO_VAZIO = 'O modelo não explicou.';
 // O local exato tem o mesmo teto na tela, no cartão e na confirmação, por isso
 // a constante mora em `shared/`: o cartão do navegador também a usa.
 export { LOCAL_EXATO_MAX } from '@/shared/conversas/conversa.schemas';
+
+// O teto de candidatos de equipamento (spec 0014, AC-3) também vale no schema
+// do cartão, por isso mora em `shared/`.
+export { ATIVO_CANDIDATOS_MAX } from '@/shared/conversas/conversa.schemas';

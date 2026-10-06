@@ -33,6 +33,7 @@ import {
   ORIGEM_CODIGO_LABELS,
   TIERS_VINCULAVEIS,
 } from '@/shared/ativos/ativo.constants';
+import { formatarTempoIndicador } from '@/shared/ativos/indicadores-formato';
 import { PAPEL_AUTOR_LABELS } from '@/shared/vistoria/vistoria.constants';
 
 import { STATUS_BADGE } from '../../meus-chamados/_constants';
@@ -283,6 +284,35 @@ export default async function FichaAtivoPage({ params }: { params: Promise<{ id:
           </span>
         }
       >
+        {ficha.indicadores !== undefined && (
+          <div className="mb-4 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
+            {ficha.indicadores ? (
+              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  ['Corretivos em 12 meses', String(ficha.indicadores.corretivos12m)],
+                  ['MTBF', formatarTempoIndicador(ficha.indicadores.mtbfMs)],
+                  ['MTTR médio', formatarTempoIndicador(ficha.indicadores.mttrMs)],
+                  ['Corretivos em 90 dias', String(ficha.indicadores.corretivos90d)],
+                ].map(([rotulo, valor]) => (
+                  <div key={rotulo} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">{rotulo}</dt>
+                    <dd className="text-base font-semibold text-foreground">{valor}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Não foi possível calcular os indicadores deste equipamento agora.
+              </p>
+            )}
+            {ficha.indicadores && ficha.indicadores.corretivos90d >= 2 ? (
+              <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                Reincidente: 2 ou mais corretivos nos últimos 90 dias.
+              </p>
+            ) : null}
+          </div>
+        )}
+
         {ficha.chamados.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/70 px-4 py-10 text-center">
             <ClipboardList className="h-8 w-8 text-muted-foreground/60" aria-hidden />

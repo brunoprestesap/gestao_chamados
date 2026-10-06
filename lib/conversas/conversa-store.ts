@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 
 import { criarComentario } from '@/lib/chamados/comentarios';
 import { dbConnect } from '@/lib/db';
+import { AtivoModel } from '@/models/Ativo';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { ConversaModel } from '@/models/Conversa';
@@ -375,7 +376,12 @@ export async function soltarReserva(
 }
 
 /** A entrada de abertura, conferida antes para não duplicar (passo 4). */
-export async function garantirHistoricoAbertura(chamadoId: string, userId: string): Promise<void> {
+export async function garantirHistoricoAbertura(
+  chamadoId: string,
+  userId: string,
+  /** O código do equipamento escolhido no cartão (spec 0014, AC-8). */
+  codigoAtivo?: string | null,
+): Promise<void> {
   const existe = await ChamadoHistoryModel.exists({ chamadoId, action: 'abertura' });
   if (existe) return;
 
@@ -385,7 +391,9 @@ export async function garantirHistoricoAbertura(chamadoId: string, userId: strin
     actorType: 'usuario',
     action: 'abertura',
     statusNovo: 'aberto',
-    observacoes: 'Chamado aberto pela conversa',
+    observacoes: codigoAtivo
+      ? `Chamado aberto pela conversa · Equipamento ${codigoAtivo}`
+      : 'Chamado aberto pela conversa',
   });
 }
 
@@ -430,11 +438,21 @@ export async function repararSePreciso(conversa: ConversaCrua): Promise<Conversa
   const reservado = conversa.chamadoIdReservado;
   if (conversa.chamadoId || !reservado) return conversa;
 
-  const chamado = await ChamadoModel.findById(reservado).select('_id status finalPriority').lean();
+  const chamado = await ChamadoModel.findById(reservado)
+    .select('_id status finalPriority ativoId')
+    .lean();
 
   if (chamado) {
-    // O chamado existe: faltou fechar o histórico e o vínculo.
-    await garantirHistoricoAbertura(String(reservado), String(conversa.solicitanteId));
+    // O chamado existe: faltou fechar o histórico e o vínculo. O código do
+    // equipamento sai do próprio chamado (spec 0014, AC-8).
+    const ativo = chamado.ativoId
+      ? await AtivoModel.findById(chamado.ativoId).select('codigo').lean()
+      : null;
+    await garantirHistoricoAbertura(
+      String(reservado),
+      String(conversa.solicitanteId),
+      ativo?.codigo ?? null,
+    );
 
     const decisoes = await DecisaoIaModel.find({ chamadoId: reservado })
       .select('_id campo valorIa decididoPor efeito')

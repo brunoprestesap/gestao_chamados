@@ -15,15 +15,18 @@ import { type LlmFailure, type LlmMessage, type LlmMeta, streamLlmObject } from 
 import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
 import type { QuadroResposta } from '@/shared/conversas/quadro.schemas';
 
-import { montarCartao, revisarAbertura } from './cartao';
+import { codigosDoRelato, resumoDoAtivo } from './ativo-do-cartao';
+import { type CartaoMontado, montarCartao, revisarAbertura } from './cartao';
 import { type CatalogoParaPrompt, lerCatalogoParaPrompt } from './catalogo';
 import { ENTRADA_MAX_CARACTERES } from './config';
 import { mensagemDeReserva, respostaSemAfirmarAbertura } from './mensagens';
 import { lerPerfil, type Perfil, SEM_PERFIL } from './perfil';
 import { ABERTURA_TASK, montarSistema, PROMPT_VERSION } from './prompt';
 import {
+  chaveDoAtivo,
   conteudoDaProposta,
   conteudoDoCartao,
+  type ConteudoVisivel,
   mesmoConteudo,
   propostaProntaParaCartao,
   validarExtracao,
@@ -305,6 +308,8 @@ async function* transmitir(params: TransmitirParams): AsyncGenerator<QuadroRespo
     viewer,
     conversaId,
     origemMensagemId,
+    // A mensagem desta volta já está gravada: ela entra na procura do código.
+    relato: [...anteriores, { autor: 'solicitante', tipo: 'texto', texto }],
     dados: final.data,
     meta: final.meta,
     contexto,
@@ -316,6 +321,8 @@ type AtualizarParams = {
   viewer: Viewer;
   conversaId: string;
   origemMensagemId: string;
+  /** As mensagens da conversa até esta volta, já em memória. */
+  relato: Pick<MensagemLida, 'autor' | 'tipo' | 'texto'>[];
   dados: RespostaAbertura;
   meta: LlmMeta;
   contexto: Contexto;
@@ -330,7 +337,7 @@ type AtualizarParams = {
  * - Mudou e não está pronta: o cartão que valia deixa de valer.
  */
 async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<QuadroResposta> {
-  const { viewer, conversaId, origemMensagemId, dados, meta, contexto, comecouEm } = params;
+  const { viewer, conversaId, origemMensagemId, relato, dados, meta, contexto, comecouEm } = params;
 
   const extracao = validarExtracao({
     dados,
@@ -340,12 +347,15 @@ async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<Quadr
   });
 
   let cartao: DestinoCartao = 'nenhum';
+  let ativo: CartaoMontado['payload']['ativo'] = null;
   const concluir = () =>
     registrar('proposta', {
       conversaId,
       codigo: extracao.codigo,
       completo: dados.completo,
       cartao,
+      // Origem e quantidade do equipamento, nunca o código nem o local (spec 0014, AC-13).
+      ...resumoDoAtivo(ativo),
       duracaoMs: Date.now() - comecouEm,
     });
 
@@ -376,7 +386,25 @@ async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<Quadr
 
   const proposta = lida.proposta;
   const atual = lida.cartaoAtual;
-  const novoConteudo = conteudoDaProposta(proposta, contexto.perfil);
+  const pronta = propostaProntaParaCartao(proposta);
+
+  // Os candidatos de equipamento entram na comparação (spec 0014, AC-7), mas
+  // só são calculados quando há código no relato ou a proposta está pronta:
+  // nos outros turnos não há consulta ao banco, e a chave do cartão que vale
+  // é mantida, para o ativo não decidir nada sozinho.
+  let montado: CartaoMontado | null = null;
+  let novoConteudo: ConteudoVisivel;
+  if (pronta || codigosDoRelato(relato).length > 0) {
+    montado = await montarCartao({ conversaId, proposta, perfil: contexto.perfil });
+    ativo = montado.payload.ativo ?? null;
+    novoConteudo = conteudoDaProposta(proposta, contexto.perfil, chaveDoAtivo(ativo));
+  } else {
+    novoConteudo = conteudoDaProposta(
+      proposta,
+      contexto.perfil,
+      atual ? conteudoDoCartao(atual.payload).ativoChave : '',
+    );
+  }
 
   if (atual && mesmoConteudo(conteudoDoCartao(atual.payload), novoConteudo)) {
     cartao = 'mantido';
@@ -384,8 +412,7 @@ async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<Quadr
     return;
   }
 
-  if (propostaProntaParaCartao(proposta)) {
-    const montado = await montarCartao({ proposta, perfil: contexto.perfil });
+  if (pronta && montado) {
     // O serviço pode ter sido desativado no meio: aí não há cartão da IA.
     if (montado.payload.modo === 'ia') {
       const novo = await gravarCartao({

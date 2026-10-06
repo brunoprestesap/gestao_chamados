@@ -312,3 +312,151 @@ describe('CartaoResumo · estados', () => {
     }
   });
 });
+
+// ── equipamento · spec 0014, AC-5, AC-6 ──────────────────────────
+
+describe('CartaoResumo · equipamento (spec 0014)', () => {
+  const ATIVO_A = '6aad5286df6f201a25ede001';
+  const ATIVO_B = '6aad5286df6f201a25ede002';
+  const OUTRA_UNIDADE = '6aad5286df6f201a25edc002';
+  const candidato = (
+    ativoId: string,
+    codigo: string,
+    caminho: string | null = 'Sede/Sala 302',
+  ) => ({
+    ativoId,
+    codigo,
+    descricao: `Split ${codigo}`,
+    caminho,
+  });
+  const comAtivo = (origem: 'codigo' | 'regra', candidatos = [candidato(ATIVO_A, '11997')]) =>
+    ({ ...CARTAO_IA, ativo: { origem, candidatos } }) as CartaoPayload;
+
+  beforeEach(() => {
+    // O Select do Radix usa APIs que o jsdom não tem.
+    Element.prototype.hasPointerCapture = vi.fn(() => false);
+    Element.prototype.releasePointerCapture = vi.fn();
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  async function trocarUnidade(user: ReturnType<typeof userEvent.setup>, nome: RegExp) {
+    await user.click(screen.getByRole('combobox', { name: /unidade/i }));
+    await user.click(await screen.findByRole('option', { name: nome }));
+  }
+
+  it('com um candidato, mostra código, descrição e caminho, já marcado', async () => {
+    // Arrange
+    const user = userEvent.setup();
+    montar({ cartao: comAtivo('codigo') });
+
+    // Assert
+    expect(screen.getByRole('group', { name: 'Equipamento' })).toBeInTheDocument();
+    expect(screen.getByText('11997')).toBeInTheDocument();
+    expect(screen.getByText(/Split 11997/)).toBeInTheDocument();
+    expect(screen.getByText('Sede/Sala 302')).toBeInTheDocument();
+
+    // Act
+    await user.click(botaoConfirmar());
+
+    // Assert
+    expect(mockConfirmar).toHaveBeenCalledWith(expect.objectContaining({ ativoId: ATIVO_A }));
+  });
+
+  it('candidato sem local mostra "—"', () => {
+    montar({ cartao: comAtivo('codigo', [candidato(ATIVO_A, 'MNT-0012', null)]) });
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  it('"Não é este" tira o ativo e manda null; "Desfazer" devolve', async () => {
+    // Arrange
+    const user = userEvent.setup();
+    montar({ cartao: comAtivo('codigo') });
+
+    // Act: o nome acessível do botão diz qual equipamento ele tira
+    await user.click(screen.getByRole('button', { name: /não é este: 11997/i }));
+
+    // Assert
+    expect(screen.getByText(/sem equipamento/i)).toBeInTheDocument();
+    await user.click(botaoConfirmar());
+    expect(mockConfirmar).toHaveBeenLastCalledWith(expect.objectContaining({ ativoId: null }));
+
+    await user.click(screen.getByRole('button', { name: /desfazer/i }));
+    expect(screen.getByText('11997')).toBeInTheDocument();
+  });
+
+  it('com vários, "Não sei" vem marcado e manda null', async () => {
+    const user = userEvent.setup();
+    montar({
+      cartao: comAtivo('regra', [candidato(ATIVO_A, '11997'), candidato(ATIVO_B, '11998')]),
+    });
+
+    expect(screen.getByRole('radio', { name: 'Não sei' })).toBeChecked();
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+
+    await user.click(botaoConfirmar());
+    expect(mockConfirmar).toHaveBeenCalledWith(expect.objectContaining({ ativoId: null }));
+  });
+
+  it('com vários, escolher um manda o id dele', async () => {
+    const user = userEvent.setup();
+    montar({
+      cartao: comAtivo('regra', [candidato(ATIVO_A, '11997'), candidato(ATIVO_B, '11998')]),
+    });
+
+    await user.click(screen.getByRole('radio', { name: /11998/ }));
+    await user.click(botaoConfirmar());
+
+    expect(mockConfirmar).toHaveBeenCalledWith(expect.objectContaining({ ativoId: ATIVO_B }));
+  });
+
+  it('cartão sem ativo não mostra a linha e não manda o campo', async () => {
+    const user = userEvent.setup();
+    montar();
+    expect(screen.queryByText('Equipamento')).not.toBeInTheDocument();
+    await user.click(botaoConfirmar());
+    expect(mockConfirmar.mock.calls[0][0]).not.toHaveProperty('ativoId');
+  });
+
+  it('trocar a unidade esconde o candidato da regra e voltar mostra de novo (AC-6)', async () => {
+    // Arrange
+    const user = userEvent.setup();
+    montar({ cartao: comAtivo('regra') });
+
+    // Act
+    await trocarUnidade(user, /Anexo/);
+
+    // Assert
+    expect(screen.queryByText('11997')).not.toBeInTheDocument();
+    await user.click(botaoConfirmar());
+    expect(mockConfirmar).toHaveBeenLastCalledWith(
+      expect.objectContaining({ unitId: OUTRA_UNIDADE, ativoId: null }),
+    );
+
+    await trocarUnidade(user, /Fórum Central/);
+    expect(screen.getByText('11997')).toBeInTheDocument();
+  });
+
+  it('o candidato do código continua com a unidade trocada (AC-6)', async () => {
+    const user = userEvent.setup();
+    montar({ cartao: comAtivo('codigo') });
+
+    await trocarUnidade(user, /Anexo/);
+
+    expect(screen.getByText('11997')).toBeInTheDocument();
+    await user.click(botaoConfirmar());
+    expect(mockConfirmar).toHaveBeenCalledWith(
+      expect.objectContaining({ unitId: OUTRA_UNIDADE, ativoId: ATIVO_A }),
+    );
+  });
+
+  it('no cartão substituído, a linha aparece desabilitada', () => {
+    montar({ cartao: comAtivo('codigo'), atual: false });
+    expect(screen.getByText('11997')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /não é este/i })).toBeDisabled();
+  });
+
+  it('nunca mostra campo patrimonial, só código, descrição e local', () => {
+    const { container } = montar({ cartao: comAtivo('codigo') });
+    expect(container.textContent).not.toMatch(/matr[ií]cula|respons[aá]vel/i);
+  });
+});

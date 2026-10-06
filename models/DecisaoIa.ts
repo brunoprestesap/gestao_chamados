@@ -39,6 +39,8 @@ const ValorDecisaoSchema = new Schema(
     tipoServico: { type: String, enum: [...TIPO_SERVICO_OPTIONS, null], default: null },
     prioridade: { type: String, enum: [...FINAL_PRIORITY_VALUES, null], default: null },
     tecnicoId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    /** Decisão `ativo` (spec 0014); o `rotulo` guarda o código ou "Nenhum equipamento". */
+    ativoId: { type: Schema.Types.ObjectId, ref: 'Ativo', default: null },
     rotulo: { type: String, required: true, trim: true, maxlength: DECISAO_ROTULO_MAX },
   },
   { _id: false },

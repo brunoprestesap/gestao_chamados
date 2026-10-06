@@ -5,6 +5,7 @@ import { casaFiltroSituacao } from '../painel';
 import {
   dataSemHora,
   diasRestantes,
+  fimDoDiaEmBelem,
   hojeEmBelem,
   limitesAlcancados,
   rotuloSituacao,
@@ -117,5 +118,25 @@ describe('aviso de vencimento (AC-12)', () => {
     expect(aviso.data).toMatchObject({ localizacaoId: 'l1', predioId: 'l1' });
     expect(aviso.corpo).toContain('Número: 123');
     expect(aviso.corpo).toContain('Emitido por: Bombeiros');
+  });
+});
+
+describe('fimDoDiaEmBelem (spec 0014, AC-20)', () => {
+  it('fecha o dia às 23:59:59.999 de Belém, que é 02:59:59.999 UTC do dia seguinte', () => {
+    expect(fimDoDiaEmBelem(new Date('2026-09-30T15:00:00Z')).toISOString()).toBe(
+      '2026-10-01T02:59:59.999Z',
+    );
+  });
+
+  it('às 02:00 UTC ainda é o dia anterior em Belém', () => {
+    expect(fimDoDiaEmBelem(new Date('2026-10-01T02:00:00Z')).toISOString()).toBe(
+      '2026-10-01T02:59:59.999Z',
+    );
+  });
+
+  it('às 03:00 UTC já é o dia seguinte em Belém', () => {
+    expect(fimDoDiaEmBelem(new Date('2026-10-01T03:00:00Z')).toISOString()).toBe(
+      '2026-10-02T02:59:59.999Z',
+    );
   });
 });

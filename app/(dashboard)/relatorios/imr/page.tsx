@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { calcularIndicadoresAtivos, type IndicadoresAtivos } from '@/lib/ativos/indicadores';
 import { requireAdmin } from '@/lib/dal';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
-import { computeImrReport } from '@/lib/imr-service';
+import { computeImrReport, endOfDay, startOfDay } from '@/lib/imr-service';
 import { formatDate, formatTime } from '@/lib/utils';
 
 import { ImrTipoServicoTabs } from './_components/imr-tipo-servico-tabs';
@@ -49,7 +50,26 @@ export default async function ImrPage({ searchParams }: PageProps) {
 
   const { dataInicial, dataFinal } = parseDateRange(params.dataInicial, params.dataFinal);
 
-  const result = await computeImrReport({ dataInicial, dataFinal });
+  const fim = endOfDay(dataFinal);
+  const [result, ativos] = await Promise.all([
+    computeImrReport({ dataInicial, dataFinal }),
+    // Os indicadores de equipamento (spec 0014) são só informativos: uma falha
+    // aqui mostra o aviso na aba Ativos e nunca derruba o relatório.
+    calcularIndicadoresAtivos({
+      inicio: startOfDay(dataInicial),
+      fim,
+      fimReincidencia: fim,
+    }).catch((err: unknown): IndicadoresAtivos | null => {
+      console.error(
+        '[imr]',
+        JSON.stringify({
+          operacao: 'calcularIndicadoresAtivos',
+          error: err instanceof Error ? err.message : 'unknown',
+        }),
+      );
+      return null;
+    }),
+  ]);
   const dataGeracao = new Date();
   const expediente = await getBusinessCalendarConfig();
   const tzOpt = { timeZone: expediente.timezone };
@@ -107,7 +127,11 @@ export default async function ImrPage({ searchParams }: PageProps) {
         </CardContent>
       </Card>
 
-      <ImrTipoServicoTabs resumoGeral={result.resumoGeral} porTipoServico={result.porTipoServico} />
+      <ImrTipoServicoTabs
+        resumoGeral={result.resumoGeral}
+        porTipoServico={result.porTipoServico}
+        ativos={ativos}
+      />
     </div>
   );
 }

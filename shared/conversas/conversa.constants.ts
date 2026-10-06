@@ -20,14 +20,30 @@ export type ConversaMensagemTipo = (typeof CONVERSA_MENSAGEM_TIPOS)[number];
 export const CONVERSA_SITUACOES = ['rascunho', 'reservada', 'vinculada'] as const;
 export type ConversaSituacao = (typeof CONVERSA_SITUACOES)[number];
 
-/** Campo que a IA decide. Um chamado tem no máximo uma decisão por campo. */
-export const DECISAO_CAMPOS = ['servico', 'prioridade', 'tecnico'] as const;
+/**
+ * Campo decidido. Um chamado tem no máximo uma decisão por campo.
+ *
+ * `ativo` (spec 0014) é sempre da regra do cartão, nunca do modelo: serve para
+ * medir o acerto da sugestão de equipamento e fica fora de tudo que fala de
+ * "decisão da IA" (`iaSituacao`, revisão, pendências, calibragem). Consumidor
+ * novo de `DecisaoIa` precisa filtrar o campo quando falar só da IA.
+ */
+export const DECISAO_CAMPOS = ['servico', 'prioridade', 'tecnico', 'ativo'] as const;
 export type DecisaoCampo = (typeof DECISAO_CAMPOS)[number];
+
+/** Os campos que a IA de fato decide; `ativo` fica de fora (spec 0014, AC-11). */
+export const DECISAO_CAMPOS_DA_IA = [
+  'servico',
+  'prioridade',
+  'tecnico',
+] as const satisfies readonly DecisaoCampo[];
+export type DecisaoCampoDaIa = (typeof DECISAO_CAMPOS_DA_IA)[number];
 
 export const DECISAO_CAMPO_LABELS: Record<DecisaoCampo, string> = {
   servico: 'serviço',
   prioridade: 'prioridade',
   tecnico: 'técnico',
+  ativo: 'Equipamento',
 };
 
 /** Quem decidiu: o modelo (`ia`) ou uma regra determinística do Sigma (`regra`). */

@@ -1,8 +1,10 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { IndicadoresAtivos } from '@/lib/ativos/indicadores';
 import type { ImrResultPorTipo, ImrResumoGeral } from '@/lib/imr-service';
 
+import { ImrAtivos } from './imr-ativos';
 import {
   SectionAvaliacao,
   SectionPenalidades,
@@ -17,9 +19,12 @@ import {
 export function ImrTipoServicoTabs({
   resumoGeral,
   porTipoServico,
+  ativos,
 }: {
   resumoGeral: ImrResumoGeral;
   porTipoServico: ImrResultPorTipo[];
+  /** Indicadores de equipamento (spec 0014); `null` quando a leitura falhou. */
+  ativos: IndicadoresAtivos | null;
 }) {
   return (
     <Tabs defaultValue="resumo-geral">
@@ -30,6 +35,7 @@ export function ImrTipoServicoTabs({
             {tipo.tipoServico}
           </TabsTrigger>
         ))}
+        <TabsTrigger value="ativos">Ativos</TabsTrigger>
       </TabsList>
 
       <TabsContent value="resumo-geral" className="space-y-6">
@@ -68,6 +74,10 @@ export function ImrTipoServicoTabs({
           <SectionPenalidades penalidades={tipo.penalidades} />
         </TabsContent>
       ))}
+
+      <TabsContent value="ativos" className="space-y-6">
+        <ImrAtivos ativos={ativos} />
+      </TabsContent>
     </Tabs>
   );
 }

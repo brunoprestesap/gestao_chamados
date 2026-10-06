@@ -21,6 +21,7 @@ export {
   CAMPOS_OCULTOS,
   camposPendentesDeConfirmacao,
   confirmarDecisao,
+  corrigirDecisaoDoAtivo,
   decisoesOcultas,
   derivarIaSituacao,
   derivarSituacao,

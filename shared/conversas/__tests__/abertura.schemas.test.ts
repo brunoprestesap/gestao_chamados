@@ -87,3 +87,20 @@ describe('confirmarAberturaSchema', () => {
     ).toBe(true);
   });
 });
+
+describe('confirmarAberturaSchema · ativoId (spec 0014, AC-8)', () => {
+  it('aceita um ativo, null ou a ausência do campo', () => {
+    const id = new Types.ObjectId().toString();
+    expect(confirmarAberturaSchema.parse(corpoValido({ ativoId: id })).ativoId).toBe(id);
+    expect(confirmarAberturaSchema.parse(corpoValido({ ativoId: null })).ativoId).toBeNull();
+    expect(confirmarAberturaSchema.parse(corpoValido()).ativoId).toBeUndefined();
+  });
+
+  it('valor torto vira null em vez de recusar a abertura', () => {
+    for (const torto of ['xyz', 42, { $ne: null }, '']) {
+      const r = confirmarAberturaSchema.safeParse(corpoValido({ ativoId: torto }));
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.ativoId).toBeNull();
+    }
+  });
+});

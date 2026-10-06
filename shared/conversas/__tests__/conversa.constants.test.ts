@@ -8,6 +8,7 @@ import {
   CONVERSA_SITUACOES,
   DECISAO_CAMPO_LABELS,
   DECISAO_CAMPOS,
+  DECISAO_CAMPOS_DA_IA,
   DECISAO_CORRECAO_ORIGENS,
   DECISAO_DECIDIDO_POR,
   DECISAO_EFEITOS,
@@ -74,8 +75,9 @@ describe('CONVERSA_SITUACOES (AC-3)', () => {
 // ── decisão · AC-6, AC-8, AC-9 ───────────────────────────────────
 
 describe('DECISAO_CAMPOS (AC-6)', () => {
-  it('a IA decide serviço, prioridade e técnico', () => {
-    expect([...DECISAO_CAMPOS]).toEqual(['servico', 'prioridade', 'tecnico']);
+  it('a IA decide serviço, prioridade e técnico; a regra do cartão decide o ativo (spec 0014)', () => {
+    expect([...DECISAO_CAMPOS]).toEqual(['servico', 'prioridade', 'tecnico', 'ativo']);
+    expect([...DECISAO_CAMPOS_DA_IA]).toEqual(['servico', 'prioridade', 'tecnico']);
   });
 });
 

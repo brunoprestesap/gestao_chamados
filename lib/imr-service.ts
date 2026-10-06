@@ -89,16 +89,32 @@ export type ImrResult = {
 
 /* ─────────────────────────── Helpers internos ─────────────────────────── */
 
-function endOfDay(d: Date): Date {
+export function endOfDay(d: Date): Date {
   const x = new Date(d);
   x.setUTCHours(23, 59, 59, 999);
   return x;
 }
 
-function startOfDay(d: Date): Date {
+export function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setUTCHours(0, 0, 0, 0);
   return x;
+}
+
+/**
+ * Tempo de atendimento de um chamado: `resolvedAt − createdAt − pausas`, nunca
+ * negativo. É a mesma conta do facet `tempoPorTipo`, em JS, para os
+ * indicadores de ativo (spec 0014, AC-17); um teste prova a paridade.
+ * `null` quando o chamado ainda não foi resolvido.
+ */
+export function tempoDeReparoMs(chamado: {
+  createdAt: Date;
+  resolvedAt: Date | null | undefined;
+  totalPausedMinutes: number | null | undefined;
+}): number | null {
+  if (!chamado.resolvedAt) return null;
+  const pausadoMs = (chamado.totalPausedMinutes ?? 0) * 60000;
+  return Math.max(0, chamado.resolvedAt.getTime() - chamado.createdAt.getTime() - pausadoMs);
 }
 
 /** Calcula percentual arredondado para 2 casas. Retorna 0 se denominador for 0. */

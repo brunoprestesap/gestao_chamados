@@ -10,6 +10,7 @@ import {
   CONVERSA_MENSAGEM_TIPOS,
   type ConversaMensagemTipo,
   DECISAO_CAMPOS,
+  DECISAO_CAMPOS_DA_IA,
   type DecisaoCampo,
 } from './conversa.constants';
 
@@ -28,6 +29,34 @@ export const DECISAO_ROTULO_MAX = 160;
 export const LOCAL_EXATO_MAX = 200;
 
 export const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Identificador inválido');
+
+/** Teto de candidatos de equipamento num cartão (spec 0014, AC-3). */
+export const ATIVO_CANDIDATOS_MAX = 5;
+/** Teto do texto de descrição e de caminho de um candidato no cartão. */
+export const ATIVO_CANDIDATO_TEXTO_MAX = 300;
+export const ATIVO_ORIGENS = ['codigo', 'regra'] as const;
+export type AtivoOrigem = (typeof ATIVO_ORIGENS)[number];
+
+/**
+ * O equipamento sugerido no cartão (spec 0014, AC-5): de onde veio e de 1 a 5
+ * candidatos. Só código, descrição e caminho do local; `camposPatrimoniais`
+ * nunca entra aqui.
+ */
+export const ativoDoCartaoSchema = z.strictObject({
+  origem: z.enum(ATIVO_ORIGENS),
+  candidatos: z
+    .array(
+      z.strictObject({
+        ativoId: objectIdSchema,
+        codigo: z.string().min(1).max(DECISAO_ROTULO_MAX),
+        descricao: z.string().max(ATIVO_CANDIDATO_TEXTO_MAX),
+        caminho: z.string().max(ATIVO_CANDIDATO_TEXTO_MAX).nullable(),
+      }),
+    )
+    .min(1)
+    .max(ATIVO_CANDIDATOS_MAX),
+});
+export type AtivoDoCartao = z.infer<typeof ativoDoCartaoSchema>;
 
 /** Texto de qualquer mensagem: também é o que o leitor de tela lê. */
 export const conversaTextoSchema = z
@@ -62,6 +91,9 @@ export const cartaoPayloadSchema = z
       .nullable(),
     localExato: z.string().max(LOCAL_EXATO_MAX).nullable(),
     faltando: z.array(z.enum(CARTAO_FALTANDO)),
+    // Cartão gravado antes da spec 0014 não tem o campo: lido como `null`.
+    // O cartão novo sempre grava o campo, com `null` quando não há ativo.
+    ativo: ativoDoCartaoSchema.nullable().optional(),
   })
   .refine((cartao) => (cartao.modo === 'manual') === (cartao.servico === null), {
     message: 'O cartão manual é exatamente o que não tem serviço',
@@ -108,17 +140,28 @@ export const valorTecnicoSchema = z.object({
   tecnicoId: objectIdSchema,
 });
 
+/** O equipamento (spec 0014). `null` quando a gestão tira o ativo do chamado. */
+export const valorAtivoSchema = z.object({
+  ativoId: objectIdSchema.nullable(),
+});
+
 /** O schema do valor conforme o campo decidido. */
 export function valorSchemaPara(campo: DecisaoCampo): z.ZodType {
   if (campo === 'servico') return valorServicoSchema;
   if (campo === 'prioridade') return valorPrioridadeSchema;
-  return valorTecnicoSchema;
+  if (campo === 'tecnico') return valorTecnicoSchema;
+  return valorAtivoSchema;
 }
 
 export type ValorServicoInput = z.infer<typeof valorServicoSchema>;
 export type ValorPrioridadeInput = z.infer<typeof valorPrioridadeSchema>;
 export type ValorTecnicoInput = z.infer<typeof valorTecnicoSchema>;
-export type ValorDecisaoInput = ValorServicoInput | ValorPrioridadeInput | ValorTecnicoInput;
+export type ValorAtivoInput = z.infer<typeof valorAtivoSchema>;
+export type ValorDecisaoInput =
+  | ValorServicoInput
+  | ValorPrioridadeInput
+  | ValorTecnicoInput
+  | ValorAtivoInput;
 
 /** Valor como fica gravado: os identificadores mais o rótulo lido do banco. */
 export type ValorDecisao = {
@@ -127,6 +170,8 @@ export type ValorDecisao = {
   tipoServico: string | null;
   prioridade: string | null;
   tecnicoId: string | null;
+  /** Só na decisão `ativo` (spec 0014); `null` nas outras e ao tirar o ativo. */
+  ativoId: string | null;
   rotulo: string;
 };
 
@@ -154,6 +199,7 @@ export type RegistrarDecisaoValues = z.infer<typeof registrarDecisaoSchema>;
  */
 export const confirmarDecisoesIaSchema = z.object({
   chamadoId: objectIdSchema,
-  campos: z.array(z.enum(DECISAO_CAMPOS)).optional(),
+  // `ativo` não é decisão da IA e nunca é confirmado por aqui (spec 0014, AC-11).
+  campos: z.array(z.enum(DECISAO_CAMPOS_DA_IA)).optional(),
 });
 export type ConfirmarDecisoesIaInput = z.infer<typeof confirmarDecisoesIaSchema>;

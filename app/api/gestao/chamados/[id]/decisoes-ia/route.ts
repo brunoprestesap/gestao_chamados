@@ -8,7 +8,7 @@ import { ChamadoModel } from '@/models/Chamado';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
 import { FINAL_PRIORITY_LABELS, SERVICO_A_DEFINIR } from '@/shared/chamados/chamado.constants';
-import { DECISAO_CAMPOS, type DecisaoCampo } from '@/shared/conversas/conversa.constants';
+import { DECISAO_CAMPOS_DA_IA, type DecisaoCampoDaIa } from '@/shared/conversas/conversa.constants';
 import type { ValorDecisao } from '@/shared/conversas/conversa.schemas';
 
 const VALOR_VAZIO: Omit<ValorDecisao, 'rotulo'> = {
@@ -17,6 +17,7 @@ const VALOR_VAZIO: Omit<ValorDecisao, 'rotulo'> = {
   tipoServico: null,
   prioridade: null,
   tecnicoId: null,
+  ativoId: null,
 };
 
 /**
@@ -73,7 +74,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       : [];
   const nomePorUsuario = new Map(usuarios.map((u) => [String(u._id), u.name]));
 
-  const valorAtual: Record<DecisaoCampo, ValorDecisao> = {
+  const valorAtual: Record<DecisaoCampoDaIa, ValorDecisao> = {
     servico: {
       ...VALOR_VAZIO,
       catalogServiceId: chamado.catalogServiceId ? String(chamado.catalogServiceId) : null,
@@ -94,7 +95,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     },
   };
 
-  const campos = DECISAO_CAMPOS.map((campo) => {
+  // A decisão `ativo` é da regra do cartão, não da IA: fica fora do painel
+  // (spec 0014, AC-11). O vínculo de ativo tem tela própria.
+  const campos = DECISAO_CAMPOS_DA_IA.map((campo) => {
     const decisao = porCampo.get(campo) ?? null;
     // Decisão cega (spec 0009, tarefa 8): a 0007 (AC-8) já pré-preenche esse
     // mesmo valor no diálogo de classificação, mas confiança e motivo nunca

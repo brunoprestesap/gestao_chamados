@@ -104,23 +104,44 @@ export function unidadeSugerida(
   return perfil.unidade;
 }
 
-/** O que o cartão mostra: serviço, unidade e local. É o que decide cartão novo (AC-4). */
+/**
+ * O que o cartão mostra: serviço, unidade, local e, desde a spec 0014, os
+ * candidatos de equipamento. É o que decide cartão novo (AC-4; 0014, AC-7).
+ */
 export type ConteudoVisivel = {
   servicoId: string | null;
   unidadeId: string | null;
   localExato: string | null;
+  /** `origem|ids em ordem`, vazia sem ativo (spec 0014, AC-7). */
+  ativoChave: string;
 };
+
+/**
+ * A chave estável dos candidatos de equipamento. Cartão antigo, gravado sem o
+ * campo `ativo`, vale chave vazia: não é regravado só por isso.
+ */
+export function chaveDoAtivo(ativo: CartaoPayload['ativo']): string {
+  if (!ativo) return '';
+  return `${ativo.origem}|${ativo.candidatos.map((c) => c.ativoId).join(',')}`;
+}
 
 type PropostaVisivel = Pick<PropostaLida, 'servico' | 'localExato' | 'localForaDoPerfil'>;
 
+/**
+ * O conteúdo que a proposta montaria sem consultar o banco. A chave do ativo
+ * vem de quem chama, que só a calcula quando há código no relato ou a
+ * proposta está pronta para cartão (spec 0014, AC-7).
+ */
 export function conteudoDaProposta(
   proposta: PropostaVisivel | null,
   perfil: Perfil,
+  ativoChave = '',
 ): ConteudoVisivel {
   return {
     servicoId: proposta?.servico?.catalogServiceId ?? null,
     unidadeId: unidadeSugerida(perfil, proposta?.localForaDoPerfil ?? false)?.unitId ?? null,
     localExato: limparLocal(proposta?.localExato),
+    ativoChave,
   };
 }
 
@@ -129,12 +150,16 @@ export function conteudoDoCartao(cartao: CartaoPayload): ConteudoVisivel {
     servicoId: cartao.servico?.catalogServiceId ?? null,
     unidadeId: cartao.unidade?.unitId ?? null,
     localExato: limparLocal(cartao.localExato),
+    ativoChave: chaveDoAtivo(cartao.ativo),
   };
 }
 
 export function mesmoConteudo(a: ConteudoVisivel, b: ConteudoVisivel): boolean {
   return (
-    a.servicoId === b.servicoId && a.unidadeId === b.unidadeId && a.localExato === b.localExato
+    a.servicoId === b.servicoId &&
+    a.unidadeId === b.unidadeId &&
+    a.localExato === b.localExato &&
+    a.ativoChave === b.ativoChave
   );
 }
 

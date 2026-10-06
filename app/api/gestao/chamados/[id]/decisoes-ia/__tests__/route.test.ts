@@ -235,4 +235,47 @@ describe('GET /api/gestao/chamados/[id]/decisoes-ia', () => {
     expect(linha.decisao.motivo).toBe('Risco de piorar logo.');
     expect(linha.divergente).toBe(true);
   });
+
+  it('nunca mostra a decisão ativo, nem quando o chamado tem uma (spec 0014, AC-11)', async () => {
+    // Arrange
+    mockLerDecisoes.mockResolvedValue({
+      ok: true,
+      decisoes: [
+        decisao(),
+        decisao({
+          id: 'dec2',
+          campo: 'ativo',
+          decididoPor: 'regra',
+          efeito: 'aplicado',
+          confianca: null,
+          valorIa: {
+            ...decisao().valorIa,
+            prioridade: null,
+            ativoId: '507f1f77bcf86cd799439012',
+            rotulo: '11997',
+          },
+          valorFinal: {
+            ...decisao().valorFinal,
+            prioridade: null,
+            ativoId: '507f1f77bcf86cd799439012',
+            rotulo: '11997',
+          },
+        }),
+      ],
+    });
+    const req = new Request(`http://localhost/api/gestao/chamados/${VALID_ID}/decisoes-ia`);
+
+    // Act
+    const res = await GET(req, makeParams(VALID_ID));
+    const body = await res.json();
+
+    // Assert
+    expect(res.status).toBe(200);
+    expect(body.campos.map((c: { campo: string }) => c.campo)).toEqual([
+      'servico',
+      'prioridade',
+      'tecnico',
+    ]);
+    expect(JSON.stringify(body)).not.toContain('11997');
+  });
 });
