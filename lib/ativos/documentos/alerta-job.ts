@@ -109,6 +109,11 @@ export async function processarVencimentos(
     const alcancados = limitesAlcancados(doc.validadeAte, hoje);
     const novos = alcancados.filter((l) => !ja.has(l));
     if (novos.length === 0) continue;
+    // Sem ninguém para avisar, não grava a marca: senão o limite some sem aviso.
+    if (gestores.length === 0) {
+      relatorio.erros += 1;
+      continue;
+    }
 
     try {
       // Só quem grava a marca envia (AC-13).
@@ -134,17 +139,15 @@ export async function processarVencimentos(
       );
 
       try {
-        if (gestores.length) {
-          await NotificationModel.insertMany(
-            gestores.map((g) => ({
-              userId: g._id,
-              type: 'documento:vencimento',
-              title: aviso.titulo,
-              body: aviso.corpo,
-              data: aviso.data,
-            })),
-          );
-        }
+        await NotificationModel.insertMany(
+          gestores.map((g) => ({
+            userId: g._id,
+            type: 'documento:vencimento',
+            title: aviso.titulo,
+            body: aviso.corpo,
+            data: aviso.data,
+          })),
+        );
       } catch (e) {
         // Desfaz a marca para o aviso sair na próxima rodada (AC-12).
         await DocumentoAtivoModel.updateOne(
@@ -164,5 +167,10 @@ export async function processarVencimentos(
     }
   }
 
+  if (gestores.length === 0 && relatorio.erros > 0) {
+    console.error(
+      `[documentos] nenhum Admin ou Preposto ativo: ${relatorio.erros} aviso(s) ficam para a próxima rodada`,
+    );
+  }
   return relatorio;
 }

@@ -13,7 +13,7 @@ import { COLUNA, COLUNAS_USADAS, MAPA_PATRIMONIAL } from './layout';
  * Leitura do export bruto do SICAM (spec 0012, AC-17 e AC-18). O arquivo não
  * tem aspas e quebra linhas quando a descrição traz `;`, então o parse é
  * próprio: divide por `;` e conserta a linha vendo os campos crus, como o
- * `docs/extrair.py`. Nada aqui toca o banco.
+ * `docs/specs/0011-gestao-ativos/extrair.py`. Nada aqui toca o banco.
  */
 
 /** Uma linha aceita (bem tombado e presente), já mapeada. */

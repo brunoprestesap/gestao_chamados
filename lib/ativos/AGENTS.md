@@ -1,6 +1,6 @@
 # lib/ativos: gestão de ativos
 
-As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadastro do ativo com histórico, o seletor do chamado, a ficha, a lista, o vínculo com chamado e a carga do Tier A. As telas estão em `app/(dashboard)/ativos/` e `app/(dashboard)/configuracoes/categorias-ativo/`; as rotas de leitura, em `app/api/ativos/`. Specs: `docs/specs/0011-gestao-ativos/` e, para documentos, `docs/specs/0013-documentos-preventiva-ativo/`.
+As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadastro do ativo com histórico, o seletor do chamado, a ficha, a lista, o vínculo com chamado e a carga do Tier A. As telas estão em `app/(dashboard)/ativos/` e `app/(dashboard)/configuracoes/categorias-ativo/`; as rotas de leitura, em `app/api/ativos/`. Specs: `docs/specs/0011-gestao-ativos/` (com a proposta completa em `proposta.md`), para vistoria e importador `docs/specs/0012-importador-sicam-vistoria/` e, para documentos, `docs/specs/0013-documentos-preventiva-ativo/`.
 
 ## Arquivos principais
 
@@ -17,6 +17,7 @@ As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadas
 | `codigo.ts`                          | `normalizarCodigo` (sem `server-only`: o cliente também usa)                                                                                                                                               |
 | `carga.ts`, `carga-script.ts`        | Parser do CSV e o script mongosh da carga (gerado por `scripts/gerar-carga-ativos.ts`)                                                                                                                     |
 | `indicadores.ts`                     | MTBF, MTTR, reincidência e ranking (spec 0014): `calcularIndicadoresAtivos` para a aba Ativos do IMR e `indicadoresDoAtivo` para a ficha                                                                   |
+| `importacao/`                        | Importador do CSV do SICAM (spec 0012): `parse.ts` (cp1252 e reparos), `classificacao.ts`, `diferenca.ts`, `revisao.ts`, `aplicar.ts`, `pendente.ts`, `enxugar.ts`                                         |
 | `documentos/`                        | Documentos do ativo e do local (spec 0013): `gravar.ts` (cadastro com substituição, correção, exclusão), `situacao.ts` (datas e limites), `ficha.ts`, `painel.ts`, `alerta-job.ts`, `aviso.ts`, `tipos.ts` |
 
 ## Convenções
@@ -31,12 +32,14 @@ As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadas
 - Arquivos usados pela carga (`carga.ts`, `carga-script.ts`, `codigo.ts`) importam por caminho relativo, sem o alias `@/`, porque rodam pelo `tsx` fora do Next.
 - Documento (spec 0013): no máximo um `vigente` por tipo e alvo, garantido pelos índices únicos parciais de `DocumentoAtivo`. Sem transação, a substituição marca o anterior pelo `_id` lido e desfaz a marca se o novo não entrar. Documento nunca é apagado do banco nem do disco: o fim é `excluido`.
 - Datas de documento são dia sem hora, gravadas como meia noite UTC; "hoje" é sempre `hojeEmBelem()` e os dias saem de `diasRestantes`/`situacaoDoDocumento` (`documentos/situacao.ts`), nunca de `validadeAte - new Date()`. A situação (vencido, vence em N dias) é calculada na leitura, nunca gravada.
-- O aviso de vencimento marca cada limite (`90`, `60`, `30`, `vencido`) em `alertasEnviados` por atualização condicional; só quem grava a marca cria a `Notification` e manda o e-mail. Corrigir a validade apaga as marcas que a data nova ainda não alcança.
+- O aviso de vencimento marca cada limite (`90`, `60`, `30`, `vencido`) em `alertasEnviados` por atualização condicional; só quem grava a marca cria a `Notification` e manda o e-mail. Sem Admin ou Preposto ativo o job não grava a marca e conta erro, para o aviso sair na rodada seguinte. Corrigir a validade apaga as marcas que a data nova ainda não alcança.
 - Documento herdado sobe a árvore pelo `parentId` (`ancestraisDe` no banco, `subirArvore` com `mapaDeLocais` em memória); o prédio de um local é ele mesmo ou o ancestral `predio` mais próximo (`predioDaCadeia`). Nada reimplementa esse percurso.
 - Ler documento e baixar o arquivo: Admin, Preposto e Técnico (`podeVerDocumentos`); escrever: Admin e Preposto; tipo de documento: só Admin. O download responde `Cache-Control: no-store`, para a checagem valer a cada pedido.
 - `TipoDocumento.chave` nunca muda (categorias e documentos guardam a chave). Ao salvar a categoria, `exigeDocumento` guarda só chaves que existem em `TipoDocumento`, ativas ou não.
 - O upload de documento é a rota `POST /api/ativos/documentos` (multipart, até 20 MB), nunca Server Action, e fica fora do matcher do `proxy.ts`. A checagem de tipo e o nome em disco vêm de `lib/uploads/arquivo.ts`, o mesmo apoio dos anexos de chamado.
 - Indicadores de ativo (spec 0014) são só informativos, nunca entram nos números contratuais do IMR. Corretivo é chamado com ativo, sem `originTemplateId` e fora de `STATUS_FORA_DO_CORRETIVO`; o MTTR usa `tempoDeReparoMs` de `lib/imr-service.ts`, a mesma conta do tempo médio do IMR (um teste prova a paridade). A janela da ficha termina em `fimDoDiaEmBelem()`, e `carregarFicha` só calcula para quem passa em `podeVerDocumentos`.
+- Quem escreve o quê no ativo (spec 0012): o importador só escreve `camposPatrimoniais` (e cria o ativo novo); a vistoria só escreve `localizacaoId`, `fabricante`, `modelo`, `numeroSerie` e `statusCadastro`. Nenhum dos dois muda `status`, `categoriaId`, `criticidade` ou `tierManutencao` de ativo existente, e os dois escrevem por `$set`/`$unset` por caminho, nunca trocando `camposPatrimoniais` inteiro. A regra de "só criar" vale só para a carga do Tier A.
+- Nome e matrícula do responsável nunca vão para o pacote da vistoria nem para o `AtivoHistory`, e só ficam na importação enquanto ela está pendente (`enxugar.ts` apaga ao aplicar ou descartar).
 - A busca do seletor com `escopo=documentos` usa `FILTRO_RECEBE_DOCUMENTO` (qualquer tier, nunca `baixado`); para chamado continua só `FILTRO_VINCULAVEL`.
 
 ## Comandos

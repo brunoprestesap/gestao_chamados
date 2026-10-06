@@ -2,7 +2,7 @@ import type { TierManutencao } from '../../../shared/ativos/ativo.constants';
 
 /**
  * Classificação da linha do SICAM pela descrição do material (spec 0012,
- * AC-19), portada de `docs/extrair.py`. A ordem importa: a primeira regra que
+ * AC-19), portada de `docs/specs/0011-gestao-ativos/extrair.py`. A ordem importa: a primeira regra que
  * casa vence. Veículo vem antes de climatização porque a descrição de picape
  * cita "ar condicionado" como item de série. As regras moram só aqui.
  */

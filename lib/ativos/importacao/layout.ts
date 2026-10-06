@@ -2,7 +2,7 @@ import type { CampoPatrimonial, TipoCampoPatrimonial } from '../patrimonial';
 
 /**
  * As colunas que o importador lê do export bruto do SICAM (spec 0012, AC-17),
- * os mesmos nomes que `docs/extrair.py` lê do export real. O cabeçalho é
+ * os mesmos nomes que `docs/specs/0011-gestao-ativos/extrair.py` lê do export real. O cabeçalho é
  * conferido pelo nome, nunca pela posição. `Situação`, `Estado de
  * Conservação` e `Classificação` ficam de fora de propósito.
  */

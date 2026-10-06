@@ -73,8 +73,8 @@ Tracer Bullet, documentos primeiro (é o que tem prazo legal). Cada passo funcio
 
 ## Follow-up
 
-- [ ] Depois de `/develop`, acrescentar em `lib/ativos/AGENTS.md` as regras de documento (um vigente por tipo e alvo, herança pelos locais acima, marcas de aviso) e o escopo novo do recorrente.
-- [ ] `default.tls.conf` precisa do mesmo bloco `location` de 21M quando o TLS for ligado (item já no Deferred do scope).
+- [x] Depois de `/develop`, acrescentar em `lib/ativos/AGENTS.md` as regras de documento (um vigente por tipo e alvo, herança pelos locais acima, marcas de aviso) e o escopo novo do recorrente.
+- [x] `default.tls.conf` precisa do mesmo bloco `location` de 21M quando o TLS for ligado (item já no Deferred do scope).
 
 ## Rationale
 

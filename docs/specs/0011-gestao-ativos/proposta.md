@@ -2,7 +2,7 @@
 
 > Status: proposta
 > Fatia inicial (Tracer Bullet): cadastrar ativo → ler etiqueta → abrir chamado vinculado → ver histórico do ativo
-> Revisão de 01/10/2026: incorpora a análise do export real do SICAM (`docs/specs/0009-gestao-ativos/analise-sicam.md`)
+> Revisão de 01/10/2026: incorpora a análise do export real do SICAM (`docs/specs/0011-gestao-ativos/analise-sicam.md`)
 
 ## 1. Problema
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { classificar } from '../classificacao';
 
-/** Classificação portada do `docs/extrair.py` (spec 0012, AC-19). */
+/** Classificação portada do `docs/specs/0011-gestao-ativos/extrair.py` (spec 0012, AC-19). */
 describe('classificar', () => {
   it('picape com ar condicionado de série vai para veículo (tier D), não climatização', () => {
     expect(classificar('PICAPE CABINE DUPLA 4X4, AR CONDICIONADO, DIREÇÃO HIDRÁULICA')).toEqual({

@@ -2,7 +2,7 @@
 
 ## Context
 
-O Sigma registra que serviço foi pedido, mas não em qual equipamento. Sem isso não se conta quantas vezes um equipamento quebrou, a preventiva não se prende a nada real e a decisão de trocar ou consertar fica no achismo. A proposta completa está em `docs/0009 — Gestão de Ativos.md` (nome anterior ao número livre; `0009` já era a spec de revisão das decisões da IA), com a análise do export do SICAM em `docs/analise-sicam.md`.
+O Sigma registra que serviço foi pedido, mas não em qual equipamento. Sem isso não se conta quantas vezes um equipamento quebrou, a preventiva não se prende a nada real e a decisão de trocar ou consertar fica no achismo. A proposta completa está em `proposta.md` (escrita como "0009", número anterior ao livre; `0009` já era a spec de revisão das decisões da IA), com a análise do export do SICAM em `analise-sicam.md`.
 
 Forças que moldaram esta fatia:
 
