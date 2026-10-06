@@ -43,6 +43,7 @@ rodar('decisão ativo (banco real)', () => {
   let lerConversa: typeof import('../conversa-store').lerConversa;
   let registrarDecisao: typeof import('../decisoes').registrarDecisao;
   let camposPendentesDeConfirmacao: typeof import('../decisoes').camposPendentesDeConfirmacao;
+  let temDecisoes: typeof import('../decisoes').temDecisoes;
   let vincularAtivoAoChamado: typeof import('@/lib/ativos/vinculo').vincularAtivoAoChamado;
   let idsDoRecorte: typeof import('@/lib/gestao/revisao-ia-filtro').idsDoRecorte;
 
@@ -95,7 +96,7 @@ rodar('decisão ativo (banco real)', () => {
   beforeAll(async () => {
     ({ abrirChamadoDaConversa } = await import('../abertura'));
     ({ criarConversa, enviarMensagem, lerConversa } = await import('../conversa-store'));
-    ({ registrarDecisao, camposPendentesDeConfirmacao } = await import('../decisoes'));
+    ({ registrarDecisao, camposPendentesDeConfirmacao, temDecisoes } = await import('../decisoes'));
     ({ vincularAtivoAoChamado } = await import('@/lib/ativos/vinculo'));
     ({ idsDoRecorte } = await import('@/lib/gestao/revisao-ia-filtro'));
 
@@ -260,7 +261,12 @@ rodar('decisão ativo (banco real)', () => {
       expect(historico.map((h) => h.observacoes)).toEqual(['serviço: Reparo de split']);
     });
 
-    it('chamado só com a decisão ativo fica sem_ia, fora dos recortes e sem pendência', async () => {
+    it('chamado com decisão de serviço e de ativo continua com decisão para a gestão', async () => {
+      const { chamadoId } = await abrirComAtivo();
+      expect(await temDecisoes(chamadoId)).toBe(true);
+    });
+
+    it('chamado só com a decisão ativo fica sem_ia, fora dos recortes, sem pendência e sem decisão para a gestão', async () => {
       // Arrange
       const { chamadoId } = await abrirComAtivo([]);
 
@@ -269,12 +275,14 @@ rodar('decisão ativo (banco real)', () => {
       const semRevisao = await idsDoRecorte('sem_revisao');
       const pendentes = await camposPendentesDeConfirmacao(chamadoId);
       const pedindoAtivo = await camposPendentesDeConfirmacao(chamadoId, ['ativo']);
+      const contaComoDecisao = await temDecisoes(chamadoId);
 
       // Assert
       expect(chamado?.iaSituacao).toBe('sem_ia');
       expect(semRevisao).not.toContain(chamadoId);
       expect(pendentes).toEqual([]);
       expect(pedindoAtivo).toEqual([]);
+      expect(contaComoDecisao).toBe(false);
     });
   });
 

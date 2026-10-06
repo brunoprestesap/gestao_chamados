@@ -669,9 +669,12 @@ export async function decisoesOcultas(chamadoId: string): Promise<Set<string>> {
  * Existe alguma decisão para este chamado? Os ganchos da gestão conferem isso
  * antes de qualquer coisa: a maioria dos chamados vem do formulário, não tem
  * decisão nenhuma, e neles o gancho sai em silêncio (AC-9, AC-10).
+ *
+ * A decisão `ativo` não conta: ela fica fora da IA (spec 0014, AC-11), e o
+ * chamado que só tem ela sai em silêncio como um do formulário.
  */
 export async function temDecisoes(chamadoId: string): Promise<boolean> {
-  return Boolean(await DecisaoIaModel.exists({ chamadoId }));
+  return Boolean(await DecisaoIaModel.exists({ chamadoId, campo: { $ne: 'ativo' } }));
 }
 
 /**
