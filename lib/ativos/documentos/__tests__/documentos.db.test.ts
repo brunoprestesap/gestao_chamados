@@ -317,6 +317,31 @@ rodar('documentos do ativo, contra o Mongo', () => {
     expect(notas[0].title).toBe('PMOC do MNT-0004 venceu em 01/09/2026');
   });
 
+  it('sem gestor ativo, não marca e avisa na rodada seguinte', async () => {
+    const a = await ativo('MNT-0007');
+    const r = await gravar.cadastrarDocumento(
+      dados({ ativoId: String(a._id) }, { validadeAte: '2026-10-23' }),
+      arquivo(),
+      autor,
+    );
+    if (!r.ok) throw new Error(r.error);
+
+    const semGestor = await job.processarVencimentos(HOJE);
+    expect(semGestor).toEqual({ avaliados: 1, avisados: 0, erros: 1 });
+    expect((await DocumentoAtivoModel.findById(r.id).lean())?.alertasEnviados).toEqual([]);
+
+    await UserModel.create({
+      username: 'adm',
+      name: 'Adm',
+      role: 'Admin',
+      isActive: true,
+      passwordHash: 'x',
+    });
+    const comGestor = await job.processarVencimentos(HOJE);
+    expect(comGestor).toEqual({ avaliados: 1, avisados: 1, erros: 0 });
+    expect(await NotificationModel.countDocuments()).toBe(1);
+  });
+
   it('corrigir a validade para 100 dias limpa as marcas (AC-5)', async () => {
     const a = await ativo('MNT-0005');
     const r = await gravar.cadastrarDocumento(
