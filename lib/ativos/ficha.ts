@@ -2,6 +2,8 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { podeVerDocumentos } from '@/lib/ativos/documentos/permissao';
+import { type IndicadoresDaFicha, indicadoresDoAtivo } from '@/lib/ativos/indicadores';
 import { canManage, type SessionLike } from '@/lib/dal';
 import { AtivoModel } from '@/models/Ativo';
 import { AtivoHistoryModel } from '@/models/AtivoHistory';
@@ -104,6 +106,12 @@ export type FichaAtivo = {
   ultimaConferencia: UltimaConferenciaFicha | null;
   historico: EntradaHistoricoAtivo[];
   chamados: ChamadoDaFicha[];
+  /**
+   * Corretivos em 12 meses, MTBF, MTTR e corretivos em 90 dias (spec 0014,
+   * AC-20). Só para Admin, Preposto e Técnico; para o Solicitante o servidor
+   * nem calcula. `null` quando a leitura falhou.
+   */
+  indicadores?: IndicadoresDaFicha | null;
 };
 
 type AtivoLean = {
@@ -180,33 +188,48 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
   if (!ativo) return null;
 
   const gestao = canManage(sessao.role);
+  const veIndicadores = podeVerDocumentos(sessao.role);
 
-  const [categoria, local, historicoDocs, chamadosDocs, conferencia] = await Promise.all([
-    CategoriaAtivoModel.findById(ativo.categoriaId).select('nome').lean(),
-    ativo.localizacaoId
-      ? LocalizacaoModel.findById(ativo.localizacaoId).select('caminho').lean()
-      : Promise.resolve(null),
-    AtivoHistoryModel.find({ ativoId: ativo._id })
-      .sort({ createdAt: -1 })
-      .limit(LIMITE_HISTORICO_FICHA)
-      .lean(),
-    ChamadoModel.find({ ativoId: ativo._id })
-      .sort({ createdAt: -1 })
-      .limit(LIMITE_CHAMADOS_FICHA)
-      .select(
-        'ticket_number status tipoServico catalogServiceId createdAt closedAt descricao solicitanteId assignedToUserId',
-      )
-      .lean<ChamadoLean[]>(),
-    ConferenciaVistoriaModel.findOne({ ativoId: ativo._id })
-      .sort({ conferidoEm: -1 })
-      .select('campanhaId autorId papelAutor conferidoEm')
-      .lean<{
-        campanhaId: Types.ObjectId;
-        autorId: Types.ObjectId;
-        papelAutor: PapelAutor;
-        conferidoEm: Date;
-      }>(),
-  ]);
+  const [categoria, local, historicoDocs, chamadosDocs, conferencia, indicadores] =
+    await Promise.all([
+      CategoriaAtivoModel.findById(ativo.categoriaId).select('nome').lean(),
+      ativo.localizacaoId
+        ? LocalizacaoModel.findById(ativo.localizacaoId).select('caminho').lean()
+        : Promise.resolve(null),
+      AtivoHistoryModel.find({ ativoId: ativo._id })
+        .sort({ createdAt: -1 })
+        .limit(LIMITE_HISTORICO_FICHA)
+        .lean(),
+      ChamadoModel.find({ ativoId: ativo._id })
+        .sort({ createdAt: -1 })
+        .limit(LIMITE_CHAMADOS_FICHA)
+        .select(
+          'ticket_number status tipoServico catalogServiceId createdAt closedAt descricao solicitanteId assignedToUserId',
+        )
+        .lean<ChamadoLean[]>(),
+      ConferenciaVistoriaModel.findOne({ ativoId: ativo._id })
+        .sort({ conferidoEm: -1 })
+        .select('campanhaId autorId papelAutor conferidoEm')
+        .lean<{
+          campanhaId: Types.ObjectId;
+          autorId: Types.ObjectId;
+          papelAutor: PapelAutor;
+          conferidoEm: Date;
+        }>(),
+      veIndicadores
+        ? indicadoresDoAtivo(String(ativo._id)).catch((err: unknown) => {
+            console.error(
+              '[ativos]',
+              JSON.stringify({
+                operacao: 'indicadoresDoAtivo',
+                ativoId: String(ativo._id),
+                error: err instanceof Error ? err.message : 'unknown',
+              }),
+            );
+            return null;
+          })
+        : Promise.resolve(undefined),
+    ]);
   const campanha = conferencia
     ? await CampanhaVistoriaModel.findById(conferencia.campanhaId)
         .select('nome')
@@ -317,5 +340,6 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
       : null,
     historico,
     chamados,
+    ...(veIndicadores && { indicadores: indicadores ?? null }),
   };
 }

@@ -9,7 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { DECISAO_CAMPO_LABELS, type DecisaoCampo } from '@/shared/conversas/conversa.constants';
+import {
+  DECISAO_CAMPO_LABELS,
+  type DecisaoCampo,
+  type DecisaoCampoDaIa,
+} from '@/shared/conversas/conversa.constants';
 
 /**
  * O painel "Serviço, prioridade e técnico" do detalhe do chamado (spec 0009,
@@ -49,13 +53,14 @@ type DecisaoDto = {
 };
 
 type CampoDto = {
-  campo: DecisaoCampo;
+  campo: DecisaoCampoDaIa;
   atual: ValorDecisaoDto;
   decisao: DecisaoDto | null;
   divergente: boolean;
 };
 
-const CAMPO_ICON: Record<DecisaoCampo, LucideIcon> = {
+// `ativo` nunca chega aqui: a rota só devolve os campos da IA (spec 0014, AC-11).
+const CAMPO_ICON: Record<DecisaoCampoDaIa, LucideIcon> = {
   servico: Wrench,
   prioridade: Gauge,
   tecnico: UserIcon,
@@ -84,7 +89,7 @@ interface LinhaProps {
   item: CampoDto;
   confirmando: boolean;
   desabilitado: boolean;
-  onConfirmar: (campo: DecisaoCampo) => void;
+  onConfirmar: (campo: DecisaoCampoDaIa) => void;
   /** Ação extra da linha (Reatribuir no técnico, Corrigir na prioridade). */
   acaoExtra?: React.ReactNode;
 }
@@ -247,7 +252,7 @@ export function RevisaoIaPainel({
   }, [carregar]);
 
   const confirmar = useCallback(
-    async (campoAlvo?: DecisaoCampo) => {
+    async (campoAlvo?: DecisaoCampoDaIa) => {
       setConfirmando(campoAlvo ?? 'todas');
       try {
         const resultado = await confirmarDecisoesIaAction({

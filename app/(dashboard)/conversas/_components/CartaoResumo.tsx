@@ -44,6 +44,7 @@ import {
   fraseDaConfirmacao,
 } from '../_constants';
 import { confirmarAberturaAction } from '../actions';
+import { LinhaEquipamento } from './LinhaEquipamento';
 import { hora, iso } from './tempo';
 import { useUnidades } from './unidades-contexto';
 
@@ -97,6 +98,12 @@ export function CartaoResumo({
   const [unitId, setUnitId] = useState(cartao.unidade?.unitId ?? '');
   const [localExato, setLocalExato] = useState(cartao.localExato ?? '');
   const [tipo, setTipo] = useState<TipoServico | ''>('');
+  // O equipamento (spec 0014, AC-5): um candidato já vem marcado; com vários,
+  // "Não sei" (`null`) vem marcado.
+  const ativoDoCartao = cartao.ativo ?? null;
+  const [ativoEscolhido, setAtivoEscolhido] = useState<string | null>(
+    ativoDoCartao?.candidatos.length === 1 ? ativoDoCartao.candidatos[0]!.ativoId : null,
+  );
   const [enviando, setEnviando] = useState(false);
   const [tentou, setTentou] = useState(false);
   const [falha, setFalha] = useState<string | null>(null);
@@ -141,6 +148,12 @@ export function CartaoResumo({
   }
 
   const erros = tentou ? validar() : {};
+
+  // A sugestão da regra olhou a unidade do cartão: trocada a unidade, a linha
+  // some, e volta com a unidade original (AC-6). A do código vale sempre.
+  const linhaAtivoVisivel =
+    ativoDoCartao !== null &&
+    (ativoDoCartao.origem === 'codigo' || unitId === (cartao.unidade?.unitId ?? ''));
   const bloqueado = enviando || aguardandoResposta || !conversaId;
 
   async function confirmar(evento: React.FormEvent<HTMLFormElement>) {
@@ -162,6 +175,7 @@ export function CartaoResumo({
         unitId,
         localExato: localExato.trim(),
         ...(manual && tipo ? { tipoServico: tipo } : {}),
+        ...(ativoDoCartao ? { ativoId: linhaAtivoVisivel ? ativoEscolhido : null } : {}),
       });
       if (resultado.ok) {
         onConfirmado();
@@ -414,6 +428,15 @@ export function CartaoResumo({
             </div>
           </dl>
         )}
+
+        {ativoDoCartao && linhaAtivoVisivel ? (
+          <LinhaEquipamento
+            ativo={ativoDoCartao}
+            escolhido={ativoEscolhido}
+            onEscolher={setAtivoEscolhido}
+            desabilitado={!atual || enviando}
+          />
+        ) : null}
 
         <p className="flex items-start gap-2 rounded-xl bg-muted/50 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
           <FileText aria-hidden="true" className="mt-px size-3.5 shrink-0" />

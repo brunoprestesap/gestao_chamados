@@ -102,6 +102,13 @@ export const CARTAO_SELO_MANUAL = 'Complete para abrir';
 export const CARTAO_SUBSTITUIDO = 'Substituído';
 export const CARTAO_DESCRICAO_AVISO = 'O texto desta conversa vira a descrição do chamado.';
 export const CARTAO_SERVICO_DICA = 'Para trocar o serviço, conte na conversa o que mudou.';
+/** A linha Equipamento do cartão (spec 0014, AC-5). */
+export const CARTAO_EQUIPAMENTO = 'Equipamento';
+export const CARTAO_EQUIPAMENTO_NAO_SEI = 'Não sei';
+export const CARTAO_EQUIPAMENTO_TIRAR = 'Não é este';
+export const CARTAO_EQUIPAMENTO_DESFAZER = 'Desfazer';
+export const CARTAO_EQUIPAMENTO_TIRADO = 'Sem equipamento. A equipe vincula depois, se precisar.';
+export const CARTAO_EQUIPAMENTO_ESCOLHA = 'Qual destes é o equipamento?';
 export const CARTAO_CONFIRMAR = 'Confirmar e abrir chamado';
 export const CARTAO_CONFIRMANDO = 'Abrindo o chamado…';
 export const CARTAO_ESPERE_RESPOSTA = 'Espere o assistente terminar de responder para confirmar.';

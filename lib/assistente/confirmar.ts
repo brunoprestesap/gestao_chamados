@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { buscarAtivoVinculavel } from '@/lib/ativos/seletor';
 import { tentarAtribuicaoAutomatica } from '@/lib/chamados/atribuicao-automatica';
 import { notificarNovoChamado } from '@/lib/chamados/novo-chamado';
 import {
@@ -12,6 +13,7 @@ import {
   lerMensagens,
   lerProposta,
   type PropostaLida,
+  registrarDecisao,
   type Viewer,
 } from '@/lib/conversas';
 import { dbConnect } from '@/lib/db';
@@ -26,6 +28,7 @@ import type {
   ConversaFalha,
   DecisaoEfeito,
 } from '@/shared/conversas/conversa.constants';
+import type { AtivoOrigem, CartaoPayload } from '@/shared/conversas/conversa.schemas';
 
 import { lerServicoAtivo, type ServicoAtivo } from './catalogo';
 import { fraseDeChamadoAberto } from './mensagens';
@@ -64,12 +67,20 @@ export function montarTituloChat({
   return `${rotulo.trim()} — ${localExato.trim()}`;
 }
 
+/**
+ * A mensagem entra no relato? Só texto do solicitante. A procura do código do
+ * equipamento (spec 0014, AC-1) lê exatamente as mesmas mensagens.
+ */
+export function ehMensagemDoRelato(m: { autor: string; tipo: string }): boolean {
+  return m.autor === 'solicitante' && m.tipo === 'texto';
+}
+
 /** Todo o texto do solicitante, na ordem, separado por uma linha em branco. */
 export function montarDescricao(
   mensagens: { autor: string; tipo: string; texto: string }[],
 ): string {
   return mensagens
-    .filter((m) => m.autor === 'solicitante' && m.tipo === 'texto')
+    .filter(ehMensagemDoRelato)
     .map((m) => m.texto.trim())
     .filter(Boolean)
     .join('\n\n');
@@ -133,13 +144,84 @@ function registrar(dados: Record<string, unknown>): void {
   console.warn('[abertura]', JSON.stringify(dados));
 }
 
+export type AtivoAceito = { ativoId: string; codigo: string; origem: AtivoOrigem };
+
+/**
+ * O equipamento que vai para o chamado (spec 0014, AC-6 e AC-8). Só vale o
+ * id que estava entre os candidatos do cartão confirmado, que ainda pode
+ * receber chamado e, quando veio da regra, com a mesma unidade do cartão.
+ * Qualquer outro caso abre sem ativo, sem erro para a pessoa: nada do ativo
+ * impede a abertura.
+ */
+export async function ativoDaConfirmacao(params: {
+  conversaId: string;
+  ativoId: string | null | undefined;
+  cartao: CartaoPayload;
+  unitId: string;
+}): Promise<AtivoAceito | null> {
+  const { conversaId, ativoId, cartao, unitId } = params;
+  if (!ativoId) return null;
+
+  const doCartao = cartao.ativo ?? null;
+  if (!doCartao || !doCartao.candidatos.some((c) => c.ativoId === ativoId)) {
+    registrar({ conversaId, aviso: 'ativo_fora_dos_candidatos' });
+    return null;
+  }
+  // A regra olhou a unidade do cartão; trocada a unidade, a sugestão não vale.
+  if (doCartao.origem === 'regra' && unitId !== cartao.unidade?.unitId) return null;
+
+  try {
+    const vinculavel = await buscarAtivoVinculavel(ativoId);
+    if (!vinculavel) return null;
+    return { ativoId, codigo: vinculavel.codigo, origem: doCartao.origem };
+  } catch (err) {
+    registrar({
+      conversaId,
+      aviso: 'ativo_indisponivel',
+      erro: err instanceof Error ? err.name : 'desconhecido',
+    });
+    return null;
+  }
+}
+
+const MOTIVO_DO_ATIVO: Record<AtivoOrigem, string> = {
+  codigo: 'Código do equipamento citado no relato.',
+  regra: 'Equipamento da categoria do serviço num local da unidade.',
+};
+
+/**
+ * A decisão `ativo` (spec 0014, AC-10): gravada depois que o chamado existe,
+ * fora da lista `decisoes` da abertura, para uma falha aqui nunca desfazer o
+ * chamado. Se falhar, o chamado fica com o ativo e sem a decisão.
+ */
+async function registrarDecisaoDoAtivo(params: {
+  chamadoId: string;
+  conversaId: string;
+  ativo: AtivoAceito;
+}): Promise<void> {
+  const { chamadoId, conversaId, ativo } = params;
+  const resultado = await registrarDecisao({
+    chamadoId,
+    conversaId,
+    campo: 'ativo',
+    decididoPor: 'regra',
+    efeito: 'aplicado',
+    valor: { ativoId: ativo.ativoId },
+    motivo: MOTIVO_DO_ATIVO[ativo.origem],
+    confianca: null,
+  }).catch(() => ({ ok: false as const, reason: 'erro' as const }));
+  if (!resultado.ok && resultado.reason !== 'ja_existe') {
+    console.error('[abertura]', JSON.stringify({ chamadoId, decisaoAtivo: resultado.reason }));
+  }
+}
+
 export async function confirmarAbertura(
   viewer: Viewer,
   entrada: unknown,
 ): Promise<ConfirmacaoResultado> {
   const parsed = confirmarAberturaSchema.safeParse(entrada);
   if (!parsed.success) return falha('dados_invalidos');
-  const { conversaId, cartaoId, unitId, localExato, tipoServico } = parsed.data;
+  const { conversaId, cartaoId, unitId, localExato, tipoServico, ativoId } = parsed.data;
 
   try {
     await dbConnect();
@@ -201,6 +283,10 @@ export async function confirmarAbertura(
 
     const unidade = await UnitModel.findOne({ _id: unitId, isActive: true }).select('_id').lean();
     if (!unidade) return falha('dados_invalidos');
+
+    // O equipamento não passa pelo portão de confiança nem muda o status, o
+    // SLA ou a atribuição (spec 0014, AC-9): só vai para o chamado.
+    const ativo = await ativoDaConfirmacao({ conversaId, ativoId, cartao: cartao.payload, unitId });
 
     const descricao = montarDescricao(await lerMensagens(conversaId));
     const titulo = montarTituloChat({
@@ -265,13 +351,19 @@ export async function confirmarAbertura(
         telefoneContato: '',
         catalogServiceId: servico ? new Types.ObjectId(servico.catalogServiceId) : null,
         subtypeId: servico ? new Types.ObjectId(servico.subtypeId) : null,
+        ativoId: ativo ? new Types.ObjectId(ativo.ativoId) : null,
         ...classificacao,
       },
       decisoes: decisoesDaProposta(proposta, servico, efeitoPrioridade),
+      codigoAtivo: ativo?.codigo ?? null,
     });
     if (!aberto.ok) return falha(traduzir(aberto.reason));
 
     if (!aberto.jaExistia) {
+      if (ativo) {
+        await registrarDecisaoDoAtivo({ chamadoId: aberto.chamadoId, conversaId, ativo });
+      }
+
       // A atribuição automática (spec 0008): só o chamado que nasceu `validado`
       // pelo chat, e só na primeira confirmação (`jaExistia` voltou antes). O
       // passo nunca lança; `nao_tentada` deixa tudo como na spec 0007.
@@ -333,7 +425,15 @@ export async function confirmarAbertura(
       });
     }
 
-    registrar({ conversaId, chamadoId: aberto.chamadoId, modo, jaExistia: aberto.jaExistia });
+    registrar({
+      conversaId,
+      chamadoId: aberto.chamadoId,
+      modo,
+      jaExistia: aberto.jaExistia,
+      // Origem e quantidade do equipamento, nunca o código (spec 0014, AC-13).
+      ativoOrigem: ativo?.origem ?? null,
+      ativoCandidatos: cartao.payload.ativo?.candidatos.length ?? 0,
+    });
 
     return {
       ok: true,

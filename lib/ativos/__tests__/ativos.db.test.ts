@@ -576,6 +576,58 @@ rodar('ativos, contra o Mongo', () => {
         expect(JSON.stringify(f)).not.toContain(ausenteDesde.toISOString());
       }
     });
+
+    // covers: AC-20 (spec 0014)
+    it('a linha de indicadores sai para Admin, Preposto e Técnico, e nunca para o Solicitante', async () => {
+      // Arrange: dois corretivos recentes e um preventivo, que não conta
+      const ativo = await AtivoModel.create({
+        codigo: '602',
+        origemCodigo: 'patrimonio',
+        tombamento: '602',
+        descricao: 'Split reincidente',
+        categoriaId,
+        criticidade: 'media',
+        tierManutencao: 'A',
+        statusCadastro: 'validado',
+      });
+      const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await chamado({
+        ativoId: ativo._id,
+        createdAt: new Date(ontem.getTime() - 10 * 24 * 60 * 60 * 1000),
+      });
+      await chamado({ ativoId: ativo._id, createdAt: ontem });
+      await chamado({
+        ativoId: ativo._id,
+        createdAt: ontem,
+        originTemplateId: new Types.ObjectId(),
+      });
+      const sessao = (role: string, userId: unknown) => ({
+        userId: String(userId),
+        username: 'u',
+        role: role as 'Admin',
+        isActive: true,
+      });
+
+      // Act / Assert
+      for (const [role, id] of [
+        ['Admin', autor],
+        ['Preposto', autor],
+        ['Técnico', tecnicoId],
+      ] as const) {
+        const f = await ficha.carregarFicha(String(ativo._id), sessao(role, id));
+        expect(f?.indicadores).toEqual({
+          corretivos12m: 2,
+          mtbfMs: 10 * 24 * 60 * 60 * 1000,
+          mttrMs: null,
+          corretivos90d: 2,
+        });
+      }
+      const doSolicitante = await ficha.carregarFicha(
+        String(ativo._id),
+        sessao('Solicitante', solicitanteId),
+      );
+      expect(doSolicitante).not.toHaveProperty('indicadores');
+    });
   });
 
   /**

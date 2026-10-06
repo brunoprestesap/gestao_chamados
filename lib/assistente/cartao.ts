@@ -5,6 +5,7 @@ import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
 import type { CartaoFaltando } from '@/shared/conversas/conversa.constants';
 import type { CartaoPayload } from '@/shared/conversas/conversa.schemas';
 
+import { resolverAtivoDoCartao } from './ativo-do-cartao';
 import { lerServicoAtivo } from './catalogo';
 import { fraseDoCartao } from './mensagens';
 import { lerPerfil, type Perfil } from './perfil';
@@ -28,10 +29,11 @@ export type CartaoMontado = {
 type PropostaDoCartao = Pick<PropostaLida, 'servico' | 'localExato' | 'localForaDoPerfil'> | null;
 
 export async function montarCartao(params: {
+  conversaId: string;
   proposta: PropostaDoCartao;
   perfil: Perfil;
 }): Promise<CartaoMontado> {
-  const { proposta, perfil } = params;
+  const { conversaId, proposta, perfil } = params;
 
   // O serviço pode ter sido desativado depois da proposta: aí o cartão é manual.
   const servico = proposta?.servico
@@ -46,14 +48,28 @@ export async function montarCartao(params: {
   if (!unidade) faltando.push('unidade');
   if (!localExato) faltando.push('local');
 
-  const payload: CartaoPayload = {
-    modo: servico ? 'ia' : 'manual',
+  const modo = servico ? 'ia' : 'manual';
+  const unidadeDoCartao = unidade
+    ? { unitId: unidade.unitId, rotulo: unidade.nome, andar: unidade.andar }
+    : null;
+
+  // O equipamento (spec 0014): do código no relato ou da regra, nunca do
+  // modelo. O campo vai sempre explícito, com `null` quando não há ativo.
+  const ativo = await resolverAtivoDoCartao({
+    conversaId,
+    modo,
     servico,
-    unidade: unidade
-      ? { unitId: unidade.unitId, rotulo: unidade.nome, andar: unidade.andar }
-      : null,
+    unidade: unidadeDoCartao,
+    localExato,
+  });
+
+  const payload: CartaoPayload = {
+    modo,
+    servico,
+    unidade: unidadeDoCartao,
     localExato,
     faltando,
+    ativo,
   };
 
   return {
@@ -93,7 +109,7 @@ export async function revisarAbertura(
     if (lida.situacao !== 'rascunho') return { ok: false, reason: 'nao_encontrada' };
 
     const perfil = await lerPerfil(viewer.userId);
-    const montado = await montarCartao({ proposta: lida.proposta, perfil });
+    const montado = await montarCartao({ conversaId, proposta: lida.proposta, perfil });
 
     const atual = lida.cartaoAtual;
     if (

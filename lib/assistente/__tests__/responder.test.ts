@@ -35,6 +35,12 @@ vi.mock('../catalogo', async (importOriginal) => ({
 }));
 
 const mockLerPerfil = vi.fn();
+const mockResolverAtivo = vi.fn();
+vi.mock('../ativo-do-cartao', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../ativo-do-cartao')>()),
+  resolverAtivoDoCartao: (...args: unknown[]) => mockResolverAtivo(...args),
+}));
+
 vi.mock('../perfil', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../perfil')>()),
   lerPerfil: (...args: unknown[]) => mockLerPerfil(...args),
@@ -205,6 +211,7 @@ let avisos: string[] = [];
 beforeEach(() => {
   vi.clearAllMocks();
   avisos = [];
+  mockResolverAtivo.mockResolvedValue(null);
   vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
     avisos.push(args.map(String).join(' '));
   });
@@ -305,6 +312,7 @@ describe('responderNaConversa · resposta com cartão', () => {
         unidade: { unitId: UNIDADE_ID, rotulo: 'Fórum Central', andar: '3º andar' },
         localExato: 'Sala 302',
         faltando: [],
+        ativo: null,
       },
     });
   });
@@ -961,5 +969,119 @@ describe('responderNaConversa · reserva com cartão manual', () => {
       if (!r.ok) throw new Error('esperava sucesso');
       await expect(coletar(r.quadros)).resolves.toBeDefined();
     }
+  });
+});
+
+// ── equipamento no cartão · spec 0014 ────────────────────────────
+
+describe('responderNaConversa · equipamento (spec 0014, AC-7, AC-13)', () => {
+  const ATIVO_ID = '6aad5286df6f201a25ede001';
+  const ATIVO = {
+    origem: 'codigo' as const,
+    candidatos: [
+      { ativoId: ATIVO_ID, codigo: '11997', descricao: 'Split', caminho: 'Sede/Sala 302' },
+    ],
+  };
+
+  it('código numa mensagem nova, sem mudar serviço nem local, gera cartão novo com o ativo', async () => {
+    // Arrange: já há um cartão valendo, igual, mas sem ativo
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(estado(propostaLida(), cartaoAtual()));
+    mockResolverAtivo.mockResolvedValue(ATIVO);
+
+    // Act
+    const quadros = await responder('é o ar de tombo 11997');
+
+    // Assert
+    const cartao = quadros.find((q) => q.tipo === 'cartao');
+    expect(cartao).toMatchObject({ mensagemId: CARTAO_NOVO, cartao: { ativo: ATIVO } });
+    expect(mockGravarCartao).toHaveBeenCalledWith(
+      expect.objectContaining({ payload: expect.objectContaining({ ativo: ATIVO }) }),
+    );
+  });
+
+  it('cartão antigo sem o campo ativo não é regravado só por isso', async () => {
+    // Arrange: o cartão que vale foi gravado antes da spec 0014, sem `ativo`
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(estado(propostaLida(), cartaoAtual()));
+    mockResolverAtivo.mockResolvedValue(null);
+
+    // Act
+    const quadros = await responder();
+
+    // Assert
+    expect(quadros.some((q) => q.tipo === 'cartao')).toBe(false);
+    expect(mockGravarCartao).not.toHaveBeenCalled();
+    expect(avisos.some((a) => a.includes('"cartao":"mantido"'))).toBe(true);
+  });
+
+  it('o mesmo ativo de antes mantém o cartão', async () => {
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(estado(propostaLida(), cartaoAtual({ ativo: ATIVO })));
+    mockResolverAtivo.mockResolvedValue(ATIVO);
+    await responder();
+    expect(mockGravarCartao).not.toHaveBeenCalled();
+  });
+
+  it('sem código e sem proposta pronta, não consulta o banco e não decide nada pelo ativo', async () => {
+    // Arrange: proposta incompleta, cartão valendo com ativo
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(
+      estado(propostaLida({ completo: false }), cartaoAtual({ ativo: ATIVO })),
+    );
+    mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
+
+    // Act
+    await responder('continua pingando');
+
+    // Assert
+    expect(mockResolverAtivo).not.toHaveBeenCalled();
+    expect(mockInvalidarCartao).not.toHaveBeenCalled();
+    expect(avisos.some((a) => a.includes('"cartao":"mantido"'))).toBe(true);
+  });
+
+  it('código numa mensagem anterior faz a busca mesmo sem proposta pronta', async () => {
+    mockLerConversa.mockResolvedValue(
+      conversaLida('rascunho', [{ autor: 'solicitante', tipo: 'texto', texto: 'tombo 11997' }]),
+    );
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(estado(propostaLida({ completo: false })));
+    mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
+
+    await responder('continua pingando');
+
+    expect(mockResolverAtivo).toHaveBeenCalledWith(
+      expect.objectContaining({ conversaId: CONVERSA_ID }),
+    );
+  });
+
+  it('o código dito pela IA não dispara a busca', async () => {
+    mockLerConversa.mockResolvedValue(
+      conversaLida('rascunho', [
+        { autor: 'ia', tipo: 'texto', texto: 'Qual o tombo? Ex.: tombo 11997' },
+      ]),
+    );
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(estado(propostaLida({ completo: false })));
+    mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
+
+    await responder('não sei');
+
+    expect(mockResolverAtivo).not.toHaveBeenCalled();
+  });
+
+  it('o log da proposta leva a origem e a quantidade, nunca o código (AC-13)', async () => {
+    mockResolverAtivo.mockResolvedValue(ATIVO);
+    await responder('tombo 11997');
+    const linha = avisos.find((a) => a.startsWith('[assistente] proposta'));
+    expect(linha).toContain('"ativoOrigem":"codigo"');
+    expect(linha).toContain('"ativoCandidatos":1');
+    expect(linha).not.toContain('11997');
+  });
+
+  it('o cartão novo sempre leva `ativo` explícito, null sem ativo', async () => {
+    const quadros = await responder();
+    const cartao = quadros.find((q) => q.tipo === 'cartao') as { cartao: Record<string, unknown> };
+    expect(cartao.cartao).toHaveProperty('ativo', null);
   });
 });

@@ -50,6 +50,8 @@ export type AbrirChamadoParams = {
   /** Campos do chamado montados por quem chama; sem `_id` e sem número. */
   dadosChamado: DadosChamado;
   decisoes?: DecisaoEntrada[];
+  /** Código do equipamento em `dadosChamado.ativoId`, para a entrada `abertura` (spec 0014). */
+  codigoAtivo?: string | null;
 };
 
 export async function abrirChamadoDaConversa(
@@ -133,7 +135,7 @@ export async function abrirChamadoDaConversa(
     if (!criado) return falha('erro');
 
     // ---- Passo 4: histórico (uma `abertura` e uma `decisao_ia` por decisão) ----
-    await garantirHistoricoAbertura(chamadoId, params.viewer.userId);
+    await garantirHistoricoAbertura(chamadoId, params.viewer.userId, params.codigoAtivo);
     for (const gravada of gravadas) {
       await garantirHistoricoDecisao({
         chamadoId,

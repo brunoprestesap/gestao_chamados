@@ -16,6 +16,11 @@ vi.mock('../catalogo', () => ({
   lerServicoAtivo: (...args: unknown[]) => mockLerServicoAtivo(...args),
 }));
 
+const mockResolverAtivo = vi.fn();
+vi.mock('../ativo-do-cartao', () => ({
+  resolverAtivoDoCartao: (...args: unknown[]) => mockResolverAtivo(...args),
+}));
+
 const mockLerPerfil = vi.fn();
 vi.mock('../perfil', () => ({
   lerPerfil: (...args: unknown[]) => mockLerPerfil(...args),
@@ -80,6 +85,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   mockLerServicoAtivo.mockResolvedValue(SERVICO_ATIVO);
+  mockResolverAtivo.mockResolvedValue(null);
   mockLerPerfil.mockResolvedValue(PERFIL);
   mockLerProposta.mockResolvedValue({
     ok: true,
@@ -95,7 +101,11 @@ beforeEach(() => {
 describe('montarCartao', () => {
   it('modo ia: rótulos do banco, unidade do perfil e local, nada faltando', async () => {
     // Act
-    const montado = await montarCartao({ proposta: proposta() as never, perfil: PERFIL });
+    const montado = await montarCartao({
+      conversaId: CONVERSA_ID,
+      proposta: proposta() as never,
+      perfil: PERFIL,
+    });
 
     // Assert
     expect(montado.autor).toBe('ia');
@@ -105,13 +115,18 @@ describe('montarCartao', () => {
       unidade: { unitId: UNIDADE_ID, rotulo: 'Fórum Central', andar: '3º andar' },
       localExato: 'Sala 302',
       faltando: [],
+      ativo: null,
     });
     expect(cartaoPayloadSchema.safeParse(montado.payload).success).toBe(true);
   });
 
   it('a frase do cartão usa só os rótulos e avisa da descrição', async () => {
     // Act
-    const montado = await montarCartao({ proposta: proposta() as never, perfil: PERFIL });
+    const montado = await montarCartao({
+      conversaId: CONVERSA_ID,
+      proposta: proposta() as never,
+      perfil: PERFIL,
+    });
 
     // Assert
     expect(montado.texto).toContain('Troca de lâmpada');
@@ -124,6 +139,7 @@ describe('montarCartao', () => {
   it('sem unidade no perfil, a unidade chega vazia e obrigatória', async () => {
     // Act
     const montado = await montarCartao({
+      conversaId: CONVERSA_ID,
       proposta: proposta() as never,
       perfil: { unidade: null },
     });
@@ -136,6 +152,7 @@ describe('montarCartao', () => {
   it('com o relato falando de outro lugar, não traz a unidade do perfil', async () => {
     // Act
     const montado = await montarCartao({
+      conversaId: CONVERSA_ID,
       proposta: proposta({ localForaDoPerfil: true }) as never,
       perfil: PERFIL,
     });
@@ -150,7 +167,11 @@ describe('montarCartao', () => {
     mockLerServicoAtivo.mockResolvedValue(null);
 
     // Act
-    const montado = await montarCartao({ proposta: proposta() as never, perfil: PERFIL });
+    const montado = await montarCartao({
+      conversaId: CONVERSA_ID,
+      proposta: proposta() as never,
+      perfil: PERFIL,
+    });
 
     // Assert
     expect(montado.autor).toBe('sistema');
@@ -159,7 +180,7 @@ describe('montarCartao', () => {
 
   it('sem proposta nenhuma, cartão manual pedindo tipo e local', async () => {
     // Act
-    const montado = await montarCartao({ proposta: null, perfil: PERFIL });
+    const montado = await montarCartao({ conversaId: CONVERSA_ID, proposta: null, perfil: PERFIL });
 
     // Assert
     expect(montado.payload).toMatchObject({
@@ -172,7 +193,11 @@ describe('montarCartao', () => {
 
   it('sem proposta e sem unidade no perfil, falta tipo, unidade e local juntos', async () => {
     // Act
-    const montado = await montarCartao({ proposta: null, perfil: { unidade: null } });
+    const montado = await montarCartao({
+      conversaId: CONVERSA_ID,
+      proposta: null,
+      perfil: { unidade: null },
+    });
 
     // Assert
     expect(montado.payload).toMatchObject({
@@ -201,7 +226,9 @@ describe('revisarAbertura', () => {
 
   it('devolve o mesmo cartão, sem gravar, quando a proposta não mudou desde ele', async () => {
     // Arrange
-    const payload = (await montarCartao({ proposta: proposta() as never, perfil: PERFIL })).payload;
+    const payload = (
+      await montarCartao({ conversaId: CONVERSA_ID, proposta: proposta() as never, perfil: PERFIL })
+    ).payload;
     mockLerProposta.mockResolvedValue({
       ok: true,
       situacao: 'rascunho',

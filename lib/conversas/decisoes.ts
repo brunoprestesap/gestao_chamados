@@ -3,6 +3,7 @@ import 'server-only';
 import { Types } from 'mongoose';
 
 import { dbConnect } from '@/lib/db';
+import { AtivoModel } from '@/models/Ativo';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { DECISAO_CORRECOES_MAX, DecisaoIaModel } from '@/models/DecisaoIa';
@@ -10,7 +11,7 @@ import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
 import {
   DECISAO_CAMPO_LABELS,
-  DECISAO_CAMPOS,
+  DECISAO_CAMPOS_DA_IA,
   type DecisaoCampo,
   type DecisaoSituacao,
   type IaSituacao,
@@ -20,6 +21,7 @@ import {
   DECISAO_ROTULO_MAX,
   decisaoMotivoSchema,
   objectIdSchema,
+  valorAtivoSchema,
   type ValorDecisao,
   type ValorDecisaoInput,
   valorPrioridadeSchema,
@@ -44,7 +46,11 @@ const VALOR_VAZIO = {
   tipoServico: null,
   prioridade: null,
   tecnicoId: null,
+  ativoId: null,
 };
+
+/** Rótulo gravado quando a gestão tira o equipamento do chamado (spec 0014, AC-12). */
+export const ROTULO_SEM_ATIVO = 'Nenhum equipamento';
 
 /**
  * Confere o valor decidido contra o banco e devolve o `ValorDecisao` com o
@@ -80,6 +86,20 @@ export async function resolverValorNoBanco(
     return { ...VALOR_VAZIO, prioridade: parsed.data.prioridade, rotulo: parsed.data.prioridade };
   }
 
+  if (campo === 'ativo') {
+    const parsed = valorAtivoSchema.safeParse(valor);
+    if (!parsed.success) return null;
+    if (parsed.data.ativoId === null) return { ...VALOR_VAZIO, rotulo: ROTULO_SEM_ATIVO };
+
+    const ativo = await AtivoModel.findById(parsed.data.ativoId).select('codigo').lean();
+    if (!ativo) return null;
+    return {
+      ...VALOR_VAZIO,
+      ativoId: parsed.data.ativoId,
+      rotulo: String(ativo.codigo).slice(0, DECISAO_ROTULO_MAX),
+    };
+  }
+
   const parsed = valorTecnicoSchema.safeParse(valor);
   if (!parsed.success) return null;
 
@@ -99,7 +119,8 @@ export function mesmoValor(a: ValorDecisao, b: ValorDecisao): boolean {
     String(a.catalogServiceId ?? '') === String(b.catalogServiceId ?? '') &&
     String(a.subtypeId ?? '') === String(b.subtypeId ?? '') &&
     String(a.prioridade ?? '') === String(b.prioridade ?? '') &&
-    String(a.tecnicoId ?? '') === String(b.tecnicoId ?? '')
+    String(a.tecnicoId ?? '') === String(b.tecnicoId ?? '') &&
+    String(a.ativoId ?? '') === String(b.ativoId ?? '')
   );
 }
 
@@ -113,10 +134,16 @@ export function derivarSituacao(
   return revisadaEm ? 'confirmada' : 'sem_revisao';
 }
 
-/** `Chamado.iaSituacao` no momento da abertura. */
-export function derivarIaSituacao(decisoes: Pick<DecisaoEntrada, 'efeito'>[]): IaSituacao {
-  if (decisoes.length === 0) return 'sem_ia';
-  return decisoes.some((d) => d.efeito === 'aplicado') ? 'decidida' : 'sugerida';
+/**
+ * `Chamado.iaSituacao` no momento da abertura. A decisão `ativo` é da regra do
+ * cartão, não da IA, e não conta (spec 0014, AC-11).
+ */
+export function derivarIaSituacao(
+  decisoes: Pick<DecisaoEntrada, 'campo' | 'efeito'>[],
+): IaSituacao {
+  const daIa = decisoes.filter((d) => d.campo !== 'ativo');
+  if (daIa.length === 0) return 'sem_ia';
+  return daIa.some((d) => d.efeito === 'aplicado') ? 'decidida' : 'sugerida';
 }
 
 function erroChaveDuplicada(err: unknown): boolean {
@@ -314,6 +341,7 @@ export function valorParaInput(
     subtypeId?: unknown;
     finalPriority?: string | null;
     assignedToUserId?: unknown;
+    ativoId?: unknown;
   },
 ): ValorDecisaoInput | null {
   if (campo === 'servico') {
@@ -326,6 +354,9 @@ export function valorParaInput(
   if (campo === 'prioridade') {
     const parsed = valorPrioridadeSchema.safeParse({ prioridade: chamado.finalPriority });
     return parsed.success ? parsed.data : null;
+  }
+  if (campo === 'ativo') {
+    return { ativoId: chamado.ativoId ? String(chamado.ativoId) : null };
   }
   if (!chamado.assignedToUserId) return null;
   return { tecnicoId: String(chamado.assignedToUserId) };
@@ -428,6 +459,73 @@ export async function resolverDecisao(
   }
 }
 
+/**
+ * A gestão vinculou, trocou ou tirou o equipamento de um chamado que tem
+ * decisão `ativo` (spec 0014, AC-12). Um `updateOne` direto, sem passar por
+ * `resolverDecisao`: não muda `iaSituacao` nem grava `correcao_ia`, porque o
+ * `vinculo_ativo` já é o registro da troca. Chamado sem a decisão sai em
+ * silêncio. Nunca lança: falha aqui não desfaz o vínculo, só loga.
+ */
+export async function corrigirDecisaoDoAtivo(params: {
+  chamadoId: string;
+  ativoId: string | null;
+  codigo: string | null;
+  userId: string;
+}): Promise<void> {
+  try {
+    const decisao = await DecisaoIaModel.findOne({ chamadoId: params.chamadoId, campo: 'ativo' })
+      .select('_id valorIa valorFinal')
+      .lean();
+    if (!decisao) return;
+
+    const novo: ValorDecisao = {
+      ...VALOR_VAZIO,
+      ativoId: params.ativoId,
+      rotulo:
+        params.ativoId && params.codigo
+          ? params.codigo.slice(0, DECISAO_ROTULO_MAX)
+          : ROTULO_SEM_ATIVO,
+    };
+    const valorIa = decisao.valorIa as unknown as ValorDecisao;
+    const valorAtual = decisao.valorFinal as unknown as ValorDecisao;
+    if (mesmoValor(valorAtual, novo)) return;
+
+    await DecisaoIaModel.updateOne(
+      { _id: decisao._id },
+      {
+        $set: {
+          valorFinal: novo,
+          situacao: mesmoValor(valorIa, novo) ? 'sem_revisao' : 'corrigida',
+        },
+        $push: {
+          correcoes: {
+            $each: [
+              {
+                anterior: valorAtual,
+                novo,
+                userId: new Types.ObjectId(params.userId),
+                origem: 'gestao',
+                motivo: '',
+                em: new Date(),
+              },
+            ],
+            $slice: -DECISAO_CORRECOES_MAX,
+          },
+        },
+      },
+    );
+  } catch (err) {
+    console.error(
+      '[conversa]',
+      JSON.stringify({
+        operacao: 'corrigirDecisaoDoAtivo',
+        chamadoId: params.chamadoId,
+        error: err instanceof Error ? err.message : 'unknown',
+      }),
+    );
+  }
+}
+
 export type ConfirmarDecisaoParams = {
   viewer: Viewer;
   chamadoId: string;
@@ -517,7 +615,8 @@ export async function confirmarDecisao(
 /**
  * Os campos do chamado com decisão pendente de confirmação (`efeito:
  * 'aplicado'` e `situacao: 'sem_revisao'`), dentre os campos pedidos — ou
- * todos os três quando nenhum é pedido (spec 0009, AC-5).
+ * todos os três da IA quando nenhum é pedido (spec 0009, AC-5). A decisão
+ * `ativo` nunca é pendência (spec 0014, AC-11).
  */
 export async function camposPendentesDeConfirmacao(
   chamadoId: string,
@@ -525,7 +624,9 @@ export async function camposPendentesDeConfirmacao(
 ): Promise<DecisaoCampo[]> {
   if (!objectIdSchema.safeParse(chamadoId).success) return [];
   await dbConnect();
-  const alvo = campos && campos.length > 0 ? campos : [...DECISAO_CAMPOS];
+  const pedidos = campos && campos.length > 0 ? campos : [...DECISAO_CAMPOS_DA_IA];
+  const alvo = pedidos.filter((c) => c !== 'ativo');
+  if (alvo.length === 0) return [];
   const docs = await DecisaoIaModel.find({
     chamadoId,
     campo: { $in: alvo },
@@ -635,6 +736,10 @@ export async function garantirHistoricoDecisao(params: {
   rotulo: string;
   decididoPor: 'ia' | 'regra';
 }): Promise<void> {
+  // A decisão `ativo` não vira entrada `decisao_ia`: a observação da
+  // `abertura` já diz o equipamento (spec 0014, AC-8 e AC-11).
+  if (params.campo === 'ativo') return;
+
   const existe = await ChamadoHistoryModel.exists({
     chamadoId: params.chamadoId,
     action: 'decisao_ia',

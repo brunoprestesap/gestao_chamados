@@ -8,7 +8,7 @@ vi.mock('@/models/Chamado', () => ({
   ChamadoModel: { aggregate: (...args: unknown[]) => mockAggregate(...args) },
 }));
 
-import { computeImrReport } from '@/lib/imr-service';
+import { computeImrReport, tempoDeReparoMs } from '@/lib/imr-service';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -298,5 +298,46 @@ describe('computeImrReport — edge cases', () => {
     expect(result.resumoGeral.sla.percentualDentro).toBe(33.33);
     // 2/3 = 66.66...% → arredondado para 66.67
     expect(result.resumoGeral.sla.percentualFora).toBe(66.67);
+  });
+});
+
+describe('tempoDeReparoMs (spec 0014, AC-17)', () => {
+  const criado = new Date('2026-09-01T12:00:00Z');
+  const h = 60 * 60 * 1000;
+
+  it('é resolvedAt menos createdAt menos as pausas', () => {
+    expect(
+      tempoDeReparoMs({
+        createdAt: criado,
+        resolvedAt: new Date(criado.getTime() + 10 * h),
+        totalPausedMinutes: 120,
+      }),
+    ).toBe(8 * h);
+  });
+
+  it('trata pausa ausente como zero', () => {
+    expect(
+      tempoDeReparoMs({
+        createdAt: criado,
+        resolvedAt: new Date(criado.getTime() + 3 * h),
+        totalPausedMinutes: null,
+      }),
+    ).toBe(3 * h);
+  });
+
+  it('corta em zero quando a pausa passa do tempo total', () => {
+    expect(
+      tempoDeReparoMs({
+        createdAt: criado,
+        resolvedAt: new Date(criado.getTime() + h),
+        totalPausedMinutes: 600,
+      }),
+    ).toBe(0);
+  });
+
+  it('devolve null para chamado ainda não resolvido', () => {
+    expect(
+      tempoDeReparoMs({ createdAt: criado, resolvedAt: null, totalPausedMinutes: 30 }),
+    ).toBeNull();
   });
 });

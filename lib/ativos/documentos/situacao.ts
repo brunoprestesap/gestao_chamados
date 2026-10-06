@@ -20,6 +20,14 @@ export function hojeEmBelem(agora: Date = new Date()): string {
   return toLocalDateYYYYMMDD(agora, FUSO_DOCUMENTOS);
 }
 
+/**
+ * O último instante de hoje em Belém (23:59:59.999, UTC−3 fixo, sem horário
+ * de verão). Fecha as janelas dos indicadores da ficha (spec 0014, AC-20).
+ */
+export function fimDoDiaEmBelem(agora: Date = new Date()): Date {
+  return new Date(`${hojeEmBelem(agora)}T23:59:59.999-03:00`);
+}
+
 /** `YYYY-MM-DD` → meia noite UTC daquele dia. */
 export function dataSemHora(ymd: string): Date {
   return new Date(`${ymd}T00:00:00.000Z`);

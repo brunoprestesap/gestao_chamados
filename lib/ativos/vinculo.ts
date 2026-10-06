@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { corrigirDecisaoDoAtivo } from '@/lib/conversas';
 import { AtivoModel } from '@/models/Ativo';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
@@ -15,7 +16,9 @@ import { buscarAtivoVinculavel } from './seletor';
 /**
  * Vincula, troca ou remove o ativo de um chamado ainda aberto. Cada mudança
  * grava `ChamadoHistory` `vinculo_ativo` com os códigos anterior e novo;
- * vincular o mesmo ativo de novo não faz nada.
+ * vincular o mesmo ativo de novo não faz nada. Quando o chamado tem decisão
+ * `ativo` (chat, spec 0014), a troca vira correção dela, sem desfazer o
+ * vínculo se essa atualização falhar.
  */
 export async function vincularAtivoAoChamado(
   chamadoId: string,
@@ -68,5 +71,11 @@ export async function vincularAtivoAoChamado(
         { $set: { ativoId: chamado.ativoId ?? null } },
       ),
   );
+  await corrigirDecisaoDoAtivo({
+    chamadoId,
+    ativoId: novo ? String(novo._id) : null,
+    codigo: novo?.codigo ?? null,
+    userId: autorId,
+  });
   return { ok: true, mudou: true };
 }

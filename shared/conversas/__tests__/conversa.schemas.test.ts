@@ -6,8 +6,10 @@ import {
   CONVERSA_AUTORES,
   CONVERSA_MENSAGEM_TIPOS,
   DECISAO_CAMPOS,
+  DECISAO_CAMPOS_DA_IA,
 } from '@/shared/conversas/conversa.constants';
 import {
+  cartaoPayloadSchema,
   confirmarDecisoesIaSchema,
   CONVERSA_PAYLOAD_SCHEMAS,
   conversaTextoSchema,
@@ -440,8 +442,14 @@ describe('confirmarDecisoesIaSchema (spec 0009, AC-5)', () => {
     if (result.success) expect(result.data.campos).toEqual(['prioridade', 'tecnico']);
   });
 
-  it.each(DECISAO_CAMPOS)('aceita o campo isolado %s', (campo) => {
+  it.each(DECISAO_CAMPOS_DA_IA)('aceita o campo isolado %s', (campo) => {
     expect(confirmarDecisoesIaSchema.safeParse({ chamadoId, campos: [campo] }).success).toBe(true);
+  });
+
+  it('recusa o campo ativo, que não é decisão da IA (spec 0014, AC-11)', () => {
+    expect(confirmarDecisoesIaSchema.safeParse({ chamadoId, campos: ['ativo'] }).success).toBe(
+      false,
+    );
   });
 
   it('recusa um campo fora de DECISAO_CAMPOS', () => {
@@ -458,5 +466,80 @@ describe('confirmarDecisoesIaSchema (spec 0009, AC-5)', () => {
     // campos: [] é diferente de campos ausente — a ação trata os dois igual
     // (todas as pendentes), mas o schema só valida a forma, não a semântica.
     expect(confirmarDecisoesIaSchema.safeParse({ chamadoId, campos: [] }).success).toBe(true);
+  });
+});
+
+// ── equipamento · spec 0014 ──────────────────────────────────────
+
+describe('cartaoPayloadSchema · ativo (spec 0014, AC-5)', () => {
+  const base = {
+    modo: 'manual' as const,
+    servico: null,
+    unidade: null,
+    localExato: 'Sala 302',
+    faltando: ['tipo', 'unidade'],
+  };
+  const candidato = (extra: Record<string, unknown> = {}) => ({
+    ativoId: idValido(),
+    codigo: '11997',
+    descricao: 'Split',
+    caminho: 'Sede/Sala 302',
+    ...extra,
+  });
+
+  it('aceita o cartão antigo, sem o campo ativo', () => {
+    expect(cartaoPayloadSchema.safeParse(base).success).toBe(true);
+  });
+
+  it('aceita ativo nulo e de 1 a 5 candidatos com caminho nulo', () => {
+    expect(cartaoPayloadSchema.safeParse({ ...base, ativo: null }).success).toBe(true);
+    expect(
+      cartaoPayloadSchema.safeParse({
+        ...base,
+        ativo: {
+          origem: 'regra',
+          candidatos: Array.from({ length: 5 }, () => candidato({ caminho: null })),
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('recusa zero ou mais de 5 candidatos', () => {
+    expect(
+      cartaoPayloadSchema.safeParse({ ...base, ativo: { origem: 'codigo', candidatos: [] } })
+        .success,
+    ).toBe(false);
+    expect(
+      cartaoPayloadSchema.safeParse({
+        ...base,
+        ativo: { origem: 'regra', candidatos: Array.from({ length: 6 }, () => candidato()) },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('recusa campo patrimonial no candidato e origem desconhecida', () => {
+    expect(
+      cartaoPayloadSchema.safeParse({
+        ...base,
+        ativo: {
+          origem: 'codigo',
+          candidatos: [candidato({ camposPatrimoniais: { nome: 'Fulano' } })],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      cartaoPayloadSchema.safeParse({ ...base, ativo: { origem: 'ia', candidatos: [candidato()] } })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('valorAtivoSchema (spec 0014)', () => {
+  it('aceita um ativo ou null, e só identificador', () => {
+    const schema = valorSchemaPara('ativo');
+    expect(schema.safeParse({ ativoId: idValido() }).success).toBe(true);
+    expect(schema.safeParse({ ativoId: null }).success).toBe(true);
+    expect(schema.safeParse({ ativoId: 'xyz' }).success).toBe(false);
+    expect(schema.safeParse({ tecnicoId: idValido() }).success).toBe(false);
   });
 });

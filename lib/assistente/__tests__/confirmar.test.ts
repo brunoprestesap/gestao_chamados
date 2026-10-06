@@ -9,7 +9,9 @@ const mockAbrir = vi.fn();
 const mockEnviarMensagem = vi.fn();
 const mockInvalidarCartao = vi.fn();
 const mockLerMensagens = vi.fn();
+const mockRegistrarDecisao = vi.fn();
 vi.mock('@/lib/conversas', () => ({
+  registrarDecisao: (...args: unknown[]) => mockRegistrarDecisao(...args),
   lerProposta: (...args: unknown[]) => mockLerProposta(...args),
   abrirChamadoDaConversa: (...args: unknown[]) => mockAbrir(...args),
   enviarMensagem: (...args: unknown[]) => mockEnviarMensagem(...args),
@@ -36,6 +38,11 @@ vi.mock('@/models/unit', () => ({
   },
 }));
 
+const mockBuscarAtivoVinculavel = vi.fn();
+vi.mock('@/lib/ativos/seletor', () => ({
+  buscarAtivoVinculavel: (...args: unknown[]) => mockBuscarAtivoVinculavel(...args),
+}));
+
 const mockLerServicoAtivo = vi.fn();
 vi.mock('../catalogo', () => ({
   lerServicoAtivo: (...args: unknown[]) => mockLerServicoAtivo(...args),
@@ -52,6 +59,7 @@ vi.mock('@/lib/sla-snapshot', () => ({
 }));
 
 import {
+  ativoDaConfirmacao,
   confirmarAbertura,
   decisoesDaProposta,
   montarDescricao,
@@ -78,6 +86,11 @@ const SERVICO_ID = '6aad5286df6f201a25edb001';
 const SUBTIPO_ID = '6aad5286df6f201a25edb002';
 const UNIDADE_ID = '6aad5286df6f201a25edc001';
 const CHAMADO_ID = '6aad5286df6f201a25edd001';
+const ATIVO_A = '6aad5286df6f201a25ede001';
+const ATIVO_B = '6aad5286df6f201a25ede002';
+const ATIVO_FORA = '6aad5286df6f201a25ede009';
+const OUTRA_UNIDADE = '6aad5286df6f201a25edc002';
+const CODIGO_DE: Record<string, string> = { [ATIVO_A]: '11997', [ATIVO_B]: '11998' };
 
 const SERVICO_ATIVO = {
   catalogServiceId: SERVICO_ID,
@@ -175,6 +188,11 @@ beforeEach(() => {
     autonomiaAtiva: false,
   });
   mockMontarSnapshotSla.mockResolvedValue({ ok: false, motivo: 'não usado neste caminho' });
+  mockRegistrarDecisao.mockResolvedValue({ ok: true, decisaoId: 'd1' });
+  mockBuscarAtivoVinculavel.mockImplementation(async (id: string) => ({
+    _id: id,
+    codigo: CODIGO_DE[id],
+  }));
 });
 
 // ── funções puras · AC-10 ────────────────────────────────────────
@@ -868,5 +886,220 @@ describe('confirmarAbertura · atribuição automática', () => {
     expect(mockTentarAtribuicao).not.toHaveBeenCalled();
     expect(mockEnviarMensagem).not.toHaveBeenCalled();
     expect(mockNotificar).not.toHaveBeenCalled();
+  });
+});
+
+// ── equipamento do cartão · spec 0014 ────────────────────────────
+
+describe('confirmarAbertura · equipamento (spec 0014)', () => {
+  const candidato = (ativoId: string) => ({
+    ativoId,
+    codigo: CODIGO_DE[ativoId]!,
+    descricao: 'Split',
+    caminho: 'Sede/Sala 302',
+  });
+
+  function comAtivo(origem: 'codigo' | 'regra', ids: string[] = [ATIVO_A]) {
+    const c = cartao();
+    mockLerProposta.mockResolvedValue(
+      lida({
+        cartaoAtual: {
+          ...c,
+          payload: { ...c.payload, ativo: { origem, candidatos: ids.map(candidato) } },
+        },
+      }),
+    );
+  }
+
+  it('grava o ativo escolhido, o código na abertura e a decisão da regra (AC-8, AC-10)', async () => {
+    // Arrange
+    comAtivo('codigo');
+
+    // Act
+    const r = await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_A });
+
+    // Assert
+    expect(r.ok).toBe(true);
+    const chamada = mockAbrir.mock.calls[0][0];
+    expect(String(chamada.dadosChamado.ativoId)).toBe(ATIVO_A);
+    expect(chamada.codigoAtivo).toBe('11997');
+    expect(chamada.decisoes.map((d: { campo: string }) => d.campo)).not.toContain('ativo');
+    expect(mockRegistrarDecisao).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chamadoId: CHAMADO_ID,
+        conversaId: CONVERSA_ID,
+        campo: 'ativo',
+        decididoPor: 'regra',
+        efeito: 'aplicado',
+        valor: { ativoId: ATIVO_A },
+        confianca: null,
+      }),
+    );
+  });
+
+  it('escolhe um entre vários candidatos da regra', async () => {
+    comAtivo('regra', [ATIVO_A, ATIVO_B]);
+    await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_B });
+    expect(String(mockAbrir.mock.calls[0][0].dadosChamado.ativoId)).toBe(ATIVO_B);
+  });
+
+  it('"Não sei" ou tirado (ativoId null) abre sem ativo e sem decisão', async () => {
+    comAtivo('codigo');
+    await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: null });
+    expect(mockAbrir.mock.calls[0][0].dadosChamado.ativoId).toBeNull();
+    expect(mockAbrir.mock.calls[0][0].codigoAtivo).toBeNull();
+    expect(mockRegistrarDecisao).not.toHaveBeenCalled();
+  });
+
+  it('id fora dos candidatos abre sem ativo, sem erro, e avisa com o conversaId (AC-8)', async () => {
+    comAtivo('codigo');
+    const r = await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_FORA });
+    expect(r.ok).toBe(true);
+    expect(mockAbrir.mock.calls[0][0].dadosChamado.ativoId).toBeNull();
+    expect(
+      avisos.some((a) => a.includes('ativo_fora_dos_candidatos') && a.includes(CONVERSA_ID)),
+    ).toBe(true);
+  });
+
+  it('valor que nem é ObjectId não vira dados_invalidos (AC-8)', async () => {
+    comAtivo('codigo');
+    const r = await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: 'xyz' });
+    expect(r.ok).toBe(true);
+    expect(mockAbrir.mock.calls[0][0].dadosChamado.ativoId).toBeNull();
+  });
+
+  it('ativo baixado entre o cartão e a confirmação abre sem ativo (AC-8)', async () => {
+    comAtivo('codigo');
+    mockBuscarAtivoVinculavel.mockResolvedValue(null);
+    const r = await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_A });
+    expect(r.ok).toBe(true);
+    expect(mockAbrir.mock.calls[0][0].dadosChamado.ativoId).toBeNull();
+    expect(mockRegistrarDecisao).not.toHaveBeenCalled();
+  });
+
+  it('cartão antigo, sem o campo ativo, ignora qualquer ativoId', async () => {
+    const r = await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_A });
+    expect(r.ok).toBe(true);
+    expect(mockAbrir.mock.calls[0][0].dadosChamado.ativoId).toBeNull();
+  });
+
+  it('com a unidade trocada, ignora o ativo da regra (AC-6)', async () => {
+    comAtivo('regra');
+    await confirmarAbertura(VIEWER, { ...ENTRADA, unitId: OUTRA_UNIDADE, ativoId: ATIVO_A });
+    expect(mockAbrir.mock.calls[0][0].dadosChamado.ativoId).toBeNull();
+  });
+
+  it('com a unidade trocada, mantém o ativo do código (AC-6)', async () => {
+    comAtivo('codigo');
+    await confirmarAbertura(VIEWER, { ...ENTRADA, unitId: OUTRA_UNIDADE, ativoId: ATIVO_A });
+    expect(String(mockAbrir.mock.calls[0][0].dadosChamado.ativoId)).toBe(ATIVO_A);
+  });
+
+  it('falha ao gravar a decisão não desfaz o chamado e loga o chamadoId (AC-10)', async () => {
+    // Arrange
+    comAtivo('codigo');
+    const erros: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => {
+      erros.push(a.map(String).join(' '));
+    });
+    mockRegistrarDecisao.mockRejectedValue(new Error('banco caiu'));
+
+    // Act
+    const r = await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_A });
+
+    // Assert
+    expect(r).toMatchObject({ ok: true, chamadoId: CHAMADO_ID });
+    expect(erros.some((e) => e.includes(CHAMADO_ID) && e.includes('decisaoAtivo'))).toBe(true);
+  });
+
+  it('decisão que já existia (repetição) não é tratada como falha', async () => {
+    comAtivo('codigo');
+    const erros: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => {
+      erros.push(a.map(String).join(' '));
+    });
+    mockRegistrarDecisao.mockResolvedValue({ ok: false, reason: 'ja_existe' });
+    await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_A });
+    expect(erros.filter((e) => e.includes('decisaoAtivo'))).toEqual([]);
+  });
+
+  it('com jaExistia não grava a decisão de novo', async () => {
+    comAtivo('codigo');
+    mockAbrir.mockResolvedValue({
+      ok: true,
+      chamadoId: CHAMADO_ID,
+      ticketNumber: '2026-0412',
+      jaExistia: true,
+    });
+    await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_A });
+    expect(mockRegistrarDecisao).not.toHaveBeenCalled();
+  });
+
+  it('o ativo não muda status, SLA, decisões nem atribuição (AC-9)', async () => {
+    // Arrange: portão confiante, confirmando com e sem ativo
+    mockLerConfig.mockResolvedValue({
+      servico: { limiteConfianca: null, amostraMinima: 30 },
+      prioridade: { limiteConfianca: 0.5, amostraMinima: 30 },
+      autonomiaAtiva: true,
+    });
+    mockMontarSnapshotSla.mockResolvedValue({ ok: true, snapshot: { priority: 'NORMAL' } });
+    comAtivo('codigo');
+
+    // Act
+    await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_A });
+    await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: null });
+
+    // Assert
+    const [com, sem] = mockAbrir.mock.calls.map((c) => c[0]);
+    const semAtivo = (dados: Record<string, unknown>) => {
+      const resto = { ...dados };
+      delete resto.ativoId;
+      delete resto.classifiedAt;
+      return resto;
+    };
+    expect(semAtivo(com.dadosChamado)).toEqual(semAtivo(sem.dadosChamado));
+    expect(com.dadosChamado.status).toBe('validado');
+    expect(com.decisoes).toEqual(sem.decisoes);
+    expect(mockTentarAtribuicao).toHaveBeenCalledTimes(2);
+  });
+
+  it('o log de abertura leva origem e quantidade, nunca o código (AC-13)', async () => {
+    comAtivo('regra', [ATIVO_A, ATIVO_B]);
+    await confirmarAbertura(VIEWER, { ...ENTRADA, ativoId: ATIVO_A });
+    const linha = avisos.find((a) => a.startsWith('[abertura]') && a.includes('ativoOrigem'));
+    expect(linha).toContain('"ativoOrigem":"regra"');
+    expect(linha).toContain('"ativoCandidatos":2');
+    expect(linha).not.toContain('11997');
+  });
+});
+
+describe('ativoDaConfirmacao', () => {
+  it('sem ativoId não consulta o banco', async () => {
+    const r = await ativoDaConfirmacao({
+      conversaId: CONVERSA_ID,
+      ativoId: undefined,
+      cartao: cartao().payload as never,
+      unitId: UNIDADE_ID,
+    });
+    expect(r).toBeNull();
+    expect(mockBuscarAtivoVinculavel).not.toHaveBeenCalled();
+  });
+
+  it('erro de banco vira "sem ativo", sem lançar', async () => {
+    mockBuscarAtivoVinculavel.mockRejectedValue(new Error('timeout'));
+    const payload = {
+      ...cartao().payload,
+      ativo: {
+        origem: 'codigo',
+        candidatos: [{ ativoId: ATIVO_A, codigo: '11997', descricao: 'Split', caminho: null }],
+      },
+    };
+    const r = await ativoDaConfirmacao({
+      conversaId: CONVERSA_ID,
+      ativoId: ATIVO_A,
+      cartao: payload as never,
+      unitId: UNIDADE_ID,
+    });
+    expect(r).toBeNull();
   });
 });
