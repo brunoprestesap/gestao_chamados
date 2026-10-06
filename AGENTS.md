@@ -208,6 +208,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `camposPatrimoniais` (nome e matrícula do responsável, LGPD) só sai do servidor para Admin e Preposto; `docs/ativos_sicam.csv`, `docs/localizacoes_sicam.csv` e `scripts/carga-ativos.generated.js` ficam fora do git
 - Toda troca de ativo num chamado aberto gera `ChamadoHistory` `vinculo_ativo`; só a gestão vincula (`vincularAtivoChamadoAction`)
 - Desde a spec 0014, o cartão do chat sugere o ativo (código digitado ou regra por categoria, unidade e local, sem modelo e sem portão de confiança), e a decisão `ativo` em `DecisaoIa` fica fora da IA: não muda `iaSituacao` nem entra na revisão. A ficha mostra corretivos, MTBF e MTTR para Admin, Preposto e Técnico; regras em `lib/assistente/AGENTS.md` e `lib/ativos/AGENTS.md`
+- Desde a spec 0012, o Admin importa o CSV do SICAM com revisão de novos, alterados e sumidos (`/ativos/importar`, `lib/ativos/importacao/`), e a vistoria em campo (`/ativos/vistoria`, `lib/vistoria/`) funciona sem sinal: o celular baixa um pacote (`/api/vistoria/pacote`), guarda as conferências numa fila por usuário no IndexedDB (`lib/vistoria-offline/`, pacote `idb`) e sobe por `/api/vistoria/sincronizar`. Modelos `CampanhaVistoria`, `ConferenciaVistoria` e `ImportacaoPatrimonial`
 - Desde a spec 0013, ativo e local têm documentos (`/ativos/documentos`, `/configuracoes/tipos-documento`), com aviso diário de vencimento pelo cron; `CategoriaAtivo.exigeDocumento` guarda chaves de `TipoDocumento` e alimenta a aba Faltando
 
 ### Validação
@@ -316,6 +317,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Calibração da confiança da IA    | `lib/ia-confianca/AGENTS.md`, `lib/ia-confianca/calibragem.ts` (relatório), `lib/ia-confianca/config.ts` (documento único), `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`, `docs/specs/0006-calibracao-trava-confianca/`                                                             |
 | Prioridade e SLA automáticos     | `lib/assistente/portao.ts` (portão de confiança), `lib/assistente/confirmar.ts`, `lib/sla-snapshot.ts` (`montarSnapshotSla`), `app/(dashboard)/gestao/actions.ts` (`updateTicketPriorityAction`), `docs/specs/0007-prioridade-sla-automaticos/`                                                                     |
 | Gestão de ativos                 | `lib/ativos/` (regras, ver `lib/ativos/AGENTS.md`), `app/(dashboard)/ativos/` (lista, ficha, leitura, cadastro, localizações), `app/(dashboard)/configuracoes/categorias-ativo/`, `app/api/ativos/`, `shared/ativos/`, `docs/specs/0011-gestao-ativos/`                                                             |
+| Vistoria e importador SICAM      | `lib/vistoria/`, `lib/vistoria-offline/`, `app/(dashboard)/ativos/vistoria/`, `app/api/vistoria/`, `lib/ativos/importacao/`, `app/(dashboard)/ativos/importar/`, `app/api/ativos/importacoes/`, `docs/specs/0012-importador-sicam-vistoria/`                                                                        |
 | Atribuição automática ao técnico | `lib/chamados/atribuicao-automatica.ts` (`tentarAtribuicaoAutomatica`), `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `shared/chamados/aviso-atribuicao.ts`, `docs/specs/0008-atribuicao-automatica-tecnico/`                                                                      |
 | Documentos do ativo              | `lib/ativos/documentos/` (gravar, situação, painel, job), `app/api/ativos/documentos/` (upload e download), `app/(dashboard)/ativos/documentos/`, `app/(dashboard)/configuracoes/tipos-documento/`, `app/api/cron/documentos-vencimento/`, `docs/specs/0013-documentos-preventiva-ativo/`                           |
 | Preventiva por categoria         | `lib/chamados/preventiva-categoria.ts` (`gerarLotePreventiva`), `lib/recurring-job.ts`, `app/(dashboard)/gestao/recurring/`, `docs/specs/0013-documentos-preventiva-ativo/`                                                                                                                                         |
@@ -378,7 +380,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 
 - [vitest](.agents/skills/vitest/): `antfu/skills`, o runner de teste do projeto (API compatível com Jest, mocks, cobertura, filtro de teste e o ambiente jsdom)
 - MCP servers: nenhum para as ferramentas de teste (`@testing-library/*`, `jsdom`); são de desenvolvimento local e não têm servidor público. Busca feita em 18/09/2026, não vale repetir.
-- Declined: `barcode-detector` (leitura da câmera em `/ativos/ler`, spec 0011)
+- Declined: `barcode-detector` (leitura da câmera em `/ativos/ler`, spec 0011), `idb` (fila offline da vistoria, spec 0012)
 
 ## Context files
 

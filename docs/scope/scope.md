@@ -247,7 +247,7 @@ spec [0010](../specs/0010-prazo-avaliacao-encerramento-definitivo/index.md) · c
 
 ## Gestão de ativos
 
-Proposta completa em `docs/0009 — Gestão de Ativos.md`. Cada fatia da proposta vira uma funcionalidade.
+Proposta completa em `docs/specs/0011-gestao-ativos/proposta.md`. Cada fatia da proposta vira uma funcionalidade.
 
 ### 23. Gestão de ativos: cadastro, etiqueta e vínculo · done
 

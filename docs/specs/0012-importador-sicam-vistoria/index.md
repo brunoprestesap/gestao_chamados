@@ -81,8 +81,8 @@ Tracer Bullet, vistoria primeiro. Cada passo funciona de ponta a ponta antes do 
 - [ ] Com que frequência o SERPAT gera o export do SICAM. O desenho não depende disso.
 - [ ] Os 171 ares com `SAIU`: a vistoria vai responder se estão instalados. Se estiverem, entram pelo cadastro em campo como patrimoniados.
 - [ ] Reabrir campanha encerrada não existe nesta fatia.
-- [ ] `/sync`: a regra "carga e importação só criam" da 0011 e de `lib/ativos/AGENTS.md` passa a valer só para a carga; o importador escreve em `camposPatrimoniais` (ver o contrato acima).
-- [ ] `/sync`: registrar no `AGENTS.md` raiz e em `lib/ativos/AGENTS.md` os modelos novos, as rotas, a fila offline e a recusa de Agent Skill para `idb` na linha `Declined:`.
+- [x] `/sync`: a regra "carga e importação só criam" da 0011 e de `lib/ativos/AGENTS.md` passa a valer só para a carga; o importador escreve em `camposPatrimoniais` (ver o contrato acima).
+- [x] `/sync`: registrar no `AGENTS.md` raiz e em `lib/ativos/AGENTS.md` os modelos novos, as rotas, a fila offline e a recusa de Agent Skill para `idb` na linha `Declined:`.
 
 ## Rationale
 

@@ -237,10 +237,10 @@ Tracer Bullet: a fatia A passa o fio inteiro (dado real, etiqueta, ficha, chamad
 - [ ] Ligar TLS na produção (`nginx/default.tls.conf` e `AUTH_COOKIE_SECURE=true`) para liberar a câmera; já está no achado da auditoria de 25/05/2026.
 - [ ] Confirmar com uma etiqueta real que o código de barras grava só o número do tombo.
 - [ ] Fora desta fatia: reativar localização ou categoria desativada (hoje só pelo banco).
-- [ ] Mover `docs/0009 — Gestão de Ativos.md`, `docs/analise-sicam.md` e `docs/extrair.py` para dentro de `docs/specs/0011-gestao-ativos/` (o CSV fica fora do git).
-- [ ] Inscrever "Gestão de ativos" no `docs/scope/scope.md`, com esta spec na Fatia 1 e as fatias 2 a 5 como linhas planejadas.
-- [ ] Specs futuras: importador SICAM com diferença e vistoria com modo offline (fatia 2), `DocumentoAtivo` e preventiva por categoria (fatia 3), ativo pela IA no chat e indicadores no IMR (fatia 4).
-- [ ] `/sync`: registrar no `AGENTS.md` raiz o módulo de ativos (modelos, telas, tabela de tarefas) e a recusa da Agent Skill para `barcode-detector` na linha `Declined:`; avaliar um `lib/ativos/AGENTS.md`.
+- [x] Mover `docs/0009 — Gestão de Ativos.md` (agora `proposta.md`), `docs/analise-sicam.md` e `docs/extrair.py` para dentro de `docs/specs/0011-gestao-ativos/` (o CSV fica fora do git).
+- [x] Inscrever "Gestão de ativos" no `docs/scope/scope.md`, com esta spec na Fatia 1 e as fatias 2 a 5 como linhas planejadas.
+- [x] Specs futuras: importador SICAM com diferença e vistoria com modo offline (fatia 2), `DocumentoAtivo` e preventiva por categoria (fatia 3), ativo pela IA no chat e indicadores no IMR (fatia 4).
+- [x] `/sync`: registrar no `AGENTS.md` raiz o módulo de ativos (modelos, telas, tabela de tarefas) e a recusa da Agent Skill para `barcode-detector` na linha `Declined:`; avaliar um `lib/ativos/AGENTS.md`.
 - [ ] Perguntas abertas que seguem do documento original: os 171 ares com `SAIU`, criticidade mínima para preventiva obrigatória, onde ficam as fotos, quem imprime as etiquetas `MNT-`, cadência do export do SICAM.
 
 ## Rationale
