@@ -176,6 +176,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **Cumprimento de SLA**: base = apenas chamados com snapshot de SLA (`sla.resolutionDueAt` definido). Chamados sem SLA (legados/não classificados) não entram no percentual dentro/fora
 - **Tempo médio de atendimento**: `sla.resolvedAt − createdAt − tempo pausado` (não usa `closedAt`; desconta pausas de "aguardando solicitante/terceiros")
 - UI com abas (shadcn/ui Tabs): **Resumo Geral** | **Manutenção Predial** | **Ar-Condicionado**
+- Aba **Ativos** (spec 0014): MTBF, MTTR, reincidência e ranking por `lib/ativos/indicadores.ts`, numa consulta própria fora do `$facet` e só informativos; o MTTR reaproveita `tempoDeReparoMs` de `imr-service.ts`
 - Componentes de seção reutilizáveis em `app/(dashboard)/relatorios/imr/_components/imr-sections.tsx`
 - Componente de abas (client) em `app/(dashboard)/relatorios/imr/_components/imr-tipo-servico-tabs.tsx`
 - Tipos públicos exportados: `ImrResult`, `ImrResumoGeral`, `ImrResultPorTipo`, `ImrSlaCumprimento`, `ImrSlaPorPrioridade`, `ImrAvaliacao`, `ImrPenalidade`
@@ -206,6 +207,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Só ativo Tier A ou B e não `baixado` recebe chamado (`lib/ativos/seletor.ts`); o servidor confere na abertura e no vínculo, nunca só a tela
 - `camposPatrimoniais` (nome e matrícula do responsável, LGPD) só sai do servidor para Admin e Preposto; `docs/ativos_sicam.csv`, `docs/localizacoes_sicam.csv` e `scripts/carga-ativos.generated.js` ficam fora do git
 - Toda troca de ativo num chamado aberto gera `ChamadoHistory` `vinculo_ativo`; só a gestão vincula (`vincularAtivoChamadoAction`)
+- Desde a spec 0014, o cartão do chat sugere o ativo (código digitado ou regra por categoria, unidade e local, sem modelo e sem portão de confiança), e a decisão `ativo` em `DecisaoIa` fica fora da IA: não muda `iaSituacao` nem entra na revisão. A ficha mostra corretivos, MTBF e MTTR para Admin, Preposto e Técnico; regras em `lib/assistente/AGENTS.md` e `lib/ativos/AGENTS.md`
 - Desde a spec 0013, ativo e local têm documentos (`/ativos/documentos`, `/configuracoes/tipos-documento`), com aviso diário de vencimento pelo cron; `CategoriaAtivo.exigeDocumento` guarda chaves de `TipoDocumento` e alimenta a aba Faltando
 
 ### Validação

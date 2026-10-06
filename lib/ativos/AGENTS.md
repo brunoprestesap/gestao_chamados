@@ -16,6 +16,7 @@ As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadas
 | `auditoria.ts`                       | `gravarHistoricoOuDesfazer`                                                                                                                                                                                |
 | `codigo.ts`                          | `normalizarCodigo` (sem `server-only`: o cliente também usa)                                                                                                                                               |
 | `carga.ts`, `carga-script.ts`        | Parser do CSV e o script mongosh da carga (gerado por `scripts/gerar-carga-ativos.ts`)                                                                                                                     |
+| `indicadores.ts`                     | MTBF, MTTR, reincidência e ranking (spec 0014): `calcularIndicadoresAtivos` para a aba Ativos do IMR e `indicadoresDoAtivo` para a ficha                                                                   |
 | `documentos/`                        | Documentos do ativo e do local (spec 0013): `gravar.ts` (cadastro com substituição, correção, exclusão), `situacao.ts` (datas e limites), `ficha.ts`, `painel.ts`, `alerta-job.ts`, `aviso.ts`, `tipos.ts` |
 
 ## Convenções
@@ -35,6 +36,7 @@ As regras do módulo de ativos (spec 0011): árvore de locais, categorias, cadas
 - Ler documento e baixar o arquivo: Admin, Preposto e Técnico (`podeVerDocumentos`); escrever: Admin e Preposto; tipo de documento: só Admin. O download responde `Cache-Control: no-store`, para a checagem valer a cada pedido.
 - `TipoDocumento.chave` nunca muda (categorias e documentos guardam a chave). Ao salvar a categoria, `exigeDocumento` guarda só chaves que existem em `TipoDocumento`, ativas ou não.
 - O upload de documento é a rota `POST /api/ativos/documentos` (multipart, até 20 MB), nunca Server Action, e fica fora do matcher do `proxy.ts`. A checagem de tipo e o nome em disco vêm de `lib/uploads/arquivo.ts`, o mesmo apoio dos anexos de chamado.
+- Indicadores de ativo (spec 0014) são só informativos, nunca entram nos números contratuais do IMR. Corretivo é chamado com ativo, sem `originTemplateId` e fora de `STATUS_FORA_DO_CORRETIVO`; o MTTR usa `tempoDeReparoMs` de `lib/imr-service.ts`, a mesma conta do tempo médio do IMR (um teste prova a paridade). A janela da ficha termina em `fimDoDiaEmBelem()`, e `carregarFicha` só calcula para quem passa em `podeVerDocumentos`.
 - A busca do seletor com `escopo=documentos` usa `FILTRO_RECEBE_DOCUMENTO` (qualquer tier, nunca `baixado`); para chamado continua só `FILTRO_VINCULAVEL`.
 
 ## Comandos

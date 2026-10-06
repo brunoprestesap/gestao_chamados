@@ -1,7 +1,7 @@
 # 0014. Ativo sugerido no chat e indicadores de ativo no IMR
 
 **Date**: 2026-10-03
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
