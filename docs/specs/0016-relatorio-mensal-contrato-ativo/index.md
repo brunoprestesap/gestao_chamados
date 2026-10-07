@@ -82,34 +82,34 @@ Calls made with full design context (pick, why, runner up):
 
 `Contrato` (coleção nova, `models/Contrato.ts`, padrão de `models/AGENTS.md`, `timestamps: true`)
 
-| Campo                | Tipo                             | Regra                                                         |
-| -------------------- | -------------------------------- | ------------------------------------------------------------- |
-| `_id`                | ObjectId                         | PK                                                            |
-| `numero`             | String                           | obrigatório, trim, até 40                                     |
-| `numeroNormalizado`  | String                           | obrigatório, `numero` em minúsculas, índice único             |
-| `empresa`            | String                           | obrigatório, trim, até 160                                    |
-| `cnpj`               | String                           | obrigatório, 14 dígitos, sem máscara                          |
-| `processoSei`        | String                           | obrigatório, trim, até 40                                     |
-| `objeto`             | String                           | opcional, padrão `null`, até 300                              |
-| `fiscal`             | String                           | opcional, padrão `null`, até 120 (dado pessoal, sai no PDF)   |
-| `tiposServico`       | [String]                         | 1 a 3 valores distintos de `TIPO_SERVICO_OPTIONS`             |
-| `vigenciaInicio`     | String `YYYY-MM-DD`              | obrigatório                                                   |
-| `vigenciaFim`        | String `YYYY-MM-DD`              | obrigatório, maior ou igual a `vigenciaInicio`                |
-| `isActive`           | Boolean                          | padrão `true`                                                 |
+| Campo               | Tipo                | Regra                                                       |
+| ------------------- | ------------------- | ----------------------------------------------------------- |
+| `_id`               | ObjectId            | PK                                                          |
+| `numero`            | String              | obrigatório, trim, até 40                                   |
+| `numeroNormalizado` | String              | obrigatório, `numero` em minúsculas, índice único           |
+| `empresa`           | String              | obrigatório, trim, até 160                                  |
+| `cnpj`              | String              | obrigatório, 14 dígitos, sem máscara                        |
+| `processoSei`       | String              | obrigatório, trim, até 40                                   |
+| `objeto`            | String              | opcional, padrão `null`, até 300                            |
+| `fiscal`            | String              | opcional, padrão `null`, até 120 (dado pessoal, sai no PDF) |
+| `tiposServico`      | [String]            | 1 a 3 valores distintos de `TIPO_SERVICO_OPTIONS`           |
+| `vigenciaInicio`    | String `YYYY-MM-DD` | obrigatório                                                 |
+| `vigenciaFim`       | String `YYYY-MM-DD` | obrigatório, maior ou igual a `vigenciaInicio`              |
+| `isActive`          | Boolean             | padrão `true`                                               |
 
 Índices: `{ numeroNormalizado: 1 }` único; `{ tiposServico: 1, vigenciaInicio: 1 }` para a checagem de sobreposição.
 
 `RelatorioContratoEmissao` (coleção nova, `models/RelatorioContratoEmissao.ts`, sem `timestamps`, nunca alterada nem apagada)
 
-| Campo        | Tipo                  | Regra                                         |
-| ------------ | --------------------- | --------------------------------------------- |
-| `_id`        | ObjectId              | PK, criado antes do PDF, impresso no rodapé   |
-| `contratoId` | ObjectId → `Contrato` | obrigatório, N:1                              |
-| `mes`        | String `YYYY-MM`      | obrigatório                                   |
-| `geradoPor`  | ObjectId → `User`     | obrigatório, N:1                              |
-| `geradoPorNome` | String             | obrigatório, nome de quem gerou no momento (o histórico não muda se o usuário mudar) |
-| `geradoEm`   | Date                  | obrigatório, o mesmo `agora` do cálculo       |
-| `hashSha256` | String                | obrigatório, 64 caracteres hexadecimais       |
+| Campo           | Tipo                  | Regra                                                                                |
+| --------------- | --------------------- | ------------------------------------------------------------------------------------ |
+| `_id`           | ObjectId              | PK, criado antes do PDF, impresso no rodapé                                          |
+| `contratoId`    | ObjectId → `Contrato` | obrigatório, N:1                                                                     |
+| `mes`           | String `YYYY-MM`      | obrigatório                                                                          |
+| `geradoPor`     | ObjectId → `User`     | obrigatório, N:1                                                                     |
+| `geradoPorNome` | String                | obrigatório, nome de quem gerou no momento (o histórico não muda se o usuário mudar) |
+| `geradoEm`      | Date                  | obrigatório, o mesmo `agora` do cálculo                                              |
+| `hashSha256`    | String                | obrigatório, 64 caracteres hexadecimais                                              |
 
 Índice: `{ contratoId: 1, mes: 1, geradoEm: -1 }` (lista do AC-19).
 
@@ -123,38 +123,38 @@ Tipo de saída (`shared/contratos/relatorio.types.ts`, serializável, sem `Date`
 
 **API surface**:
 
-| Endpoint / ação                                    | Método        | Key inputs                                                                 | Key outputs                                   | Auth         | Key errors                                                |
-| -------------------------------------------------- | ------------- | -------------------------------------------------------------------------- | --------------------------------------------- | ------------ | --------------------------------------------------------- |
-| `/configuracoes/contratos`                         | página        | nenhum                                                                     | lista de contratos                            | Admin        | redireciona quem não é Admin                              |
-| `criarContratoAction`                              | Server Action | campos do AC-2                                                             | `{ ok: true, id }`                            | Admin        | `{ ok: false, error }` por validação, número repetido, AC-3 |
-| `editarContratoAction`                             | Server Action | `id`, campos do AC-2                                                       | `{ ok: true }`                                | Admin        | idem, mais "Contrato não encontrado."                     |
-| `alterarSituacaoContratoAction`                    | Server Action | `id`, `isActive: boolean`                                                  | `{ ok: true }`                                | Admin        | AC-3 ao reativar                                          |
-| `/relatorios/contrato`                             | página        | `contratoId?`, `mes?` (query)                                              | `RelatorioContrato`, lista de emissões        | Admin        | texto do AC-5 para parâmetro inválido                     |
-| `/api/relatorios/contrato/pdf`                     | POST          | `contratoId: ObjectId` (req), `mes: YYYY-MM` (req)                         | `application/pdf` (anexo)                     | Admin        | 401, 403, 400, 404, 422, 429, 500                         |
+| Endpoint / ação                 | Método        | Key inputs                                         | Key outputs                            | Auth  | Key errors                                                  |
+| ------------------------------- | ------------- | -------------------------------------------------- | -------------------------------------- | ----- | ----------------------------------------------------------- |
+| `/configuracoes/contratos`      | página        | nenhum                                             | lista de contratos                     | Admin | redireciona quem não é Admin                                |
+| `criarContratoAction`           | Server Action | campos do AC-2                                     | `{ ok: true, id }`                     | Admin | `{ ok: false, error }` por validação, número repetido, AC-3 |
+| `editarContratoAction`          | Server Action | `id`, campos do AC-2                               | `{ ok: true }`                         | Admin | idem, mais "Contrato não encontrado."                       |
+| `alterarSituacaoContratoAction` | Server Action | `id`, `isActive: boolean`                          | `{ ok: true }`                         | Admin | AC-3 ao reativar                                            |
+| `/relatorios/contrato`          | página        | `contratoId?`, `mes?` (query)                      | `RelatorioContrato`, lista de emissões | Admin | texto do AC-5 para parâmetro inválido                       |
+| `/api/relatorios/contrato/pdf`  | POST          | `contratoId: ObjectId` (req), `mes: YYYY-MM` (req) | `application/pdf` (anexo)              | Admin | 401, 403, 400, 404, 422, 429, 500                           |
 
 **Value sourcing**:
 
-| Action                        | Value produced / displayed                            | Source                                                                                              |
-| ----------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| tela e PDF                    | meses permitidos                                      | `mesesPermitidos(vigência, hojeEmBelem(agora))` (`shared/contratos/janela.ts`)                       |
-| tela e PDF                    | `inicio`, `fim` da janela                             | `janelaDoMes(mes, vigenciaInicio, vigenciaFim)` com `startOfDay`/`endOfDay` de `lib/imr-service.ts` (AC-6) |
-| tela e PDF                    | selo de mês parcial                                   | `mes` igual ao mês de `hojeEmBelem(agora)`                                                          |
-| tela e PDF                    | chamados do contrato                                  | `Chamado.tipoServico`, `createdAt`, `originTemplateId`, `status`, `ativoId`                         |
-| tela e PDF                    | corretivos com ativo, MTBF, MTTR, reincidência         | `calcularFiltro` e `numerosDoAtivo` da 0014 sobre `createdAt`, `sla.resolvedAt`, `totalPausedMinutes` |
-| tela e PDF                    | dentro, fora, em andamento, sem SLA                   | `Chamado.sla.resolutionDueAt`, `sla.resolvedAt`, `status` e `agora` (AC-13)                         |
-| tela e PDF                    | categoria de cada ativo                               | `InfoDoAtivo.categoriaId` e `categoria` (de `lerInfoDosAtivos`)                                     |
-| tela e PDF                    | preventivas concluídas                                | `Chamado.sla.resolvedAt` não nulo                                                                   |
-| tela e PDF                    | código, descrição, local, categoria do ativo          | `lerInfoDosAtivos` (`Ativo.codigo`, `descricao`, `Localizacao.caminho`, `CategoriaAtivo.nome`)      |
-| tela e PDF                    | ativos no escopo por categoria                        | contagem de `Ativo` com `FILTRO_VINCULAVEL` por `categoriaId`, categorias mapeadas como na Decision |
-| tela e PDF                    | cabeçalho do contrato                                 | campos do `Contrato`; CNPJ formatado por `formatarCnpj` (`shared/contratos/cnpj.ts`)                |
-| tela e PDF                    | "Gerado em" e quem gerou                              | `agora` em Belém; `User.name` lido pelo `userId` da sessão (`verifySession()`), gravado em `geradoPorNome` |
-| cadastro                      | meses com emissão (trava da edição, AC-3)             | `RelatorioContratoEmissao.mes` do contrato                                                          |
-| rota do PDF                   | trava de uma geração por vez                          | variável de módulo em `lib/contratos/pdf/trava.ts` (vale enquanto o Next roda em uma instância, como os limites de `lib/llm`) |
-| PDF                           | código da emissão                                     | `new Types.ObjectId()` criado na rota antes do `renderToBuffer`                                     |
-| PDF                           | página X de Y                                         | `render` de `@react-pdf/renderer` (`pageNumber`, `totalPages`)                                      |
-| emissão                       | `hashSha256`                                          | `crypto.createHash('sha256')` dos bytes devolvidos por `renderToBuffer`                             |
-| lista de emissões             | nome de quem gerou                                    | `RelatorioContratoEmissao.geradoPor` → `User.name`                                                  |
-| nome do arquivo               | `relatorio-contrato-<numero>-<mes>.pdf`               | `Contrato.numero` saneado e `mes`                                                                   |
+| Action            | Value produced / displayed                     | Source                                                                                                                        |
+| ----------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| tela e PDF        | meses permitidos                               | `mesesPermitidos(vigência, hojeEmBelem(agora))` (`shared/contratos/janela.ts`)                                                |
+| tela e PDF        | `inicio`, `fim` da janela                      | `janelaDoMes(mes, vigenciaInicio, vigenciaFim)` com `startOfDay`/`endOfDay` de `lib/imr-service.ts` (AC-6)                    |
+| tela e PDF        | selo de mês parcial                            | `mes` igual ao mês de `hojeEmBelem(agora)`                                                                                    |
+| tela e PDF        | chamados do contrato                           | `Chamado.tipoServico`, `createdAt`, `originTemplateId`, `status`, `ativoId`                                                   |
+| tela e PDF        | corretivos com ativo, MTBF, MTTR, reincidência | `calcularFiltro` e `numerosDoAtivo` da 0014 sobre `createdAt`, `sla.resolvedAt`, `totalPausedMinutes`                         |
+| tela e PDF        | dentro, fora, em andamento, sem SLA            | `Chamado.sla.resolutionDueAt`, `sla.resolvedAt`, `status` e `agora` (AC-13)                                                   |
+| tela e PDF        | categoria de cada ativo                        | `InfoDoAtivo.categoriaId` e `categoria` (de `lerInfoDosAtivos`)                                                               |
+| tela e PDF        | preventivas concluídas                         | `Chamado.sla.resolvedAt` não nulo                                                                                             |
+| tela e PDF        | código, descrição, local, categoria do ativo   | `lerInfoDosAtivos` (`Ativo.codigo`, `descricao`, `Localizacao.caminho`, `CategoriaAtivo.nome`)                                |
+| tela e PDF        | ativos no escopo por categoria                 | contagem de `Ativo` com `FILTRO_VINCULAVEL` por `categoriaId`, categorias mapeadas como na Decision                           |
+| tela e PDF        | cabeçalho do contrato                          | campos do `Contrato`; CNPJ formatado por `formatarCnpj` (`shared/contratos/cnpj.ts`)                                          |
+| tela e PDF        | "Gerado em" e quem gerou                       | `agora` em Belém; `User.name` lido pelo `userId` da sessão (`verifySession()`), gravado em `geradoPorNome`                    |
+| cadastro          | meses com emissão (trava da edição, AC-3)      | `RelatorioContratoEmissao.mes` do contrato                                                                                    |
+| rota do PDF       | trava de uma geração por vez                   | variável de módulo em `lib/contratos/pdf/trava.ts` (vale enquanto o Next roda em uma instância, como os limites de `lib/llm`) |
+| PDF               | código da emissão                              | `new Types.ObjectId()` criado na rota antes do `renderToBuffer`                                                               |
+| PDF               | página X de Y                                  | `render` de `@react-pdf/renderer` (`pageNumber`, `totalPages`)                                                                |
+| emissão           | `hashSha256`                                   | `crypto.createHash('sha256')` dos bytes devolvidos por `renderToBuffer`                                                       |
+| lista de emissões | nome de quem gerou                             | `RelatorioContratoEmissao.geradoPor` → `User.name`                                                                            |
+| nome do arquivo   | `relatorio-contrato-<numero>-<mes>.pdf`        | `Contrato.numero` saneado e `mes`                                                                                             |
 
 **Key invariants**:
 
