@@ -34,8 +34,8 @@ export const CONVERSA_RESERVA_MS = 2 * 60 * 1000;
 export const LINHA_DO_TEMPO_MAX = 300;
 
 /**
- * Tentativas de achar um número de chamado livre. `generateTicketNumber()` lê o
- * maior existente sem lock, então duas aberturas ao mesmo tempo podem colidir.
+ * Tentativas de achar um número de chamado livre. `generateTicketNumber()` usa um
+ * contador atômico, então só um número gravado por fora do contador colide.
  */
 export const TICKET_NUMBER_TENTATIVAS = 3;
 
