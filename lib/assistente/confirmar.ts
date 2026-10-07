@@ -144,6 +144,15 @@ function registrar(dados: Record<string, unknown>): void {
   console.warn('[abertura]', JSON.stringify(dados));
 }
 
+/** Os parecidos do cartão confirmado, ou `null` sem eles (spec 0017, AC-12). */
+export function avisoDuplicadoDoCartao(
+  cartao: CartaoPayload,
+): { chamadoIds: Types.ObjectId[]; em: Date } | null {
+  const duplicados = cartao.duplicados ?? [];
+  if (duplicados.length === 0) return null;
+  return { chamadoIds: duplicados.map((d) => new Types.ObjectId(d.chamadoId)), em: new Date() };
+}
+
 export type AtivoAceito = { ativoId: string; codigo: string; origem: AtivoOrigem };
 
 /**
@@ -352,6 +361,9 @@ export async function confirmarAbertura(
         catalogServiceId: servico ? new Types.ObjectId(servico.catalogServiceId) : null,
         subtypeId: servico ? new Types.ObjectId(servico.subtypeId) : null,
         ativoId: ativo ? new Types.ObjectId(ativo.ativoId) : null,
+        // Abrir mesmo assim (spec 0017, AC-12): os parecidos do cartão
+        // guardado no banco, nunca do navegador. Só vale na criação.
+        avisoDuplicado: avisoDuplicadoDoCartao(cartao.payload),
         ...classificacao,
       },
       decisoes: decisoesDaProposta(proposta, servico, efeitoPrioridade),

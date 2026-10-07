@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 
 import { gravarHistoricoOuDesfazer } from '@/lib/ativos/auditoria';
 import { vincularAtivoAoChamado } from '@/lib/ativos/vinculo';
+import { notificarFimAosInteressados, zerarAvisoDeFim } from '@/lib/chamados/interessados';
 import { notificarAtribuicao } from '@/lib/chamados/notificar-atribuicao';
 import { notificarCorrecaoAoTecnico } from '@/lib/chamados/notificar-correcao';
 import {
@@ -943,6 +944,9 @@ export async function reopenTicketAction(raw: ReopenTicketInput): Promise<Reopen
       observacoes: `Reaberto por ${session.role}. Motivo: ${reason.length > 200 ? reason.slice(0, 200) + '…' : reason}`,
     });
 
+    // O próximo fim avisa de novo quem acompanha (spec 0017, AC-18).
+    await zerarAvisoDeFim(String(previous._id));
+
     // Notificações (fire-and-forget)
     const actor = await UserModel.findById(session.userId).select('name').lean();
     const payload = {
@@ -1595,6 +1599,9 @@ export async function rejectTicketAction(raw: RejectTicketInput): Promise<Reject
       statusNovo: 'recusado',
       observacoes,
     });
+
+    // Quem acompanha o chamado recebe o aviso de fim no sino (spec 0017, AC-17).
+    void notificarFimAosInteressados(chamadoId, 'recusado');
 
     const solicitanteId = doc.solicitanteId.toString();
     const rejectedByUser = await UserModel.findById(session.userId).select('name').lean();

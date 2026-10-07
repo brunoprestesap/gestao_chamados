@@ -7,6 +7,7 @@ import type { CartaoPayload } from '@/shared/conversas/conversa.schemas';
 
 import { resolverAtivoDoCartao } from './ativo-do-cartao';
 import { lerServicoAtivo } from './catalogo';
+import { buscarDuplicados } from './duplicados';
 import { fraseDoCartao } from './mensagens';
 import { lerPerfil, type Perfil } from './perfil';
 import { conteudoDoCartao, limparLocal, mesmoConteudo, unidadeSugerida } from './proposta';
@@ -32,8 +33,16 @@ export async function montarCartao(params: {
   conversaId: string;
   proposta: PropostaDoCartao;
   perfil: Perfil;
+  /** Quem relata: decide `proprio` e `jaTemAcesso` dos parecidos (spec 0017). */
+  viewer: Viewer;
+  /**
+   * Procura chamados parecidos (spec 0017, AC-5a). Só a proposta pronta e o
+   * `Revisar e abrir` ligam; o turno que monta o cartão só pelo código no
+   * relato não procura.
+   */
+  buscarDuplicados: boolean;
 }): Promise<CartaoMontado> {
-  const { conversaId, proposta, perfil } = params;
+  const { conversaId, proposta, perfil, viewer } = params;
 
   // O serviço pode ter sido desativado depois da proposta: aí o cartão é manual.
   const servico = proposta?.servico
@@ -63,6 +72,16 @@ export async function montarCartao(params: {
     localExato,
   });
 
+  // Os chamados parecidos (spec 0017), depois do ativo, porque o ramo do
+  // equipamento usa os candidatos dele. O campo vai sempre explícito.
+  const duplicados = params.buscarDuplicados
+    ? await buscarDuplicados({
+        conversaId,
+        viewer,
+        cartao: { modo, servico, unidade: unidadeDoCartao, localExato, ativo },
+      })
+    : null;
+
   const payload: CartaoPayload = {
     modo,
     servico,
@@ -70,6 +89,7 @@ export async function montarCartao(params: {
     localExato,
     faltando,
     ativo,
+    duplicados,
   };
 
   return {
@@ -109,7 +129,13 @@ export async function revisarAbertura(
     if (lida.situacao !== 'rascunho') return { ok: false, reason: 'nao_encontrada' };
 
     const perfil = await lerPerfil(viewer.userId);
-    const montado = await montarCartao({ conversaId, proposta: lida.proposta, perfil });
+    const montado = await montarCartao({
+      conversaId,
+      proposta: lida.proposta,
+      perfil,
+      viewer,
+      buscarDuplicados: true,
+    });
 
     const atual = lida.cartaoAtual;
     if (

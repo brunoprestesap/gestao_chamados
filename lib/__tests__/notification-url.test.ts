@@ -157,4 +157,15 @@ describe('getNotificationUrl · spec 0013', () => {
   it('aviso de lote da preventiva leva aos recorrentes', () => {
     expect(getNotificationUrl('preventiva:lote', { recurringId: ID })).toBe('/gestao/recurring');
   });
+
+  it('fim de chamado acompanhado leva à vista em /conversas (spec 0017, AC-17)', () => {
+    expect(getNotificationUrl('interesse:fim', { chamadoId: ID, status: 'concluído' })).toBe(
+      `/conversas/${ID}`,
+    );
+  });
+
+  it('fim de chamado acompanhado com id fora do formato cai em /conversas', () => {
+    expect(getNotificationUrl('interesse:fim', { chamadoId: '../x' })).toBe('/conversas');
+    expect(getNotificationUrl('interesse:fim', null)).toBe('/conversas');
+  });
 });

@@ -24,6 +24,8 @@ const AGRUPAR_MS = 800;
 
 type Props = {
   rascunhos: ItemLateral[];
+  /** Chamados de outras pessoas que o usuário acompanha (spec 0017). */
+  acompanhando?: ItemLateral[];
   chamados: ItemLateral[];
   temMais: boolean;
   cursor: CursorLateral | null;
@@ -34,6 +36,7 @@ type Props = {
 
 export function ConversasShell({
   rascunhos,
+  acompanhando = [],
   chamados,
   temMais,
   cursor,
@@ -71,6 +74,7 @@ export function ConversasShell({
       <div className="flex min-h-0 flex-1 gap-4">
         <ListaLateral
           rascunhos={rascunhos}
+          acompanhando={acompanhando}
           chamados={chamados}
           temMais={temMais}
           cursor={cursor}

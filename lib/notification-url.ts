@@ -27,6 +27,11 @@ export function getNotificationUrl(type: string, data?: Record<string, unknown> 
     }
     case 'preventiva:lote':
       return '/gestao/recurring';
+    case 'interesse:fim': {
+      // Spec 0017, AC-17: a vista de acompanhamento do chamado em `/conversas`.
+      const chamadoId = texto(data?.chamadoId);
+      return chamadoId ? `/conversas/${chamadoId}` : '/conversas';
+    }
     default:
       return '/meus-chamados';
   }

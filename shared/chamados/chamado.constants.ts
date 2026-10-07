@@ -17,6 +17,18 @@ export const CHAMADO_STATUS_NAO_FINALIZADOS: readonly ChamadoStatus[] = CHAMADO_
 );
 
 /**
+ * Status de um chamado ainda em andamento: os que o aviso de chamado duplicado
+ * procura e os únicos que alguém pode passar a acompanhar (spec 0017).
+ */
+export const CHAMADO_STATUS_EM_ANDAMENTO: readonly ChamadoStatus[] = [
+  'aberto',
+  'validado',
+  'em atendimento',
+  'aguardando_solicitante',
+  'aguardando_terceiros',
+];
+
+/**
  * Status que mantêm um chamado na lateral do técnico em `/conversas`
  * (spec 0005): os mesmos que já valem para carga de atendimento, mais a
  * pausa por aguardando solicitante e o concluído, que ainda pedem

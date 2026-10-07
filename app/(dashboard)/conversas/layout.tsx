@@ -30,6 +30,7 @@ export default async function ConversasLayout({ children }: { children: React.Re
   return (
     <ConversasShell
       rascunhos={lateral.rascunhos}
+      acompanhando={lateral.acompanhando}
       chamados={lateral.chamados}
       temMais={lateral.temMais}
       cursor={lateral.cursor}

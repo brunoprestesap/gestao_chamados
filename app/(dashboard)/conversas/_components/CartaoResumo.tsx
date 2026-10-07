@@ -44,6 +44,7 @@ import {
   fraseDaConfirmacao,
 } from '../_constants';
 import { confirmarAberturaAction } from '../actions';
+import { AvisoDuplicados } from './AvisoDuplicados';
 import { LinhaEquipamento } from './LinhaEquipamento';
 import { hora, iso } from './tempo';
 import { useUnidades } from './unidades-contexto';
@@ -442,6 +443,18 @@ export function CartaoResumo({
           <FileText aria-hidden="true" className="mt-px size-3.5 shrink-0" />
           {CARTAO_DESCRICAO_AVISO}
         </p>
+
+        {/* O aviso de chamado duplicado (spec 0017): confirmar é o "abrir mesmo assim". */}
+        {cartao.duplicados && cartao.duplicados.length > 0 ? (
+          <AvisoDuplicados
+            duplicados={cartao.duplicados}
+            conversaId={conversaId}
+            cartaoId={mensagemId}
+            atual={atual}
+            bloqueado={bloqueado}
+            onDesatualizado={onDesatualizado}
+          />
+        ) : null}
 
         {falha ? (
           <p

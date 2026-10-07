@@ -23,6 +23,7 @@ import {
   Star,
   User,
   UserCheck,
+  Users,
   Wrench,
   XCircle,
 } from 'lucide-react';
@@ -69,6 +70,7 @@ import { CommentThread } from '../../meus-chamados/[id]/_components/CommentThrea
 import { HistoryTimeline } from '../../meus-chamados/[id]/_components/HistoryTimeline';
 import { CotacaoApprovalCard } from './CotacaoApprovalCard';
 import { RevisaoIaPainel } from './RevisaoIaPainel';
+import { VinculoDuplicado } from './VinculoDuplicado';
 
 type TabId = 'detalhes' | 'historico' | 'comentarios' | 'anexos';
 
@@ -176,6 +178,15 @@ interface Props {
 }
 
 // ---------- Component ----------
+
+/** "N usuários relataram o mesmo problema: nomes" (spec 0017, AC-19). */
+function textoDosInteressados(interessados: { total: number; nomes: string[] }): string {
+  const frase =
+    interessados.total === 1
+      ? '1 usuário relatou o mesmo problema'
+      : `${interessados.total} usuários relataram o mesmo problema`;
+  return interessados.nomes.length > 0 ? `${frase}: ${interessados.nomes.join(', ')}` : frase;
+}
 
 export function ChamadoDetailSheet({
   chamado,
@@ -307,7 +318,7 @@ export function ChamadoDetailSheet({
   const isManager = userRole === 'Preposto' || userRole === 'Admin' || userRole === null;
   // Estrito, sem o `null` de cima: o resultado e o motivo da atribuição automática
   // nunca aparecem sem a certeza de que quem vê é gestão (spec 0008, AC-16).
-  const veAtribuicaoAutomatica = userRole === 'Preposto' || userRole === 'Admin';
+  const ehGestao = userRole === 'Preposto' || userRole === 'Admin';
 
   // Ações de gestão — apenas para Preposto/Admin (e quando o callback foi fornecido)
   const showClassificar = isManager && status === 'aberto' && !!onClassificar;
@@ -400,6 +411,10 @@ export function ChamadoDetailSheet({
                 chamadoAnteriorNumero={chamado.chamadoAnteriorNumero}
                 className="mt-1.5"
               />
+              {/* Só a gestão vê o possível duplicado (spec 0017, AC-13). */}
+              {ehGestao && (
+                <VinculoDuplicado avisoDuplicado={chamado.avisoDuplicado} className="mt-1.5" />
+              )}
               {janelaAberta && (
                 <PrazoAvaliacao
                   prazoAvaliacaoAte={chamado.prazoAvaliacaoAte}
@@ -572,11 +587,19 @@ export function ChamadoDetailSheet({
                       />
                     )}
                     {/* O resultado da atribuição automática é só da gestão (spec 0008, AC-15 e AC-16). */}
-                    {veAtribuicaoAutomatica && chamado.atribuicaoAutomatica && (
+                    {ehGestao && chamado.atribuicaoAutomatica && (
                       <MetadataRow
                         icon={Bot}
                         label="Atribuição automática"
                         value={textoDaAtribuicaoAutomatica(chamado.atribuicaoAutomatica)}
+                      />
+                    )}
+                    {/* Quantos relataram o mesmo problema e quem (spec 0017, AC-19). */}
+                    {ehGestao && chamado.interessados && chamado.interessados.total > 0 && (
+                      <MetadataRow
+                        icon={Users}
+                        label="Interessados"
+                        value={textoDosInteressados(chamado.interessados)}
                       />
                     )}
                     <MetadataRow icon={Clock} label="Aberto em" value={formattedDate} />
@@ -587,7 +610,7 @@ export function ChamadoDetailSheet({
                 </section>
 
                 {/* Decisões da IA — só Preposto e Admin (spec 0009, AC-4) */}
-                {veAtribuicaoAutomatica && (
+                {ehGestao && (
                   <>
                     <Separator className="opacity-60" />
                     <section aria-labelledby="revisao-ia-heading">

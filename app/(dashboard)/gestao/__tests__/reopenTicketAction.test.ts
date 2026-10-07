@@ -1,6 +1,13 @@
 import { Types } from 'mongoose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Spec 0017: os interessados ficam fora deste teste.
+vi.mock('@/lib/chamados/interessados', () => ({
+  notificarFimAosInteressados: vi.fn().mockResolvedValue(undefined),
+  zerarAvisoDeFim: vi.fn().mockResolvedValue(undefined),
+  interessadosDosChamados: vi.fn().mockResolvedValue(new Map()),
+}));
+
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 const mockRequireManager = vi.fn();
@@ -41,6 +48,7 @@ vi.mock('@/models/user.model', () => ({
 }));
 
 import { reopenTicketAction } from '@/app/(dashboard)/gestao/actions';
+import { notificarFimAosInteressados, zerarAvisoDeFim } from '@/lib/chamados/interessados';
 
 /**
  * Reabrir só o concluído dentro do prazo para avaliar; o encerrado é
@@ -106,6 +114,12 @@ describe('reopenTicketAction · janela aberta (AC-4)', () => {
     });
     const paraGestao = mockEmitToRoom.mock.calls.find((c) => c[0] === 'managers');
     expect(paraGestao?.[2]).toMatchObject({ fromStatus: 'concluído' });
+  });
+
+  it('zera o aviso de fim dos interessados, para o próximo fim avisar de novo (spec 0017, AC-18)', async () => {
+    await reopenTicketAction(INPUT);
+    expect(vi.mocked(zerarAvisoDeFim)).toHaveBeenCalledOnce();
+    expect(vi.mocked(notificarFimAosInteressados)).not.toHaveBeenCalled();
   });
 });
 

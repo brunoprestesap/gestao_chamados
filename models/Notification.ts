@@ -21,6 +21,8 @@ const NOTIFICATION_TYPES = [
   // Spec 0013: só gravados (sem Socket.IO), aparecem no sino na próxima leitura.
   'documento:vencimento',
   'preventiva:lote',
+  // Spec 0017: só gravado, o fim de um chamado que a pessoa acompanha.
+  'interesse:fim',
 ] as const;
 
 const NotificationSchema = new Schema(

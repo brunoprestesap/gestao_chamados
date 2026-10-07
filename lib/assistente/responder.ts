@@ -24,6 +24,7 @@ import { lerPerfil, type Perfil, SEM_PERFIL } from './perfil';
 import { ABERTURA_TASK, montarSistema, PROMPT_VERSION } from './prompt';
 import {
   chaveDoAtivo,
+  chaveDosDuplicados,
   conteudoDaProposta,
   conteudoDoCartao,
   type ConteudoVisivel,
@@ -348,6 +349,7 @@ async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<Quadr
 
   let cartao: DestinoCartao = 'nenhum';
   let ativo: CartaoMontado['payload']['ativo'] = null;
+  let duplicadosTotal = 0;
   const concluir = () =>
     registrar('proposta', {
       conversaId,
@@ -356,6 +358,8 @@ async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<Quadr
       cartao,
       // Origem e quantidade do equipamento, nunca o código nem o local (spec 0014, AC-13).
       ...resumoDoAtivo(ativo),
+      // Só quantos parecidos, nunca número nem local (spec 0017, AC-20).
+      duplicadosTotal,
       duracaoMs: Date.now() - comecouEm,
     });
 
@@ -395,14 +399,29 @@ async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<Quadr
   let montado: CartaoMontado | null = null;
   let novoConteudo: ConteudoVisivel;
   if (pronta || codigosDoRelato(relato).length > 0) {
-    montado = await montarCartao({ conversaId, proposta, perfil: contexto.perfil });
+    // Os parecidos só são procurados com a proposta pronta (spec 0017,
+    // AC-5a); no turno só do código, a chave deles vem do cartão que vale.
+    montado = await montarCartao({
+      conversaId,
+      proposta,
+      perfil: contexto.perfil,
+      viewer,
+      buscarDuplicados: pronta,
+    });
     ativo = montado.payload.ativo ?? null;
-    novoConteudo = conteudoDaProposta(proposta, contexto.perfil, chaveDoAtivo(ativo));
+    duplicadosTotal = montado.payload.duplicados?.length ?? 0;
+    novoConteudo = conteudoDaProposta(
+      proposta,
+      contexto.perfil,
+      chaveDoAtivo(ativo),
+      pronta ? chaveDosDuplicados(montado.payload.duplicados) : chaveDoCartaoAtual(atual),
+    );
   } else {
     novoConteudo = conteudoDaProposta(
       proposta,
       contexto.perfil,
       atual ? conteudoDoCartao(atual.payload).ativoChave : '',
+      chaveDoCartaoAtual(atual),
     );
   }
 
@@ -451,6 +470,11 @@ async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<Quadr
   }
 
   concluir();
+}
+
+/** A chave dos parecidos do cartão que vale, ou vazia sem cartão (spec 0017, AC-8). */
+function chaveDoCartaoAtual(atual: { payload: CartaoMontado['payload'] } | null): string {
+  return atual ? conteudoDoCartao(atual.payload).duplicadosChave : '';
 }
 
 type ReservaParams = {

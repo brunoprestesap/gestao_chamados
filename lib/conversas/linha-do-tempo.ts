@@ -4,6 +4,7 @@ import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoCommentModel } from '@/models/ChamadoComment';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
+import { ChamadoInteressadoModel } from '@/models/ChamadoInteressado';
 import { ConversaModel } from '@/models/Conversa';
 import { ConversaMensagemModel } from '@/models/ConversaMensagem';
 import { ACOES_SO_DA_GESTAO } from '@/shared/chamados/history.constants';
@@ -52,25 +53,38 @@ export async function lerLinhaDoTempo(viewer: Viewer, chamadoId: string): Promis
       ? Boolean(await ConversaModel.exists({ _id: conversaId }))
       : false;
 
-    const [mensagens, comentarios, historicoCompleto, ocultas] = await Promise.all([
-      conversaExiste
-        ? ConversaMensagemModel.find({ conversaId })
-            .sort({ createdAt: -1, _id: -1 })
-            .limit(LINHA_DO_TEMPO_MAX)
-            .lean()
-        : Promise.resolve([]),
-      ChamadoCommentModel.find(veInterno ? { chamadoId } : { chamadoId, visibility: 'publico' })
-        .sort({ createdAt: -1, _id: -1 })
-        .limit(LINHA_DO_TEMPO_MAX)
-        .lean(),
-      ChamadoHistoryModel.find(
-        gestao ? { chamadoId } : { chamadoId, action: { $nin: ACOES_SO_DA_GESTAO } },
-      )
-        .sort({ createdAt: -1, _id: -1 })
-        .limit(LINHA_DO_TEMPO_MAX)
-        .lean(),
-      decisoesOcultas(chamadoId),
-    ]);
+    // Quantos acompanham (spec 0017, AC-19): técnico atribuído e gestão veem a
+    // contagem; o dono nunca vê nada sobre interessados.
+    const veInteressados = veInterno && !solicitante;
+
+    const [mensagens, comentarios, historicoCompleto, ocultas, interessadosTotal] =
+      await Promise.all([
+        conversaExiste
+          ? ConversaMensagemModel.find({ conversaId })
+              .sort({ createdAt: -1, _id: -1 })
+              .limit(LINHA_DO_TEMPO_MAX)
+              .lean()
+          : Promise.resolve([]),
+        ChamadoCommentModel.find(veInterno ? { chamadoId } : { chamadoId, visibility: 'publico' })
+          .sort({ createdAt: -1, _id: -1 })
+          .limit(LINHA_DO_TEMPO_MAX)
+          .lean(),
+        ChamadoHistoryModel.find(
+          gestao ? { chamadoId } : { chamadoId, action: { $nin: ACOES_SO_DA_GESTAO } },
+        )
+          .sort({ createdAt: -1, _id: -1 })
+          .limit(LINHA_DO_TEMPO_MAX)
+          .lean(),
+        decisoesOcultas(chamadoId),
+        veInteressados
+          ? ChamadoInteressadoModel.countDocuments({
+              chamadoId,
+              saiuEm: null,
+              // O técnico atribuído não conta como interessado.
+              ...(chamado.assignedToUserId ? { userId: { $ne: chamado.assignedToUserId } } : {}),
+            })
+          : Promise.resolve(null),
+      ]);
 
     // A prioridade sugerida pela IA não aparece para ninguém nesta fatia
     // (spec 0004, AC-15): sai toda entrada ligada a ela.
@@ -144,6 +158,7 @@ export async function lerLinhaDoTempo(viewer: Viewer, chamadoId: string): Promis
       truncado,
       podeComentarInterno: veInterno,
       souSolicitante: solicitante,
+      interessadosTotal,
     };
   } catch (err) {
     registrarErro('lerLinhaDoTempo', { chamadoId }, err);

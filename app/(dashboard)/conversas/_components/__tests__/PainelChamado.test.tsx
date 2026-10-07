@@ -39,6 +39,7 @@ function leitura(over: Partial<LeituraChamado> = {}): LeituraChamado {
     souSolicitante: true,
     prazoAvaliacaoAte: null,
     janelaAvaliacaoAberta: false,
+    interessadosTotal: null,
     ...over,
   };
 }

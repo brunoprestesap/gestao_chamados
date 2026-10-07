@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, ArrowUpRight, Ban, RotateCcw, Star } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Ban, RotateCcw, Star, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { ChamadoStatus } from '@/shared/chamados/chamado.constants';
 
+import { fraseDosInteressados } from '../_constants';
 import type { ItemLeitura, LeituraChamado } from '../_types';
 import { ComentarioComposer } from './ComentarioComposer';
 import {
@@ -157,6 +158,13 @@ export function PainelChamado({ leitura }: { leitura: LeituraChamado }) {
             <time dateTime={iso(leitura.abertoEm)}>{dataEHora(leitura.abertoEm)}</time>
           </p>
           {leitura.marca ? <SeloAberturaChat texto={leitura.marca} className="mt-1" /> : null}
+          {/* Só a contagem, para técnico atribuído e gestão (spec 0017, AC-19). */}
+          {leitura.interessadosTotal ? (
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+              <Users aria-hidden="true" className="size-3.5 shrink-0" />
+              {fraseDosInteressados(leitura.interessadosTotal)}
+            </p>
+          ) : null}
         </div>
 
         <Link

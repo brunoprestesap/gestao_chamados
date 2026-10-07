@@ -19,6 +19,11 @@ vi.mock('@/models/Chamado', () => ({
   ChamadoModel: { findById: (...a: unknown[]) => mockChamadoFindById(...a) },
 }));
 
+const mockLerAcompanhamento = vi.fn();
+vi.mock('../acompanhamento', () => ({
+  lerAcompanhamento: (...a: unknown[]) => mockLerAcompanhamento(...a),
+}));
+
 const mockUserFind = vi.fn();
 vi.mock('@/models/user.model', () => ({
   UserModel: { find: (...a: unknown[]) => mockUserFind(...a) },
@@ -198,6 +203,58 @@ describe('abrirConversa · ordem de resolução', () => {
 
     // Assert
     expect(r).toEqual({ tipo: 'falha', reason: 'nao_encontrada' });
+  });
+});
+
+// ── acompanhamento · spec 0017, AC-14 ───────────────────────────
+
+describe('abrirConversa · acompanhamento (spec 0017, AC-14)', () => {
+  const ACOMPANHAMENTO = {
+    chamadoId: CHAMADO_ID,
+    ticketNumber: 'CHM-2026-00412',
+    rotuloServico: 'Split',
+    localExato: 'sala 205',
+    ativoCodigo: null,
+    situacao: 'Aberto',
+    statusChave: 'aberto',
+    abertoEm: '2026-10-07T12:00:00.000Z',
+    acompanhaDesde: '2026-10-07T13:00:00.000Z',
+    marcos: [],
+  };
+
+  beforeEach(() => {
+    mockLerConversa.mockResolvedValue({ ok: false, reason: 'nao_encontrada' });
+  });
+
+  it('sem permissão no chamado, tenta o acompanhamento por último e mostra a vista', async () => {
+    // Arrange
+    mockLerLinhaDoTempo.mockResolvedValue({ ok: false, reason: 'sem_permissao' });
+    mockLerAcompanhamento.mockResolvedValue({ ok: true, acompanhamento: ACOMPANHAMENTO });
+
+    // Act
+    const r = await abrirConversa(VIEWER, CHAMADO_ID);
+
+    // Assert
+    expect(r).toEqual({ tipo: 'acompanhamento', acompanhamento: ACOMPANHAMENTO });
+    expect(mockLerAcompanhamento).toHaveBeenCalledWith(VIEWER, CHAMADO_ID);
+  });
+
+  it('sem interesse ativo, responde igual a chamado inexistente', async () => {
+    mockLerLinhaDoTempo.mockResolvedValue({ ok: false, reason: 'sem_permissao' });
+    mockLerAcompanhamento.mockResolvedValue({ ok: false });
+    expect(await abrirConversa(VIEWER, CHAMADO_ID)).toEqual({
+      tipo: 'falha',
+      reason: 'nao_encontrada',
+    });
+  });
+
+  it('só roda quando a leitura do chamado falhou por falta de permissão', async () => {
+    // Chamado que não existe, ou que a pessoa já enxerga: o acompanhamento nem é lido.
+    mockLerLinhaDoTempo.mockResolvedValue({ ok: false, reason: 'nao_encontrada' });
+    await abrirConversa(VIEWER, CHAMADO_ID);
+    mockLerLinhaDoTempo.mockResolvedValue({ ok: true, itens: [], truncado: false });
+    await abrirConversa(VIEWER, CHAMADO_ID);
+    expect(mockLerAcompanhamento).not.toHaveBeenCalled();
   });
 });
 

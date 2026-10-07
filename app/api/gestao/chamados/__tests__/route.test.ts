@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Spec 0017: os interessados ficam fora deste teste.
+vi.mock('@/lib/chamados/interessados', () => ({
+  notificarFimAosInteressados: vi.fn().mockResolvedValue(undefined),
+  zerarAvisoDeFim: vi.fn().mockResolvedValue(undefined),
+  interessadosDosChamados: vi.fn().mockResolvedValue(new Map()),
+}));
+vi.mock('@/lib/chamados/aviso-duplicado', () => ({
+  numerosDosAvisosDuplicado: vi.fn().mockResolvedValue(new Map()),
+  avisoDuplicadoParaGestao: vi.fn().mockReturnValue(null),
+}));
+
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before imports
 // ---------------------------------------------------------------------------
@@ -65,6 +76,11 @@ vi.mock('@/lib/ativos/resumo', async () => {
 
 // Import after mocks
 import { GET } from '@/app/api/gestao/chamados/route';
+import {
+  avisoDuplicadoParaGestao,
+  numerosDosAvisosDuplicado,
+} from '@/lib/chamados/aviso-duplicado';
+import { interessadosDosChamados } from '@/lib/chamados/interessados';
 import { CHAMADO_STATUS_NAO_FINALIZADOS } from '@/shared/chamados/chamado.constants';
 
 // ---------------------------------------------------------------------------
@@ -689,5 +705,41 @@ describe('GET /api/gestao/chamados — equipamento (spec 0011, AC-16)', () => {
     expect(mockResumos).toHaveBeenCalledOnce();
     expect(body.items[0].ativo).toEqual({ id: ativoId, codigo: '11997', descricao: 'Split' });
     expect(body.items[1].ativo).toBeNull();
+  });
+});
+
+describe('GET /api/gestao/chamados — aviso de duplicado e interessados (spec 0017, AC-13, AC-19)', () => {
+  it('lê o campo do chamado, os números e os interessados numa consulta por página e os devolve', async () => {
+    // Arrange
+    const chamado = makeChamado();
+    mockCountDocuments.mockResolvedValue(1);
+    mockLean.mockResolvedValue([chamado]);
+    const aviso = [{ chamadoId: 'd'.repeat(24), ticketNumber: 'CHM-2024-00009' }];
+    vi.mocked(avisoDuplicadoParaGestao).mockReturnValue(aviso);
+    vi.mocked(interessadosDosChamados).mockResolvedValue(
+      new Map([['c'.repeat(24), { total: 2, nomes: ['Ana', 'Bia'] }]]),
+    );
+
+    // Act
+    const body = await (await GET(makeRequest())).json();
+
+    // Assert
+    expect(mockFind.mock.calls[0][1]).toHaveProperty('avisoDuplicado', 1);
+    expect(vi.mocked(numerosDosAvisosDuplicado)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(interessadosDosChamados)).toHaveBeenCalledWith(['c'.repeat(24)]);
+    expect(body.items[0].avisoDuplicado).toEqual(aviso);
+    expect(body.items[0].interessados).toEqual({ total: 2, nomes: ['Ana', 'Bia'] });
+  });
+
+  it('chamado sem interessados sai com total zero e sem nomes', async () => {
+    mockCountDocuments.mockResolvedValue(1);
+    mockLean.mockResolvedValue([makeChamado()]);
+    vi.mocked(avisoDuplicadoParaGestao).mockReturnValue(null);
+    vi.mocked(interessadosDosChamados).mockResolvedValue(new Map());
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body.items[0].avisoDuplicado).toBeNull();
+    expect(body.items[0].interessados).toEqual({ total: 0, nomes: [] });
   });
 });

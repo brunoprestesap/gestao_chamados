@@ -2,14 +2,19 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { ACOMPANHANDO_DIAS_APOS_FIM } from '@/lib/assistente/config';
 import { listarRascunhos, type Viewer } from '@/lib/conversas';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
+import { ChamadoInteressadoModel } from '@/models/ChamadoInteressado';
+import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import {
   CHAMADO_STATUS_ATIVOS_TECNICO,
+  CHAMADO_STATUS_EM_ANDAMENTO,
   CHAMADO_STATUS_LABELS,
   CHAMADO_STATUS_NAO_FINALIZADOS,
   type ChamadoStatus,
+  SERVICO_A_DEFINIR,
 } from '@/shared/chamados/chamado.constants';
 
 import { RASCUNHO_APOIO } from '../_constants';
@@ -142,8 +147,102 @@ export function cursorDe(itens: ItemLateral[]): CursorLateral | null {
   return ultimo ? { em: ultimo.em, id: ultimo.id } : null;
 }
 
+/** Quantos interesses ativos a seção "Acompanhando" lê antes de filtrar. */
+const INTERESSES_LEITURA_MAX = 200;
+
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * A seção "Acompanhando" (spec 0017, AC-15): os interesses ativos do usuário
+ * cujo chamado está em andamento, ou terminou e foi avisado há no máximo
+ * `ACOMPANHANDO_DIAS_APOS_FIM` dias. Mais recente primeiro, sem paginação.
+ */
+export async function lerAcompanhandoDaLateral(
+  viewer: Viewer,
+  agora = new Date(),
+): Promise<ItemLateral[]> {
+  const interesses = await ChamadoInteressadoModel.find({
+    userId: new Types.ObjectId(viewer.userId),
+    saiuEm: null,
+  })
+    .select('chamadoId criadoEm avisadoFimEm localVisivel')
+    .sort({ criadoEm: -1 })
+    .limit(INTERESSES_LEITURA_MAX)
+    .lean<
+      {
+        chamadoId: Types.ObjectId;
+        criadoEm: Date;
+        avisadoFimEm?: Date | null;
+        localVisivel?: boolean | null;
+      }[]
+    >();
+  if (interesses.length === 0) return [];
+
+  const chamados = await ChamadoModel.find({ _id: { $in: interesses.map((i) => i.chamadoId) } })
+    .select('ticket_number status localExato catalogServiceId assignedToUserId')
+    .lean<
+      {
+        _id: Types.ObjectId;
+        ticket_number: string;
+        status: ChamadoStatus;
+        localExato?: string | null;
+        catalogServiceId?: Types.ObjectId | null;
+        assignedToUserId?: Types.ObjectId | null;
+      }[]
+    >();
+  const porId = new Map(chamados.map((c) => [String(c._id), c]));
+  const limite = new Date(agora.getTime() - ACOMPANHANDO_DIAS_APOS_FIM * DIA_MS);
+
+  const visiveis = interesses
+    .flatMap((interesse) => {
+      const chamado = porId.get(String(interesse.chamadoId));
+      // Quem virou o técnico atribuído já vê o chamado em "Chamados".
+      if (!chamado || String(chamado.assignedToUserId ?? '') === viewer.userId) return [];
+      const emAndamento = CHAMADO_STATUS_EM_ANDAMENTO.includes(chamado.status);
+      const fimRecente = interesse.avisadoFimEm ? interesse.avisadoFimEm >= limite : false;
+      return emAndamento || fimRecente ? [{ interesse, chamado }] : [];
+    })
+    .slice(0, CHAMADOS_POR_PAGINA);
+  if (visiveis.length === 0) return [];
+
+  const servicoIds = [
+    ...new Set(
+      visiveis.flatMap(({ chamado }) =>
+        chamado.catalogServiceId ? [String(chamado.catalogServiceId)] : [],
+      ),
+    ),
+  ];
+  const servicos = servicoIds.length
+    ? await ServiceCatalogModel.find({ _id: { $in: servicoIds } })
+        .select('name')
+        .lean<{ _id: Types.ObjectId; name: string }[]>()
+    : [];
+  const nomeDoServico = new Map(servicos.map((s) => [String(s._id), s.name]));
+
+  return visiveis.map(({ interesse, chamado }) => {
+    const chamadoId = String(chamado._id);
+    const servico =
+      (chamado.catalogServiceId && nomeDoServico.get(String(chamado.catalogServiceId))) ||
+      SERVICO_A_DEFINIR;
+    return {
+      tipo: 'acompanhamento' as const,
+      id: chamadoId,
+      href: `/conversas/${chamadoId}`,
+      titulo: `#${chamado.ticket_number} · ${servico}`,
+      // O local só aparece se o cartão o mostrou no clique (AC-15).
+      apoio: interesse.localVisivel === true ? (chamado.localExato ?? '').trim() : '',
+      situacao: rotuloDaSituacao(chamado.status),
+      statusChave: chamado.status,
+      em: interesse.criadoEm.toISOString(),
+      confirmando: false,
+    };
+  });
+}
+
 export type Lateral = {
   rascunhos: ItemLateral[];
+  /** Chamados de outras pessoas que o usuário acompanha (spec 0017, AC-15). */
+  acompanhando: ItemLateral[];
   chamados: ItemLateral[];
   temMais: boolean;
   cursor: CursorLateral | null;
@@ -153,9 +252,17 @@ export type Lateral = {
 export async function montarLateral(viewer: Viewer): Promise<Lateral> {
   await dbConnect();
 
-  const [listados, chamados] = await Promise.all([
+  const [listados, chamados, acompanhando] = await Promise.all([
     listarRascunhos(viewer),
     lerChamadosDaLateral(viewer),
+    // Uma falha aqui deixa só a seção "Acompanhando" vazia (spec 0017, AC-15).
+    lerAcompanhandoDaLateral(viewer).catch((err: unknown) => {
+      console.error(
+        '[conversas] acompanhando falhou:',
+        err instanceof Error ? err.name : 'erro desconhecido',
+      );
+      return [] as ItemLateral[];
+    }),
   ]);
 
   const rascunhos: ItemLateral[] = listados.ok
@@ -174,6 +281,7 @@ export async function montarLateral(viewer: Viewer): Promise<Lateral> {
 
   return {
     rascunhos,
+    acompanhando,
     chamados: chamados.itens,
     temMais: chamados.temMais,
     cursor: cursorDe(chamados.itens),

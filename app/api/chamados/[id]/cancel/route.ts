@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
+import { notificarFimAosInteressados } from '@/lib/chamados/interessados';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
@@ -53,8 +54,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const statusAnterior = chamadoAtual.status;
 
-  // Atualiza o status do chamado para cancelado
-  await ChamadoModel.findByIdAndUpdate(id, { status: 'cancelado' }, { new: true });
+  // Atualiza o status para cancelado só se ele não mudou desde a leitura:
+  // senão o histórico e o aviso aos interessados (spec 0017) falariam de um
+  // cancelamento que não aconteceu.
+  const cancelado = await ChamadoModel.updateOne(
+    { _id: id, status: statusAnterior },
+    { $set: { status: 'cancelado' } },
+  );
+  if (cancelado.matchedCount === 0) {
+    return NextResponse.json(
+      { error: 'O chamado mudou enquanto você cancelava. Atualize a página e tente de novo.' },
+      { status: 409 },
+    );
+  }
 
   // Cria registro de histórico
   await ChamadoHistoryModel.create({
@@ -66,6 +78,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     observacoes:
       observacoes && observacoes.trim() ? observacoes.trim() : `Chamado cancelado pelo solicitante`,
   });
+
+  // Quem acompanha o chamado recebe o aviso de fim no sino (spec 0017, AC-17).
+  void notificarFimAosInteressados(id, 'cancelado');
 
   return NextResponse.json({ ok: true });
 }

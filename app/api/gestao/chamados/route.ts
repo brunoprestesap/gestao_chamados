@@ -2,6 +2,11 @@ import { Types } from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import { resumoDoChamado, resumosDosAtivos } from '@/lib/ativos/resumo';
+import {
+  avisoDuplicadoParaGestao,
+  numerosDosAvisosDuplicado,
+} from '@/lib/chamados/aviso-duplicado';
+import { interessadosDosChamados } from '@/lib/chamados/interessados';
 import { numerosDosChamadosAnteriores } from '@/lib/chamados/reincidencia';
 import { prioridadeValidadaPelaIa, servicoSugeridoPelaIa } from '@/lib/conversas';
 import { requireManager } from '@/lib/dal';
@@ -49,6 +54,8 @@ const LIST_PROJECTION = {
   canalAbertura: 1,
   // Só a gestão lê: o resultado e o motivo da atribuição automática (spec 0008, AC-16).
   atribuicaoAutomatica: 1,
+  // Só a gestão lê: os parecidos que a pessoa viu e ignorou (spec 0017, AC-13).
+  avisoDuplicado: 1,
   prazoAvaliacaoAte: 1,
   chamadoAnteriorId: 1,
   ativoId: 1,
@@ -252,16 +259,20 @@ export async function GET(req: Request) {
     .filter((c) => (c as { canalAbertura?: string }).canalAbertura === 'chat')
     .map((c) => String(c._id));
   const todosIds = items.map((c) => String(c._id));
-  const [sugeridos, validadosPelaIa, numerosAnteriores, ativos] = await Promise.all([
-    servicoSugeridoPelaIa(doChat),
-    // O selo "Validado automaticamente" (spec 0007, AC-15) não se limita ao
-    // canal chat: a decisão `campo: 'prioridade', efeito: 'aplicado'` decide.
-    prioridadeValidadaPelaIa(todosIds),
-    // "Reincidência do chamado #N" (spec 0010, AC-12): uma consulta só por página.
-    numerosDosChamadosAnteriores(items),
-    // Equipamento do chamado (spec 0011, AC-16): uma consulta só por página.
-    resumosDosAtivos(items),
-  ]);
+  const [sugeridos, validadosPelaIa, numerosAnteriores, ativos, numerosDuplicados, interessados] =
+    await Promise.all([
+      servicoSugeridoPelaIa(doChat),
+      // O selo "Validado automaticamente" (spec 0007, AC-15) não se limita ao
+      // canal chat: a decisão `campo: 'prioridade', efeito: 'aplicado'` decide.
+      prioridadeValidadaPelaIa(todosIds),
+      // "Reincidência do chamado #N" (spec 0010, AC-12): uma consulta só por página.
+      numerosDosChamadosAnteriores(items),
+      // Equipamento do chamado (spec 0011, AC-16): uma consulta só por página.
+      resumosDosAtivos(items),
+      // "Possível duplicado de #N" e os interessados (spec 0017, AC-13 e AC-19).
+      numerosDosAvisosDuplicado(items),
+      interessadosDosChamados(todosIds),
+    ]);
   const agora = new Date();
 
   // Os nomes dos técnicos que a atribuição automática escolheu: uma consulta só por página.
@@ -296,6 +307,8 @@ export async function GET(req: Request) {
         (c as { atribuicaoAutomatica?: unknown }).atribuicaoAutomatica,
         nomesDosTecnicos,
       ),
+      avisoDuplicado: avisoDuplicadoParaGestao(c, numerosDuplicados),
+      interessados: interessados.get(String(c._id)) ?? { total: 0, nomes: [] },
     })),
     pagination: { page, limit, total, totalPages },
   });

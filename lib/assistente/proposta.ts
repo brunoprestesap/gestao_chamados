@@ -114,7 +114,17 @@ export type ConteudoVisivel = {
   localExato: string | null;
   /** `origem|ids em ordem`, vazia sem ativo (spec 0014, AC-7). */
   ativoChave: string;
+  /** Os ids dos parecidos em ordem, unidos por `|`, vazia sem eles (spec 0017, AC-8). */
+  duplicadosChave: string;
 };
+
+/**
+ * A chave estável dos parecidos (spec 0017, AC-8). Cartão antigo, sem o campo
+ * `duplicados`, vale chave vazia e não é regravado só por isso.
+ */
+export function chaveDosDuplicados(duplicados: CartaoPayload['duplicados']): string {
+  return (duplicados ?? []).map((d) => d.chamadoId).join('|');
+}
 
 /**
  * A chave estável dos candidatos de equipamento. Cartão antigo, gravado sem o
@@ -136,12 +146,14 @@ export function conteudoDaProposta(
   proposta: PropostaVisivel | null,
   perfil: Perfil,
   ativoChave = '',
+  duplicadosChave = '',
 ): ConteudoVisivel {
   return {
     servicoId: proposta?.servico?.catalogServiceId ?? null,
     unidadeId: unidadeSugerida(perfil, proposta?.localForaDoPerfil ?? false)?.unitId ?? null,
     localExato: limparLocal(proposta?.localExato),
     ativoChave,
+    duplicadosChave,
   };
 }
 
@@ -151,6 +163,7 @@ export function conteudoDoCartao(cartao: CartaoPayload): ConteudoVisivel {
     unidadeId: cartao.unidade?.unitId ?? null,
     localExato: limparLocal(cartao.localExato),
     ativoChave: chaveDoAtivo(cartao.ativo),
+    duplicadosChave: chaveDosDuplicados(cartao.duplicados),
   };
 }
 
@@ -159,7 +172,8 @@ export function mesmoConteudo(a: ConteudoVisivel, b: ConteudoVisivel): boolean {
     a.servicoId === b.servicoId &&
     a.unidadeId === b.unidadeId &&
     a.localExato === b.localExato &&
-    a.ativoChave === b.ativoChave
+    a.ativoChave === b.ativoChave &&
+    a.duplicadosChave === b.duplicadosChave
   );
 }
 

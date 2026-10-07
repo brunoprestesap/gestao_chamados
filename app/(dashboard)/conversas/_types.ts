@@ -14,7 +14,8 @@ import type { CartaoPayload } from '@/shared/conversas/conversa.schemas';
 
 /** Uma linha da lateral: rascunho ou chamado, já com o endereço calculado. */
 export type ItemLateral = {
-  tipo: 'rascunho' | 'chamado';
+  /** `acompanhamento`: chamado de outra pessoa que o usuário acompanha (spec 0017). */
+  tipo: 'rascunho' | 'chamado' | 'acompanhamento';
   id: string;
   /** Calculado no servidor: o cliente nunca adivinha o endereço. */
   href: string;
@@ -111,4 +112,31 @@ export type LeituraChamado = {
   prazoAvaliacaoAte: string | null;
   /** Janela aberta, calculada com a hora do servidor na leitura (spec 0010, AC-10). */
   janelaAvaliacaoAberta: boolean;
+  /** Quantos acompanham; só técnico atribuído e gestão, `null` para os outros (spec 0017). */
+  interessadosTotal: number | null;
+};
+
+/** Um marco do chamado acompanhado: a mudança de status e quando (spec 0017, AC-14). */
+export type MarcoAcompanhamento = { id: string; rotulo: string; em: string };
+
+/**
+ * A vista de quem acompanha o chamado de outra pessoa (spec 0017, AC-14). Tipo
+ * próprio, fechado: nunca autor, técnico, comentário, texto do histórico,
+ * relato, anexo, avaliação nem prioridade.
+ */
+export type AcompanhamentoLido = {
+  chamadoId: string;
+  ticketNumber: string;
+  rotuloServico: string;
+  localExato: string | null;
+  ativoCodigo: string | null;
+  /** Rótulo da situação, já traduzido. */
+  situacao: string;
+  /** `Chamado.status` cru, para a cor da marca. */
+  statusChave: string;
+  /** ISO de `Chamado.createdAt`. */
+  abertoEm: string;
+  /** ISO de `ChamadoInteressado.criadoEm`. */
+  acompanhaDesde: string;
+  marcos: MarcoAcompanhamento[];
 };
