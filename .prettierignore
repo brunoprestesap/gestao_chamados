@@ -7,3 +7,4 @@ coverage
 
 # Skills instaladas pelo `npx skills`: conteudo de terceiro, formatado na origem
 .agents/skills
+.claude/skills/react-pdf
