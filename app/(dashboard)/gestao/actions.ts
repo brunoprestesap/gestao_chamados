@@ -3,6 +3,7 @@
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
+import { gravarHistoricoOuDesfazer } from '@/lib/ativos/auditoria';
 import { vincularAtivoAoChamado } from '@/lib/ativos/vinculo';
 import { notificarAtribuicao } from '@/lib/chamados/notificar-atribuicao';
 import { notificarCorrecaoAoTecnico } from '@/lib/chamados/notificar-correcao';
@@ -834,8 +835,9 @@ export async function updateTicketCatalogAction(
       return { ok: false, error: 'Chamado já possui serviço catalogado.' };
     }
 
-    await ChamadoModel.updateOne(
-      { _id: ticketId },
+    // O filtro repete as condições: outra gestão no meio do caminho não é sobrescrita.
+    const r = await ChamadoModel.updateOne(
+      { _id: ticketId, status: 'validado', catalogServiceId: null },
       {
         $set: {
           subtypeId: new Types.ObjectId(subtypeId),
@@ -843,22 +845,33 @@ export async function updateTicketCatalogAction(
         },
       },
     );
+    if (r.modifiedCount === 0) {
+      return { ok: false, error: 'O chamado mudou enquanto você editava. Recarregue.' };
+    }
 
-    await ChamadoHistoryModel.create({
-      chamadoId: ticketId,
-      userId: new Types.ObjectId(session.userId),
-      action: 'catalogo_atualizado',
-      observacoes: 'Serviço catalogado definido para permitir atribuição.',
-    });
+    // Sem histórico, a mudança é desfeita: nenhuma alteração fica sem registro.
+    await gravarHistoricoOuDesfazer(
+      () =>
+        ChamadoHistoryModel.create({
+          chamadoId: ticketId,
+          userId: new Types.ObjectId(session.userId),
+          action: 'catalogo_atualizado',
+          observacoes: 'Serviço catalogado definido para permitir atribuição.',
+        }),
+      () =>
+        ChamadoModel.updateOne(
+          { _id: ticketId, catalogServiceId: new Types.ObjectId(catalogServiceId) },
+          doc.subtypeId
+            ? { $set: { subtypeId: doc.subtypeId }, $unset: { catalogServiceId: '' } }
+            : { $unset: { subtypeId: '', catalogServiceId: '' } },
+        ),
+    );
 
     revalidatePath('/gestao');
     return { ok: true };
   } catch (e) {
     console.error('updateTicketCatalogAction:', e);
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : 'Erro ao atualizar catálogo. Tente novamente.',
-    };
+    return { ok: false, error: 'Erro ao atualizar catálogo. Tente novamente.' };
   }
 }
 

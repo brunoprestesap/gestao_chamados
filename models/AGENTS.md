@@ -16,6 +16,8 @@ Um arquivo por coleção, com schema manual (sem Prisma) e os índices declarado
 - Índice que precisa conviver com valores ausentes é parcial: `Chamado.conversaId` é único com `partialFilterExpression: { conversaId: { $type: 'objectId' } }`, para vários chamados sem conversa coexistirem.
 - Os modelos da gestão de ativos (`Ativo`, `AtivoHistory`, `CategoriaAtivo`, `Localizacao`, `Contador`, e desde a spec 0013 `TipoDocumento` e `DocumentoAtivo`) passam o nome da coleção explícito, de `COLECOES_ATIVOS` (`shared/ativos/ativo.constants.ts`), porque a carga do Tier A escreve direto pelo mongosh e precisa acertar os mesmos nomes.
 - `Contrato` e `RelatorioContratoEmissao` (spec 0016) também passam o nome da coleção explícito, `contratos` e `relatoriocontratoemissoes`, para a consulta pelo mongosh achar o mesmo nome.
+- O `Contador` guarda também os números de chamado: a chave `chamado_<ano>` gera `CHM-<ano>-#####` com `$inc` atômico (`generateTicketNumber`, `lib/chamado-utils.ts`), semeada no primeiro uso do ano com o maior número já gravado. Número de chamado sai sempre dessa função, nunca de uma leitura do maior existente.
+- `ChamadoHistory.action` é enum de `CHAMADO_HISTORY_ACTIONS` (`shared/chamados/history.constants.ts`): ação nova entra lá e em `CHAMADO_HISTORY_ACTION_LABELS`, senão o `create` falha depois de a escrita no chamado já ter acontecido. `shared/chamados/__tests__/history.constants.test.ts` varre `app/` e `lib/` e quebra com ação gravada fora do enum.
 - Os índices vêm de `Schema.index(...)` no schema. Teste que precisa do índice único ou do TTL chama `createIndexes()` de propósito (ver `tests/mongo-test-env.ts`).
 
 ## Gotchas

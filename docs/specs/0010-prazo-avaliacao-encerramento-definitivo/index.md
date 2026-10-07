@@ -1,7 +1,7 @@
 # 0010. Prazo para avaliar e encerramento definitivo do chamado
 
 **Date**: 2026-10-01
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

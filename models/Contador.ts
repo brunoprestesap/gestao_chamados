@@ -3,8 +3,9 @@ import mongoose, { Model, Schema } from 'mongoose';
 import { COLECOES_ATIVOS } from '@/shared/ativos/ativo.constants';
 
 /**
- * Sequência atômica por chave (spec 0011). Hoje só `ativo_mnt`, que gera os
- * códigos internos `MNT-####` sem repetir em cadastros simultâneos.
+ * Sequência atômica por chave (spec 0011). `ativo_mnt` gera os códigos internos
+ * `MNT-####`, e `chamado_<ano>` gera os números `CHM-<ano>-#####` dos chamados
+ * (`generateTicketNumber`), sem repetir em gravações simultâneas.
  */
 const ContadorSchema = new Schema(
   {

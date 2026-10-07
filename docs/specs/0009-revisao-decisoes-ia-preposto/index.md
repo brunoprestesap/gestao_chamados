@@ -1,7 +1,7 @@
 # 0009. Revisão das decisões da IA pelo Preposto
 
 **Date**: 2026-09-25
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

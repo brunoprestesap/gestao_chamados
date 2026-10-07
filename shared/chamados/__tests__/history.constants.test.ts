@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -157,5 +160,40 @@ describe('ações do encerramento (spec 0010)', () => {
 
   it('mantém `avaliado` no enum para o histórico antigo', () => {
     expect(CHAMADO_HISTORY_ACTIONS).toContain('avaliado');
+  });
+});
+
+// Correções de integridade do chamado (scope, feature 29): uma ação fora do
+// enum faz o `ChamadoHistoryModel.create` falhar depois de a escrita já ter
+// acontecido, como `catalogo_atualizado` fazia.
+describe('ação do catálogo e ações gravadas no código', () => {
+  it('registra a definição do serviço do catálogo, com rótulo', () => {
+    expect(CHAMADO_HISTORY_ACTIONS).toContain('catalogo_atualizado');
+    expect(CHAMADO_HISTORY_ACTION_LABELS.catalogo_atualizado).toBe('Serviço Catalogado');
+  });
+
+  it('toda ação gravada no histórico pelo código existe no enum', () => {
+    // Arrange: os literais `action: '...'` das áreas que gravam o histórico
+    const raiz = process.cwd();
+    const arquivos = ['app', 'lib'].flatMap((pasta) =>
+      (readdirSync(join(raiz, pasta), { recursive: true }) as string[])
+        .filter((f) => /\.tsx?$/.test(f) && !/(__tests__|\.test\.)/.test(f))
+        .map((f) => join(raiz, pasta, f)),
+    );
+
+    // Act
+    const usadas = new Set<string>();
+    for (const arquivo of arquivos) {
+      const fonte = readFileSync(arquivo, 'utf8');
+      if (!fonte.includes('ChamadoHistoryModel')) continue;
+      for (const m of fonte.matchAll(/\baction:\s*'([a-z_]+)'/g)) usadas.add(m[1]);
+    }
+
+    // Assert
+    const fora = [...usadas].filter(
+      (acao) => !(CHAMADO_HISTORY_ACTIONS as readonly string[]).includes(acao),
+    );
+    expect(usadas.size, `${arquivos.length} arquivos lidos em ${raiz}`).toBeGreaterThan(5);
+    expect(fora).toEqual([]);
   });
 });
