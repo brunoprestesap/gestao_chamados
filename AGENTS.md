@@ -56,6 +56,7 @@ Testes configurados: **Vitest** (unitários, ~3300 testes em `__tests__/` e `*.t
 - `@typescript-eslint/no-explicit-any`: warning (permitido mas sinalizado)
 - `no-restricted-imports`: `generateText`, `streamText`, `generateObject` e `streamObject` de `ai` só podem ser importados dentro de `lib/llm/`
 - Prettier para formatação
+- Skills de terceiro instaladas pelo `npx skills` ficam fora do ESLint (`globalIgnores` em `eslint.config.mjs`) e do Prettier (`.prettierignore`); skill nova com exemplo em `.tsx` entra nas duas listas
 - Path alias: `@/*` mapeia para raiz do projeto
 
 ## Arquitetura
@@ -165,6 +166,8 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **Unit** — Unidades/departamentos
 - **Holiday/BusinessCalendar** — Feriados e horário de expediente
 - **LlmCall**: registro de cada chamada ao modelo de IA (sem texto de prompt nem de resposta), expira em 365 dias
+- **Contrato** (spec 0016): contrato de manutenção com vigência em strings `YYYY-MM-DD` e `tiposServico`; nunca se apaga, e o `Chamado` não guarda o contrato
+- **RelatorioContratoEmissao** (spec 0016): cada PDF do relatório por contrato entregue, com o SHA-256 dos bytes; só é criado
 
 ### Relatório IMR (Índice de Medição de Resultados)
 
@@ -181,6 +184,12 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Componentes de seção reutilizáveis em `app/(dashboard)/relatorios/imr/_components/imr-sections.tsx`
 - Componente de abas (client) em `app/(dashboard)/relatorios/imr/_components/imr-tipo-servico-tabs.tsx`
 - Tipos públicos exportados: `ImrResult`, `ImrResumoGeral`, `ImrResultPorTipo`, `ImrSlaCumprimento`, `ImrSlaPorPrioridade`, `ImrAvaliacao`, `ImrPenalidade`
+
+### Relatório por contrato (`/relatorios/contrato`)
+
+- Spec 0016: o Admin cadastra contratos em `/configuracoes/contratos` e vê, por contrato e mês, corretivos, preventivas, MTBF, MTTR, reincidência e SLA por ativo e por categoria; o resumo sai de `calcularFiltro` e bate com a aba Ativos do IMR
+- O PDF sai de `POST /api/relatorios/contrato/pdf` (`@react-pdf/renderer`), que grava a emissão com o hash antes de entregar o arquivo, uma geração por vez no processo
+- Regras e detalhes do PDF: `lib/contratos/AGENTS.md`
 
 ### IA local (`lib/llm`)
 
@@ -324,6 +333,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Documentos do ativo              | `lib/ativos/documentos/` (gravar, situação, painel, job), `app/api/ativos/documentos/` (upload e download), `app/(dashboard)/ativos/documentos/`, `app/(dashboard)/configuracoes/tipos-documento/`, `app/api/cron/documentos-vencimento/`, `docs/specs/0013-documentos-preventiva-ativo/`                           |
 | Candidatos à substituição        | `lib/ativos/substituicao.ts` (regra, lote e dispensa), `shared/ativos/substituicao.constants.ts` (limites e textos), `app/(dashboard)/ativos/_components/SubstituicaoAtivo.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`, `docs/specs/0015-candidatos-substituicao/`                            |
 | Preventiva por categoria         | `lib/chamados/preventiva-categoria.ts` (`gerarLotePreventiva`), `lib/recurring-job.ts`, `app/(dashboard)/gestao/recurring/`, `docs/specs/0013-documentos-preventiva-ativo/`                                                                                                                                         |
+| Relatório por contrato           | `lib/contratos/` (cálculo, cadastro e PDF), `shared/contratos/`, `app/(dashboard)/relatorios/contrato/`, `app/(dashboard)/configuracoes/contratos/`, `app/api/relatorios/contrato/pdf/route.ts`, `docs/specs/0016-relatorio-mensal-contrato-ativo/`                                                                 |
 
 ## CI/CD
 
@@ -396,3 +406,4 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - [socket-server/AGENTS.md](socket-server/AGENTS.md): o servidor Socket.IO em processo separado, com comandos próprios, as barreiras do `POST /emit` e as listas de eventos que precisam andar juntas
 - [models/AGENTS.md](models/AGENTS.md): os schemas Mongoose, os dois padrões de registro do modelo e os índices parciais
 - [lib/ativos/AGENTS.md](lib/ativos/AGENTS.md): a gestão de ativos, com árvore de locais, cadastro e histórico, regras do seletor, carga do Tier A e leitura de etiqueta
+- [lib/contratos/AGENTS.md](lib/contratos/AGENTS.md): contratos e o relatório mensal por contrato, com a paridade com o IMR, a emissão do PDF e a skill `react-pdf`
