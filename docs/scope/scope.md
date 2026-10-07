@@ -35,7 +35,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done     |
 | 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done     |
 | 27  | Candidatos à substituição                          | Ativos        | done     |
-| 28  | Relatório mensal por contrato com ativo            | Ativos        | planned  |
+| 28  | Relatório mensal por contrato com ativo            | Ativos        | done     |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
 | 19  | Fotos no chat                                      | Slice 4       | planned  |
 | 20  | Aviso de chamado duplicado                         | Slice 4       | planned  |
@@ -329,12 +329,522 @@ spec [0015](../specs/0015-candidatos-substituicao/index.md) · code in `lib/ativ
 - [x] Verify it: `/check verify candidatos à substituição`
 - [x] Test it: `/test candidatos à substituição`
 
-### 28. Relatório mensal por contrato com ativo · needs a decision
+## Slice 3: IA decide prioridade e técnico
+
+### 14. Calibração da trava de confiança · done
+
+Como a liberação é para todos de uma vez, a IA é medida contra chamados que os Prepostos já classificaram antes de decidir sozinha, e o limite de confiança sai dessa medição.
+**Done when:** o acerto da IA em serviço e prioridade é medido sobre chamados históricos; o limite de confiança é definido a partir disso e o Admin pode ajustá-lo; o Admin desliga a autonomia sem deploy e tudo volta para a triagem manual.
+spec [0006](../specs/0006-calibracao-trava-confianca/index.md) · code in `lib/ia-confianca/`, `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`
+
+- [x] Design it (spec): `/architect calibração da trava de confiança`
+- [x] Build it: `/develop calibração da trava de confiança`
+  - [x] Configuração de ponta a ponta: `IaAutonomiaConfig`, `lib/ia-confianca/calibragem.ts` lendo o veredito já gravado em `DecisaoIa.situacao`, tela e formulário salvando · AC-1, AC-5, AC-6, AC-8, AC-9, AC-10
+  - [x] Relatório completo: tabela de cortes de confiança, sugestão automática respeitando a meta e a amostra mínima, aviso de viés no serviço, conferência de que nada mais lê a config ainda · AC-2, AC-3, AC-4, AC-7, AC-11
+- [x] Verify it: `/check verify calibração da trava de confiança`
+- [x] Test it: `/test calibração da trava de confiança`
+
+### 15. Prioridade e SLA automáticos · done · GA
+
+Quando confiante, a IA define a prioridade (BAIXA a EMERGENCIAL), o chamado passa a `validado` e o SLA começa igual à classificação manual. Abaixo do limite, fica na triagem com a sugestão. Mexe em prazo contratual e glosa do IMR, por isso GA.
+**Done when:** chamado confiante vira `validado` com snapshot de SLA idêntico ao da classificação manual; chamado com pouca confiança fica `aberto` com a sugestão já preenchida; pedir urgência no texto sem motivo real não eleva a prioridade sozinho; decisão, motivo e confiança ficam no histórico.
+spec [0007](../specs/0007-prioridade-sla-automaticos/index.md) · code in `lib/assistente/confirmar.ts`, `lib/assistente/portao.ts`, `lib/sla-snapshot.ts`, `lib/conversas/abertura.ts`, `app/(dashboard)/gestao/actions.ts`, `app/(dashboard)/gestao/_components/CorrigirPrioridadeDialog.tsx`
+
+- [x] Design it (spec): `/architect prioridade e SLA automáticos`
+- [x] Build it: `/develop prioridade e SLA automáticos`
+  - [x] Fio fino do caminho confiante, ponta a ponta: extrai o cálculo de SLA para reaproveitar, reforça o prompt contra urgência sem motivo, portão de confiança, `confirmarAbertura` decide status/SLA/efeito, histórico e evento de validação automática, migração que desliga `autonomiaAtiva` · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10, AC-16, AC-17
+  - [x] Visibilidade e cópia: aviso de viés também em prioridade, sugestão pré-preenchida na classificação, selo de validado pela IA, texto de notificação e de chat variando por status · AC-8, AC-9, AC-13, AC-14, AC-15
+  - [x] Correção mínima: ação e diálogo para o Preposto trocar a prioridade de um chamado validado ainda não atribuído · AC-11, AC-12
+- [x] Verify it: `/check verify prioridade e SLA automáticos`
+- [x] Test it: `/test prioridade e SLA automáticos`
+- [x] Review it (fresh model): `/check review prioridade e SLA automáticos`
+- [x] Document it: `/document prioridade e SLA automáticos`
+
+### 16. Atribuição automática ao técnico · done · GA
+
+Chamado validado pela IA segue direto para um técnico com a especialidade do serviço e espaço na carga, sem esperar o Preposto. Mexe no SLA de resposta contratual e atribui trabalho a pessoas sozinha, por isso GA.
+**Done when:** o técnico escolhido tem a especialidade (subtipo) do serviço e está abaixo do seu limite de chamados; sem técnico elegível, o chamado vai ao Preposto com o motivo; o técnico recebe a notificação de sempre e a atribuição aparece na conversa do solicitante.
+spec [0008](../specs/0008-atribuicao-automatica-tecnico/index.md) · code in `lib/chamados/atribuicao-automatica.ts`, `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `lib/assistente/confirmar.ts`, `shared/chamados/atribuicao-automatica.constants.ts`, `app/(dashboard)/gestao/`, `app/(dashboard)/configuracoes/ia-confianca/`
+
+- [x] Design it (spec): `/architect atribuição automática ao técnico`
+- [x] Build it: `/develop atribuição automática ao técnico`
+  - [x] Fio fino do caminho feliz, ponta a ponta (constantes, interruptor `atribuicaoAutomaticaAtiva`, campo `atribuicaoAutomatica`, `notificarAtribuicao` extraída, critério puro, `tentarAtribuicaoAutomatica`, chamada em `confirmarAbertura`, teste contra Mongo) · AC-1, AC-2, AC-5, AC-6, AC-9, AC-10, AC-11, AC-12, AC-14
+  - [x] Falhas, concorrência e idempotência (sem técnico, erro, conferência de carga com desfazer, corrida com a atribuição manual, log) · AC-3, AC-4, AC-7, AC-8, AC-17
+  - [x] Gestores, técnico e solicitante veem o resultado (`ticket:new` por resultado, aviso do técnico, detalhe e selo na Gestão, teste de vazamento) · AC-11, AC-12, AC-13, AC-15, AC-16
+  - [x] Regressão e limitações (atribuição manual e calibração intactas, correção pela reatribuição, janela de prioridade fechada) · AC-9, AC-18, AC-19
+- [x] Verify it: `/check verify atribuição automática ao técnico`
+- [x] Test it: `/test atribuição automática ao técnico`
+- [x] Review it (fresh model): `/check review atribuição automática ao técnico`
+- [x] Document it: `/document atribuição automática ao técnico`
+
+### 17. Revisão das decisões da IA pelo Preposto · done · GA
+
+Na Gestão, o Preposto separa o que a IA decidiu do que aguarda triagem e corrige serviço, prioridade ou técnico quando precisar. Cada correção alimenta a métrica principal. Mexe em prazo contratual e glosa do IMR (a regra de SLA para corrigir a prioridade com o atendimento em curso), por isso GA.
+**Done when:** o Preposto filtra chamados decididos pela IA e pendentes de triagem; os pendentes abrem com a sugestão da IA já preenchida; corrigir registra o que mudou; corrigir a prioridade de um chamado com SLA já iniciado segue uma regra definida e registrada.
+spec [0009](../specs/0009-revisao-decisoes-ia-preposto/index.md) · code in `app/(dashboard)/gestao/`, `lib/conversas/decisoes.ts`
+
+- [x] Design it (spec): `/architect revisão das decisões da IA pelo Preposto`
+- [x] Build it: `/develop revisão das decisões da IA pelo Preposto`
+  - [x] Revisar de ponta a ponta (filtro "Revisão da IA", painel por campo, confirmar, visibilidade da trilha e índice) · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-13, AC-17, AC-19
+  - [x] Correção de prioridade com o atendimento em curso (regra de SLA assimétrica, só o Admin baixa com técnico, monitor de SLA, diálogo) · AC-7, AC-8, AC-9, AC-10, AC-16, AC-20, AC-21
+  - [x] Correção de serviço (ação, técnico elegível pelo serviço novo, `tipoServico`, diálogo) · AC-11, AC-12
+  - [x] Avisos e regressão (`ticket:corrected`, reatribuição avisa o técnico novo, vazamento do motivo, calibração e atribuição intactas) · AC-14, AC-15, AC-18
+- [x] Verify it: `/check verify revisão das decisões da IA pelo Preposto`
+- [x] Test it: `/test revisão das decisões da IA pelo Preposto`
+- [x] Review it (fresh model): `/check review revisão das decisões da IA pelo Preposto`
+- [x] Document it: `/document revisão das decisões da IA pelo Preposto` · pulado
+
+## Ciclo de vida do chamado
+
+### 22. Prazo para avaliar e encerramento definitivo · done · GA
+
+Pedido de stakeholder (modelo do e-SOSTI): depois da conclusão, o solicitante tem um prazo para avaliar ou recusar; passado o prazo o chamado encerra sozinho e não reabre mais, e o problema que volta vira chamado novo ligado ao anterior. Mexe no tempo de atendimento e no SLA medidos pelo IMR (glosa), por isso GA.
+**Done when:** a conclusão grava o prazo (48 horas, configurável pelo Admin); avaliar encerra na hora; o cron encerra o que venceu; nenhum perfil reabre um encerrado; o encerramento manual sai da Gestão; "O problema voltou" abre um chamado novo com o vínculo visível.
+spec [0010](../specs/0010-prazo-avaliacao-encerramento-definitivo/index.md) · code in `app/(dashboard)/meus-chamados/`, `app/(dashboard)/gestao/`, `app/(dashboard)/chamados-atribuidos/actions.ts`, `app/(dashboard)/conversas/`, `app/api/cron/encerramento-automatico/`, `lib/chamados/encerramento-automatico.ts`, `shared/chamados/janela-avaliacao.ts`, `models/Chamado.ts`
+
+- [x] Design it (spec): `/architect prazo para avaliar e encerramento definitivo`
+- [x] Build it: `/develop prazo para avaliar e encerramento definitivo`
+  - [x] O fio: concluir grava o prazo, avaliar encerra, e o detalhe do solicitante mostra o prazo · AC-1, AC-2, AC-5, AC-10
+  - [x] As travas: recusa e reabertura só na janela, encerrado terminal, encerramento manual removido · AC-3, AC-4, AC-5, AC-8
+  - [x] Encerramento pelo sistema: cron, preenchimento do legado, crontab num bloco só, `ticket:closed` para o solicitante · AC-6, AC-7, AC-9b
+  - [x] Configuração e aviso: prazo em `/configuracoes/expediente`, aviso de conclusão com o prazo · AC-9, AC-13
+  - [x] Reincidência e demais telas: "O problema voltou", vínculo, dica de recorrência, chat, cards e painéis · AC-11, AC-12, AC-14, AC-15, AC-16
+- [x] Verify it: `/check verify prazo para avaliar e encerramento definitivo`
+- [x] Test it: `/test prazo para avaliar e encerramento definitivo`
+- [x] Review it (fresh model): `/check review prazo para avaliar e encerramento definitivo`
+- [x] Document it: `/document prazo para avaliar e encerramento definitivo` · pulado
+
+## Gestão de ativos
+
+Proposta completa em `docs/specs/0011-gestao-ativos/proposta.md`. Cada fatia da proposta vira uma funcionalidade.
+
+### 23. Gestão de ativos: cadastro, etiqueta e vínculo · done
+
+O chamado passa a apontar para o equipamento: árvore de locais, categorias, ativo, carga dos 108 do Tier A, leitura de etiqueta e vínculo no formulário e na gestão.
+**Done when:** os 108 ativos estão carregados; ler ou digitar o tombamento abre a ficha; dá para abrir chamado a partir dela, e o chamado aparece no histórico da ficha; a gestão vincula ou corrige o ativo de qualquer chamado aberto.
+spec [0011](../specs/0011-gestao-ativos/index.md) · code in `lib/ativos/`, `app/(dashboard)/ativos/`, `models/Ativo.ts`
+
+- [x] Design it (spec): `/architect gestão de ativos fatia 1`
+- [x] Build it: `/develop gestão de ativos fatia 1`
+  - [x] O fio: modelos, carga do Tier A, leitura digitada, ficha e chamado com ativo · AC-4, AC-8, AC-9, AC-11, AC-13, AC-14, AC-15
+  - [x] Cadastro de verdade: árvore de locais, categorias, CRUD do ativo, status e validação · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7
+  - [x] Uso diário: lista com filtros, câmera, atalho de cadastro e vínculo na gestão · AC-10, AC-11, AC-12, AC-16
+  - [x] Testes de banco real, de permissão e E2E do fio · AC-2, AC-4, AC-5, AC-17
+- [x] Verify it: `/check verify gestão de ativos fatia 1`
+- [x] Test it: `/test gestão de ativos fatia 1`
+
+### 24. Importador SICAM e vistoria em campo · done
+
+Importar o CSV bruto do SICAM com diferença e revisão, e conduzir a vistoria pelo celular, inclusive sem sinal. from spec 0011
+**Done when:** o Admin sobe o CSV, revisa novos, alterados e sumidos e aplica; a vistoria mostra cobertura por prédio; o cadastro em campo funciona offline e sincroniza; os ativos `MNT-` (elevador, QGBT, SPDA, hidrante) estão cadastrados.
+spec [0012](../specs/0012-importador-sicam-vistoria/index.md) · code in `lib/vistoria/`, `lib/vistoria-offline/`, `app/(dashboard)/ativos/vistoria/`, `app/api/vistoria/`, `lib/ativos/importacao/`, `app/(dashboard)/ativos/importar/`, `app/api/ativos/importacoes/`
+
+- [x] Design it (spec): `/architect importador SICAM e vistoria`
+- [x] Build it: `/develop importador SICAM e vistoria`
+  - [x] Vistoria, o fio e sem sinal: campanha, pacote, fila no IndexedDB, sincronização em lote, primeira que chega · AC-1, AC-3 a AC-10, AC-15
+  - [x] Vistoria, cadastro em campo e cobertura: cadastro patrimoniado e MNT offline, local em campo, cobertura por prédio, ficha · AC-2, AC-11 a AC-14
+  - [x] Importador, parse e diferença: CSV bruto cp1252, classificação, novos, alterados e sumidos · AC-17 a AC-20, AC-26
+  - [x] Importador, revisão e aplicação: seleção, categorias, aplicação repetível, enxugamento LGPD, permissões · AC-21 a AC-25, AC-27
+  - [x] Operação: categorias novas e cadastro dos MNT em campo · AC-16
+- [x] Verify it: `/check verify importador SICAM e vistoria` (câmera aceita como coberta, ver `verify.md`)
+- [x] Test it: `/test importador SICAM e vistoria`
+
+### 25. Documentos do ativo e preventiva por categoria · done
+
+Laudos e certificados com alerta de vencimento, e chamados preventivos gerados por ativo. from spec 0011
+**Done when:** PMOC, AVCB, ART e laudos têm validade e alerta em 90, 60 e 30 dias; o recorrente por categoria gera um chamado por ativo em operação.
+spec [0013](../specs/0013-documentos-preventiva-ativo/index.md) · code in `lib/ativos/documentos/`, `app/(dashboard)/ativos/documentos/`, `app/api/ativos/documentos/`, `lib/chamados/preventiva-categoria.ts`, `app/(dashboard)/gestao/recurring/`
+
+- [x] Design it (spec): `/architect documentos e preventiva por ativo`
+- [x] Build it: `/develop documentos e preventiva por ativo`
+  - [x] Documentos, o fio: modelos, carga dos tipos, upload, download, seção na ficha, nginx · AC-1, AC-3, AC-8, AC-10, AC-15
+  - [x] Documentos, ciclo e cobertura: substituição, correção, exclusão, histórico, documento de local e herança, tipos e exigência, painel com Faltando · AC-2, AC-4 a AC-9
+  - [x] Documentos, alerta: job diário, marca por limite, sino e e-mail · AC-11 a AC-14
+  - [x] Preventiva por categoria: escopo novo, lote validado com SLA, pulados, reserva, pausa, aviso de lote e tela · AC-16 a AC-25
+- [x] Verify it: `/check verify documentos e preventiva por ativo` (nginx de 21M aceito para conferir depois do deploy, ver `verify.md`)
+- [x] Test it: `/test documentos e preventiva por ativo`
+
+### 26. Ativo pela IA no chat e indicadores no IMR · done
+
+A IA reconhece o equipamento na conversa, e o IMR ganha MTBF, MTTR, reincidência e os ativos mais problemáticos. from spec 0011
+**Done when:** a conversa sugere o ativo (ou pede a escolha entre candidatos) sem passar pelo portão de confiança; o IMR mostra os indicadores de ativo como informativos.
+spec [0014](../specs/0014-ativo-chat-indicadores/index.md) · code in `lib/assistente/ativo-do-cartao.ts`, `lib/ativos/indicadores.ts`, `app/(dashboard)/conversas/_components/LinhaEquipamento.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`
+
+- [x] Design it (spec): `/architect ativo no chat e indicadores`
+- [x] Build it: `/develop ativo no chat e indicadores`
+  - [x] O fio pelo código digitado: cartão com o ativo, confirmação conferida e log · AC-1, AC-4, AC-5, AC-7, AC-8, AC-9, AC-13
+  - [x] Decisão `ativo` fora da IA: registro, exclusões e correção pela gestão · AC-10, AC-11, AC-12
+  - [x] A regra por categoria, unidade e local, com até 5 candidatos e troca de unidade · AC-2, AC-3, AC-4, AC-5, AC-6
+  - [x] Aba Ativos no IMR: MTBF, MTTR, reincidência e ranking · AC-14, AC-15, AC-16, AC-17, AC-18, AC-19
+  - [x] Linha de indicadores na ficha do ativo · AC-20
+- [x] Verify it: `/check verify ativo no chat e indicadores`
+- [x] Test it: `/test ativo no chat e indicadores`
+
+### 27. Candidatos à substituição · done
+
+O Sigma aponta sozinho os equipamentos que passaram da vida útil ou quebram demais (corretivos em 12 meses, reincidência em 90 dias), usando os números da 0014, e a gestão dispensa por 6 meses com motivo. from proposta da spec 0011, fatia 5
+**Done when:** o Admin vê a lista de ativos sinalizados com o motivo de cada um; a regra que sinaliza é conhecida e ajustável; a sinalização é só informativa e nunca muda o ativo nem um chamado sozinha.
+spec [0015](../specs/0015-candidatos-substituicao/index.md) · code in `lib/ativos/substituicao.ts`, `app/(dashboard)/ativos/_components/SubstituicaoAtivo.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`
+
+- [x] Design it (spec): `/architect candidatos à substituição`
+- [x] Build it: `/develop candidatos à substituição`
+  - [x] O fio, só leitura: regra pura, datas em Belém, janela de hoje e selo na ficha para a gestão · AC-1, AC-2, AC-3, AC-4, AC-5, AC-7, AC-10
+  - [x] Limites por categoria na tela do Admin · AC-6, AC-17
+  - [x] Leitura em lote e seção no IMR seguindo o seletor de tipo · AC-5, AC-7, AC-8
+  - [x] Dispensa: subdocumento, escrita e desfazer condicionais, histórico sem o motivo, diálogo na ficha e no IMR, voltar a sinalizar · AC-11 a AC-17
+  - [x] Filtro "Substituição" na lista de ativos e testes de banco real · AC-3, AC-9, AC-14, AC-17
+- [x] Verify it: `/check verify candidatos à substituição`
+- [x] Test it: `/test candidatos à substituição`
+
+## Slice 3: IA decide prioridade e técnico
+
+### 14. Calibração da trava de confiança · done
+
+Como a liberação é para todos de uma vez, a IA é medida contra chamados que os Prepostos já classificaram antes de decidir sozinha, e o limite de confiança sai dessa medição.
+**Done when:** o acerto da IA em serviço e prioridade é medido sobre chamados históricos; o limite de confiança é definido a partir disso e o Admin pode ajustá-lo; o Admin desliga a autonomia sem deploy e tudo volta para a triagem manual.
+spec [0006](../specs/0006-calibracao-trava-confianca/index.md) · code in `lib/ia-confianca/`, `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`
+
+- [x] Design it (spec): `/architect calibração da trava de confiança`
+- [x] Build it: `/develop calibração da trava de confiança`
+  - [x] Configuração de ponta a ponta: `IaAutonomiaConfig`, `lib/ia-confianca/calibragem.ts` lendo o veredito já gravado em `DecisaoIa.situacao`, tela e formulário salvando · AC-1, AC-5, AC-6, AC-8, AC-9, AC-10
+  - [x] Relatório completo: tabela de cortes de confiança, sugestão automática respeitando a meta e a amostra mínima, aviso de viés no serviço, conferência de que nada mais lê a config ainda · AC-2, AC-3, AC-4, AC-7, AC-11
+- [x] Verify it: `/check verify calibração da trava de confiança`
+- [x] Test it: `/test calibração da trava de confiança`
+
+### 15. Prioridade e SLA automáticos · done · GA
+
+Quando confiante, a IA define a prioridade (BAIXA a EMERGENCIAL), o chamado passa a `validado` e o SLA começa igual à classificação manual. Abaixo do limite, fica na triagem com a sugestão. Mexe em prazo contratual e glosa do IMR, por isso GA.
+**Done when:** chamado confiante vira `validado` com snapshot de SLA idêntico ao da classificação manual; chamado com pouca confiança fica `aberto` com a sugestão já preenchida; pedir urgência no texto sem motivo real não eleva a prioridade sozinho; decisão, motivo e confiança ficam no histórico.
+spec [0007](../specs/0007-prioridade-sla-automaticos/index.md) · code in `lib/assistente/confirmar.ts`, `lib/assistente/portao.ts`, `lib/sla-snapshot.ts`, `lib/conversas/abertura.ts`, `app/(dashboard)/gestao/actions.ts`, `app/(dashboard)/gestao/_components/CorrigirPrioridadeDialog.tsx`
+
+- [x] Design it (spec): `/architect prioridade e SLA automáticos`
+- [x] Build it: `/develop prioridade e SLA automáticos`
+  - [x] Fio fino do caminho confiante, ponta a ponta: extrai o cálculo de SLA para reaproveitar, reforça o prompt contra urgência sem motivo, portão de confiança, `confirmarAbertura` decide status/SLA/efeito, histórico e evento de validação automática, migração que desliga `autonomiaAtiva` · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10, AC-16, AC-17
+  - [x] Visibilidade e cópia: aviso de viés também em prioridade, sugestão pré-preenchida na classificação, selo de validado pela IA, texto de notificação e de chat variando por status · AC-8, AC-9, AC-13, AC-14, AC-15
+  - [x] Correção mínima: ação e diálogo para o Preposto trocar a prioridade de um chamado validado ainda não atribuído · AC-11, AC-12
+- [x] Verify it: `/check verify prioridade e SLA automáticos`
+- [x] Test it: `/test prioridade e SLA automáticos`
+- [x] Review it (fresh model): `/check review prioridade e SLA automáticos`
+- [x] Document it: `/document prioridade e SLA automáticos`
+
+### 16. Atribuição automática ao técnico · done · GA
+
+Chamado validado pela IA segue direto para um técnico com a especialidade do serviço e espaço na carga, sem esperar o Preposto. Mexe no SLA de resposta contratual e atribui trabalho a pessoas sozinha, por isso GA.
+**Done when:** o técnico escolhido tem a especialidade (subtipo) do serviço e está abaixo do seu limite de chamados; sem técnico elegível, o chamado vai ao Preposto com o motivo; o técnico recebe a notificação de sempre e a atribuição aparece na conversa do solicitante.
+spec [0008](../specs/0008-atribuicao-automatica-tecnico/index.md) · code in `lib/chamados/atribuicao-automatica.ts`, `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `lib/assistente/confirmar.ts`, `shared/chamados/atribuicao-automatica.constants.ts`, `app/(dashboard)/gestao/`, `app/(dashboard)/configuracoes/ia-confianca/`
+
+- [x] Design it (spec): `/architect atribuição automática ao técnico`
+- [x] Build it: `/develop atribuição automática ao técnico`
+  - [x] Fio fino do caminho feliz, ponta a ponta (constantes, interruptor `atribuicaoAutomaticaAtiva`, campo `atribuicaoAutomatica`, `notificarAtribuicao` extraída, critério puro, `tentarAtribuicaoAutomatica`, chamada em `confirmarAbertura`, teste contra Mongo) · AC-1, AC-2, AC-5, AC-6, AC-9, AC-10, AC-11, AC-12, AC-14
+  - [x] Falhas, concorrência e idempotência (sem técnico, erro, conferência de carga com desfazer, corrida com a atribuição manual, log) · AC-3, AC-4, AC-7, AC-8, AC-17
+  - [x] Gestores, técnico e solicitante veem o resultado (`ticket:new` por resultado, aviso do técnico, detalhe e selo na Gestão, teste de vazamento) · AC-11, AC-12, AC-13, AC-15, AC-16
+  - [x] Regressão e limitações (atribuição manual e calibração intactas, correção pela reatribuição, janela de prioridade fechada) · AC-9, AC-18, AC-19
+- [x] Verify it: `/check verify atribuição automática ao técnico`
+- [x] Test it: `/test atribuição automática ao técnico`
+- [x] Review it (fresh model): `/check review atribuição automática ao técnico`
+- [x] Document it: `/document atribuição automática ao técnico`
+
+### 17. Revisão das decisões da IA pelo Preposto · done · GA
+
+Na Gestão, o Preposto separa o que a IA decidiu do que aguarda triagem e corrige serviço, prioridade ou técnico quando precisar. Cada correção alimenta a métrica principal. Mexe em prazo contratual e glosa do IMR (a regra de SLA para corrigir a prioridade com o atendimento em curso), por isso GA.
+**Done when:** o Preposto filtra chamados decididos pela IA e pendentes de triagem; os pendentes abrem com a sugestão da IA já preenchida; corrigir registra o que mudou; corrigir a prioridade de um chamado com SLA já iniciado segue uma regra definida e registrada.
+spec [0009](../specs/0009-revisao-decisoes-ia-preposto/index.md) · code in `app/(dashboard)/gestao/`, `lib/conversas/decisoes.ts`
+
+- [x] Design it (spec): `/architect revisão das decisões da IA pelo Preposto`
+- [x] Build it: `/develop revisão das decisões da IA pelo Preposto`
+  - [x] Revisar de ponta a ponta (filtro "Revisão da IA", painel por campo, confirmar, visibilidade da trilha e índice) · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-13, AC-17, AC-19
+  - [x] Correção de prioridade com o atendimento em curso (regra de SLA assimétrica, só o Admin baixa com técnico, monitor de SLA, diálogo) · AC-7, AC-8, AC-9, AC-10, AC-16, AC-20, AC-21
+  - [x] Correção de serviço (ação, técnico elegível pelo serviço novo, `tipoServico`, diálogo) · AC-11, AC-12
+  - [x] Avisos e regressão (`ticket:corrected`, reatribuição avisa o técnico novo, vazamento do motivo, calibração e atribuição intactas) · AC-14, AC-15, AC-18
+- [x] Verify it: `/check verify revisão das decisões da IA pelo Preposto`
+- [x] Test it: `/test revisão das decisões da IA pelo Preposto`
+- [x] Review it (fresh model): `/check review revisão das decisões da IA pelo Preposto`
+- [x] Document it: `/document revisão das decisões da IA pelo Preposto` · pulado
+
+## Ciclo de vida do chamado
+
+### 22. Prazo para avaliar e encerramento definitivo · done · GA
+
+Pedido de stakeholder (modelo do e-SOSTI): depois da conclusão, o solicitante tem um prazo para avaliar ou recusar; passado o prazo o chamado encerra sozinho e não reabre mais, e o problema que volta vira chamado novo ligado ao anterior. Mexe no tempo de atendimento e no SLA medidos pelo IMR (glosa), por isso GA.
+**Done when:** a conclusão grava o prazo (48 horas, configurável pelo Admin); avaliar encerra na hora; o cron encerra o que venceu; nenhum perfil reabre um encerrado; o encerramento manual sai da Gestão; "O problema voltou" abre um chamado novo com o vínculo visível.
+spec [0010](../specs/0010-prazo-avaliacao-encerramento-definitivo/index.md) · code in `app/(dashboard)/meus-chamados/`, `app/(dashboard)/gestao/`, `app/(dashboard)/chamados-atribuidos/actions.ts`, `app/(dashboard)/conversas/`, `app/api/cron/encerramento-automatico/`, `lib/chamados/encerramento-automatico.ts`, `shared/chamados/janela-avaliacao.ts`, `models/Chamado.ts`
+
+- [x] Design it (spec): `/architect prazo para avaliar e encerramento definitivo`
+- [x] Build it: `/develop prazo para avaliar e encerramento definitivo`
+  - [x] O fio: concluir grava o prazo, avaliar encerra, e o detalhe do solicitante mostra o prazo · AC-1, AC-2, AC-5, AC-10
+  - [x] As travas: recusa e reabertura só na janela, encerrado terminal, encerramento manual removido · AC-3, AC-4, AC-5, AC-8
+  - [x] Encerramento pelo sistema: cron, preenchimento do legado, crontab num bloco só, `ticket:closed` para o solicitante · AC-6, AC-7, AC-9b
+  - [x] Configuração e aviso: prazo em `/configuracoes/expediente`, aviso de conclusão com o prazo · AC-9, AC-13
+  - [x] Reincidência e demais telas: "O problema voltou", vínculo, dica de recorrência, chat, cards e painéis · AC-11, AC-12, AC-14, AC-15, AC-16
+- [x] Verify it: `/check verify prazo para avaliar e encerramento definitivo`
+- [x] Test it: `/test prazo para avaliar e encerramento definitivo`
+- [x] Review it (fresh model): `/check review prazo para avaliar e encerramento definitivo`
+- [x] Document it: `/document prazo para avaliar e encerramento definitivo` · pulado
+
+## Gestão de ativos
+
+Proposta completa em `docs/specs/0011-gestao-ativos/proposta.md`. Cada fatia da proposta vira uma funcionalidade.
+
+### 23. Gestão de ativos: cadastro, etiqueta e vínculo · done
+
+O chamado passa a apontar para o equipamento: árvore de locais, categorias, ativo, carga dos 108 do Tier A, leitura de etiqueta e vínculo no formulário e na gestão.
+**Done when:** os 108 ativos estão carregados; ler ou digitar o tombamento abre a ficha; dá para abrir chamado a partir dela, e o chamado aparece no histórico da ficha; a gestão vincula ou corrige o ativo de qualquer chamado aberto.
+spec [0011](../specs/0011-gestao-ativos/index.md) · code in `lib/ativos/`, `app/(dashboard)/ativos/`, `models/Ativo.ts`
+
+- [x] Design it (spec): `/architect gestão de ativos fatia 1`
+- [x] Build it: `/develop gestão de ativos fatia 1`
+  - [x] O fio: modelos, carga do Tier A, leitura digitada, ficha e chamado com ativo · AC-4, AC-8, AC-9, AC-11, AC-13, AC-14, AC-15
+  - [x] Cadastro de verdade: árvore de locais, categorias, CRUD do ativo, status e validação · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7
+  - [x] Uso diário: lista com filtros, câmera, atalho de cadastro e vínculo na gestão · AC-10, AC-11, AC-12, AC-16
+  - [x] Testes de banco real, de permissão e E2E do fio · AC-2, AC-4, AC-5, AC-17
+- [x] Verify it: `/check verify gestão de ativos fatia 1`
+- [x] Test it: `/test gestão de ativos fatia 1`
+
+### 24. Importador SICAM e vistoria em campo · done
+
+Importar o CSV bruto do SICAM com diferença e revisão, e conduzir a vistoria pelo celular, inclusive sem sinal. from spec 0011
+**Done when:** o Admin sobe o CSV, revisa novos, alterados e sumidos e aplica; a vistoria mostra cobertura por prédio; o cadastro em campo funciona offline e sincroniza; os ativos `MNT-` (elevador, QGBT, SPDA, hidrante) estão cadastrados.
+spec [0012](../specs/0012-importador-sicam-vistoria/index.md) · code in `lib/vistoria/`, `lib/vistoria-offline/`, `app/(dashboard)/ativos/vistoria/`, `app/api/vistoria/`, `lib/ativos/importacao/`, `app/(dashboard)/ativos/importar/`, `app/api/ativos/importacoes/`
+
+- [x] Design it (spec): `/architect importador SICAM e vistoria`
+- [x] Build it: `/develop importador SICAM e vistoria`
+  - [x] Vistoria, o fio e sem sinal: campanha, pacote, fila no IndexedDB, sincronização em lote, primeira que chega · AC-1, AC-3 a AC-10, AC-15
+  - [x] Vistoria, cadastro em campo e cobertura: cadastro patrimoniado e MNT offline, local em campo, cobertura por prédio, ficha · AC-2, AC-11 a AC-14
+  - [x] Importador, parse e diferença: CSV bruto cp1252, classificação, novos, alterados e sumidos · AC-17 a AC-20, AC-26
+  - [x] Importador, revisão e aplicação: seleção, categorias, aplicação repetível, enxugamento LGPD, permissões · AC-21 a AC-25, AC-27
+  - [x] Operação: categorias novas e cadastro dos MNT em campo · AC-16
+- [x] Verify it: `/check verify importador SICAM e vistoria` (câmera aceita como coberta, ver `verify.md`)
+- [x] Test it: `/test importador SICAM e vistoria`
+
+### 25. Documentos do ativo e preventiva por categoria · done
+
+Laudos e certificados com alerta de vencimento, e chamados preventivos gerados por ativo. from spec 0011
+**Done when:** PMOC, AVCB, ART e laudos têm validade e alerta em 90, 60 e 30 dias; o recorrente por categoria gera um chamado por ativo em operação.
+spec [0013](../specs/0013-documentos-preventiva-ativo/index.md) · code in `lib/ativos/documentos/`, `app/(dashboard)/ativos/documentos/`, `app/api/ativos/documentos/`, `lib/chamados/preventiva-categoria.ts`, `app/(dashboard)/gestao/recurring/`
+
+- [x] Design it (spec): `/architect documentos e preventiva por ativo`
+- [x] Build it: `/develop documentos e preventiva por ativo`
+  - [x] Documentos, o fio: modelos, carga dos tipos, upload, download, seção na ficha, nginx · AC-1, AC-3, AC-8, AC-10, AC-15
+  - [x] Documentos, ciclo e cobertura: substituição, correção, exclusão, histórico, documento de local e herança, tipos e exigência, painel com Faltando · AC-2, AC-4 a AC-9
+  - [x] Documentos, alerta: job diário, marca por limite, sino e e-mail · AC-11 a AC-14
+  - [x] Preventiva por categoria: escopo novo, lote validado com SLA, pulados, reserva, pausa, aviso de lote e tela · AC-16 a AC-25
+- [x] Verify it: `/check verify documentos e preventiva por ativo` (nginx de 21M aceito para conferir depois do deploy, ver `verify.md`)
+- [x] Test it: `/test documentos e preventiva por ativo`
+
+### 26. Ativo pela IA no chat e indicadores no IMR · done
+
+A IA reconhece o equipamento na conversa, e o IMR ganha MTBF, MTTR, reincidência e os ativos mais problemáticos. from spec 0011
+**Done when:** a conversa sugere o ativo (ou pede a escolha entre candidatos) sem passar pelo portão de confiança; o IMR mostra os indicadores de ativo como informativos.
+spec [0014](../specs/0014-ativo-chat-indicadores/index.md) · code in `lib/assistente/ativo-do-cartao.ts`, `lib/ativos/indicadores.ts`, `app/(dashboard)/conversas/_components/LinhaEquipamento.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`
+
+- [x] Design it (spec): `/architect ativo no chat e indicadores`
+- [x] Build it: `/develop ativo no chat e indicadores`
+  - [x] O fio pelo código digitado: cartão com o ativo, confirmação conferida e log · AC-1, AC-4, AC-5, AC-7, AC-8, AC-9, AC-13
+  - [x] Decisão `ativo` fora da IA: registro, exclusões e correção pela gestão · AC-10, AC-11, AC-12
+  - [x] A regra por categoria, unidade e local, com até 5 candidatos e troca de unidade · AC-2, AC-3, AC-4, AC-5, AC-6
+  - [x] Aba Ativos no IMR: MTBF, MTTR, reincidência e ranking · AC-14, AC-15, AC-16, AC-17, AC-18, AC-19
+  - [x] Linha de indicadores na ficha do ativo · AC-20
+- [x] Verify it: `/check verify ativo no chat e indicadores`
+- [x] Test it: `/test ativo no chat e indicadores`
+
+### 27. Candidatos à substituição · done
+
+O Sigma aponta sozinho os equipamentos que passaram da vida útil ou quebram demais (corretivos em 12 meses, reincidência em 90 dias), usando os números da 0014, e a gestão dispensa por 6 meses com motivo. from proposta da spec 0011, fatia 5
+**Done when:** o Admin vê a lista de ativos sinalizados com o motivo de cada um; a regra que sinaliza é conhecida e ajustável; a sinalização é só informativa e nunca muda o ativo nem um chamado sozinha.
+spec [0015](../specs/0015-candidatos-substituicao/index.md) · code in `lib/ativos/substituicao.ts`, `app/(dashboard)/ativos/_components/SubstituicaoAtivo.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`
+
+- [x] Design it (spec): `/architect candidatos à substituição`
+- [x] Build it: `/develop candidatos à substituição`
+  - [x] O fio, só leitura: regra pura, datas em Belém, janela de hoje e selo na ficha para a gestão · AC-1, AC-2, AC-3, AC-4, AC-5, AC-7, AC-10
+  - [x] Limites por categoria na tela do Admin · AC-6, AC-17
+  - [x] Leitura em lote e seção no IMR seguindo o seletor de tipo · AC-5, AC-7, AC-8
+  - [x] Dispensa: subdocumento, escrita e desfazer condicionais, histórico sem o motivo, diálogo na ficha e no IMR, voltar a sinalizar · AC-11 a AC-17
+  - [x] Filtro "Substituição" na lista de ativos e testes de banco real · AC-3, AC-9, AC-14, AC-17
+- [x] Verify it: `/check verify candidatos à substituição`
+- [x] Test it: `/test candidatos à substituição`
+
+## Slice 3: IA decide prioridade e técnico
+
+### 14. Calibração da trava de confiança · done
+
+Como a liberação é para todos de uma vez, a IA é medida contra chamados que os Prepostos já classificaram antes de decidir sozinha, e o limite de confiança sai dessa medição.
+**Done when:** o acerto da IA em serviço e prioridade é medido sobre chamados históricos; o limite de confiança é definido a partir disso e o Admin pode ajustá-lo; o Admin desliga a autonomia sem deploy e tudo volta para a triagem manual.
+spec [0006](../specs/0006-calibracao-trava-confianca/index.md) · code in `lib/ia-confianca/`, `models/IaAutonomiaConfig.ts`, `app/(dashboard)/configuracoes/ia-confianca/`
+
+- [x] Design it (spec): `/architect calibração da trava de confiança`
+- [x] Build it: `/develop calibração da trava de confiança`
+  - [x] Configuração de ponta a ponta: `IaAutonomiaConfig`, `lib/ia-confianca/calibragem.ts` lendo o veredito já gravado em `DecisaoIa.situacao`, tela e formulário salvando · AC-1, AC-5, AC-6, AC-8, AC-9, AC-10
+  - [x] Relatório completo: tabela de cortes de confiança, sugestão automática respeitando a meta e a amostra mínima, aviso de viés no serviço, conferência de que nada mais lê a config ainda · AC-2, AC-3, AC-4, AC-7, AC-11
+- [x] Verify it: `/check verify calibração da trava de confiança`
+- [x] Test it: `/test calibração da trava de confiança`
+
+### 15. Prioridade e SLA automáticos · done · GA
+
+Quando confiante, a IA define a prioridade (BAIXA a EMERGENCIAL), o chamado passa a `validado` e o SLA começa igual à classificação manual. Abaixo do limite, fica na triagem com a sugestão. Mexe em prazo contratual e glosa do IMR, por isso GA.
+**Done when:** chamado confiante vira `validado` com snapshot de SLA idêntico ao da classificação manual; chamado com pouca confiança fica `aberto` com a sugestão já preenchida; pedir urgência no texto sem motivo real não eleva a prioridade sozinho; decisão, motivo e confiança ficam no histórico.
+spec [0007](../specs/0007-prioridade-sla-automaticos/index.md) · code in `lib/assistente/confirmar.ts`, `lib/assistente/portao.ts`, `lib/sla-snapshot.ts`, `lib/conversas/abertura.ts`, `app/(dashboard)/gestao/actions.ts`, `app/(dashboard)/gestao/_components/CorrigirPrioridadeDialog.tsx`
+
+- [x] Design it (spec): `/architect prioridade e SLA automáticos`
+- [x] Build it: `/develop prioridade e SLA automáticos`
+  - [x] Fio fino do caminho confiante, ponta a ponta: extrai o cálculo de SLA para reaproveitar, reforça o prompt contra urgência sem motivo, portão de confiança, `confirmarAbertura` decide status/SLA/efeito, histórico e evento de validação automática, migração que desliga `autonomiaAtiva` · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10, AC-16, AC-17
+  - [x] Visibilidade e cópia: aviso de viés também em prioridade, sugestão pré-preenchida na classificação, selo de validado pela IA, texto de notificação e de chat variando por status · AC-8, AC-9, AC-13, AC-14, AC-15
+  - [x] Correção mínima: ação e diálogo para o Preposto trocar a prioridade de um chamado validado ainda não atribuído · AC-11, AC-12
+- [x] Verify it: `/check verify prioridade e SLA automáticos`
+- [x] Test it: `/test prioridade e SLA automáticos`
+- [x] Review it (fresh model): `/check review prioridade e SLA automáticos`
+- [x] Document it: `/document prioridade e SLA automáticos`
+
+### 16. Atribuição automática ao técnico · done · GA
+
+Chamado validado pela IA segue direto para um técnico com a especialidade do serviço e espaço na carga, sem esperar o Preposto. Mexe no SLA de resposta contratual e atribui trabalho a pessoas sozinha, por isso GA.
+**Done when:** o técnico escolhido tem a especialidade (subtipo) do serviço e está abaixo do seu limite de chamados; sem técnico elegível, o chamado vai ao Preposto com o motivo; o técnico recebe a notificação de sempre e a atribuição aparece na conversa do solicitante.
+spec [0008](../specs/0008-atribuicao-automatica-tecnico/index.md) · code in `lib/chamados/atribuicao-automatica.ts`, `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `lib/assistente/confirmar.ts`, `shared/chamados/atribuicao-automatica.constants.ts`, `app/(dashboard)/gestao/`, `app/(dashboard)/configuracoes/ia-confianca/`
+
+- [x] Design it (spec): `/architect atribuição automática ao técnico`
+- [x] Build it: `/develop atribuição automática ao técnico`
+  - [x] Fio fino do caminho feliz, ponta a ponta (constantes, interruptor `atribuicaoAutomaticaAtiva`, campo `atribuicaoAutomatica`, `notificarAtribuicao` extraída, critério puro, `tentarAtribuicaoAutomatica`, chamada em `confirmarAbertura`, teste contra Mongo) · AC-1, AC-2, AC-5, AC-6, AC-9, AC-10, AC-11, AC-12, AC-14
+  - [x] Falhas, concorrência e idempotência (sem técnico, erro, conferência de carga com desfazer, corrida com a atribuição manual, log) · AC-3, AC-4, AC-7, AC-8, AC-17
+  - [x] Gestores, técnico e solicitante veem o resultado (`ticket:new` por resultado, aviso do técnico, detalhe e selo na Gestão, teste de vazamento) · AC-11, AC-12, AC-13, AC-15, AC-16
+  - [x] Regressão e limitações (atribuição manual e calibração intactas, correção pela reatribuição, janela de prioridade fechada) · AC-9, AC-18, AC-19
+- [x] Verify it: `/check verify atribuição automática ao técnico`
+- [x] Test it: `/test atribuição automática ao técnico`
+- [x] Review it (fresh model): `/check review atribuição automática ao técnico`
+- [x] Document it: `/document atribuição automática ao técnico`
+
+### 17. Revisão das decisões da IA pelo Preposto · done · GA
+
+Na Gestão, o Preposto separa o que a IA decidiu do que aguarda triagem e corrige serviço, prioridade ou técnico quando precisar. Cada correção alimenta a métrica principal. Mexe em prazo contratual e glosa do IMR (a regra de SLA para corrigir a prioridade com o atendimento em curso), por isso GA.
+**Done when:** o Preposto filtra chamados decididos pela IA e pendentes de triagem; os pendentes abrem com a sugestão da IA já preenchida; corrigir registra o que mudou; corrigir a prioridade de um chamado com SLA já iniciado segue uma regra definida e registrada.
+spec [0009](../specs/0009-revisao-decisoes-ia-preposto/index.md) · code in `app/(dashboard)/gestao/`, `lib/conversas/decisoes.ts`
+
+- [x] Design it (spec): `/architect revisão das decisões da IA pelo Preposto`
+- [x] Build it: `/develop revisão das decisões da IA pelo Preposto`
+  - [x] Revisar de ponta a ponta (filtro "Revisão da IA", painel por campo, confirmar, visibilidade da trilha e índice) · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-13, AC-17, AC-19
+  - [x] Correção de prioridade com o atendimento em curso (regra de SLA assimétrica, só o Admin baixa com técnico, monitor de SLA, diálogo) · AC-7, AC-8, AC-9, AC-10, AC-16, AC-20, AC-21
+  - [x] Correção de serviço (ação, técnico elegível pelo serviço novo, `tipoServico`, diálogo) · AC-11, AC-12
+  - [x] Avisos e regressão (`ticket:corrected`, reatribuição avisa o técnico novo, vazamento do motivo, calibração e atribuição intactas) · AC-14, AC-15, AC-18
+- [x] Verify it: `/check verify revisão das decisões da IA pelo Preposto`
+- [x] Test it: `/test revisão das decisões da IA pelo Preposto`
+- [x] Review it (fresh model): `/check review revisão das decisões da IA pelo Preposto`
+- [x] Document it: `/document revisão das decisões da IA pelo Preposto` · pulado
+
+## Ciclo de vida do chamado
+
+### 22. Prazo para avaliar e encerramento definitivo · done · GA
+
+Pedido de stakeholder (modelo do e-SOSTI): depois da conclusão, o solicitante tem um prazo para avaliar ou recusar; passado o prazo o chamado encerra sozinho e não reabre mais, e o problema que volta vira chamado novo ligado ao anterior. Mexe no tempo de atendimento e no SLA medidos pelo IMR (glosa), por isso GA.
+**Done when:** a conclusão grava o prazo (48 horas, configurável pelo Admin); avaliar encerra na hora; o cron encerra o que venceu; nenhum perfil reabre um encerrado; o encerramento manual sai da Gestão; "O problema voltou" abre um chamado novo com o vínculo visível.
+spec [0010](../specs/0010-prazo-avaliacao-encerramento-definitivo/index.md) · code in `app/(dashboard)/meus-chamados/`, `app/(dashboard)/gestao/`, `app/(dashboard)/chamados-atribuidos/actions.ts`, `app/(dashboard)/conversas/`, `app/api/cron/encerramento-automatico/`, `lib/chamados/encerramento-automatico.ts`, `shared/chamados/janela-avaliacao.ts`, `models/Chamado.ts`
+
+- [x] Design it (spec): `/architect prazo para avaliar e encerramento definitivo`
+- [x] Build it: `/develop prazo para avaliar e encerramento definitivo`
+  - [x] O fio: concluir grava o prazo, avaliar encerra, e o detalhe do solicitante mostra o prazo · AC-1, AC-2, AC-5, AC-10
+  - [x] As travas: recusa e reabertura só na janela, encerrado terminal, encerramento manual removido · AC-3, AC-4, AC-5, AC-8
+  - [x] Encerramento pelo sistema: cron, preenchimento do legado, crontab num bloco só, `ticket:closed` para o solicitante · AC-6, AC-7, AC-9b
+  - [x] Configuração e aviso: prazo em `/configuracoes/expediente`, aviso de conclusão com o prazo · AC-9, AC-13
+  - [x] Reincidência e demais telas: "O problema voltou", vínculo, dica de recorrência, chat, cards e painéis · AC-11, AC-12, AC-14, AC-15, AC-16
+- [x] Verify it: `/check verify prazo para avaliar e encerramento definitivo`
+- [x] Test it: `/test prazo para avaliar e encerramento definitivo`
+- [x] Review it (fresh model): `/check review prazo para avaliar e encerramento definitivo`
+- [x] Document it: `/document prazo para avaliar e encerramento definitivo` · pulado
+
+## Gestão de ativos
+
+Proposta completa em `docs/specs/0011-gestao-ativos/proposta.md`. Cada fatia da proposta vira uma funcionalidade.
+
+### 23. Gestão de ativos: cadastro, etiqueta e vínculo · done
+
+O chamado passa a apontar para o equipamento: árvore de locais, categorias, ativo, carga dos 108 do Tier A, leitura de etiqueta e vínculo no formulário e na gestão.
+**Done when:** os 108 ativos estão carregados; ler ou digitar o tombamento abre a ficha; dá para abrir chamado a partir dela, e o chamado aparece no histórico da ficha; a gestão vincula ou corrige o ativo de qualquer chamado aberto.
+spec [0011](../specs/0011-gestao-ativos/index.md) · code in `lib/ativos/`, `app/(dashboard)/ativos/`, `models/Ativo.ts`
+
+- [x] Design it (spec): `/architect gestão de ativos fatia 1`
+- [x] Build it: `/develop gestão de ativos fatia 1`
+  - [x] O fio: modelos, carga do Tier A, leitura digitada, ficha e chamado com ativo · AC-4, AC-8, AC-9, AC-11, AC-13, AC-14, AC-15
+  - [x] Cadastro de verdade: árvore de locais, categorias, CRUD do ativo, status e validação · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7
+  - [x] Uso diário: lista com filtros, câmera, atalho de cadastro e vínculo na gestão · AC-10, AC-11, AC-12, AC-16
+  - [x] Testes de banco real, de permissão e E2E do fio · AC-2, AC-4, AC-5, AC-17
+- [x] Verify it: `/check verify gestão de ativos fatia 1`
+- [x] Test it: `/test gestão de ativos fatia 1`
+
+### 24. Importador SICAM e vistoria em campo · done
+
+Importar o CSV bruto do SICAM com diferença e revisão, e conduzir a vistoria pelo celular, inclusive sem sinal. from spec 0011
+**Done when:** o Admin sobe o CSV, revisa novos, alterados e sumidos e aplica; a vistoria mostra cobertura por prédio; o cadastro em campo funciona offline e sincroniza; os ativos `MNT-` (elevador, QGBT, SPDA, hidrante) estão cadastrados.
+spec [0012](../specs/0012-importador-sicam-vistoria/index.md) · code in `lib/vistoria/`, `lib/vistoria-offline/`, `app/(dashboard)/ativos/vistoria/`, `app/api/vistoria/`, `lib/ativos/importacao/`, `app/(dashboard)/ativos/importar/`, `app/api/ativos/importacoes/`
+
+- [x] Design it (spec): `/architect importador SICAM e vistoria`
+- [x] Build it: `/develop importador SICAM e vistoria`
+  - [x] Vistoria, o fio e sem sinal: campanha, pacote, fila no IndexedDB, sincronização em lote, primeira que chega · AC-1, AC-3 a AC-10, AC-15
+  - [x] Vistoria, cadastro em campo e cobertura: cadastro patrimoniado e MNT offline, local em campo, cobertura por prédio, ficha · AC-2, AC-11 a AC-14
+  - [x] Importador, parse e diferença: CSV bruto cp1252, classificação, novos, alterados e sumidos · AC-17 a AC-20, AC-26
+  - [x] Importador, revisão e aplicação: seleção, categorias, aplicação repetível, enxugamento LGPD, permissões · AC-21 a AC-25, AC-27
+  - [x] Operação: categorias novas e cadastro dos MNT em campo · AC-16
+- [x] Verify it: `/check verify importador SICAM e vistoria` (câmera aceita como coberta, ver `verify.md`)
+- [x] Test it: `/test importador SICAM e vistoria`
+
+### 25. Documentos do ativo e preventiva por categoria · done
+
+Laudos e certificados com alerta de vencimento, e chamados preventivos gerados por ativo. from spec 0011
+**Done when:** PMOC, AVCB, ART e laudos têm validade e alerta em 90, 60 e 30 dias; o recorrente por categoria gera um chamado por ativo em operação.
+spec [0013](../specs/0013-documentos-preventiva-ativo/index.md) · code in `lib/ativos/documentos/`, `app/(dashboard)/ativos/documentos/`, `app/api/ativos/documentos/`, `lib/chamados/preventiva-categoria.ts`, `app/(dashboard)/gestao/recurring/`
+
+- [x] Design it (spec): `/architect documentos e preventiva por ativo`
+- [x] Build it: `/develop documentos e preventiva por ativo`
+  - [x] Documentos, o fio: modelos, carga dos tipos, upload, download, seção na ficha, nginx · AC-1, AC-3, AC-8, AC-10, AC-15
+  - [x] Documentos, ciclo e cobertura: substituição, correção, exclusão, histórico, documento de local e herança, tipos e exigência, painel com Faltando · AC-2, AC-4 a AC-9
+  - [x] Documentos, alerta: job diário, marca por limite, sino e e-mail · AC-11 a AC-14
+  - [x] Preventiva por categoria: escopo novo, lote validado com SLA, pulados, reserva, pausa, aviso de lote e tela · AC-16 a AC-25
+- [x] Verify it: `/check verify documentos e preventiva por ativo` (nginx de 21M aceito para conferir depois do deploy, ver `verify.md`)
+- [x] Test it: `/test documentos e preventiva por ativo`
+
+### 26. Ativo pela IA no chat e indicadores no IMR · done
+
+A IA reconhece o equipamento na conversa, e o IMR ganha MTBF, MTTR, reincidência e os ativos mais problemáticos. from spec 0011
+**Done when:** a conversa sugere o ativo (ou pede a escolha entre candidatos) sem passar pelo portão de confiança; o IMR mostra os indicadores de ativo como informativos.
+spec [0014](../specs/0014-ativo-chat-indicadores/index.md) · code in `lib/assistente/ativo-do-cartao.ts`, `lib/ativos/indicadores.ts`, `app/(dashboard)/conversas/_components/LinhaEquipamento.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`
+
+- [x] Design it (spec): `/architect ativo no chat e indicadores`
+- [x] Build it: `/develop ativo no chat e indicadores`
+  - [x] O fio pelo código digitado: cartão com o ativo, confirmação conferida e log · AC-1, AC-4, AC-5, AC-7, AC-8, AC-9, AC-13
+  - [x] Decisão `ativo` fora da IA: registro, exclusões e correção pela gestão · AC-10, AC-11, AC-12
+  - [x] A regra por categoria, unidade e local, com até 5 candidatos e troca de unidade · AC-2, AC-3, AC-4, AC-5, AC-6
+  - [x] Aba Ativos no IMR: MTBF, MTTR, reincidência e ranking · AC-14, AC-15, AC-16, AC-17, AC-18, AC-19
+  - [x] Linha de indicadores na ficha do ativo · AC-20
+- [x] Verify it: `/check verify ativo no chat e indicadores`
+- [x] Test it: `/test ativo no chat e indicadores`
+
+### 27. Candidatos à substituição · done
+
+O Sigma aponta sozinho os equipamentos que passaram da vida útil ou quebram demais (corretivos em 12 meses, reincidência em 90 dias), usando os números da 0014, e a gestão dispensa por 6 meses com motivo. from proposta da spec 0011, fatia 5
+**Done when:** o Admin vê a lista de ativos sinalizados com o motivo de cada um; a regra que sinaliza é conhecida e ajustável; a sinalização é só informativa e nunca muda o ativo nem um chamado sozinha.
+spec [0015](../specs/0015-candidatos-substituicao/index.md) · code in `lib/ativos/substituicao.ts`, `app/(dashboard)/ativos/_components/SubstituicaoAtivo.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`
+
+- [x] Design it (spec): `/architect candidatos à substituição`
+- [x] Build it: `/develop candidatos à substituição`
+  - [x] O fio, só leitura: regra pura, datas em Belém, janela de hoje e selo na ficha para a gestão · AC-1, AC-2, AC-3, AC-4, AC-5, AC-7, AC-10
+  - [x] Limites por categoria na tela do Admin · AC-6, AC-17
+  - [x] Leitura em lote e seção no IMR seguindo o seletor de tipo · AC-5, AC-7, AC-8
+  - [x] Dispensa: subdocumento, escrita e desfazer condicionais, histórico sem o motivo, diálogo na ficha e no IMR, voltar a sinalizar · AC-11 a AC-17
+  - [x] Filtro "Substituição" na lista de ativos e testes de banco real · AC-3, AC-9, AC-14, AC-17
+- [x] Verify it: `/check verify candidatos à substituição`
+- [x] Test it: `/test candidatos à substituição`
+
+### 28. Relatório mensal por contrato com ativo · done
 
 Um relatório por mês e por contrato que mostra, por equipamento, os chamados, o tempo de reparo e a reincidência, para acompanhar a empresa contratada. from proposta da spec 0011, fatia 5
 **Done when:** o Admin escolhe o mês e o contrato e vê os números por ativo e por categoria; os números batem com o IMR do mesmo período; o relatório sai em formato que dá para anexar ao processo.
+spec [0016](../specs/0016-relatorio-mensal-contrato-ativo/index.md) · code in `lib/contratos/`, `app/(dashboard)/relatorios/contrato/`, `app/(dashboard)/configuracoes/contratos/`
 
-- [ ] Design it (spec): `/architect relatório mensal por contrato com ativo`
+- [x] Design it (spec): `/architect relatório mensal por contrato com ativo`
+- [x] Build it: `/develop relatório mensal por contrato com ativo`
+  - [x] O fio: modelos, janela do mês, topo por `calcularFiltro` e PDF com emissão gravada · AC-6, AC-7, AC-8, AC-10, AC-16, AC-18, AC-20
+  - [x] Cadastro de contratos com sobreposição e trava de meses emitidos · AC-1, AC-2, AC-3, AC-4
+  - [x] Tela do relatório com seletores, vazios e botão de PDF · AC-5, AC-6, AC-14, AC-16, AC-18
+  - [x] SLA, preventivas e tabelas por ativo e por categoria, na tela e no PDF; lista de emissões · AC-9, AC-11, AC-12, AC-13, AC-15, AC-17, AC-19
+  - [x] Testes de banco real, paridade com o IMR e conferência do build com a rota real · AC-3, AC-10, AC-16, AC-17
+- [x] Verify it: `/check verify relatório mensal por contrato com ativo`
+- [x] Test it: `/test relatório mensal por contrato com ativo`
 
 ## Slice 3: fechamento
 
@@ -377,6 +887,7 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Número de chamado sem corrida**: `generateTicketNumber()` lê o maior número existente e incrementa, sem lock; o chat aumenta as aberturas simultâneas · from spec 0002
 - **Histórico do catálogo atualizado**: `updateTicketCatalogAction` grava a ação `catalogo_atualizado`, que não existe no enum do histórico, e falha depois de já ter alterado o chamado · from spec 0002
 - **Testes de banco no CI**: decidir se o CI passa a subir um MongoDB de serviço para rodar os testes que dependem de índice e TTL · from spec 0002
+- **Preventiva prevista x realizada**: comparar as preventivas do mês com a `periodicidadePreventivaDias` da categoria no relatório por contrato · from spec 0016
 - **Formulário a um clique pela conversa**: fazer `/meus-chamados` aceitar um parâmetro que já abre o diálogo do formulário, para o link da lateral não exigir um clique a mais · from spec 0003
 - **Unificar as duas entradas**: definir o sinal (por exemplo, percentual de aberturas pelo chat) que encerra a convivência entre `/conversas` e a tabela de `/meus-chamados`, para a decisão não ficar aberta para sempre · from spec 0003
 - **Evento próprio de conversa no socket**: hoje a tela de conversas recarrega pelo evento genérico de notificação, e aviso de SLA também dispara recarga; um evento próprio resolve se o desperdício incomodar · from spec 0003
