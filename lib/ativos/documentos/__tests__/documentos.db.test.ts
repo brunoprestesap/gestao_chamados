@@ -18,8 +18,22 @@ import {
 
 // O disco fica de fora: guardamos quais pastas de documento ficaram com arquivo.
 const disco = vi.hoisted(() => new Set<string>());
+// Barreira das corridas: o disco é o passo entre ler o vigente e gravar, então
+// segurar ali as duas chamadas garante que as duas leram antes de qualquer
+// escrita. Sem ela, às vezes a segunda lê depois da primeira já ter gravado e
+// faz uma substituição normal (AC-4), e o teste de corrida falha por tempo.
+const barreira = vi.hoisted(() => ({ esperadas: 0, chegaram: 0, soltar: () => {} }));
 vi.mock('../arquivo', () => ({
   gravarArquivo: async (id: string, filename: string) => {
+    if (barreira.esperadas > 0) {
+      barreira.chegaram += 1;
+      if (barreira.chegaram < barreira.esperadas) {
+        await new Promise<void>((ok) => (barreira.soltar = ok));
+      } else {
+        barreira.esperadas = 0;
+        barreira.soltar();
+      }
+    }
     disco.add(id);
     return `/fake/${id}/${filename}`;
   },
@@ -95,6 +109,8 @@ rodar('documentos do ativo, contra o Mongo', () => {
     await limparColecoes(todos);
     disco.clear();
     emails.total = 0;
+    barreira.esperadas = 0;
+    barreira.chegaram = 0;
     await TipoDocumentoModel.insertMany([
       { chave: 'pmoc', nome: 'PMOC' },
       { chave: 'avcb', nome: 'AVCB' },
@@ -206,6 +222,7 @@ rodar('documentos do ativo, contra o Mongo', () => {
         if (r.ok) anteriorId = r.id;
         disco.clear();
       }
+      barreira.esperadas = 2;
       const [x, y] = await Promise.all([
         gravar.cadastrarDocumento(dados({ ativoId: String(a._id) }), arquivo(), autor),
         gravar.cadastrarDocumento(dados({ ativoId: String(a._id) }), arquivo(), autor),
