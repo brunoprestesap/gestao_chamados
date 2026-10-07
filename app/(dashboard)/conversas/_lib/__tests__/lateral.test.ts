@@ -1,6 +1,25 @@
 import { Types } from 'mongoose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Spec 0017: sem interesses, a seção "Acompanhando" fica vazia.
+const interessesFalham = vi.hoisted(() => ({ sim: false }));
+vi.mock('@/models/ChamadoInteressado', () => ({
+  ChamadoInteressadoModel: {
+    find: () => ({
+      select: () => ({
+        sort: () => ({
+          limit: () => ({
+            lean: async () => {
+              if (interessesFalham.sim) throw new Error('banco fora');
+              return [];
+            },
+          }),
+        }),
+      }),
+    }),
+  },
+}));
+
 // ── Mocks ────────────────────────────────────────────────────────
 
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
@@ -399,6 +418,21 @@ describe('montarLateral', () => {
 
     // Assert: a lista de chamados continua aparecendo
     expect(lateral.rascunhos).toEqual([]);
+    expect(lateral.chamados).toHaveLength(1);
+  });
+
+  it('falha na leitura dos acompanhados deixa só a seção "Acompanhando" vazia (spec 0017, AC-15)', async () => {
+    // Arrange
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    interessesFalham.sim = true;
+    docs = [chamado()];
+
+    // Act
+    const lateral = await montarLateral(VIEWER);
+    interessesFalham.sim = false;
+
+    // Assert
+    expect(lateral.acompanhando).toEqual([]);
     expect(lateral.chamados).toHaveLength(1);
   });
 

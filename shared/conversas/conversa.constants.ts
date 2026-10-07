@@ -98,3 +98,18 @@ export const CONVERSA_FALHAS = [
   'divergente',
 ] as const;
 export type ConversaFalha = (typeof CONVERSA_FALHAS)[number];
+
+/**
+ * Motivos de falha de "Acompanhar este" (spec 0017, AC-9 a AC-11). Moram aqui
+ * para a tela ter a frase de cada um sem importar o módulo de servidor.
+ */
+export const ACOMPANHAR_FALHAS = [
+  'nao_encontrada',
+  'confirmacao_em_andamento',
+  'cartao_desatualizado',
+  'fora_do_cartao',
+  'chamado_encerrado',
+  'dados_invalidos',
+  'erro',
+] as const;
+export type AcompanharFalha = (typeof ACOMPANHAR_FALHAS)[number];

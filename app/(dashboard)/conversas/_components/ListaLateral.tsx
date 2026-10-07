@@ -12,6 +12,7 @@ import type { ChamadoStatus } from '@/shared/chamados/chamado.constants';
 import {
   FORMULARIO_HREF,
   FORMULARIO_ROTULO,
+  LATERAL_ACOMPANHANDO,
   LISTA_VAZIA_TEXTO,
   LISTA_VAZIA_TITULO,
 } from '../_constants';
@@ -21,7 +22,8 @@ import { iso, quando } from './tempo';
 
 /**
  * A lateral (spec 0003, AC-2): os rascunhos ativos em cima, os chamados
- * embaixo, 20 por vez. Rascunhos não paginam, porque o teto deles é 5.
+ * embaixo, 20 por vez. Rascunhos não paginam, porque o teto deles é 5. Entre
+ * os dois, os chamados que o usuário acompanha (spec 0017), sem paginação.
  */
 
 const MARCA_RASCUNHO =
@@ -100,6 +102,8 @@ function Bloco({
 
 type Props = {
   rascunhos: ItemLateral[];
+  /** Chamados de outras pessoas que o usuário acompanha (spec 0017, AC-15). */
+  acompanhando?: ItemLateral[];
   chamados: ItemLateral[];
   temMais: boolean;
   cursor: CursorLateral | null;
@@ -107,7 +111,14 @@ type Props = {
   className?: string;
 };
 
-export function ListaLateral({ rascunhos, chamados, temMais, cursor, className }: Props) {
+export function ListaLateral({
+  rascunhos,
+  acompanhando = [],
+  chamados,
+  temMais,
+  cursor,
+  className,
+}: Props) {
   const caminho = usePathname();
   // A primeira página vem do servidor a cada renderização, então ela não é
   // guardada aqui: o estado local é só o que foi carregado a mais. É isso que
@@ -122,7 +133,7 @@ export function ListaLateral({ rascunhos, chamados, temMais, cursor, className }
   const ainda = fim ? fim.temMais : temMais;
 
   const ehAtivo = (item: ItemLateral) => caminho === item.href;
-  const vazia = rascunhos.length === 0 && pagina.length === 0;
+  const vazia = rascunhos.length === 0 && acompanhando.length === 0 && pagina.length === 0;
 
   // A ação nunca lança: em qualquer falha ela devolve lista vazia, que aqui
   // vira simplesmente o fim da lista. É a troca que a spec escolheu.
@@ -178,6 +189,7 @@ export function ListaLateral({ rascunhos, chamados, temMais, cursor, className }
         ) : (
           <ul className="flex flex-col gap-2">
             <Bloco titulo="Rascunhos" itens={rascunhos} ativo={ehAtivo} />
+            <Bloco titulo={LATERAL_ACOMPANHANDO} itens={acompanhando} ativo={ehAtivo} />
             <Bloco titulo="Chamados" itens={pagina} ativo={ehAtivo} />
           </ul>
         )}

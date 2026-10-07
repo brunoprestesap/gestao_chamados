@@ -60,6 +60,7 @@ vi.mock('@/lib/sla-snapshot', () => ({
 
 import {
   ativoDaConfirmacao,
+  avisoDuplicadoDoCartao,
   confirmarAbertura,
   decisoesDaProposta,
   montarDescricao,
@@ -1101,5 +1102,60 @@ describe('ativoDaConfirmacao', () => {
       unitId: UNIDADE_ID,
     });
     expect(r).toBeNull();
+  });
+});
+
+describe('confirmarAbertura · abrir mesmo assim (spec 0017, AC-12)', () => {
+  const PARECIDO_A = '6aad5286df6f201a25edf001';
+  const PARECIDO_B = '6aad5286df6f201a25edf002';
+  const item = (chamadoId: string, extra: Record<string, unknown> = {}) => ({
+    chamadoId,
+    ticketNumber: 'CHM-2026-00001',
+    rotuloServico: 'Troca de lâmpada',
+    localExato: null,
+    ativoCodigo: null,
+    status: 'aberto',
+    abertoEm: '2026-10-07T12:00:00.000Z',
+    proprio: false,
+    jaTemAcesso: false,
+    ...extra,
+  });
+
+  it('grava no chamado novo os ids do cartão guardado no banco, inclusive o próprio', async () => {
+    // Arrange
+    const comAviso = cartao();
+    (comAviso.payload as Record<string, unknown>).duplicados = [
+      item(PARECIDO_A),
+      item(PARECIDO_B, { proprio: true }),
+    ];
+    mockLerProposta.mockResolvedValue(lida({ cartaoAtual: comAviso }));
+
+    // Act
+    await confirmarAbertura(VIEWER, ENTRADA);
+
+    // Assert
+    const { dadosChamado } = mockAbrir.mock.calls[0][0];
+    expect(dadosChamado.avisoDuplicado.chamadoIds.map(String)).toEqual([PARECIDO_A, PARECIDO_B]);
+    expect(dadosChamado.avisoDuplicado.em).toBeInstanceOf(Date);
+  });
+
+  it('o navegador não consegue mandar os ids: campo a mais na entrada é recusado', async () => {
+    const r = await confirmarAbertura(VIEWER, {
+      ...ENTRADA,
+      avisoDuplicado: ['6aad5286df6f201a25edf0ff'],
+    } as never);
+    expect(r).toEqual({ ok: false, reason: 'dados_invalidos' });
+    expect(mockAbrir).not.toHaveBeenCalled();
+  });
+
+  it('cartão sem parecidos (ou antigo, sem o campo) abre com `avisoDuplicado: null`', async () => {
+    await confirmarAbertura(VIEWER, ENTRADA);
+    expect(mockAbrir.mock.calls[0][0].dadosChamado.avisoDuplicado).toBeNull();
+  });
+
+  it('avisoDuplicadoDoCartao devolve null para lista vazia ou ausente', () => {
+    const base = cartao().payload as never;
+    expect(avisoDuplicadoDoCartao(base)).toBeNull();
+    expect(avisoDuplicadoDoCartao({ ...(base as object), duplicados: null } as never)).toBeNull();
   });
 });

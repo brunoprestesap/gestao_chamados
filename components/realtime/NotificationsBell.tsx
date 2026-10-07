@@ -8,6 +8,7 @@ import {
   CalendarClock,
   CheckCheck,
   ClipboardCheck,
+  Eye,
   FileWarning,
   Loader2,
   MessageSquare,
@@ -114,6 +115,13 @@ function getNotificationMeta(type: string): NotificationMeta {
         iconBg: 'bg-teal-100 dark:bg-teal-500/20',
         iconColor: 'text-teal-600 dark:text-teal-400',
         label: 'Preventiva gerada',
+      };
+    case 'interesse:fim':
+      return {
+        icon: Eye,
+        iconBg: 'bg-indigo-100 dark:bg-indigo-500/20',
+        iconColor: 'text-indigo-600 dark:text-indigo-400',
+        label: 'Chamado que você acompanha',
       };
     default:
       return {

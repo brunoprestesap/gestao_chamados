@@ -35,6 +35,16 @@ const AtribuicaoAutomaticaSchema = new Schema(
   { _id: false },
 );
 
+// O aviso de chamado duplicado que a pessoa viu e ignorou ao abrir pelo chat
+// (spec 0017): os chamados parecidos do cartão confirmado. Só nasce na criação.
+const AvisoDuplicadoSchema = new Schema(
+  {
+    chamadoIds: { type: [{ type: Schema.Types.ObjectId, ref: 'Chamado' }], required: true },
+    em: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const ChamadoSchema = new Schema(
   {
     ticket_number: { type: String, required: true, trim: true },
@@ -162,6 +172,8 @@ const ChamadoSchema = new Schema(
     // Equipamento do chamado (spec 0011). Tier A ou B no momento do vínculo;
     // nunca muda o `unitId` (quem pede).
     ativoId: { type: Schema.Types.ObjectId, ref: 'Ativo', default: null },
+    // Possível duplicado (spec 0017): só sai em endpoint de gestão.
+    avisoDuplicado: { type: AvisoDuplicadoSchema, default: null },
     // Observações de material (técnico registra sem fechar o chamado)
     materialObservations: [
       {
@@ -297,6 +309,7 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   originTemplateId?: Types.ObjectId;
   chamadoAnteriorId?: Types.ObjectId | null;
   ativoId?: Types.ObjectId | null;
+  avisoDuplicado?: { chamadoIds: Types.ObjectId[]; em: Date } | null;
   prazoAvaliacaoAte?: Date | null;
   concludedAt?: Date;
   slaPausedAt?: Date;

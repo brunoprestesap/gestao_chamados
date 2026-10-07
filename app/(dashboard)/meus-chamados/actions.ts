@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { buscarAtivoVinculavel } from '@/lib/ativos/seletor';
 import { generateTicketNumber } from '@/lib/chamado-utils';
 import { criarComentario } from '@/lib/chamados/comentarios';
+import { zerarAvisoDeFim } from '@/lib/chamados/interessados';
 import { notificarNovoChamado } from '@/lib/chamados/novo-chamado';
 import { canManage, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
@@ -572,6 +573,9 @@ export async function refuseServiceAction(raw: RefuseServiceInput): Promise<Refu
       statusNovo: 'em atendimento',
       observacoes: `Serviço recusado pelo solicitante. Motivo: ${reason.length > 200 ? reason.slice(0, 200) + '…' : reason}`,
     });
+
+    // O próximo fim avisa de novo quem acompanha (spec 0017, AC-18).
+    await zerarAvisoDeFim(String(updated._id));
 
     // Notificações (fire-and-forget)
     const solicitanteUser = await UserModel.findById(session.userId).select('name').lean();

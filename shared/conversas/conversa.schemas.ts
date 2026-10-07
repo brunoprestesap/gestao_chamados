@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
+import { CHAMADO_STATUSES, FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 
 import {
@@ -58,6 +58,28 @@ export const ativoDoCartaoSchema = z.strictObject({
 });
 export type AtivoDoCartao = z.infer<typeof ativoDoCartaoSchema>;
 
+/** Teto de chamados parecidos num cartão (spec 0017, AC-4). */
+export const DUPLICADOS_CARTAO_MAX = 3;
+
+/**
+ * Um chamado em andamento que parece ser o mesmo problema (spec 0017, AC-6).
+ * Só o que ajuda a decidir: número, serviço, local, equipamento, status e
+ * idade. `strictObject` é o que impede nome, unidade, relato ou qualquer dado
+ * de quem abriu o outro chamado de sair num cartão.
+ */
+export const duplicadoDoCartaoSchema = z.strictObject({
+  chamadoId: objectIdSchema,
+  ticketNumber: z.string().min(1).max(DECISAO_ROTULO_MAX),
+  rotuloServico: z.string().min(1).max(DECISAO_ROTULO_MAX),
+  localExato: z.string().max(LOCAL_EXATO_MAX).nullable(),
+  ativoCodigo: z.string().max(DECISAO_ROTULO_MAX).nullable(),
+  status: z.enum(CHAMADO_STATUSES),
+  abertoEm: z.iso.datetime(),
+  proprio: z.boolean(),
+  jaTemAcesso: z.boolean(),
+});
+export type DuplicadoDoCartao = z.infer<typeof duplicadoDoCartaoSchema>;
+
 /** Texto de qualquer mensagem: também é o que o leitor de tela lê. */
 export const conversaTextoSchema = z
   .string()
@@ -94,6 +116,13 @@ export const cartaoPayloadSchema = z
     // Cartão gravado antes da spec 0014 não tem o campo: lido como `null`.
     // O cartão novo sempre grava o campo, com `null` quando não há ativo.
     ativo: ativoDoCartaoSchema.nullable().optional(),
+    // Cartão gravado antes da spec 0017 não tem o campo: lido como `null`.
+    duplicados: z
+      .array(duplicadoDoCartaoSchema)
+      .min(1)
+      .max(DUPLICADOS_CARTAO_MAX)
+      .nullable()
+      .optional(),
   })
   .refine((cartao) => (cartao.modo === 'manual') === (cartao.servico === null), {
     message: 'O cartão manual é exatamente o que não tem serviço',

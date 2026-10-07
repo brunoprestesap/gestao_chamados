@@ -3,6 +3,7 @@
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
+import { notificarFimAosInteressados } from '@/lib/chamados/interessados';
 import { canManage, isTechnician, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
@@ -173,6 +174,9 @@ export async function registerExecutionAction(
       statusNovo: 'concluído',
       observacoes: `Execução registrada. Descrição: ${serviceDescription.trim().slice(0, 100)}${serviceDescription.trim().length > 100 ? '…' : ''}`,
     });
+
+    // Quem acompanha o chamado recebe o aviso de fim no sino (spec 0017, AC-17).
+    void notificarFimAosInteressados(String(ticketId), 'concluído');
 
     // Notificação para Preposto, Admin e Solicitante: execução registrada pelo técnico
     const technicianUser = await UserModel.findById(session.userId).select('name').lean();

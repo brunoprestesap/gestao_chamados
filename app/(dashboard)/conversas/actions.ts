@@ -15,6 +15,13 @@ import type { ConfirmarAberturaInput } from '@/shared/conversas/abertura.schemas
 import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
 import { type CartaoPayload, objectIdSchema } from '@/shared/conversas/conversa.schemas';
 
+import {
+  acompanharChamado,
+  type AcompanharInput,
+  type AcompanharResultado,
+  deixarDeAcompanhar,
+  type DeixarDeAcompanharResultado,
+} from './_lib/acompanhar';
 import { cursorDe, lerChamadosDaLateral } from './_lib/lateral';
 import type { CursorLateral, ItemLateral } from './_types';
 
@@ -112,4 +119,32 @@ export async function confirmarAberturaAction(
   revalidatePath('/gestao');
 
   return { ok: true, chamadoId: resultado.chamadoId, ticketNumber: resultado.ticketNumber };
+}
+
+/**
+ * "Acompanhar este" no aviso de chamado duplicado (spec 0017, AC-9 a AC-11):
+ * grava o interesse e descarta o rascunho. A tela navega para
+ * `/conversas/<chamadoId>` com `ok: true`.
+ */
+export async function acompanharChamadoAction(
+  entrada: AcompanharInput,
+): Promise<AcompanharResultado> {
+  const sessao = await requireSession();
+  await dbConnect();
+
+  const resultado = await acompanharChamado({ userId: sessao.userId, role: sessao.role }, entrada);
+  if (resultado.ok) revalidatePath('/conversas');
+  return resultado;
+}
+
+/** "Deixar de acompanhar" (spec 0017, AC-16). A tela volta para `/conversas`. */
+export async function deixarDeAcompanharAction(entrada: {
+  chamadoId: string;
+}): Promise<DeixarDeAcompanharResultado> {
+  const sessao = await requireSession();
+  await dbConnect();
+
+  const resultado = await deixarDeAcompanhar({ userId: sessao.userId, role: sessao.role }, entrada);
+  if (resultado.ok) revalidatePath('/conversas');
+  return resultado;
 }

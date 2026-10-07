@@ -61,6 +61,20 @@ export function quando(iso: string, agora = new Date()): string {
   return DIA_CURTO.format(data);
 }
 
+/**
+ * Idade de um chamado no aviso de duplicado (spec 0017, AC-7): `aberto hoje`,
+ * `aberto há 1 dia`, `aberto há 5 dias`. Conta dias de calendário no fuso de
+ * quem lê.
+ */
+export function abertoHa(iso: string, agora = new Date()): string {
+  const data = paraData(iso);
+  if (!data) return '';
+  const inicio = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.max(0, Math.round((inicio(agora) - inicio(data)) / 86_400_000));
+  if (dias === 0) return 'aberto hoje';
+  return dias === 1 ? 'aberto há 1 dia' : `aberto há ${dias} dias`;
+}
+
 /** Data completa para o cabeçalho do chamado: `17 de setembro às 08:40`. */
 export function dataEHora(iso: string): string {
   const data = paraData(iso);

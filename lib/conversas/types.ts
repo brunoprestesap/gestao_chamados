@@ -156,6 +156,11 @@ export type LinhaDoTempo = Resultado<{
   podeComentarInterno: boolean;
   /** Só o solicitante dono avalia o atendimento (spec 0005, AC-10). */
   souSolicitante: boolean;
+  /**
+   * Quantos acompanham o chamado (spec 0017, AC-19). Só para o técnico
+   * atribuído e a gestão; `null` para o dono e para quem não vê.
+   */
+  interessadosTotal: number | null;
 }>;
 
 export type { IaSituacao };

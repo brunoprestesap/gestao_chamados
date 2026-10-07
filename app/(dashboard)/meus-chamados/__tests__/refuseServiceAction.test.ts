@@ -1,6 +1,13 @@
 import { Types } from 'mongoose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Spec 0017: os interessados ficam fora deste teste.
+vi.mock('@/lib/chamados/interessados', () => ({
+  notificarFimAosInteressados: vi.fn().mockResolvedValue(undefined),
+  zerarAvisoDeFim: vi.fn().mockResolvedValue(undefined),
+  interessadosDosChamados: vi.fn().mockResolvedValue(new Map()),
+}));
+
 // ── Mocks ────────────────────────────────────────────────────────
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -49,6 +56,7 @@ vi.mock('@/models/user.model', () => ({
 // ── Import after mocks ──────────────────────────────────────────
 
 import { refuseServiceAction } from '@/app/(dashboard)/meus-chamados/actions';
+import { zerarAvisoDeFim } from '@/lib/chamados/interessados';
 import { emitToRoom } from '@/lib/realtime-emit';
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -240,6 +248,11 @@ describe('refuseServiceAction — sucesso', () => {
   it('retorna ok:true', async () => {
     const result = await refuseServiceAction(validInput());
     expect(result).toEqual({ ok: true });
+  });
+
+  it('zera o aviso de fim dos interessados (spec 0017, AC-18)', async () => {
+    await refuseServiceAction(validInput());
+    expect(vi.mocked(zerarAvisoDeFim)).toHaveBeenCalledWith(TICKET_ID);
   });
 
   it('chama findOneAndUpdate com filtro e update corretos', async () => {

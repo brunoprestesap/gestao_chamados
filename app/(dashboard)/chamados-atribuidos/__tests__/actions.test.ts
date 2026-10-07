@@ -1,6 +1,13 @@
 import { Types } from 'mongoose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Spec 0017: os interessados ficam fora deste teste.
+vi.mock('@/lib/chamados/interessados', () => ({
+  notificarFimAosInteressados: vi.fn().mockResolvedValue(undefined),
+  zerarAvisoDeFim: vi.fn().mockResolvedValue(undefined),
+  interessadosDosChamados: vi.fn().mockResolvedValue(new Map()),
+}));
+
 // ── Mocks ────────────────────────────────────────────────────────
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -60,6 +67,7 @@ vi.mock('@/models/user.model', () => ({
 }));
 
 import { registerExecutionAction } from '@/app/(dashboard)/chamados-atribuidos/actions';
+import { notificarFimAosInteressados } from '@/lib/chamados/interessados';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -184,6 +192,34 @@ describe('registerExecutionAction', () => {
 
     // Verifica histórico
     expect(mockHistoryCreate).toHaveBeenCalledOnce();
+  });
+
+  it('avisa os interessados do fim depois de gravar o status (spec 0017, AC-17)', async () => {
+    mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
+    mockChamadoUpdateOne.mockResolvedValue({ matchedCount: 1 });
+    mockUserFindById.mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve({ name: 'T' }) }),
+    });
+    mockUserFind.mockReturnValue({ select: () => ({ lean: () => Promise.resolve([]) }) });
+
+    await registerExecutionAction(validInput);
+
+    expect(vi.mocked(notificarFimAosInteressados)).toHaveBeenCalledWith(
+      validInput.ticketId,
+      'concluído',
+    );
+    expect(mockChamadoUpdateOne.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(notificarFimAosInteressados).mock.invocationCallOrder[0],
+    );
+  });
+
+  it('não avisa ninguém quando a conclusão não casou (spec 0017, AC-17)', async () => {
+    mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
+    mockChamadoUpdateOne.mockResolvedValue({ matchedCount: 0 });
+
+    await registerExecutionAction(validInput);
+
+    expect(vi.mocked(notificarFimAosInteressados)).not.toHaveBeenCalled();
   });
 
   it('registra breach quando execução é após prazo de resolução', async () => {

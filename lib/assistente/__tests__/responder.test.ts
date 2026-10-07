@@ -41,6 +41,11 @@ vi.mock('../ativo-do-cartao', async (importOriginal) => ({
   resolverAtivoDoCartao: (...args: unknown[]) => mockResolverAtivo(...args),
 }));
 
+const mockBuscarDuplicados = vi.fn();
+vi.mock('../duplicados', () => ({
+  buscarDuplicados: (...args: unknown[]) => mockBuscarDuplicados(...args),
+}));
+
 vi.mock('../perfil', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../perfil')>()),
   lerPerfil: (...args: unknown[]) => mockLerPerfil(...args),
@@ -210,6 +215,7 @@ let avisos: string[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockBuscarDuplicados.mockResolvedValue(null);
   avisos = [];
   mockResolverAtivo.mockResolvedValue(null);
   vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
@@ -313,6 +319,7 @@ describe('responderNaConversa · resposta com cartão', () => {
         localExato: 'Sala 302',
         faltando: [],
         ativo: null,
+        duplicados: null,
       },
     });
   });
@@ -1083,5 +1090,112 @@ describe('responderNaConversa · equipamento (spec 0014, AC-7, AC-13)', () => {
     const quadros = await responder();
     const cartao = quadros.find((q) => q.tipo === 'cartao') as { cartao: Record<string, unknown> };
     expect(cartao.cartao).toHaveProperty('ativo', null);
+  });
+});
+
+describe('responderNaConversa · chamados parecidos (spec 0017, AC-5a, AC-8, AC-20)', () => {
+  const PARECIDO = {
+    chamadoId: '6aad5286df6f201a25edf001',
+    ticketNumber: 'CHM-2026-00001',
+    rotuloServico: 'Troca de lâmpada',
+    localExato: 'Sala 302',
+    ativoCodigo: null,
+    status: 'aberto' as const,
+    abertoEm: '2026-10-07T12:00:00.000Z',
+    proprio: false,
+    jaTemAcesso: false,
+  };
+
+  it('com a proposta pronta, procura os parecidos e o cartão novo os leva', async () => {
+    // Arrange
+    mockBuscarDuplicados.mockResolvedValue([PARECIDO]);
+
+    // Act
+    const quadros = await responder();
+
+    // Assert
+    expect(mockBuscarDuplicados).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversaId: CONVERSA_ID,
+        viewer: expect.objectContaining({ userId: expect.any(String) }),
+      }),
+    );
+    expect(quadros.find((q) => q.tipo === 'cartao')).toMatchObject({
+      cartao: { duplicados: [PARECIDO] },
+    });
+  });
+
+  it('turno só com código no relato, sem a proposta pronta, não procura parecidos (AC-5a)', async () => {
+    mockLerConversa.mockResolvedValue(
+      conversaLida('rascunho', [{ autor: 'solicitante', tipo: 'texto', texto: 'tombo 11997' }]),
+    );
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(estado(propostaLida({ completo: false })));
+    mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
+
+    await responder('continua pingando');
+
+    expect(mockResolverAtivo).toHaveBeenCalled();
+    expect(mockBuscarDuplicados).not.toHaveBeenCalled();
+  });
+
+  it('no turno só com código, a chave dos parecidos do cartão que vale é mantida (AC-8)', async () => {
+    // Arrange: cartão valendo com um parecido; turno sem proposta pronta, mas com código
+    mockLerConversa.mockResolvedValue(
+      conversaLida('rascunho', [{ autor: 'solicitante', tipo: 'texto', texto: 'tombo 11997' }]),
+    );
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(
+      estado(
+        propostaLida({ completo: false }),
+        cartaoAtual({ ativo: null, duplicados: [PARECIDO] }),
+      ),
+    );
+    mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
+
+    // Act
+    await responder('continua pingando');
+
+    // Assert: nada muda por causa dos parecidos
+    expect(mockInvalidarCartao).not.toHaveBeenCalled();
+    expect(avisos.some((a) => a.includes('"cartao":"mantido"'))).toBe(true);
+  });
+
+  it('um parecido novo regrava o cartão que valia sem ele', async () => {
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(
+      estado(propostaLida(), cartaoAtual({ ativo: null, duplicados: null })),
+    );
+    mockBuscarDuplicados.mockResolvedValue([PARECIDO]);
+
+    const quadros = await responder();
+
+    expect(quadros.find((q) => q.tipo === 'cartao')).toMatchObject({ mensagemId: CARTAO_NOVO });
+  });
+
+  it('os mesmos parecidos de antes mantêm o cartão', async () => {
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(
+      estado(propostaLida(), cartaoAtual({ ativo: null, duplicados: [PARECIDO] })),
+    );
+    mockBuscarDuplicados.mockResolvedValue([PARECIDO]);
+
+    await responder();
+
+    expect(mockGravarCartao).not.toHaveBeenCalled();
+  });
+
+  it('o log da proposta leva só a quantidade de parecidos, nunca número nem local (AC-20)', async () => {
+    mockBuscarDuplicados.mockResolvedValue([PARECIDO]);
+    await responder();
+    const linha = avisos.find((a) => a.startsWith('[assistente] proposta'));
+    expect(linha).toContain('"duplicadosTotal":1');
+    expect(linha).not.toContain('CHM-2026-00001');
+  });
+
+  it('o cartão novo sempre leva `duplicados` explícito, null sem parecidos', async () => {
+    const quadros = await responder();
+    const cartao = quadros.find((q) => q.tipo === 'cartao') as { cartao: Record<string, unknown> };
+    expect(cartao.cartao).toHaveProperty('duplicados', null);
   });
 });

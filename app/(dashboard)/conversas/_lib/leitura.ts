@@ -19,7 +19,14 @@ import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
 import { type CartaoPayload, cartaoPayloadSchema } from '@/shared/conversas/conversa.schemas';
 import { marcaDeAbertura } from '@/shared/conversas/marca';
 
-import type { ConversaNaTela, ItemLeitura, LeituraChamado, MensagemNaTela } from '../_types';
+import type {
+  AcompanhamentoLido,
+  ConversaNaTela,
+  ItemLeitura,
+  LeituraChamado,
+  MensagemNaTela,
+} from '../_types';
+import { lerAcompanhamento } from './acompanhamento';
 
 /**
  * Leitura de uma conversa aberta (spec 0003). Duas formas: o rascunho, que
@@ -33,6 +40,7 @@ const OBSERVACAO_MAX = 160;
 export type ConversaAberta =
   | { tipo: 'rascunho'; conversa: ConversaNaTela }
   | { tipo: 'chamado'; leitura: LeituraChamado }
+  | { tipo: 'acompanhamento'; acompanhamento: AcompanhamentoLido }
   | { tipo: 'falha'; reason: ConversaFalha };
 
 /**
@@ -175,6 +183,7 @@ export async function lerChamadoEmLeitura(
       souSolicitante: linha.souSolicitante,
       prazoAvaliacaoAte: janela.prazoAvaliacaoAte,
       janelaAvaliacaoAberta: janela.janelaAvaliacaoAberta,
+      interessadosTotal: linha.interessadosTotal,
     },
   };
 }
@@ -229,7 +238,14 @@ export async function abrirConversa(viewer: Viewer, id: string): Promise<Convers
   if (lida.reason !== 'nao_encontrada') return { tipo: 'falha', reason: lida.reason };
 
   const leitura = await lerChamadoEmLeitura(viewer, id);
-  return leitura.ok
-    ? { tipo: 'chamado', leitura: leitura.leitura }
-    : { tipo: 'falha', reason: leitura.reason };
+  if (leitura.ok) return { tipo: 'chamado', leitura: leitura.leitura };
+
+  // Por último, o acompanhamento (spec 0017, AC-14): só quando o chamado
+  // existe mas a pessoa não é dona, técnico atribuído nem gestão. Sem
+  // interesse ativo, a resposta é a mesma de chamado inexistente.
+  if (leitura.reason !== 'sem_permissao') return { tipo: 'falha', reason: leitura.reason };
+  const acompanhado = await lerAcompanhamento(viewer, id);
+  return acompanhado.ok
+    ? { tipo: 'acompanhamento', acompanhamento: acompanhado.acompanhamento }
+    : { tipo: 'falha', reason: 'nao_encontrada' };
 }

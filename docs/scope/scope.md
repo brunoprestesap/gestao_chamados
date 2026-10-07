@@ -37,7 +37,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 27  | Candidatos à substituição                          | Ativos        | done     |
 | 28  | Relatório mensal por contrato com ativo            | Ativos        | done     |
 | 29  | Correções de integridade do chamado                | Ciclo de vida | done     |
-| 20  | Aviso de chamado duplicado                         | Slice 4       | planned  |
+| 20  | Aviso de chamado duplicado                         | Slice 4       | done     |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
 | 19  | Fotos no chat                                      | Slice 4       | planned  |
 | 21  | Entrada por voz                                    | Slice 4       | planned  |
@@ -374,12 +374,20 @@ Anexar fotos do problema durante o relato, reaproveitando os anexos que já exis
 
 - [ ] Design it (spec): `/architect fotos no chat`
 
-### 20. Aviso de chamado duplicado · needs a decision
+### 20. Aviso de chamado duplicado · done
 
 Antes de confirmar, a IA procura chamado em andamento parecido no mesmo local e oferece acompanhar aquele em vez de abrir outro.
 **Done when:** um relato parecido com chamado em andamento no mesmo local mostra o aviso; o usuário pode acompanhar o existente ou abrir mesmo assim, sem ver dados pessoais de outro solicitante; o aviso nunca impede a abertura.
+spec [0017](../specs/0017-aviso-chamado-duplicado/index.md) · code in `lib/assistente/duplicados.ts`, `lib/chamados/interessados.ts`, `models/ChamadoInteressado.ts`, `app/(dashboard)/conversas/_lib/acompanhar.ts`, `app/(dashboard)/conversas/_components/AvisoDuplicados.tsx`
 
-- [ ] Design it (spec): `/architect aviso de chamado duplicado`
+- [x] Design it (spec): `/architect aviso de chamado duplicado`
+- [x] Build it: `/develop aviso de chamado duplicado`
+  - [x] O aviso de ponta a ponta: busca por regra, bloco no cartão, abrir mesmo assim marcado e "possível duplicado" na gestão · AC-1 a AC-8, AC-12, AC-13, AC-20, AC-21
+  - [x] Acompanhar: `ChamadoInteressado`, ação com as conferências e a corrida, vista só de leitura, lateral e deixar de acompanhar · AC-9, AC-10, AC-11, AC-14, AC-15, AC-16
+  - [x] Fim e visibilidade: aviso `interesse:fim` no sino, reaberturas, contagem e nomes para a gestão · AC-17, AC-18, AC-19
+  - [x] Local escondido continua escondido: `localVisivel` gravado no clique e lido na vista e na lateral (revisão de 2026-10-07) · AC-9, AC-14, AC-15
+- [x] Verify it: `/check verify aviso de chamado duplicado`
+- [x] Test it: `/test aviso de chamado duplicado`
 
 ### 21. Entrada por voz · needs a decision
 
@@ -395,6 +403,8 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **IA tira dúvidas sobre o chamado**: responder perguntas como "quando vai ser atendido?" com os dados do chamado · needs a decision
 - **`cache_salt` do vLLM**: proteger o cache de prefixo da GPU se ela passar a ser compartilhada com sistemas de fora do tribunal · from spec 0001
 - **Testes de banco no CI**: decidir se o CI passa a subir um MongoDB de serviço para rodar os testes que dependem de índice e TTL · from spec 0002
+- **Cancelar como duplicado**: na triagem, cancelar o chamado novo como duplicado de outro, gravando o solicitante como interessado do original e avisando, com motivo de cancelamento próprio · from spec 0017
+- **Medir o aviso de duplicado**: depois de algumas semanas, comparar avisos mostrados com acompanhamentos e aberturas mesmo assim, e decidir se a regra precisa do modelo julgando o texto · from spec 0017
 - **Preventiva prevista x realizada**: comparar as preventivas do mês com a `periodicidadePreventivaDias` da categoria no relatório por contrato · from spec 0016
 - **Formulário a um clique pela conversa**: fazer `/meus-chamados` aceitar um parâmetro que já abre o diálogo do formulário, para o link da lateral não exigir um clique a mais · from spec 0003
 - **Unificar as duas entradas**: definir o sinal (por exemplo, percentual de aberturas pelo chat) que encerra a convivência entre `/conversas` e a tabela de `/meus-chamados`, para a decisão não ficar aberta para sempre · from spec 0003

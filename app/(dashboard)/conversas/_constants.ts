@@ -1,5 +1,5 @@
 import type { ConfirmacaoFalha, RevisarFalha } from '@/lib/assistente';
-import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
+import type { AcompanharFalha, ConversaFalha } from '@/shared/conversas/conversa.constants';
 
 /**
  * Todo o texto fixo da tela de conversas (spec 0003). Os exemplos são escritos
@@ -120,6 +120,54 @@ export const CARTAO_ERRO_TIPO = 'Escolha o tipo de serviço';
 export const CARTAO_ERRO_UNIDADE = 'Escolha a unidade';
 export const CARTAO_ERRO_LOCAL = 'Informe o local exato';
 export const CARTAO_ERRO_LOCAL_LONGO = 'O local passa de 200 caracteres';
+
+/** O aviso de chamado duplicado no cartão (spec 0017, AC-7). */
+export const DUPLICADOS_TITULO = 'Parece que já existe um chamado para isso';
+export const DUPLICADOS_DICA =
+  'Se for o mesmo problema, você pode acompanhar o chamado que já existe. Se for outro, é só confirmar abaixo.';
+export const DUPLICADOS_ACOMPANHAR = 'Acompanhar este';
+export const DUPLICADOS_ACOMPANHANDO = 'Abrindo…';
+export const DUPLICADOS_VER = 'Ver chamado';
+export const DUPLICADOS_PROPRIO = 'Você já abriu este chamado';
+export const DUPLICADOS_VER_MEU = 'Ver meu chamado';
+
+/** Uma frase por motivo de falha do "Acompanhar este" (spec 0017, AC-9 e AC-10). */
+export const ACOMPANHAR_FRASES: Record<AcompanharFalha, string> = {
+  nao_encontrada: 'Este rascunho não existe mais. Recarregue a página.',
+  confirmacao_em_andamento:
+    'Este chamado está sendo aberto neste instante, então não deu para acompanhar o outro.',
+  cartao_desatualizado:
+    'Este resumo não vale mais, porque a conversa mudou depois dele. Use o resumo mais recente.',
+  fora_do_cartao: 'Não deu para acompanhar este chamado. Use o resumo mais recente.',
+  chamado_encerrado:
+    'Esse chamado já foi concluído ou encerrado. Se o problema continua, abra o seu.',
+  dados_invalidos: 'Não deu para acompanhar este chamado. Recarregue a página e tente de novo.',
+  erro: 'Não deu para acompanhar agora. Tente de novo em instantes.',
+};
+
+export function fraseDoAcompanhar(motivo: string | null | undefined): string {
+  if (!motivo) return FALHA_REDE;
+  return ACOMPANHAR_FRASES[motivo as AcompanharFalha] ?? FALHA_REDE;
+}
+
+/** A vista de quem acompanha um chamado (spec 0017, AC-14 e AC-16). */
+export const ACOMPANHAMENTO_SELO = 'Você acompanha';
+export const ACOMPANHAMENTO_DICA =
+  'Você vê só o andamento deste chamado e recebe um aviso no sino quando ele terminar.';
+export const ACOMPANHAMENTO_MARCOS = 'Andamento';
+export const ACOMPANHAMENTO_SAIR = 'Deixar de acompanhar';
+export const ACOMPANHAMENTO_SAINDO = 'Saindo…';
+export const ACOMPANHAMENTO_SAIR_FALHA = 'Não deu para deixar de acompanhar agora. Tente de novo.';
+
+/** A seção da lateral com os chamados acompanhados (spec 0017, AC-15). */
+export const LATERAL_ACOMPANHANDO = 'Acompanhando';
+
+/** O técnico atribuído vê só a contagem de interessados (spec 0017, AC-19). */
+export function fraseDosInteressados(total: number): string {
+  return total === 1
+    ? '1 usuário relatou o mesmo problema'
+    : `${total} usuários relataram o mesmo problema`;
+}
 
 /**
  * Uma frase por motivo de falha da confirmação e do `Revisar e abrir`.

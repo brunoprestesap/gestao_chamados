@@ -32,3 +32,15 @@ export { LOCAL_EXATO_MAX } from '@/shared/conversas/conversa.schemas';
 // O teto de candidatos de equipamento (spec 0014, AC-3) também vale no schema
 // do cartão, por isso mora em `shared/`.
 export { ATIVO_CANDIDATOS_MAX } from '@/shared/conversas/conversa.schemas';
+
+/**
+ * Aviso de chamado duplicado (spec 0017). Cada ramo da busca lê no máximo
+ * esta quantidade de chamados, os mais recentes (AC-4).
+ */
+export const DUPLICADOS_LEITURA_MAX = 50;
+
+// O teto de parecidos no cartão também vale no schema, por isso mora em `shared/`.
+export { DUPLICADOS_CARTAO_MAX } from '@/shared/conversas/conversa.schemas';
+
+/** Quantos dias o chamado acompanhado fica na lateral depois do aviso de fim (AC-15). */
+export const ACOMPANHANDO_DIAS_APOS_FIM = 7;

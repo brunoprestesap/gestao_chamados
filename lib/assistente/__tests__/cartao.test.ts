@@ -21,6 +21,11 @@ vi.mock('../ativo-do-cartao', () => ({
   resolverAtivoDoCartao: (...args: unknown[]) => mockResolverAtivo(...args),
 }));
 
+const mockBuscarDuplicados = vi.fn();
+vi.mock('../duplicados', () => ({
+  buscarDuplicados: (...args: unknown[]) => mockBuscarDuplicados(...args),
+}));
+
 const mockLerPerfil = vi.fn();
 vi.mock('../perfil', () => ({
   lerPerfil: (...args: unknown[]) => mockLerPerfil(...args),
@@ -86,6 +91,7 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   mockLerServicoAtivo.mockResolvedValue(SERVICO_ATIVO);
   mockResolverAtivo.mockResolvedValue(null);
+  mockBuscarDuplicados.mockResolvedValue(null);
   mockLerPerfil.mockResolvedValue(PERFIL);
   mockLerProposta.mockResolvedValue({
     ok: true,
@@ -102,6 +108,8 @@ describe('montarCartao', () => {
   it('modo ia: rótulos do banco, unidade do perfil e local, nada faltando', async () => {
     // Act
     const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: false,
       conversaId: CONVERSA_ID,
       proposta: proposta() as never,
       perfil: PERFIL,
@@ -116,6 +124,7 @@ describe('montarCartao', () => {
       localExato: 'Sala 302',
       faltando: [],
       ativo: null,
+      duplicados: null,
     });
     expect(cartaoPayloadSchema.safeParse(montado.payload).success).toBe(true);
   });
@@ -123,6 +132,8 @@ describe('montarCartao', () => {
   it('a frase do cartão usa só os rótulos e avisa da descrição', async () => {
     // Act
     const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: false,
       conversaId: CONVERSA_ID,
       proposta: proposta() as never,
       perfil: PERFIL,
@@ -139,6 +150,8 @@ describe('montarCartao', () => {
   it('sem unidade no perfil, a unidade chega vazia e obrigatória', async () => {
     // Act
     const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: false,
       conversaId: CONVERSA_ID,
       proposta: proposta() as never,
       perfil: { unidade: null },
@@ -152,6 +165,8 @@ describe('montarCartao', () => {
   it('com o relato falando de outro lugar, não traz a unidade do perfil', async () => {
     // Act
     const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: false,
       conversaId: CONVERSA_ID,
       proposta: proposta({ localForaDoPerfil: true }) as never,
       perfil: PERFIL,
@@ -168,6 +183,8 @@ describe('montarCartao', () => {
 
     // Act
     const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: false,
       conversaId: CONVERSA_ID,
       proposta: proposta() as never,
       perfil: PERFIL,
@@ -180,7 +197,13 @@ describe('montarCartao', () => {
 
   it('sem proposta nenhuma, cartão manual pedindo tipo e local', async () => {
     // Act
-    const montado = await montarCartao({ conversaId: CONVERSA_ID, proposta: null, perfil: PERFIL });
+    const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: false,
+      conversaId: CONVERSA_ID,
+      proposta: null,
+      perfil: PERFIL,
+    });
 
     // Assert
     expect(montado.payload).toMatchObject({
@@ -194,6 +217,8 @@ describe('montarCartao', () => {
   it('sem proposta e sem unidade no perfil, falta tipo, unidade e local juntos', async () => {
     // Act
     const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: false,
       conversaId: CONVERSA_ID,
       proposta: null,
       perfil: { unidade: null },
@@ -227,7 +252,13 @@ describe('revisarAbertura', () => {
   it('devolve o mesmo cartão, sem gravar, quando a proposta não mudou desde ele', async () => {
     // Arrange
     const payload = (
-      await montarCartao({ conversaId: CONVERSA_ID, proposta: proposta() as never, perfil: PERFIL })
+      await montarCartao({
+        viewer: VIEWER,
+        buscarDuplicados: false,
+        conversaId: CONVERSA_ID,
+        proposta: proposta() as never,
+        perfil: PERFIL,
+      })
     ).payload;
     mockLerProposta.mockResolvedValue({
       ok: true,
@@ -313,5 +344,102 @@ describe('revisarAbertura', () => {
 
     // Act & Assert
     expect(await revisarAbertura(VIEWER, CONVERSA_ID)).toEqual({ ok: false, reason: 'erro' });
+  });
+});
+
+// ── chamados parecidos · spec 0017, AC-5a, AC-6 ──────────────────
+
+describe('montarCartao · chamados parecidos (spec 0017)', () => {
+  const PARECIDO = {
+    chamadoId: '6aad5286df6f201a25edf001',
+    ticketNumber: 'CHM-2026-00001',
+    rotuloServico: 'Troca de lâmpada',
+    localExato: 'Sala 302',
+    ativoCodigo: null,
+    status: 'aberto',
+    abertoEm: '2026-10-07T12:00:00.000Z',
+    proprio: false,
+    jaTemAcesso: false,
+  };
+
+  it('com o sinal ligado, procura depois do ativo, com quem relata e o cartão montado', async () => {
+    // Arrange
+    const ativo = {
+      origem: 'codigo',
+      candidatos: [
+        { ativoId: '6aad5286df6f201a25ede001', codigo: '11997', descricao: 'Split', caminho: null },
+      ],
+    };
+    mockResolverAtivo.mockResolvedValue(ativo);
+    mockBuscarDuplicados.mockResolvedValue([PARECIDO]);
+
+    // Act
+    const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: true,
+      conversaId: CONVERSA_ID,
+      proposta: proposta() as never,
+      perfil: PERFIL,
+    });
+
+    // Assert
+    expect(mockBuscarDuplicados).toHaveBeenCalledWith({
+      conversaId: CONVERSA_ID,
+      viewer: VIEWER,
+      cartao: {
+        modo: 'ia',
+        servico: SERVICO_ATIVO,
+        unidade: { unitId: UNIDADE_ID, rotulo: 'Fórum Central', andar: '3º andar' },
+        localExato: 'Sala 302',
+        ativo,
+      },
+    });
+    expect(mockResolverAtivo.mock.invocationCallOrder[0]).toBeLessThan(
+      mockBuscarDuplicados.mock.invocationCallOrder[0],
+    );
+    expect(montado.payload.duplicados).toEqual([PARECIDO]);
+    expect(cartaoPayloadSchema.safeParse(montado.payload).success).toBe(true);
+  });
+
+  it('com o sinal desligado, não procura e grava `duplicados: null` (AC-5a)', async () => {
+    const montado = await montarCartao({
+      viewer: VIEWER,
+      buscarDuplicados: false,
+      conversaId: CONVERSA_ID,
+      proposta: proposta() as never,
+      perfil: PERFIL,
+    });
+    expect(mockBuscarDuplicados).not.toHaveBeenCalled();
+    expect(montado.payload).toHaveProperty('duplicados', null);
+  });
+
+  it('`Revisar e abrir` sempre procura os parecidos', async () => {
+    mockBuscarDuplicados.mockResolvedValue([PARECIDO]);
+    const r = await revisarAbertura(VIEWER, CONVERSA_ID);
+    expect(mockBuscarDuplicados).toHaveBeenCalled();
+    expect(r).toMatchObject({ ok: true, cartao: { duplicados: [PARECIDO] } });
+  });
+
+  it('o schema do cartão recusa item com campo a mais, como o nome de quem abriu (AC-6)', () => {
+    const payload = {
+      modo: 'manual',
+      servico: null,
+      unidade: null,
+      localExato: null,
+      faltando: [],
+      duplicados: [{ ...PARECIDO, solicitanteNome: 'Fulano' }],
+    };
+    expect(cartaoPayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it('o schema aceita cartão antigo sem o campo e recusa mais de três parecidos (AC-6)', () => {
+    const base = { modo: 'manual', servico: null, unidade: null, localExato: null, faltando: [] };
+    expect(cartaoPayloadSchema.safeParse(base).success).toBe(true);
+    const quatro = [1, 2, 3, 4].map((n) => ({
+      ...PARECIDO,
+      chamadoId: `6aad5286df6f201a25edf00${n}`,
+    }));
+    expect(cartaoPayloadSchema.safeParse({ ...base, duplicados: quatro }).success).toBe(false);
+    expect(cartaoPayloadSchema.safeParse({ ...base, duplicados: [] }).success).toBe(false);
   });
 });

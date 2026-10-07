@@ -178,6 +178,13 @@ export type ChamadoDTO = {
   /** O chamado encerrado cujo problema voltou (spec 0010, AC-12). */
   chamadoAnteriorId?: string | null;
   chamadoAnteriorNumero?: string | null;
+  /**
+   * Os parecidos que a pessoa viu e ignorou ao abrir pelo chat (spec 0017,
+   * AC-13). Vem só da lista da gestão.
+   */
+  avisoDuplicado?: { chamadoId: string; ticketNumber: string }[] | null;
+  /** Interessados ativos, total e nomes (spec 0017, AC-19). Vem só da lista da gestão. */
+  interessados?: { total: number; nomes: string[] };
 };
 
 type Props = {

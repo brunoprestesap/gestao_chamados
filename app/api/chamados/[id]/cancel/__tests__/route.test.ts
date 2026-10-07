@@ -1,6 +1,13 @@
 import { Types } from 'mongoose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Spec 0017: os interessados ficam fora deste teste.
+vi.mock('@/lib/chamados/interessados', () => ({
+  notificarFimAosInteressados: vi.fn().mockResolvedValue(undefined),
+  zerarAvisoDeFim: vi.fn().mockResolvedValue(undefined),
+  interessadosDosChamados: vi.fn().mockResolvedValue(new Map()),
+}));
+
 // ── Mocks ──────────────────────────────────────────────────��─────
 
 const mockVerifySession = vi.fn();
@@ -11,11 +18,11 @@ vi.mock('@/lib/dal', () => ({
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 
 const mockFindById = vi.fn();
-const mockFindByIdAndUpdate = vi.fn();
+const mockUpdateOne = vi.fn();
 vi.mock('@/models/Chamado', () => ({
   ChamadoModel: {
     findById: (...args: unknown[]) => mockFindById(...args),
-    findByIdAndUpdate: (...args: unknown[]) => mockFindByIdAndUpdate(...args),
+    updateOne: (...args: unknown[]) => mockUpdateOne(...args),
   },
 }));
 
@@ -25,6 +32,7 @@ vi.mock('@/models/ChamadoHistory', () => ({
 }));
 
 import { POST } from '@/app/api/chamados/[id]/cancel/route';
+import { notificarFimAosInteressados } from '@/lib/chamados/interessados';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -51,7 +59,7 @@ async function parseJson(response: Response) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockHistoryCreate.mockResolvedValue({});
-  mockFindByIdAndUpdate.mockResolvedValue({});
+  mockUpdateOne.mockResolvedValue({ matchedCount: 1 });
 });
 
 // ── Tests ────────────────────────────────────────────────────────
@@ -148,10 +156,9 @@ describe('POST /api/chamados/[id]/cancel', () => {
     const body = await parseJson(res);
     expect(body).toEqual({ ok: true });
 
-    expect(mockFindByIdAndUpdate).toHaveBeenCalledWith(
-      CHAMADO_ID,
-      { status: 'cancelado' },
-      { new: true },
+    expect(mockUpdateOne).toHaveBeenCalledWith(
+      { _id: CHAMADO_ID, status: 'aberto' },
+      { $set: { status: 'cancelado' } },
     );
 
     expect(mockHistoryCreate).toHaveBeenCalledOnce();
@@ -160,6 +167,41 @@ describe('POST /api/chamados/[id]/cancel', () => {
     expect(historyArg.statusAnterior).toBe('aberto');
     expect(historyArg.statusNovo).toBe('cancelado');
     expect(historyArg.observacoes).toBe('Não preciso mais');
+  });
+
+  it('avisa os interessados do cancelamento depois de gravar (spec 0017, AC-17)', async () => {
+    mockVerifySession.mockResolvedValue(SESSION);
+    mockFindById.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          _id: CHAMADO_ID,
+          solicitanteId: new Types.ObjectId(USER_ID),
+          status: 'aberto',
+        }),
+    });
+
+    await POST(makeRequest({}), makeParams());
+
+    expect(vi.mocked(notificarFimAosInteressados)).toHaveBeenCalledWith(CHAMADO_ID, 'cancelado');
+    expect(mockUpdateOne.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(notificarFimAosInteressados).mock.invocationCallOrder[0],
+    );
+  });
+
+  it('cancelamento recusado (já cancelado) não avisa ninguém (spec 0017, AC-17)', async () => {
+    mockVerifySession.mockResolvedValue(SESSION);
+    mockFindById.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          _id: CHAMADO_ID,
+          solicitanteId: new Types.ObjectId(USER_ID),
+          status: 'cancelado',
+        }),
+    });
+
+    await POST(makeRequest({}), makeParams());
+
+    expect(vi.mocked(notificarFimAosInteressados)).not.toHaveBeenCalled();
   });
 
   it('usa mensagem padrão quando observacoes vazia', async () => {
@@ -193,11 +235,32 @@ describe('POST /api/chamados/[id]/cancel', () => {
             status,
           }),
       });
-      mockFindByIdAndUpdate.mockResolvedValue({});
+      mockUpdateOne.mockResolvedValue({ matchedCount: 1 });
       mockHistoryCreate.mockResolvedValue({});
 
       const res = await POST(makeRequest(), makeParams());
       expect(res.status).toBe(200);
     }
+  });
+});
+
+describe('POST /api/chamados/[id]/cancel · corrida com outra mudança de status', () => {
+  it('chamado que mudou depois da leitura responde 409, sem histórico nem aviso', async () => {
+    mockVerifySession.mockResolvedValue(SESSION);
+    mockFindById.mockReturnValue({
+      lean: () =>
+        Promise.resolve({
+          _id: CHAMADO_ID,
+          solicitanteId: new Types.ObjectId(USER_ID),
+          status: 'aberto',
+        }),
+    });
+    mockUpdateOne.mockResolvedValue({ matchedCount: 0 });
+
+    const res = await POST(makeRequest({}), makeParams());
+
+    expect(res.status).toBe(409);
+    expect(mockHistoryCreate).not.toHaveBeenCalled();
+    expect(vi.mocked(notificarFimAosInteressados)).not.toHaveBeenCalled();
   });
 });
