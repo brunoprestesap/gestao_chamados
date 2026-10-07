@@ -3,9 +3,14 @@ import '@testing-library/jest-dom/vitest';
 
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { IndicadoresAtivos, IndicadoresDoFiltro } from '@/lib/ativos/indicadores';
+import type { LinhaCandidato, SituacoesSubstituicao } from '@/lib/ativos/substituicao';
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('../../../../ativos/actions', () => ({ dispensarSubstituicaoAction: vi.fn() }));
 
 import { ImrAtivos } from '../imr-ativos';
 
@@ -173,5 +178,84 @@ describe('ImrAtivos', () => {
     ]);
     await user.tab();
     expect(botoes[0]).toHaveFocus();
+  });
+});
+
+/**
+ * A seção de candidatos à substituição (spec 0015): segue o seletor de tipo,
+ * mostra os motivos e a contagem de dispensados do mesmo recorte, e uma falha
+ * fica só na seção.
+ *
+ * covers: AC-8
+ */
+describe('ImrAtivos: candidatos à substituição', () => {
+  const linha = (extra: Partial<LinhaCandidato>): LinhaCandidato => ({
+    ativoId: '507f1f77bcf86cd799439011',
+    codigo: '11997',
+    descricao: 'Split 12k',
+    categoria: 'Climatização',
+    caminho: 'Sede/Sala 302',
+    tipoServico: 'Ar-Condicionado',
+    motivos: [{ criterio: 'idade', anos: 14, vidaUtilAnos: 10 }],
+    corretivos12m: 0,
+    ...extra,
+  });
+  const sub: SituacoesSubstituicao = {
+    candidatos: [
+      linha({
+        motivos: [
+          { criterio: 'idade', anos: 14, vidaUtilAnos: 10 },
+          { criterio: 'corretivos', quantidade: 5, limite: 4 },
+        ],
+        corretivos12m: 5,
+      }),
+      linha({
+        ativoId: '507f1f77bcf86cd799439012',
+        codigo: 'MNT-0001',
+        categoria: 'Copa',
+        caminho: null,
+        tipoServico: null,
+        motivos: [{ criterio: 'reincidencia', quantidade: 3, limite: 3 }],
+      }),
+    ],
+    dispensados: [linha({ ativoId: '507f1f77bcf86cd799439013', codigo: '9003' })],
+  };
+
+  it('Todos mostra todos os candidatos com os motivos e o link de dispensados', () => {
+    render(<ImrAtivos ativos={null} substituicao={sub} />);
+    expect(screen.getByText('14 anos, vida útil 10')).toBeInTheDocument();
+    expect(screen.getByText('5 corretivos em 12 meses, limite 4')).toBeInTheDocument();
+    expect(screen.getByText('3 em 90 dias, limite 3')).toBeInTheDocument();
+    expect(screen.getByText('Sem local')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '11997' })).toHaveAttribute(
+      'href',
+      '/ativos/507f1f77bcf86cd799439011',
+    );
+    expect(screen.getByRole('button', { name: 'Dispensar 11997' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '1 dispensado' })).toHaveAttribute(
+      'href',
+      '/ativos?substituicao=dispensados',
+    );
+  });
+
+  it('o tipo filtra os candidatos; categoria sem subtipo fica só em Todos', async () => {
+    const user = userEvent.setup();
+    render(<ImrAtivos ativos={null} substituicao={sub} />);
+    await user.click(screen.getByRole('button', { name: 'Ar-Condicionado' }));
+    expect(screen.getByRole('link', { name: '11997' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'MNT-0001' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Elevador' }));
+    expect(
+      screen.getByText('Nenhum equipamento sinalizado para substituição.'),
+    ).toBeInTheDocument();
+    // Nenhum dispensado de elevador: a linha some.
+    expect(screen.queryByText(/dispensado/)).not.toBeInTheDocument();
+  });
+
+  it('falha na leitura dos candidatos fica só na seção', () => {
+    render(<ImrAtivos ativos={dados} substituicao={null} />);
+    expect(screen.getByText('Não foi possível calcular os candidatos agora.')).toBeInTheDocument();
+    expect(screen.getByText('Equipamentos com mais corretivos')).toBeInTheDocument();
   });
 });

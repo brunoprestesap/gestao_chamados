@@ -18,6 +18,8 @@ export type DadosCategoria = {
   periodicidadePreventivaDias?: number;
   exigeDocumento: string[];
   vidaUtilAnos?: number;
+  limiteCorretivos12m?: number;
+  limiteReincidencia90d?: number;
   serviceSubTypeId?: string;
 };
 
@@ -50,6 +52,9 @@ function camposEditaveis(d: DadosCategoria) {
     periodicidadePreventivaDias: d.periodicidadePreventivaDias ?? null,
     exigeDocumento: d.exigeDocumento,
     vidaUtilAnos: d.vidaUtilAnos ?? null,
+    // Vazio grava `null`, inclusive ao limpar: a regra usa o padrão (spec 0015, AC-6).
+    limiteCorretivos12m: d.limiteCorretivos12m ?? null,
+    limiteReincidencia90d: d.limiteReincidencia90d ?? null,
     serviceSubTypeId: d.serviceSubTypeId ? new Types.ObjectId(d.serviceSubTypeId) : null,
   };
 }

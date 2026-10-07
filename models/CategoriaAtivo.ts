@@ -1,6 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
 import { COLECOES_ATIVOS, CRITICIDADES } from '@/shared/ativos/ativo.constants';
+import { LIMITE_CATEGORIA_MAX, LIMITE_CATEGORIA_MIN } from '@/shared/ativos/substituicao.constants';
 
 /** Categoria de ativo (spec 0011). Só o Admin escreve. */
 const CategoriaAtivoSchema = new Schema(
@@ -13,6 +14,19 @@ const CategoriaAtivoSchema = new Schema(
     periodicidadePreventivaDias: { type: Number, default: null, min: 1 },
     exigeDocumento: { type: [String], default: [] },
     vidaUtilAnos: { type: Number, default: null, min: 1 },
+    // Candidatos à substituição (spec 0015, AC-6): `null` usa o padrão do sistema.
+    limiteCorretivos12m: {
+      type: Number,
+      default: null,
+      min: LIMITE_CATEGORIA_MIN,
+      max: LIMITE_CATEGORIA_MAX,
+    },
+    limiteReincidencia90d: {
+      type: Number,
+      default: null,
+      min: LIMITE_CATEGORIA_MIN,
+      max: LIMITE_CATEGORIA_MAX,
+    },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true },

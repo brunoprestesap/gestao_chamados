@@ -16,6 +16,11 @@ export const ITENS_POR_PAGINA = 50;
 
 const ORDEM_CODIGO = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' });
 
+/** A ordem numérica do código (9003 antes de 10698), a mesma da lista e dos candidatos. */
+export function compararCodigo(a: string, b: string): number {
+  return ORDEM_CODIGO.compare(a, b);
+}
+
 export type LinhaAtivo = {
   id: string;
   codigo: string;
@@ -38,8 +43,15 @@ export type PaginaAtivos = {
  * prefixo do código ou trecho da descrição; o filtro de local é um prédio
  * (com tudo abaixo dele) ou "sem local". Ordem por código, 50 por página.
  */
-export async function listarAtivos(f: FiltrosListaAtivos): Promise<PaginaAtivos> {
+export async function listarAtivos(
+  f: FiltrosListaAtivos & {
+    /** Recorte por ids (o filtro "Substituição", spec 0015, AC-9); se combina com o resto. */
+    ids?: string[];
+  },
+): Promise<PaginaAtivos> {
   const filtro: Record<string, unknown> = {};
+
+  if (f.ids) filtro._id = { $in: f.ids.map((id) => new Types.ObjectId(id)) };
 
   if (f.q) {
     const codigo = escapeRegex(normalizarCodigo(f.q));
@@ -63,7 +75,7 @@ export async function listarAtivos(f: FiltrosListaAtivos): Promise<PaginaAtivos>
   const chaves = await AtivoModel.find(filtro)
     .select('codigo')
     .lean<{ _id: Types.ObjectId; codigo: string }[]>();
-  chaves.sort((a, b) => ORDEM_CODIGO.compare(a.codigo, b.codigo));
+  chaves.sort((a, b) => compararCodigo(a.codigo, b.codigo));
 
   const total = chaves.length;
   const totalPaginas = Math.max(1, Math.ceil(total / ITENS_POR_PAGINA));

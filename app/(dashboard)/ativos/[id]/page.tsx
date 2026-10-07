@@ -43,6 +43,7 @@ import {
   StatusAtivoBadge,
   StatusCadastroBadge,
 } from '../_components/ativo-badges';
+import { SubstituicaoAtivo } from '../_components/SubstituicaoAtivo';
 import { SecaoDocumentosAtivo } from '../documentos/_components/SecaoDocumentosAtivo';
 
 const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -178,6 +179,10 @@ export default async function FichaAtivoPage({ params }: { params: Promise<{ id:
           />
         )}
       </header>
+
+      {ficha.substituicao !== undefined && (
+        <SubstituicaoAtivo ativoId={ficha.id} codigo={ficha.codigo} situacao={ficha.substituicao} />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <CardSecao titulo="Dados técnicos" icone={Wrench} className="lg:col-span-2">

@@ -177,6 +177,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **Tempo médio de atendimento**: `sla.resolvedAt − createdAt − tempo pausado` (não usa `closedAt`; desconta pausas de "aguardando solicitante/terceiros")
 - UI com abas (shadcn/ui Tabs): **Resumo Geral** | **Manutenção Predial** | **Ar-Condicionado**
 - Aba **Ativos** (spec 0014): MTBF, MTTR, reincidência e ranking por `lib/ativos/indicadores.ts`, numa consulta própria fora do `$facet` e só informativos; o MTTR reaproveita `tempoDeReparoMs` de `imr-service.ts`
+- Seção **Candidatos à substituição** na aba Ativos (spec 0015): sempre até hoje, sem depender do período, por `listarSituacoesSubstituicao` (`lib/ativos/substituicao.ts`); também só informativa
 - Componentes de seção reutilizáveis em `app/(dashboard)/relatorios/imr/_components/imr-sections.tsx`
 - Componente de abas (client) em `app/(dashboard)/relatorios/imr/_components/imr-tipo-servico-tabs.tsx`
 - Tipos públicos exportados: `ImrResult`, `ImrResumoGeral`, `ImrResultPorTipo`, `ImrSlaCumprimento`, `ImrSlaPorPrioridade`, `ImrAvaliacao`, `ImrPenalidade`
@@ -209,6 +210,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Toda troca de ativo num chamado aberto gera `ChamadoHistory` `vinculo_ativo`; só a gestão vincula (`vincularAtivoChamadoAction`)
 - Desde a spec 0014, o cartão do chat sugere o ativo (código digitado ou regra por categoria, unidade e local, sem modelo e sem portão de confiança), e a decisão `ativo` em `DecisaoIa` fica fora da IA: não muda `iaSituacao` nem entra na revisão. A ficha mostra corretivos, MTBF e MTTR para Admin, Preposto e Técnico; regras em `lib/assistente/AGENTS.md` e `lib/ativos/AGENTS.md`
 - Desde a spec 0012, o Admin importa o CSV do SICAM com revisão de novos, alterados e sumidos (`/ativos/importar`, `lib/ativos/importacao/`), e a vistoria em campo (`/ativos/vistoria`, `lib/vistoria/`) funciona sem sinal: o celular baixa um pacote (`/api/vistoria/pacote`), guarda as conferências numa fila por usuário no IndexedDB (`lib/vistoria-offline/`, pacote `idb`) e sobe por `/api/vistoria/sincronizar`. Modelos `CampanhaVistoria`, `ConferenciaVistoria` e `ImportacaoPatrimonial`
+- Desde a spec 0015, o Sigma aponta os candidatos à substituição (vida útil da categoria, corretivos em 12 meses e reincidência em 90 dias, com limites por categoria) na ficha, no IMR e no filtro "Substituição" de `/ativos`, só para Admin e Preposto. A gestão dispensa por 6 meses com motivo, em `Ativo.dispensaSubstituicao`; nada é gravado como "candidato" e nada muda no ativo nem nos chamados. Regras em `lib/ativos/AGENTS.md`
 - Desde a spec 0013, ativo e local têm documentos (`/ativos/documentos`, `/configuracoes/tipos-documento`), com aviso diário de vencimento pelo cron; `CategoriaAtivo.exigeDocumento` guarda chaves de `TipoDocumento` e alimenta a aba Faltando
 
 ### Validação
@@ -320,6 +322,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Vistoria e importador SICAM      | `lib/vistoria/`, `lib/vistoria-offline/`, `app/(dashboard)/ativos/vistoria/`, `app/api/vistoria/`, `lib/ativos/importacao/`, `app/(dashboard)/ativos/importar/`, `app/api/ativos/importacoes/`, `docs/specs/0012-importador-sicam-vistoria/`                                                                        |
 | Atribuição automática ao técnico | `lib/chamados/atribuicao-automatica.ts` (`tentarAtribuicaoAutomatica`), `lib/chamados/atribuicao-criterio.ts`, `lib/chamados/notificar-atribuicao.ts`, `shared/chamados/aviso-atribuicao.ts`, `docs/specs/0008-atribuicao-automatica-tecnico/`                                                                      |
 | Documentos do ativo              | `lib/ativos/documentos/` (gravar, situação, painel, job), `app/api/ativos/documentos/` (upload e download), `app/(dashboard)/ativos/documentos/`, `app/(dashboard)/configuracoes/tipos-documento/`, `app/api/cron/documentos-vencimento/`, `docs/specs/0013-documentos-preventiva-ativo/`                           |
+| Candidatos à substituição        | `lib/ativos/substituicao.ts` (regra, lote e dispensa), `shared/ativos/substituicao.constants.ts` (limites e textos), `app/(dashboard)/ativos/_components/SubstituicaoAtivo.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`, `docs/specs/0015-candidatos-substituicao/`                            |
 | Preventiva por categoria         | `lib/chamados/preventiva-categoria.ts` (`gerarLotePreventiva`), `lib/recurring-job.ts`, `app/(dashboard)/gestao/recurring/`, `docs/specs/0013-documentos-preventiva-ativo/`                                                                                                                                         |
 
 ## CI/CD

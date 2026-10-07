@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import {
   ATIVO_STATUS_LABELS,
   ATIVO_STATUSES,
@@ -26,9 +27,12 @@ const TODOS = '__todos__';
 export function FiltrosAtivos({
   predios,
   categorias,
+  gestao = false,
 }: {
   predios: { id: string; nome: string }[];
   categorias: { id: string; nome: string }[];
+  /** Admin e Preposto veem o filtro "Substituição" (spec 0015, AC-9). */
+  gestao?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -53,7 +57,9 @@ export function FiltrosAtivos({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const temFiltro = ['q', 'local', 'categoria', 'status', 'cadastro'].some((k) => params.get(k));
+  const temFiltro = ['q', 'local', 'categoria', 'status', 'cadastro', 'substituicao'].some((k) =>
+    params.get(k),
+  );
 
   const seletor = (chave: string, rotulo: string, opcoes: { valor: string; rotulo: string }[]) => (
     <Select
@@ -75,7 +81,12 @@ export function FiltrosAtivos({
   );
 
   return (
-    <div className="grid gap-3 rounded-2xl border border-border/50 bg-card p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
+    <div
+      className={cn(
+        'grid gap-3 rounded-2xl border border-border/50 bg-card p-4 shadow-sm sm:grid-cols-2',
+        gestao ? 'lg:grid-cols-4 xl:grid-cols-7' : 'lg:grid-cols-6',
+      )}
+    >
       <div className="relative sm:col-span-2">
         <Search
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -104,6 +115,11 @@ export function FiltrosAtivos({
         'Status',
         ATIVO_STATUSES.map((s) => ({ valor: s, rotulo: ATIVO_STATUS_LABELS[s] })),
       )}
+      {gestao &&
+        seletor('substituicao', 'Substituição', [
+          { valor: 'candidatos', rotulo: 'Candidatos à substituição' },
+          { valor: 'dispensados', rotulo: 'Candidatos dispensados' },
+        ])}
       <div className="flex gap-2">
         <div className="min-w-0 flex-1">
           {seletor(

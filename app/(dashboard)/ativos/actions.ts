@@ -9,6 +9,7 @@ import {
   desativarLocalizacao,
   editarLocalizacao,
 } from '@/lib/ativos/localizacao';
+import { desfazerDispensaSubstituicao, dispensarSubstituicao } from '@/lib/ativos/substituicao';
 import { canManage, verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { ERRO_SEM_PERMISSAO } from '@/shared/ativos/ativo.constants';
@@ -25,6 +26,12 @@ import {
   EditarLocalizacaoSchema,
   IdSchema,
 } from '@/shared/ativos/ativo.schemas';
+import {
+  type DesfazerDispensaSubstituicaoInput,
+  DesfazerDispensaSubstituicaoSchema,
+  type DispensarSubstituicaoInput,
+  DispensarSubstituicaoSchema,
+} from '@/shared/ativos/substituicao.schemas';
 
 /**
  * Escrita de ativo e de localização (spec 0011): só Admin e Preposto. Usa
@@ -166,6 +173,51 @@ export async function validarAtivoAction(raw: { id: string }): Promise<Resultado
     await dbConnect();
     const r = await validarAtivo(parsed.data.id, sessao.userId);
     if (r.ok) revalidarAtivo(parsed.data.id);
+    return r;
+  });
+}
+
+// ── Substituição (spec 0015) ────────────────────────────────────────────────
+
+/** A ficha, a lista e o IMR mostram a situação de substituição (AC-11). */
+function revalidarSubstituicao(id: string) {
+  revalidarAtivo(id);
+  revalidatePath('/relatorios/imr');
+}
+
+/**
+ * Dispensa um candidato por 6 meses. A regra é do papel (`canManage`), não da
+ * tela: o Preposto que chama pelo IMR passa (AC-17).
+ */
+export async function dispensarSubstituicaoAction(
+  raw: DispensarSubstituicaoInput,
+): Promise<Resultado> {
+  const sessao = await sessaoGestao();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const parsed = DispensarSubstituicaoSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: primeiroErro(parsed.error.issues) };
+
+  return executar('dispensar substituição', async () => {
+    await dbConnect();
+    const r = await dispensarSubstituicao({ ...parsed.data, userId: sessao.userId });
+    revalidarSubstituicao(parsed.data.ativoId);
+    return r;
+  });
+}
+
+/** Voltar a sinalizar: desfaz a dispensa vigente (AC-15). */
+export async function desfazerDispensaSubstituicaoAction(
+  raw: DesfazerDispensaSubstituicaoInput,
+): Promise<Resultado> {
+  const sessao = await sessaoGestao();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const parsed = DesfazerDispensaSubstituicaoSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: primeiroErro(parsed.error.issues) };
+
+  return executar('desfazer dispensa de substituição', async () => {
+    await dbConnect();
+    const r = await desfazerDispensaSubstituicao({ ...parsed.data, userId: sessao.userId });
+    revalidarSubstituicao(parsed.data.ativoId);
     return r;
   });
 }

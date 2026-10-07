@@ -7,6 +7,12 @@ import {
   ORIGENS_CODIGO,
   TIERS_MANUTENCAO,
 } from './ativo.constants';
+import {
+  ERRO_LIMITE_CORRETIVOS,
+  ERRO_LIMITE_REINCIDENCIA,
+  LIMITE_CATEGORIA_MAX,
+  LIMITE_CATEGORIA_MIN,
+} from './substituicao.constants';
 
 const objectId = (mensagem: string) => z.string().regex(/^[a-f\d]{24}$/i, mensagem);
 
@@ -35,6 +41,27 @@ const dataOpcional = z
 const numeroOpcional = (min: number, mensagem: string) =>
   z
     .union([z.literal(''), z.coerce.number().int(mensagem).min(min, mensagem)])
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v));
+
+/**
+ * Limite da categoria para os candidatos à substituição (spec 0015, AC-6):
+ * inteiro de 1 a 99; vazio vira ausente e a regra grava `null` (nunca 0).
+ */
+const limiteOpcional = (mensagem: string) =>
+  z
+    .union(
+      [
+        z.literal(''),
+        z.coerce
+          .number({ error: mensagem })
+          .int(mensagem)
+          .min(LIMITE_CATEGORIA_MIN, mensagem)
+          .max(LIMITE_CATEGORIA_MAX, mensagem),
+      ],
+      { error: mensagem },
+    )
     .optional()
     .nullable()
     .transform((v) => (v === '' || v === null || v === undefined ? undefined : v));
@@ -85,6 +112,8 @@ export const CategoriaAtivoFormSchema = z.object({
     .optional()
     .transform((v) => [...new Set((v ?? []).map((d) => d.trim()).filter(Boolean))]),
   vidaUtilAnos: numeroOpcional(1, 'Vida útil inválida.'),
+  limiteCorretivos12m: limiteOpcional(ERRO_LIMITE_CORRETIVOS),
+  limiteReincidencia90d: limiteOpcional(ERRO_LIMITE_REINCIDENCIA),
   serviceSubTypeId: idOpcional('Subtipo inválido.'),
 });
 export type CategoriaAtivoFormInput = z.input<typeof CategoriaAtivoFormSchema>;
@@ -186,6 +215,12 @@ export const FiltrosListaAtivosSchema = z.object({
     .transform((v) => v || undefined),
   cadastro: z
     .union([z.enum(['importado', 'em_vistoria', 'validado']), z.literal('')])
+    .optional()
+    .catch(undefined)
+    .transform((v) => v || undefined),
+  // Candidatos à substituição (spec 0015, AC-9): só a gestão; a página ignora para os demais.
+  substituicao: z
+    .union([z.enum(['candidatos', 'dispensados']), z.literal('')])
     .optional()
     .catch(undefined)
     .transform((v) => v || undefined),

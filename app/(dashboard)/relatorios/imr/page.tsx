@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { calcularIndicadoresAtivos, type IndicadoresAtivos } from '@/lib/ativos/indicadores';
+import { listarSituacoesSubstituicao, type SituacoesSubstituicao } from '@/lib/ativos/substituicao';
 import { requireAdmin } from '@/lib/dal';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { computeImrReport, endOfDay, startOfDay } from '@/lib/imr-service';
@@ -51,7 +52,7 @@ export default async function ImrPage({ searchParams }: PageProps) {
   const { dataInicial, dataFinal } = parseDateRange(params.dataInicial, params.dataFinal);
 
   const fim = endOfDay(dataFinal);
-  const [result, ativos] = await Promise.all([
+  const [result, ativos, substituicao] = await Promise.all([
     computeImrReport({ dataInicial, dataFinal }),
     // Os indicadores de equipamento (spec 0014) são só informativos: uma falha
     // aqui mostra o aviso na aba Ativos e nunca derruba o relatório.
@@ -64,6 +65,18 @@ export default async function ImrPage({ searchParams }: PageProps) {
         '[imr]',
         JSON.stringify({
           operacao: 'calcularIndicadoresAtivos',
+          error: err instanceof Error ? err.message : 'unknown',
+        }),
+      );
+      return null;
+    }),
+    // Candidatos à substituição (spec 0015, AC-7 e AC-8): sempre até hoje, sem
+    // depender do período escolhido, e com a mesma falha isolada.
+    listarSituacoesSubstituicao().catch((err: unknown): SituacoesSubstituicao | null => {
+      console.error(
+        '[imr]',
+        JSON.stringify({
+          operacao: 'listarSituacoesSubstituicao',
           error: err instanceof Error ? err.message : 'unknown',
         }),
       );
@@ -131,6 +144,7 @@ export default async function ImrPage({ searchParams }: PageProps) {
         resumoGeral={result.resumoGeral}
         porTipoServico={result.porTipoServico}
         ativos={ativos}
+        substituicao={substituicao}
       />
     </div>
   );

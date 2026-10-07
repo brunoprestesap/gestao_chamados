@@ -38,6 +38,12 @@ import {
   CRITICIDADE_LABELS,
   CRITICIDADES,
 } from '@/shared/ativos/ativo.constants';
+import {
+  LIMITE_CATEGORIA_MAX,
+  LIMITE_CATEGORIA_MIN,
+  LIMITE_CORRETIVOS_12M_PADRAO,
+  LIMITE_REINCIDENCIA_90D_PADRAO,
+} from '@/shared/ativos/substituicao.constants';
 
 import {
   criarCategoriaAtivoAction,
@@ -53,6 +59,8 @@ export type CategoriaLinha = {
   periodicidadePreventivaDias: number | null;
   exigeDocumento: string[];
   vidaUtilAnos: number | null;
+  limiteCorretivos12m: number | null;
+  limiteReincidencia90d: number | null;
   serviceSubTypeId: string | null;
   isActive: boolean;
   totalAtivos: number;
@@ -72,6 +80,8 @@ type Rascunho = {
   periodicidade: string;
   documentos: string[];
   vidaUtil: string;
+  limiteCorretivos: string;
+  limiteReincidencia: string;
   subtipo: string;
 };
 
@@ -82,6 +92,8 @@ const VAZIO: Rascunho = {
   periodicidade: '',
   documentos: [],
   vidaUtil: '',
+  limiteCorretivos: '',
+  limiteReincidencia: '',
   subtipo: '',
 };
 
@@ -130,6 +142,8 @@ export function GerirCategorias({
               : '',
             documentos: [...c.exigeDocumento],
             vidaUtil: c.vidaUtilAnos ? String(c.vidaUtilAnos) : '',
+            limiteCorretivos: c.limiteCorretivos12m ? String(c.limiteCorretivos12m) : '',
+            limiteReincidencia: c.limiteReincidencia90d ? String(c.limiteReincidencia90d) : '',
             subtipo: c.serviceSubTypeId ?? '',
           },
     );
@@ -145,6 +159,8 @@ export function GerirCategorias({
       periodicidadePreventivaDias: r.periodicidade,
       exigeDocumento: r.documentos,
       vidaUtilAnos: r.vidaUtil,
+      limiteCorretivos12m: r.limiteCorretivos,
+      limiteReincidencia90d: r.limiteReincidencia,
       serviceSubTypeId: r.subtipo,
     };
     iniciar(async () => {
@@ -211,6 +227,7 @@ export function GerirCategorias({
                   <TableHead>Criticidade padrão</TableHead>
                   <TableHead>Preventiva</TableHead>
                   <TableHead>Documentos</TableHead>
+                  <TableHead>Substituição</TableHead>
                   <TableHead>Subtipo de serviço</TableHead>
                   <TableHead className="text-right">Ativos</TableHead>
                   <TableHead className="w-24">
@@ -237,6 +254,9 @@ export function GerirCategorias({
                       ) : (
                         '—'
                       )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      <LimitesSubstituicao categoria={c} />
                     </TableCell>
                     <TableCell>
                       {c.serviceSubTypeId ? (rotuloSubtipo.get(c.serviceSubTypeId) ?? '—') : '—'}
@@ -372,6 +392,38 @@ export function GerirCategorias({
                 onChange={(e) => set('vidaUtil', e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="cat-lim-corr">Corretivos em 12 meses para sinalizar</Label>
+              <Input
+                id="cat-lim-corr"
+                type="number"
+                min={LIMITE_CATEGORIA_MIN}
+                max={LIMITE_CATEGORIA_MAX}
+                value={r.limiteCorretivos}
+                onChange={(e) => set('limiteCorretivos', e.target.value)}
+                placeholder={`padrão: ${LIMITE_CORRETIVOS_12M_PADRAO}`}
+                aria-describedby="cat-lim-ajuda"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cat-lim-reinc">Corretivos em 90 dias para sinalizar</Label>
+              <Input
+                id="cat-lim-reinc"
+                type="number"
+                min={LIMITE_CATEGORIA_MIN}
+                max={LIMITE_CATEGORIA_MAX}
+                value={r.limiteReincidencia}
+                onChange={(e) => set('limiteReincidencia', e.target.value)}
+                placeholder={`padrão: ${LIMITE_REINCIDENCIA_90D_PADRAO}`}
+                aria-describedby="cat-lim-ajuda"
+              />
+            </div>
+            <p id="cat-lim-ajuda" className="-mt-2 text-xs text-muted-foreground sm:col-span-2">
+              Com a vida útil, decidem quais ativos aparecem como candidatos à substituição. Vazio
+              usa o padrão ({LIMITE_CORRETIVOS_12M_PADRAO} em 12 meses,{' '}
+              {LIMITE_REINCIDENCIA_90D_PADRAO} em 90 dias). De {LIMITE_CATEGORIA_MIN} a{' '}
+              {LIMITE_CATEGORIA_MAX}.
+            </p>
             <fieldset className="space-y-2 sm:col-span-2" aria-describedby="cat-docs-ajuda">
               <legend className="text-sm font-medium">Documentos exigidos</legend>
               {tiposAtivos.length === 0 ? (
@@ -463,6 +515,19 @@ function ChavesDocumento({
           </span>
         );
       })}
+    </span>
+  );
+}
+
+/** Vida útil e os dois limites da regra de substituição (spec 0015, AC-6). */
+function LimitesSubstituicao({ categoria: c }: { categoria: CategoriaLinha }) {
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span>{c.vidaUtilAnos ? `vida útil ${c.vidaUtilAnos} anos` : 'sem vida útil'}</span>
+      <span className="text-xs text-muted-foreground">
+        {c.limiteCorretivos12m ?? 'padrão'} em 12 meses · {c.limiteReincidencia90d ?? 'padrão'} em
+        90 dias
+      </span>
     </span>
   );
 }

@@ -34,7 +34,7 @@ export const RANKING_MAX = 10;
 export const STATUS_FORA_DO_CORRETIVO = ['cancelado', 'recusado'] as const;
 
 /** O filtro de corretivo: sem `originTemplateId` (não é preventiva) e fora dos status acima. */
-function filtroCorretivo(inicio: Date, fim: Date) {
+export function filtroCorretivo(inicio: Date, fim: Date) {
   return {
     originTemplateId: null,
     status: { $nin: [...STATUS_FORA_DO_CORRETIVO] },
@@ -150,7 +150,19 @@ export function janelaDoPeriodo(inicio: Date, fim: Date, fimReincidencia = fim):
   };
 }
 
-function agruparPorAtivo(corretivos: readonly CorretivoLido[]): Map<string, CorretivoLido[]> {
+/**
+ * A janela "até hoje" da ficha e da leitura em lote dos candidatos à
+ * substituição (spec 0015, AC-3 e AC-7): 365 dias corridos e 90 dias, os dois
+ * terminando no fim de hoje em Belém. Nunca depende do período do IMR.
+ */
+export function janelaDeHoje(agora: Date = new Date()): JanelaIndicadores {
+  const fim = fimDoDiaEmBelem(agora);
+  return janelaDoPeriodo(new Date(fim.getTime() - JANELA_FICHA_DIAS * MS_DIA), fim);
+}
+
+export function agruparPorAtivo(
+  corretivos: readonly CorretivoLido[],
+): Map<string, CorretivoLido[]> {
   const mapa = new Map<string, CorretivoLido[]>();
   for (const c of corretivos) {
     const lista = mapa.get(c.ativoId);
@@ -160,7 +172,7 @@ function agruparPorAtivo(corretivos: readonly CorretivoLido[]): Map<string, Corr
   return mapa;
 }
 
-function dentro(c: CorretivoLido, inicio: Date, fim: Date): boolean {
+export function dentro(c: CorretivoLido, inicio: Date, fim: Date): boolean {
   const t = c.createdAt.getTime();
   return t >= inicio.getTime() && t <= fim.getTime();
 }
@@ -233,7 +245,7 @@ export function calcularFiltro(params: {
   };
 }
 
-type ChamadoLido = {
+export type ChamadoLido = {
   ativoId: Types.ObjectId;
   createdAt: Date;
   tipoServico?: string | null;
@@ -241,7 +253,7 @@ type ChamadoLido = {
   sla?: { resolvedAt?: Date | null } | null;
 };
 
-function paraCorretivo(doc: ChamadoLido): CorretivoLido {
+export function paraCorretivo(doc: ChamadoLido): CorretivoLido {
   return {
     ativoId: String(doc.ativoId),
     createdAt: doc.createdAt,
@@ -251,7 +263,7 @@ function paraCorretivo(doc: ChamadoLido): CorretivoLido {
   };
 }
 
-const PROJECAO_CORRETIVO = {
+export const PROJECAO_CORRETIVO = {
   ativoId: 1,
   createdAt: 1,
   tipoServico: 1,
@@ -377,8 +389,8 @@ export async function indicadoresDoAtivo(
   ativoId: string,
   agora: Date = new Date(),
 ): Promise<IndicadoresDaFicha> {
-  const fim = fimDoDiaEmBelem(agora);
-  const janela = janelaDoPeriodo(new Date(fim.getTime() - JANELA_FICHA_DIAS * MS_DIA), fim);
+  const janela = janelaDeHoje(agora);
+  const fim = janela.fim;
 
   const docs = await ChamadoModel.find({
     ...filtroCorretivo(janela.inicio, fim),
