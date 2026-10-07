@@ -4,6 +4,12 @@ import { Types } from 'mongoose';
 
 import { podeVerDocumentos } from '@/lib/ativos/documentos/permissao';
 import { type IndicadoresDaFicha, indicadoresDoAtivo } from '@/lib/ativos/indicadores';
+import {
+  type AtivoParaAvaliar,
+  type CategoriaParaAvaliar,
+  type SituacaoSubstituicao,
+  situacaoSubstituicaoDaFicha,
+} from '@/lib/ativos/substituicao';
 import { canManage, type SessionLike } from '@/lib/dal';
 import { AtivoModel } from '@/models/Ativo';
 import { AtivoHistoryModel } from '@/models/AtivoHistory';
@@ -112,6 +118,11 @@ export type FichaAtivo = {
    * nem calcula. `null` quando a leitura falhou.
    */
   indicadores?: IndicadoresDaFicha | null;
+  /**
+   * Candidato à substituição (spec 0015, AC-10). Só Admin e Preposto recebem;
+   * `null` quando os indicadores ou a avaliação falharam.
+   */
+  substituicao?: SituacaoSubstituicao | null;
 };
 
 type AtivoLean = {
@@ -133,6 +144,7 @@ type AtivoLean = {
   validadoPor?: Types.ObjectId | null;
   validadoEm?: Date | null;
   camposPatrimoniais?: Record<string, unknown> | null;
+  dispensaSubstituicao?: AtivoParaAvaliar['dispensaSubstituicao'];
 };
 
 type ChamadoLean = {
@@ -192,7 +204,9 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
 
   const [categoria, local, historicoDocs, chamadosDocs, conferencia, indicadores] =
     await Promise.all([
-      CategoriaAtivoModel.findById(ativo.categoriaId).select('nome').lean(),
+      CategoriaAtivoModel.findById(ativo.categoriaId)
+        .select('nome vidaUtilAnos limiteCorretivos12m limiteReincidencia90d')
+        .lean<CategoriaParaAvaliar & { nome: string }>(),
       ativo.localizacaoId
         ? LocalizacaoModel.findById(ativo.localizacaoId).select('caminho').lean()
         : Promise.resolve(null),
@@ -230,6 +244,25 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
           })
         : Promise.resolve(undefined),
     ]);
+  // A substituição usa os `indicadores` já calculados: o selo e a linha de
+  // indicadores nunca divergem. O objeto não sai do servidor para quem não é gestão.
+  const substituicao = !gestao
+    ? undefined
+    : indicadores
+      ? await situacaoSubstituicaoDaFicha({ ativo, categoria, indicadores }).catch(
+          (err: unknown) => {
+            console.error(
+              '[ativos]',
+              JSON.stringify({
+                operacao: 'situacaoSubstituicaoDaFicha',
+                ativoId: String(ativo._id),
+                error: err instanceof Error ? err.message : 'unknown',
+              }),
+            );
+            return null;
+          },
+        )
+      : null;
   const campanha = conferencia
     ? await CampanhaVistoriaModel.findById(conferencia.campanhaId)
         .select('nome')
@@ -341,5 +374,6 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
     historico,
     chamados,
     ...(veIndicadores && { indicadores: indicadores ?? null }),
+    ...(substituicao !== undefined && { substituicao }),
   };
 }

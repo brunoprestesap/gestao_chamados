@@ -2,6 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { IndicadoresAtivos } from '@/lib/ativos/indicadores';
+import type { SituacoesSubstituicao } from '@/lib/ativos/substituicao';
 import type { ImrResultPorTipo, ImrResumoGeral } from '@/lib/imr-service';
 
 import { ImrAtivos } from './imr-ativos';
@@ -20,11 +21,14 @@ export function ImrTipoServicoTabs({
   resumoGeral,
   porTipoServico,
   ativos,
+  substituicao,
 }: {
   resumoGeral: ImrResumoGeral;
   porTipoServico: ImrResultPorTipo[];
   /** Indicadores de equipamento (spec 0014); `null` quando a leitura falhou. */
   ativos: IndicadoresAtivos | null;
+  /** Candidatos à substituição (spec 0015); `null` quando a leitura falhou. */
+  substituicao?: SituacoesSubstituicao | null;
 }) {
   return (
     <Tabs defaultValue="resumo-geral">
@@ -76,7 +80,7 @@ export function ImrTipoServicoTabs({
       ))}
 
       <TabsContent value="ativos" className="space-y-6">
-        <ImrAtivos ativos={ativos} />
+        <ImrAtivos ativos={ativos} substituicao={substituicao} />
       </TabsContent>
     </Tabs>
   );

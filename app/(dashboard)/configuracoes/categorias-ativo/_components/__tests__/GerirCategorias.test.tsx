@@ -27,6 +27,8 @@ const CLIMA: CategoriaLinha = {
   periodicidadePreventivaDias: 90,
   exigeDocumento: ['PMOC'],
   vidaUtilAnos: 10,
+  limiteCorretivos12m: null,
+  limiteReincidencia90d: null,
   serviceSubTypeId: 's1',
   isActive: true,
   totalAtivos: 37,
@@ -108,6 +110,8 @@ describe('GerirCategorias', () => {
       periodicidadePreventivaDias: '',
       exigeDocumento: ['art', 'laudo_spda'],
       vidaUtilAnos: '',
+      limiteCorretivos12m: '',
+      limiteReincidencia90d: '',
       serviceSubTypeId: '',
     });
   });
@@ -154,5 +158,82 @@ describe('GerirCategorias', () => {
     await user.click(screen.getByRole('button', { name: 'Desativar Climatização' }));
     expect(acoes.desativarCategoriaAtivoAction).toHaveBeenCalledWith({ id: 'c1' });
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Os ativos dela continuam'));
+  });
+});
+
+/**
+ * Os limites dos candidatos à substituição (spec 0015): o padrão aparece como
+ * dica no campo vazio, o valor gravado volta no formulário e a lista mostra
+ * "padrão" quando a categoria não tem limite próprio.
+ *
+ * covers: AC-6
+ */
+describe('GerirCategorias: limites de substituição', () => {
+  it('a lista mostra a vida útil e os limites, com "padrão" quando vazios', () => {
+    render(
+      <GerirCategorias
+        categorias={[
+          CLIMA,
+          { ...VELHA, isActive: true, limiteCorretivos12m: 2, vidaUtilAnos: null },
+        ]}
+        subtipos={SUBTIPOS}
+      />,
+    );
+    const linhaClima = screen.getByRole('row', { name: /Climatização/ });
+    expect(within(linhaClima).getByText('vida útil 10 anos')).toBeInTheDocument();
+    expect(
+      within(linhaClima).getByText(/padrão em 12 meses · padrão em\s*90 dias/),
+    ).toBeInTheDocument();
+    const linhaVelha = screen.getByRole('row', { name: /Velha/ });
+    expect(within(linhaVelha).getByText('sem vida útil')).toBeInTheDocument();
+    expect(within(linhaVelha).getByText(/2 em 12 meses · padrão em\s*90 dias/)).toBeInTheDocument();
+  });
+
+  it('os campos vazios mostram o padrão como dica e ficam ligados à explicação', async () => {
+    const user = userEvent.setup();
+    render(<GerirCategorias categorias={[CLIMA]} subtipos={SUBTIPOS} />);
+    await user.click(screen.getByRole('button', { name: 'Editar Climatização' }));
+    const d = screen.getByRole('dialog');
+    const corretivos = within(d).getByLabelText('Corretivos em 12 meses para sinalizar');
+    const reincidencia = within(d).getByLabelText('Corretivos em 90 dias para sinalizar');
+    expect(corretivos).toHaveValue(null);
+    expect(corretivos).toHaveAttribute('placeholder', 'padrão: 4');
+    expect(reincidencia).toHaveAttribute('placeholder', 'padrão: 3');
+    expect(corretivos).toHaveAccessibleDescription(/Vazio usa o padrão/);
+  });
+
+  it('editar abre com os limites gravados e envia o que foi digitado', async () => {
+    const user = userEvent.setup();
+    acoes.editarCategoriaAtivoAction.mockResolvedValue({ ok: true });
+    render(
+      <GerirCategorias
+        categorias={[{ ...CLIMA, limiteCorretivos12m: 6, limiteReincidencia90d: 2 }]}
+        subtipos={SUBTIPOS}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Editar Climatização' }));
+    const d = screen.getByRole('dialog');
+    const corretivos = within(d).getByLabelText('Corretivos em 12 meses para sinalizar');
+    expect(corretivos).toHaveValue(6);
+    await user.clear(corretivos);
+    await user.type(corretivos, '8');
+    await user.clear(within(d).getByLabelText('Corretivos em 90 dias para sinalizar'));
+    await user.click(within(d).getByRole('button', { name: 'Salvar' }));
+    expect(acoes.editarCategoriaAtivoAction).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'c1', limiteCorretivos12m: '8', limiteReincidencia90d: '' }),
+    );
+  });
+
+  it('o erro de limite inválido do servidor aparece no diálogo', async () => {
+    const user = userEvent.setup();
+    acoes.editarCategoriaAtivoAction.mockResolvedValue({
+      ok: false,
+      error: 'Limite de corretivos inválido.',
+    });
+    render(<GerirCategorias categorias={[CLIMA]} subtipos={SUBTIPOS} />);
+    await user.click(screen.getByRole('button', { name: 'Editar Climatização' }));
+    await user.type(screen.getByLabelText('Corretivos em 12 meses para sinalizar'), '0');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Limite de corretivos inválido.');
   });
 });

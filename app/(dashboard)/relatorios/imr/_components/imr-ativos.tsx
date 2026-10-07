@@ -14,10 +14,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { IndicadoresAtivos, IndicadoresDoFiltro } from '@/lib/ativos/indicadores';
+import type { SituacoesSubstituicao } from '@/lib/ativos/substituicao';
 import { cn } from '@/lib/utils';
 import { formatarTempoIndicador as tempo } from '@/shared/ativos/indicadores-formato';
+import { plural, textoDoMotivo } from '@/shared/ativos/substituicao.constants';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 import type { TipoServico } from '@/shared/chamados/tipo-servico';
+
+import { DialogoDispensaSubstituicao } from '../../../ativos/_components/DialogoDispensaSubstituicao';
 
 /**
  * A aba Ativos do IMR (spec 0014, AC-15 a AC-19). Só informativa: nenhum
@@ -143,7 +147,123 @@ function VistaDoFiltro({ dados }: { dados: IndicadoresDoFiltro }) {
   );
 }
 
-export function ImrAtivos({ ativos }: { ativos: IndicadoresAtivos | null }) {
+/**
+ * Candidatos à substituição (spec 0015, AC-8): sempre até hoje, sem depender
+ * do período. O servidor manda a lista plana com o tipo de cada linha; o
+ * seletor da aba só filtra. Categoria sem subtipo aparece só em "Todos".
+ */
+function CandidatosSubstituicao({
+  dados,
+  filtro,
+}: {
+  dados: SituacoesSubstituicao | null;
+  filtro: Filtro;
+}) {
+  if (!dados) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Candidatos à substituição</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Não foi possível calcular os candidatos agora.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const doFiltro = (linhas: SituacoesSubstituicao['candidatos']) =>
+    filtro === 'todos' ? linhas : linhas.filter((l) => l.tipoServico === filtro);
+  const candidatos = doFiltro(dados.candidatos);
+  const dispensados = doFiltro(dados.dispensados).length;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Candidatos à substituição</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Equipamentos Tier A e B que passaram da vida útil da categoria ou quebram demais, contados
+          até hoje (12 meses e 90 dias), independente do período acima. Só informativo: nada muda no
+          ativo nem nos chamados.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {candidatos.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Nenhum equipamento sinalizado para substituição.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Local</TableHead>
+                  <TableHead>Motivos</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Ações</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {candidatos.map((linha) => (
+                  <TableRow key={linha.ativoId}>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      <Link
+                        href={`/ativos/${linha.ativoId}`}
+                        className="text-primary underline-offset-4 hover:underline focus-visible:underline"
+                      >
+                        {linha.codigo}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] break-words whitespace-normal">
+                      {linha.descricao || '—'}
+                    </TableCell>
+                    <TableCell>{linha.categoria}</TableCell>
+                    <TableCell className="max-w-[14rem] break-words whitespace-normal">
+                      {linha.caminho ?? 'Sem local'}
+                    </TableCell>
+                    <TableCell className="min-w-[14rem] whitespace-normal">
+                      <ul className="space-y-0.5 text-sm">
+                        {linha.motivos.map((m) => (
+                          <li key={m.criterio}>{textoDoMotivo(m)}</li>
+                        ))}
+                      </ul>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DialogoDispensaSubstituicao ativoId={linha.ativoId} codigo={linha.codigo} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        {dispensados > 0 && (
+          <p className="text-sm text-muted-foreground">
+            <Link
+              href="/ativos?substituicao=dispensados"
+              className="text-primary underline-offset-4 hover:underline focus-visible:underline"
+            >
+              {plural(dispensados, 'dispensado', 'dispensados')}
+            </Link>
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function ImrAtivos({
+  ativos,
+  substituicao,
+}: {
+  ativos: IndicadoresAtivos | null;
+  /** Ausente nos testes antigos; `null` quando a leitura falhou (spec 0015, AC-8). */
+  substituicao?: SituacoesSubstituicao | null;
+}) {
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const opcoes: { valor: Filtro; rotulo: string }[] = [
     { valor: 'todos', rotulo: 'Todos' },
@@ -200,6 +320,10 @@ export function ImrAtivos({ ativos }: { ativos: IndicadoresAtivos | null }) {
             instantes.
           </CardContent>
         </Card>
+      )}
+
+      {substituicao !== undefined && (
+        <CandidatosSubstituicao dados={substituicao} filtro={filtro} />
       )}
     </div>
   );

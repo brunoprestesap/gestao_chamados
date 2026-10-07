@@ -37,6 +37,8 @@ export default async function CategoriasAtivoPage() {
     periodicidadePreventivaDias: c.periodicidadePreventivaDias ?? null,
     exigeDocumento: c.exigeDocumento ?? [],
     vidaUtilAnos: c.vidaUtilAnos ?? null,
+    limiteCorretivos12m: c.limiteCorretivos12m ?? null,
+    limiteReincidencia90d: c.limiteReincidencia90d ?? null,
     serviceSubTypeId: c.serviceSubTypeId ? String(c.serviceSubTypeId) : null,
     isActive: c.isActive !== false,
     totalAtivos: totalPorCategoria.get(String(c._id)) ?? 0,

@@ -28,6 +28,7 @@ const filtros = (f: Partial<Filtros>): Filtros => ({
   categoria: undefined,
   status: undefined,
   cadastro: undefined,
+  substituicao: undefined,
   pagina: 1,
   ...f,
 });
@@ -198,6 +199,38 @@ rodar('lista, resumos e categorias, contra o Mongo', () => {
       expect([fora.pagina, fora.itens.map((i) => i.codigo)]).toEqual([2, ['51']]);
     });
 
+    // covers: AC-9 (spec 0015, o filtro "Substituição" passa os ids)
+    it('o recorte por ids se combina com os outros filtros e com a paginação', async () => {
+      const docs = await AtivoModel.insertMany(
+        Array.from({ length: 55 }, (_, i) => ({
+          codigo: String(i + 1),
+          origemCodigo: 'patrimonio',
+          descricao: 'x',
+          categoriaId: catId,
+          criticidade: 'media',
+          tierManutencao: 'A',
+          statusCadastro: 'importado',
+          status: i < 53 ? 'em_operacao' : 'inoperante',
+        })),
+      );
+      // 52 em operação mais o 55 (inoperante); o 53 e o 54 ficam de fora do recorte.
+      const ids = [...docs.slice(0, 52), docs[54]!].map((d) => String(d._id));
+
+      const p1 = await lista.listarAtivos({ ...filtros({ pagina: 1 }), ids });
+      expect([p1.itens.length, p1.total, p1.totalPaginas]).toEqual([50, 53, 2]);
+      const p2 = await lista.listarAtivos({ ...filtros({ pagina: 2 }), ids });
+      expect(p2.itens.map((i) => i.codigo)).toEqual(['51', '52', '55']);
+
+      const comStatus = await lista.listarAtivos({
+        ...filtros({ pagina: 1, status: 'inoperante' }),
+        ids,
+      });
+      expect(comStatus.itens.map((i) => i.codigo)).toEqual(['55']);
+
+      const vazio = await lista.listarAtivos({ ...filtros({ pagina: 1 }), ids: [] });
+      expect([vazio.total, vazio.itens]).toEqual([0, []]);
+    });
+
     it('lista vazia ainda tem uma página', async () => {
       const r = await lista.listarAtivos(filtros({ pagina: 1 }));
       expect([r.total, r.totalPaginas, r.itens]).toEqual([0, 1, []]);
@@ -325,6 +358,37 @@ rodar('lista, resumos e categorias, contra o Mongo', () => {
       await categoria.editarCategoria(r.id, { ...dados, criticidadePadrao: 'critica' });
       const c = await CategoriaAtivoModel.findById(r.id).lean();
       expect([c?.criticidadePadrao, c?.vidaUtilAnos]).toEqual(['critica', null]);
+    });
+
+    // covers: AC-6 (spec 0015)
+    it('os limites de substituição gravam o número e voltam a null ao limpar, nunca 0', async () => {
+      const r = await categoria.criarCategoria({
+        ...dados,
+        limiteCorretivos12m: 2,
+        limiteReincidencia90d: 5,
+      });
+      if (!r.ok) throw new Error('setup');
+      let c = await CategoriaAtivoModel.findById(r.id).lean();
+      expect([c?.limiteCorretivos12m, c?.limiteReincidencia90d]).toEqual([2, 5]);
+
+      await categoria.editarCategoria(r.id, dados);
+      c = await CategoriaAtivoModel.findById(r.id).lean();
+      expect([c?.limiteCorretivos12m, c?.limiteReincidencia90d]).toEqual([null, null]);
+    });
+
+    it('o banco recusa limite fora de 1 a 99', async () => {
+      await expect(
+        CategoriaAtivoModel.create({ ...dados, criticidadePadrao: 'alta', limiteCorretivos12m: 0 }),
+      ).rejects.toThrow();
+      await expect(
+        CategoriaAtivoModel.create({
+          ...dados,
+          chave: 'outra',
+          nome: 'Outra',
+          criticidadePadrao: 'alta',
+          limiteReincidencia90d: 100,
+        }),
+      ).rejects.toThrow();
     });
 
     // Achado da revisão: a carga acha as categorias pela chave.

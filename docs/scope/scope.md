@@ -34,6 +34,8 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 24  | Importador SICAM e vistoria em campo               | Ativos        | done     |
 | 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done     |
 | 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done     |
+| 27  | Candidatos à substituição                          | Ativos        | done     |
+| 28  | Relatório mensal por contrato com ativo            | Ativos        | planned  |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
 | 19  | Fotos no chat                                      | Slice 4       | planned  |
 | 20  | Aviso de chamado duplicado                         | Slice 4       | planned  |
@@ -311,6 +313,29 @@ spec [0014](../specs/0014-ativo-chat-indicadores/index.md) · code in `lib/assis
 - [x] Verify it: `/check verify ativo no chat e indicadores`
 - [x] Test it: `/test ativo no chat e indicadores`
 
+### 27. Candidatos à substituição · done
+
+O Sigma aponta sozinho os equipamentos que passaram da vida útil ou quebram demais (corretivos em 12 meses, reincidência em 90 dias), usando os números da 0014, e a gestão dispensa por 6 meses com motivo. from proposta da spec 0011, fatia 5
+**Done when:** o Admin vê a lista de ativos sinalizados com o motivo de cada um; a regra que sinaliza é conhecida e ajustável; a sinalização é só informativa e nunca muda o ativo nem um chamado sozinha.
+spec [0015](../specs/0015-candidatos-substituicao/index.md) · code in `lib/ativos/substituicao.ts`, `app/(dashboard)/ativos/_components/SubstituicaoAtivo.tsx`, `app/(dashboard)/relatorios/imr/_components/imr-ativos.tsx`
+
+- [x] Design it (spec): `/architect candidatos à substituição`
+- [x] Build it: `/develop candidatos à substituição`
+  - [x] O fio, só leitura: regra pura, datas em Belém, janela de hoje e selo na ficha para a gestão · AC-1, AC-2, AC-3, AC-4, AC-5, AC-7, AC-10
+  - [x] Limites por categoria na tela do Admin · AC-6, AC-17
+  - [x] Leitura em lote e seção no IMR seguindo o seletor de tipo · AC-5, AC-7, AC-8
+  - [x] Dispensa: subdocumento, escrita e desfazer condicionais, histórico sem o motivo, diálogo na ficha e no IMR, voltar a sinalizar · AC-11 a AC-17
+  - [x] Filtro "Substituição" na lista de ativos e testes de banco real · AC-3, AC-9, AC-14, AC-17
+- [x] Verify it: `/check verify candidatos à substituição`
+- [x] Test it: `/test candidatos à substituição`
+
+### 28. Relatório mensal por contrato com ativo · needs a decision
+
+Um relatório por mês e por contrato que mostra, por equipamento, os chamados, o tempo de reparo e a reincidência, para acompanhar a empresa contratada. from proposta da spec 0011, fatia 5
+**Done when:** o Admin escolhe o mês e o contrato e vê os números por ativo e por categoria; os números batem com o IMR do mesmo período; o relatório sai em formato que dá para anexar ao processo.
+
+- [ ] Design it (spec): `/architect relatório mensal por contrato com ativo`
+
 ## Slice 3: fechamento
 
 ### 18. Painel de acurácia da IA · needs a decision
@@ -376,10 +401,12 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Reativar local ou categoria de ativo**: hoje uma localização ou categoria desativada só volta pelo banco · from spec 0011
 - **Reserva atômica no recorrente comum**: o ramo `template` de `processRecurringTickets` pode gerar duas vezes se duas execuções do cron se cruzarem; aplicar a mesma reserva do ramo por categoria · from spec 0013
 - **Distribuição em lote da preventiva**: se o Preposto passar a distribuir sempre do mesmo jeito, avaliar rodízio entre técnicos em vez da menor carga da 0008 · from spec 0013
-- **Custo acumulado por ativo**: ficou fora da fatia 4; decidir antes a fonte do custo (cotação aprovada ou campo novo no fechamento) · from spec 0014
+- **Custo acumulado por ativo**: ficou fora da fatia 4; decidir antes a fonte do custo (cotação aprovada ou campo novo no fechamento). Quando sair, avaliar um quarto critério de custo nos candidatos à substituição (cotações aprovadas contra `valorHistorico`) · from spec 0014, spec 0015
+- **Data do tombo como idade**: se a vistoria preencher `dataInstalacao` em massa, revisar se a data do tombo ainda deve servir de reserva no critério de idade · from spec 0015
 - **Abrir chamado da ficha pelo chat**: o botão "Abrir chamado deste ativo" levar a `/conversas?ativo=<id>` em vez do formulário · from spec 0014
 - **Ativo escolhido pelo modelo**: levar candidatos ao prompt se a decisão `ativo` mostrar muita correção ou muitos cartões sem ativo com a vistoria completa · from spec 0014
 - **Candidatos na troca de unidade**: recalcular os candidatos para a unidade nova escolhida no cartão, se a gestão sentir falta · from spec 0014
+- **Fotos do ativo**: foto do equipamento na ficha e na vistoria; decidir junto com Fotos no chat (19) onde as fotos ficam guardadas · from proposta da spec 0011, fatia 2
 
 ## Legend
 

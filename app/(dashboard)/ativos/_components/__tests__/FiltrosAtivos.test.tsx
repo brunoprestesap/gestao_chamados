@@ -73,3 +73,39 @@ describe('FiltrosAtivos', () => {
     expect(screen.queryByRole('button', { name: 'Limpar filtros' })).not.toBeInTheDocument();
   });
 });
+
+/**
+ * O filtro "Substituição" (spec 0015): só a gestão vê, as duas opções vão
+ * para a URL e entram no "limpar filtros".
+ *
+ * covers: AC-9
+ */
+describe('FiltrosAtivos: filtro Substituição', () => {
+  it('quem não é da gestão não vê o campo', () => {
+    render(<FiltrosAtivos predios={PREDIOS} categorias={CATS} />);
+    expect(screen.queryByRole('combobox', { name: 'Substituição' })).not.toBeInTheDocument();
+  });
+
+  it('a gestão escolhe candidatos ou dispensados e a escolha vai para a URL', async () => {
+    nav.params = new URLSearchParams('pagina=2');
+    const user = userEvent.setup();
+    render(<FiltrosAtivos predios={PREDIOS} categorias={CATS} gestao />);
+    await user.click(screen.getByRole('combobox', { name: 'Substituição' }));
+    const opcoes = (await screen.findAllByRole('option')).map((o) => o.textContent);
+    expect(opcoes).toEqual([
+      'Substituição: todos',
+      'Candidatos à substituição',
+      'Candidatos dispensados',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'Candidatos dispensados' }));
+    expect(nav.replace).toHaveBeenCalledWith('/ativos?substituicao=dispensados');
+  });
+
+  it('com o filtro de substituição na URL aparece o botão de limpar', async () => {
+    nav.params = new URLSearchParams('substituicao=candidatos');
+    const user = userEvent.setup();
+    render(<FiltrosAtivos predios={PREDIOS} categorias={CATS} gestao />);
+    await user.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+    expect(nav.replace).toHaveBeenCalledWith('/ativos');
+  });
+});

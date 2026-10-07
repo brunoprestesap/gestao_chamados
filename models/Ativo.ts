@@ -8,6 +8,11 @@ import {
   STATUS_CADASTRO,
   TIERS_MANUTENCAO,
 } from '@/shared/ativos/ativo.constants';
+import {
+  CRITERIOS_SUBSTITUICAO,
+  MOTIVO_DISPENSA_MAX,
+  MOTIVO_DISPENSA_MIN,
+} from '@/shared/ativos/substituicao.constants';
 
 /**
  * Dados que vieram do SICAM. Só leitura no Sigma, e só Admin e Preposto
@@ -29,6 +34,36 @@ const CamposPatrimoniaisSchema = new Schema(
     importadoEm: { type: Date, required: true },
     // Escrito só pelo importador (spec 0012); o pacote da vistoria leva só um booleano.
     ausenteNoSicamDesde: Date,
+  },
+  { _id: false },
+);
+
+/**
+ * A dispensa mais recente de candidato à substituição (spec 0015). As
+ * anteriores ficam no `AtivoHistory`. Só `dispensarSubstituicao` e
+ * `desfazerDispensaSubstituicao` (`lib/ativos/substituicao.ts`) escrevem; `em`
+ * é a versão da escrita condicional.
+ */
+const DispensaSubstituicaoSchema = new Schema(
+  {
+    // Dia sem hora (meia noite UTC).
+    ate: { type: Date, required: true },
+    motivo: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: MOTIVO_DISPENSA_MIN,
+      maxlength: MOTIVO_DISPENSA_MAX,
+    },
+    porUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    em: { type: Date, required: true },
+    motivosNaDispensa: {
+      type: [{ type: String, enum: CRITERIOS_SUBSTITUICAO }],
+      validate: {
+        validator: (v: unknown[]) => Array.isArray(v) && v.length > 0,
+        message: 'A dispensa precisa de ao menos um critério.',
+      },
+    },
   },
   { _id: false },
 );
@@ -60,6 +95,7 @@ const AtivoSchema = new Schema(
     // O `clientOpId` do cadastro em campo que criou o ativo (spec 0012): o
     // reenvio depois de uma queda acha o ativo por aqui, sem criar outro.
     origemOpId: { type: String, default: undefined },
+    dispensaSubstituicao: { type: DispensaSubstituicaoSchema, default: undefined },
   },
   { timestamps: true },
 );

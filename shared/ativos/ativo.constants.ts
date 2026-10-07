@@ -85,6 +85,8 @@ export const ATIVO_HISTORY_ACOES = [
   'documento_substituido',
   'documento_corrigido',
   'documento_excluido',
+  'dispensa_substituicao',
+  'dispensa_substituicao_desfeita',
 ] as const;
 export type AtivoHistoryAcao = (typeof ATIVO_HISTORY_ACOES)[number];
 
@@ -103,6 +105,8 @@ export const ATIVO_HISTORY_ACAO_LABELS: Record<AtivoHistoryAcao, string> = {
   documento_substituido: 'Documento substituído',
   documento_corrigido: 'Documento corrigido',
   documento_excluido: 'Documento excluído',
+  dispensa_substituicao: 'Substituição dispensada',
+  dispensa_substituicao_desfeita: 'Dispensa de substituição desfeita',
 };
 
 export const ATIVO_HISTORY_ACTOR_TYPES = ['usuario', 'sistema'] as const;

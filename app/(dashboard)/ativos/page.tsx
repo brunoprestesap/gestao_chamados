@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { ITENS_POR_PAGINA, listarAtivos, listarPredios } from '@/lib/ativos/lista';
 import { listarCategoriasAtivas } from '@/lib/ativos/opcoes';
+import { idsDoFiltroSubstituicao } from '@/lib/ativos/substituicao';
 import { canManage, isAdmin, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { SEM_LOCAL } from '@/shared/ativos/ativo.constants';
@@ -57,16 +58,23 @@ export default async function AtivosPage({ searchParams }: { searchParams: Promi
     categoria: primeiro(busca.categoria),
     status: primeiro(busca.status),
     cadastro: primeiro(busca.cadastro),
+    substituicao: primeiro(busca.substituicao),
     pagina: primeiro(busca.pagina),
   });
+  const gestao = canManage(sessao.role);
 
   await dbConnect();
+  // O filtro "Substituição" (spec 0015, AC-9) é da gestão: para os demais o
+  // parâmetro é ignorado antes de qualquer conta, mesmo digitado na URL.
+  const { ids, falhou: substituicaoFalhou } = await idsDoFiltroSubstituicao({
+    gestao,
+    filtro: filtros.substituicao,
+  });
   const [pagina, predios, categorias] = await Promise.all([
-    listarAtivos(filtros),
+    listarAtivos({ ...filtros, ids }),
     listarPredios(),
     listarCategoriasAtivas(),
   ]);
-  const gestao = canManage(sessao.role);
   const inicio = pagina.total === 0 ? 0 : (pagina.pagina - 1) * ITENS_POR_PAGINA + 1;
   const fim = Math.min(pagina.pagina * ITENS_POR_PAGINA, pagina.total);
 
@@ -123,8 +131,18 @@ export default async function AtivosPage({ searchParams }: { searchParams: Promi
       />
 
       <Suspense>
-        <FiltrosAtivos predios={predios} categorias={categorias} />
+        <FiltrosAtivos predios={predios} categorias={categorias} gestao={gestao} />
       </Suspense>
+
+      {substituicaoFalhou && (
+        <p
+          role="alert"
+          className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+        >
+          Não foi possível calcular os candidatos à substituição agora. Tente de novo em instantes
+          ou tire o filtro “Substituição” para ver a lista.
+        </p>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm">
         {pagina.itens.length === 0 ? (

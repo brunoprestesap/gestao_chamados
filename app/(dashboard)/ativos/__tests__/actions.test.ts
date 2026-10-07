@@ -20,6 +20,11 @@ const localizacao = vi.hoisted(() => ({
   desativarLocalizacao: vi.fn(),
 }));
 
+const substituicao = vi.hoisted(() => ({
+  dispensarSubstituicao: vi.fn(),
+  desfazerDispensaSubstituicao: vi.fn(),
+}));
+
 vi.mock('next/cache', () => ({ revalidatePath }));
 vi.mock('@/lib/dal', () => ({
   verifySession: async () => sessao.atual,
@@ -28,10 +33,13 @@ vi.mock('@/lib/dal', () => ({
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 vi.mock('@/lib/ativos/cadastro', () => cadastro);
 vi.mock('@/lib/ativos/localizacao', () => localizacao);
+vi.mock('@/lib/ativos/substituicao', () => substituicao);
 
 import {
   alterarStatusAtivoAction,
   criarAtivoAction,
+  desfazerDispensaSubstituicaoAction,
+  dispensarSubstituicaoAction,
   editarLocalizacaoAction,
   validarAtivoAction,
 } from '../actions';
@@ -113,5 +121,84 @@ describe('editarLocalizacaoAction', () => {
     expect(localizacao.editarLocalizacao).toHaveBeenLastCalledWith({ id: ID, unitId: null });
     await editarLocalizacaoAction({ id: ID, nome: 'Sede' });
     expect(localizacao.editarLocalizacao).toHaveBeenLastCalledWith({ id: ID, nome: 'Sede' });
+  });
+});
+
+/**
+ * Dispensar e voltar a sinalizar (spec 0015): a regra é do papel, não da
+ * tela, o motivo é conferido antes do banco e as três telas são revalidadas.
+ *
+ * covers: AC-11, AC-15, AC-17
+ */
+describe('dispensa de substituição', () => {
+  const motivo = 'Troca prevista no plano de compras.';
+
+  it.each(['Técnico', 'Solicitante'])(
+    '%s recebe "Sem permissão" sem chegar à regra',
+    async (role) => {
+      sessao.atual = { userId: 'u1', role };
+      expect(await dispensarSubstituicaoAction({ ativoId: ID, motivo })).toEqual({
+        ok: false,
+        error: 'Sem permissão para esta ação.',
+      });
+      expect(await desfazerDispensaSubstituicaoAction({ ativoId: ID })).toEqual({
+        ok: false,
+        error: 'Sem permissão para esta ação.',
+      });
+      expect(substituicao.dispensarSubstituicao).not.toHaveBeenCalled();
+      expect(substituicao.desfazerDispensaSubstituicao).not.toHaveBeenCalled();
+      sessao.atual = { userId: 'u1', role: 'Preposto' };
+    },
+  );
+
+  it('motivo curto ou longo demais volta sem chegar à regra', async () => {
+    for (const m of ['   curto   ', 'x'.repeat(501)]) {
+      expect(await dispensarSubstituicaoAction({ ativoId: ID, motivo: m })).toEqual({
+        ok: false,
+        error: 'Motivo deve ter de 10 a 500 caracteres.',
+      });
+    }
+    expect(substituicao.dispensarSubstituicao).not.toHaveBeenCalled();
+  });
+
+  it('Preposto dispensa com o motivo sem espaços nas pontas e revalida ficha, lista e IMR', async () => {
+    substituicao.dispensarSubstituicao.mockResolvedValue({ ok: true });
+    expect(await dispensarSubstituicaoAction({ ativoId: ID, motivo: `  ${motivo}  ` })).toEqual({
+      ok: true,
+    });
+    expect(substituicao.dispensarSubstituicao).toHaveBeenCalledWith({
+      ativoId: ID,
+      motivo,
+      userId: 'u1',
+    });
+    expect(revalidatePath).toHaveBeenCalledWith('/ativos');
+    expect(revalidatePath).toHaveBeenCalledWith(`/ativos/${ID}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/relatorios/imr');
+  });
+
+  it('a recusa da regra chega igual à tela', async () => {
+    substituicao.dispensarSubstituicao.mockResolvedValue({
+      ok: false,
+      error: 'Este ativo já foi dispensado por Ana.',
+    });
+    expect(await dispensarSubstituicaoAction({ ativoId: ID, motivo })).toEqual({
+      ok: false,
+      error: 'Este ativo já foi dispensado por Ana.',
+    });
+  });
+
+  it('voltar a sinalizar passa o autor da sessão; erro do banco vira "tente de novo"', async () => {
+    substituicao.desfazerDispensaSubstituicao.mockResolvedValue({ ok: true });
+    expect(await desfazerDispensaSubstituicaoAction({ ativoId: ID })).toEqual({ ok: true });
+    expect(substituicao.desfazerDispensaSubstituicao).toHaveBeenCalledWith({
+      ativoId: ID,
+      userId: 'u1',
+    });
+
+    substituicao.desfazerDispensaSubstituicao.mockRejectedValue(new Error('caiu'));
+    expect(await desfazerDispensaSubstituicaoAction({ ativoId: ID })).toEqual({
+      ok: false,
+      error: 'Não foi possível salvar agora. Tente de novo.',
+    });
   });
 });

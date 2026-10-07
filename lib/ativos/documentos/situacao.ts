@@ -43,6 +43,34 @@ export function somarDias(ymd: string, dias: number): string {
   return paraYmd(new Date(dataSemHora(ymd).getTime() + dias * MS_DIA));
 }
 
+/**
+ * Soma meses de calendário a um `YYYY-MM-DD`. Quando o dia não existe no mês
+ * de destino, cai no último dia dele (30/08 + 6 meses = 28/02 ou 29/02).
+ */
+export function somarMeses(ymd: string, meses: number): string {
+  const [a, m, d] = ymd.split('-').map(Number) as [number, number, number];
+  const total = a * 12 + (m - 1) + meses;
+  const ano = Math.floor(total / 12);
+  const mes = total - ano * 12;
+  const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+  return paraYmd(new Date(Date.UTC(ano, mes, Math.min(d, ultimoDia))));
+}
+
+/** Soma anos a um `YYYY-MM-DD` (29/02 cai em 28/02 no ano que não é bissexto). */
+export function somarAnos(ymd: string, anos: number): string {
+  return somarMeses(ymd, anos * 12);
+}
+
+/**
+ * Anos completos de `inicio` até `hoje`, pela mesma conta de `somarAnos`: o
+ * aniversário que `somarAnos` dá conta como completo (spec 0015, AC-2).
+ */
+export function anosCompletos(inicio: string, hoje: string): number {
+  let anos = Number(hoje.slice(0, 4)) - Number(inicio.slice(0, 4));
+  if (anos > 0 && somarAnos(inicio, anos) > hoje) anos -= 1;
+  return Math.max(0, anos);
+}
+
 /** Dias de `hoje` até `validadeAte` (negativo quando já passou). */
 export function diasRestantes(validadeAte: Date, hoje: string): number {
   return Math.round(
