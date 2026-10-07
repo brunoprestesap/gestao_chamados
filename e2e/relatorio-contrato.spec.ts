@@ -105,7 +105,11 @@ test.describe('Relatório por contrato', () => {
     expect((await download).suggestedFilename()).toBe(`relatorio-contrato-${NUMERO}-${d.mes}.pdf`);
 
     await expect(page.getByText('Nenhum PDF emitido para este mês.')).toBeHidden();
-    await expect(page.getByRole('cell', { name: 'Administrador E2E' })).toBeVisible();
+    // A linha da emissão traz os 12 primeiros caracteres do hash e o inteiro no title.
+    // O nome de quem gerou muda com o seed (local ou CI), então o teste não depende dele.
+    const hash = page.getByRole('cell', { name: /^[a-f0-9]{12}…$/ });
+    await expect(hash).toHaveCount(1);
+    await expect(hash).toHaveAttribute('title', /^[a-f0-9]{64}$/);
   });
 
   test('o Preposto não abre a tela e recebe 403 na rota do PDF', async ({ page }) => {
