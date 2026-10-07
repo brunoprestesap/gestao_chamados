@@ -37,6 +37,12 @@
       "skillPath": "skills/document/SKILL.md",
       "computedHash": "a47c5d29a1263d987c2fa05dbc993a5276aaf6c4ddc54fbd329463a5f3a1aa77"
     },
+    "react-pdf": {
+      "source": "molefrog/skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-pdf/SKILL.md",
+      "computedHash": "cdaa874c3fa3a76b0c82534dfee9e4cabb44f9d7ba48a699527d3e4c0b2d48af"
+    },
     "scope": {
       "source": "jsmastery-pro/skills",
       "sourceType": "github",

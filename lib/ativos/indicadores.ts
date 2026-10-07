@@ -101,11 +101,13 @@ export function numerosDoAtivo(
 export type InfoDoAtivo = {
   codigo: string;
   descricao: string;
+  /** Usado pelo relatório por contrato (spec 0016); a aba Ativos do IMR ignora. */
+  categoriaId: string | null;
   categoria: string | null;
   caminho: string | null;
 };
 
-export type LinhaRanking = InfoDoAtivo & {
+export type LinhaRanking = Omit<InfoDoAtivo, 'categoriaId'> & {
   ativoId: string;
   corretivos: number;
   mtbfMs: number | null;
@@ -271,7 +273,7 @@ export const PROJECAO_CORRETIVO = {
   'sla.resolvedAt': 1,
 } as const;
 
-async function lerInfoDosAtivos(ids: string[]): Promise<Map<string, InfoDoAtivo>> {
+export async function lerInfoDosAtivos(ids: string[]): Promise<Map<string, InfoDoAtivo>> {
   if (ids.length === 0) return new Map();
   const ativos = await AtivoModel.find({ _id: { $in: ids } })
     .select('codigo descricao categoriaId localizacaoId')
@@ -312,6 +314,7 @@ async function lerInfoDosAtivos(ids: string[]): Promise<Map<string, InfoDoAtivo>
       {
         codigo: a.codigo,
         descricao: a.descricao,
+        categoriaId: a.categoriaId ? String(a.categoriaId) : null,
         categoria: nomeCategoria.get(String(a.categoriaId)) ?? null,
         caminho: a.localizacaoId ? (caminhoLocal.get(String(a.localizacaoId)) ?? null) : null,
       },

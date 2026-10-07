@@ -44,6 +44,7 @@ const janelaJaneiro = janelaDoPeriodo(
 const info = (codigo: string): InfoDoAtivo => ({
   codigo,
   descricao: `Split ${codigo}`,
+  categoriaId: null,
   categoria: 'Split',
   caminho: null,
 });
