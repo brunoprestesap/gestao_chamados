@@ -50,7 +50,7 @@ _PDF e emissão_
 
 _Acesso_
 
-- **AC-20**: Acesso. A rota `POST /api/relatorios/contrato/pdf` responde 401 sem sessão e 403 para quem não é Admin, antes de qualquer leitura; corpo inválido (Zod: `contratoId` ObjectId, `mes` `YYYY-MM`) responde 400; contrato inexistente responde 404; mês fora da lista do AC-5 responde 422 com "Mês fora da vigência do contrato."; outra geração em curso responde 429 (AC-16). As Server Actions do cadastro chamam `requireAdmin()`. `/relatorios/contrato` usa `requireAdmin()`.
+- **AC-20**: Acesso. A rota `POST /api/relatorios/contrato/pdf` responde 401 sem sessão e 403 para quem não é Admin, antes de qualquer leitura; corpo inválido (Zod: `contratoId` ObjectId, `mes` `YYYY-MM`) responde 400; contrato inexistente responde 404; mês fora da lista do AC-5 responde 422 com "Mês fora da vigência do contrato."; outra geração em curso responde 429 (AC-16). As Server Actions do cadastro conferem a sessão com `verifySession()` mais `isAdmin()` e, sem sessão ou sem perfil Admin, devolvem `{ ok: false, error: ERRO_SEM_PERMISSAO }` sem tocar o banco (nunca redirecionam nem lançam, no padrão das telas de configuração). `/relatorios/contrato` usa `requireAdmin()`.
 
 ## Decision
 
@@ -73,7 +73,7 @@ Calls made with full design context (pick, why, runner up):
 - **Sobreposição conferida na aplicação**: uma consulta `ContratoModel.findOne({ _id: { $ne: id }, tiposServico: { $in: tipos }, vigenciaInicio: { $lte: fim }, vigenciaFim: { $gte: inicio } })` antes de gravar. A corrida entre dois Admins salvando ao mesmo tempo é aceita: o cadastro tem um ou dois usuários e poucos contratos por ano. Runner up: uma transação com lock, desproporcional ao uso.
 - **Datas da vigência como string `YYYY-MM-DD`**: é como o contrato fala ("de 01/03/2025 a 28/02/2026"), sem fuso, e vira `Date` só na janela do AC-6. Runner up: `Date`, que traz o problema do fuso para um dado que não tem hora.
 - **Validação do CNPJ com dígito verificador**: função pura `cnpjValido` em `shared/contratos/cnpj.ts`, sem consulta externa. Pega erro de digitação num documento que vai para o processo. Runner up: só contar 14 dígitos.
-- **Cadastro por Server Actions**: `app/(dashboard)/configuracoes/contratos/actions.ts` (`criarContratoAction`, `editarContratoAction`, `alterarSituacaoContratoAction`), no padrão do projeto (`requireAdmin`, `dbConnect`, `safeParse`, `revalidatePath`, retorno `{ ok }`). Runner up: rotas REST como `/api/catalog`, mais código para uma tela só de Admin.
+- **Cadastro por Server Actions**: `app/(dashboard)/configuracoes/contratos/actions.ts` (`criarContratoAction`, `editarContratoAction`, `alterarSituacaoContratoAction`), no padrão das telas de configuração (`verifySession` mais `isAdmin` com `{ ok: false }`, nunca o `requireAdmin()`, que redireciona por exceção; `dbConnect`, `safeParse`, `revalidatePath`, retorno `{ ok }`). Runner up: rotas REST como `/api/catalog`, mais código para uma tela só de Admin.
 - **Navegação**: um item "Relatório por contrato" no grupo Admin de `components/dashboard/nav.ts`, ao lado do IMR, e "Contratos" junto das outras configurações. Runner up: um link dentro do IMR, menos visível.
 
 ## Feature design
@@ -167,7 +167,7 @@ Tipo de saída (`shared/contratos/relatorio.types.ts`, serializável, sem `Date`
 
 **Security model**:
 
-Só Admin vê, cadastra e gera (páginas com `requireAdmin()`, rota com 401 e 403 antes de ler, `proxy.ts` já cobrindo `/configuracoes`). O relatório mostra dados da empresa contratada (CNPJ, que é público) e um nome de pessoa (o `fiscal`, que já aparece no processo administrativo). Nenhum dado do solicitante, nenhum `camposPatrimoniais`. A emissão guarda quem gerou e quando, que é a trilha de auditoria da funcionalidade. O cadastro de contratos não tem auditoria própria além de `timestamps` (aceito: só Admin, e cada PDF já guarda o hash do que foi emitido).
+Só Admin vê, cadastra e gera (páginas com `requireAdmin()`, Server Actions com `verifySession()` mais `isAdmin()`, rota com 401 e 403 antes de ler, `proxy.ts` já cobrindo `/configuracoes`). O relatório mostra dados da empresa contratada (CNPJ, que é público) e um nome de pessoa (o `fiscal`, que já aparece no processo administrativo). Nenhum dado do solicitante, nenhum `camposPatrimoniais`. A emissão guarda quem gerou e quando, que é a trilha de auditoria da funcionalidade. O cadastro de contratos não tem auditoria própria além de `timestamps` (aceito: só Admin, e cada PDF já guarda o hash do que foi emitido).
 
 **Configuration required**: nenhuma variável nova. Dependência nova: `@react-pdf/renderer` (versão exata no `package.json`, sem `^`, como o AI SDK).
 
