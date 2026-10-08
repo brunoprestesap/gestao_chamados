@@ -18,6 +18,7 @@ Um arquivo por coleção, com schema manual (sem Prisma) e os índices declarado
 - `Contrato` e `RelatorioContratoEmissao` (spec 0016) também passam o nome da coleção explícito, `contratos` e `relatoriocontratoemissoes`, para a consulta pelo mongosh achar o mesmo nome.
 - O `Contador` guarda também os números de chamado: a chave `chamado_<ano>` gera `CHM-<ano>-#####` com `$inc` atômico (`generateTicketNumber`, `lib/chamado-utils.ts`), semeada no primeiro uso do ano com o maior número já gravado. Número de chamado sai sempre dessa função, nunca de uma leitura do maior existente.
 - `ChamadoHistory.action` é enum de `CHAMADO_HISTORY_ACTIONS` (`shared/chamados/history.constants.ts`): ação nova entra lá e em `CHAMADO_HISTORY_ACTION_LABELS`, senão o `create` falha depois de a escrita no chamado já ter acontecido. `shared/chamados/__tests__/history.constants.test.ts` varre `app/` e `lib/` e quebra com ação gravada fora do enum.
+- `ChamadoInteressado` (spec 0017) nunca é apagado e não grava `ChamadoHistory`, para nenhum nome de interessado chegar ao dono pela linha do tempo. Um registro por pessoa e chamado (índice único): sair grava `saiuEm`, voltar reativa o mesmo registro e regrava `localVisivel`. Registro sem `localVisivel` vale `false`.
 - Os índices vêm de `Schema.index(...)` no schema. Teste que precisa do índice único ou do TTL chama `createIndexes()` de propósito (ver `tests/mongo-test-env.ts`).
 
 ## Gotchas
