@@ -85,9 +85,17 @@ describe('CHAMADO_HISTORY_ACTION_LABELS', () => {
 });
 
 describe('ACOES_SO_DA_GESTAO (spec 0009, AC-13)', () => {
-  it('tem exatamente correcao_ia, confirmacao_ia e correcao_gestao', () => {
+  it('tem exatamente as três da IA e as quatro de custo (spec 0018, AC-6)', () => {
     expect([...ACOES_SO_DA_GESTAO].sort()).toEqual(
-      ['confirmacao_ia', 'correcao_gestao', 'correcao_ia'].sort(),
+      [
+        'confirmacao_ia',
+        'correcao_gestao',
+        'correcao_ia',
+        'custo_material_lancado',
+        'custo_material_editado',
+        'custo_material_removido',
+        'cotacao_valor_final',
+      ].sort(),
     );
   });
 

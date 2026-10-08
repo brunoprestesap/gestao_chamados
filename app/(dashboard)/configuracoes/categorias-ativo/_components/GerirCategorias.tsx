@@ -42,6 +42,9 @@ import {
   LIMITE_CATEGORIA_MAX,
   LIMITE_CATEGORIA_MIN,
   LIMITE_CORRETIVOS_12M_PADRAO,
+  LIMITE_CUSTO_PERCENTUAL_12M_PADRAO,
+  LIMITE_CUSTO_PERCENTUAL_MAX,
+  LIMITE_CUSTO_PERCENTUAL_MIN,
   LIMITE_REINCIDENCIA_90D_PADRAO,
 } from '@/shared/ativos/substituicao.constants';
 
@@ -61,6 +64,7 @@ export type CategoriaLinha = {
   vidaUtilAnos: number | null;
   limiteCorretivos12m: number | null;
   limiteReincidencia90d: number | null;
+  limiteCustoPercentual12m: number | null;
   serviceSubTypeId: string | null;
   isActive: boolean;
   totalAtivos: number;
@@ -82,6 +86,7 @@ type Rascunho = {
   vidaUtil: string;
   limiteCorretivos: string;
   limiteReincidencia: string;
+  limiteCusto: string;
   subtipo: string;
 };
 
@@ -94,6 +99,7 @@ const VAZIO: Rascunho = {
   vidaUtil: '',
   limiteCorretivos: '',
   limiteReincidencia: '',
+  limiteCusto: '',
   subtipo: '',
 };
 
@@ -144,6 +150,7 @@ export function GerirCategorias({
             vidaUtil: c.vidaUtilAnos ? String(c.vidaUtilAnos) : '',
             limiteCorretivos: c.limiteCorretivos12m ? String(c.limiteCorretivos12m) : '',
             limiteReincidencia: c.limiteReincidencia90d ? String(c.limiteReincidencia90d) : '',
+            limiteCusto: c.limiteCustoPercentual12m ? String(c.limiteCustoPercentual12m) : '',
             subtipo: c.serviceSubTypeId ?? '',
           },
     );
@@ -161,6 +168,7 @@ export function GerirCategorias({
       vidaUtilAnos: r.vidaUtil,
       limiteCorretivos12m: r.limiteCorretivos,
       limiteReincidencia90d: r.limiteReincidencia,
+      limiteCustoPercentual12m: r.limiteCusto,
       serviceSubTypeId: r.subtipo,
     };
     iniciar(async () => {
@@ -418,11 +426,25 @@ export function GerirCategorias({
                 aria-describedby="cat-lim-ajuda"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="cat-lim-custo">Custo em 12 meses (% do valor histórico)</Label>
+              <Input
+                id="cat-lim-custo"
+                type="number"
+                min={LIMITE_CUSTO_PERCENTUAL_MIN}
+                max={LIMITE_CUSTO_PERCENTUAL_MAX}
+                value={r.limiteCusto}
+                onChange={(e) => set('limiteCusto', e.target.value)}
+                placeholder={`padrão: ${LIMITE_CUSTO_PERCENTUAL_12M_PADRAO}`}
+                aria-describedby="cat-lim-ajuda"
+              />
+            </div>
             <p id="cat-lim-ajuda" className="-mt-2 text-xs text-muted-foreground sm:col-span-2">
               Com a vida útil, decidem quais ativos aparecem como candidatos à substituição. Vazio
               usa o padrão ({LIMITE_CORRETIVOS_12M_PADRAO} em 12 meses,{' '}
-              {LIMITE_REINCIDENCIA_90D_PADRAO} em 90 dias). De {LIMITE_CATEGORIA_MIN} a{' '}
-              {LIMITE_CATEGORIA_MAX}.
+              {LIMITE_REINCIDENCIA_90D_PADRAO} em 90 dias, {LIMITE_CUSTO_PERCENTUAL_12M_PADRAO}% do
+              valor histórico). Corretivos de {LIMITE_CATEGORIA_MIN} a {LIMITE_CATEGORIA_MAX}; custo
+              de {LIMITE_CUSTO_PERCENTUAL_MIN}% a {LIMITE_CUSTO_PERCENTUAL_MAX}%.
             </p>
             <fieldset className="space-y-2 sm:col-span-2" aria-describedby="cat-docs-ajuda">
               <legend className="text-sm font-medium">Documentos exigidos</legend>
@@ -526,7 +548,7 @@ function LimitesSubstituicao({ categoria: c }: { categoria: CategoriaLinha }) {
       <span>{c.vidaUtilAnos ? `vida útil ${c.vidaUtilAnos} anos` : 'sem vida útil'}</span>
       <span className="text-xs text-muted-foreground">
         {c.limiteCorretivos12m ?? 'padrão'} em 12 meses · {c.limiteReincidencia90d ?? 'padrão'} em
-        90 dias
+        90 dias · custo {c.limiteCustoPercentual12m ? `${c.limiteCustoPercentual12m}%` : 'padrão'}
       </span>
     </span>
   );

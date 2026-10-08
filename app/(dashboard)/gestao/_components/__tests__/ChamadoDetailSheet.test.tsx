@@ -40,6 +40,10 @@ vi.mock('@/app/(dashboard)/meus-chamados/[id]/_components/AttachmentGallery', ()
 // `RevisaoIaPainel` (spec 0009) chama `confirmarDecisoesIaAction`, cujo módulo
 // puxa `lib/db.ts` na importação. Tem teste próprio em `RevisaoIaPainel.test.tsx`.
 vi.mock('../RevisaoIaPainel', () => ({ RevisaoIaPainel: () => null }));
+// A seção de custo (spec 0018) chama Server Actions, cujo módulo puxa `lib/dal`.
+vi.mock('../CustoChamadoSecao', () => ({
+  CustoChamadoSecao: () => <section aria-label="Custo do chamado" />,
+}));
 
 import type { ChamadoDTO } from '../../../meus-chamados/_components/ChamadoCard';
 import { ChamadoDetailSheet } from '../ChamadoDetailSheet';
@@ -351,5 +355,38 @@ describe('ChamadoDetailSheet · equipamento (spec 0011, AC-16)', () => {
     await user.click(screen.getByRole('button', { name: /Trocar/ }));
     await user.click(screen.getByRole('button', { name: 'Remover equipamento' }));
     await waitFor(() => expect(onVincularAtivo).toHaveBeenCalledWith(c, null));
+  });
+});
+
+describe('ChamadoDetailSheet · seção Custo (spec 0018, AC-18)', () => {
+  it.each(['Admin', 'Preposto'])('%s com o callback vê a seção', (role) => {
+    render(
+      <ChamadoDetailSheet
+        chamado={chamado({ status: 'em atendimento' })}
+        open
+        onOpenChange={vi.fn()}
+        onCustoAlterado={vi.fn()}
+        userRole={role}
+      />,
+    );
+    expect(screen.getByRole('region', { name: 'Custo do chamado' })).toBeInTheDocument();
+  });
+
+  it.each(['Técnico', 'Solicitante'])('%s nunca vê a seção, mesmo com o callback', (role) => {
+    render(
+      <ChamadoDetailSheet
+        chamado={chamado({ status: 'em atendimento' })}
+        open
+        onOpenChange={vi.fn()}
+        onCustoAlterado={vi.fn()}
+        userRole={role}
+      />,
+    );
+    expect(screen.queryByRole('region', { name: 'Custo do chamado' })).not.toBeInTheDocument();
+  });
+
+  it('sem o callback a seção não aparece', () => {
+    render(<ChamadoDetailSheet chamado={chamado()} open onOpenChange={vi.fn()} userRole="Admin" />);
+    expect(screen.queryByRole('region', { name: 'Custo do chamado' })).not.toBeInTheDocument();
   });
 });

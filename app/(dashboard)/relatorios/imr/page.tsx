@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { calcularCustosAtivos, type CustosAtivos } from '@/lib/ativos/custo';
 import { calcularIndicadoresAtivos, type IndicadoresAtivos } from '@/lib/ativos/indicadores';
 import { listarSituacoesSubstituicao, type SituacoesSubstituicao } from '@/lib/ativos/substituicao';
 import { requireAdmin } from '@/lib/dal';
@@ -52,7 +53,7 @@ export default async function ImrPage({ searchParams }: PageProps) {
   const { dataInicial, dataFinal } = parseDateRange(params.dataInicial, params.dataFinal);
 
   const fim = endOfDay(dataFinal);
-  const [result, ativos, substituicao] = await Promise.all([
+  const [result, ativos, substituicao, custos] = await Promise.all([
     computeImrReport({ dataInicial, dataFinal }),
     // Os indicadores de equipamento (spec 0014) são só informativos: uma falha
     // aqui mostra o aviso na aba Ativos e nunca derruba o relatório.
@@ -82,6 +83,19 @@ export default async function ImrPage({ searchParams }: PageProps) {
       );
       return null;
     }),
+    // Custo por ativo no período (spec 0018, AC-12 e AC-19): falha isolada.
+    calcularCustosAtivos({ inicio: startOfDay(dataInicial), fim }).catch(
+      (err: unknown): CustosAtivos | null => {
+        console.error(
+          '[imr]',
+          JSON.stringify({
+            operacao: 'calcularCustosAtivos',
+            error: err instanceof Error ? err.message : 'unknown',
+          }),
+        );
+        return null;
+      },
+    ),
   ]);
   const dataGeracao = new Date();
   const expediente = await getBusinessCalendarConfig();
@@ -145,6 +159,7 @@ export default async function ImrPage({ searchParams }: PageProps) {
         porTipoServico={result.porTipoServico}
         ativos={ativos}
         substituicao={substituicao}
+        custos={custos}
       />
     </div>
   );

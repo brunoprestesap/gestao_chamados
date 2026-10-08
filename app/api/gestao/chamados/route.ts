@@ -11,7 +11,10 @@ import { numerosDosChamadosAnteriores } from '@/lib/chamados/reincidencia';
 import { prioridadeValidadaPelaIa, servicoSugeridoPelaIa } from '@/lib/conversas';
 import { requireManager } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
-import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
+import {
+  normalizeMateriaisForaCotacao,
+  normalizeMaterialObservations,
+} from '@/lib/dto-normalizers';
 import { idsDoRecorte } from '@/lib/gestao/revisao-ia-filtro';
 import { escapeRegex } from '@/lib/regex';
 import { ChamadoModel } from '@/models/Chamado';
@@ -50,6 +53,8 @@ const LIST_PROJECTION = {
   pauseReason: 1,
   pauseDetails: 1,
   materialObservations: 1,
+  // Custo do chamado (spec 0018, AC-18): só este endpoint de gestão projeta.
+  materiaisForaCotacao: 1,
   sla: 1,
   canalAbertura: 1,
   // Só a gestão lê: o resultado e o motivo da atribuição automática (spec 0008, AC-16).
@@ -285,9 +290,16 @@ export async function GET(req: Request) {
       }),
     ),
   ];
+  // Quem lançou material (spec 0018) entra na mesma consulta de nomes.
+  const criadorIds = items.flatMap((c) =>
+    ((c as { materiaisForaCotacao?: { criadoPorUserId?: unknown }[] }).materiaisForaCotacao ?? [])
+      .map((i) => (i.criadoPorUserId ? String(i.criadoPorUserId) : null))
+      .filter((id): id is string => id !== null),
+  );
+  const idsDeNomes = [...new Set([...tecnicoIds, ...criadorIds])];
   const nomesDosTecnicos = new Map<string, string>();
-  if (tecnicoIds.length > 0) {
-    const tecnicos = await UserModel.find({ _id: { $in: tecnicoIds } })
+  if (idsDeNomes.length > 0) {
+    const tecnicos = await UserModel.find({ _id: { $in: idsDeNomes } })
       .select('name')
       .lean();
     for (const t of tecnicos) nomesDosTecnicos.set(String(t._id), t.name);
@@ -308,6 +320,10 @@ export async function GET(req: Request) {
         nomesDosTecnicos,
       ),
       avisoDuplicado: avisoDuplicadoParaGestao(c, numerosDuplicados),
+      materiaisForaCotacao: normalizeMateriaisForaCotacao(
+        (c as { materiaisForaCotacao?: unknown }).materiaisForaCotacao,
+        nomesDosTecnicos,
+      ),
       interessados: interessados.get(String(c._id)) ?? { total: 0, nomes: [] },
     })),
     pagination: { page, limit, total, totalPages },

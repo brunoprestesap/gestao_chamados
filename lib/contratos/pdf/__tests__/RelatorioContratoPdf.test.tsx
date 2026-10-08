@@ -46,6 +46,7 @@ function dados(qtdAtivos: number, extra: Partial<RelatorioContrato> = {}): Relat
       preventivasGeradas: 0,
       preventivasConcluidas: 0,
       sla: { ...sla, semSla: qtdAtivos, percentualDentro: null },
+      custoTotalCentavos: 0,
     },
     categorias: qtdAtivos
       ? [
@@ -61,6 +62,8 @@ function dados(qtdAtivos: number, extra: Partial<RelatorioContrato> = {}): Relat
             slaFora: 0,
             preventivasGeradas: 0,
             preventivasConcluidas: 0,
+            custoCorretivoCentavos: 0,
+            custoPreventivaCentavos: 0,
           },
         ]
       : [],
@@ -79,6 +82,7 @@ function dados(qtdAtivos: number, extra: Partial<RelatorioContrato> = {}): Relat
       sla: { ...sla, semSla: 1 },
       preventivasGeradas: 0,
       preventivasConcluidas: 0,
+      custoCentavos: 0,
     })),
     ...extra,
   };

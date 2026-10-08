@@ -57,3 +57,34 @@ describe('filtro "Substituição" da lista', () => {
     expect(FiltrosListaAtivosSchema.parse({ substituicao: 'tudo' }).substituicao).toBeUndefined();
   });
 });
+
+describe('limite de custo da categoria (spec 0018, AC-16)', () => {
+  it('aceita de 1 a 999, acima do teto dos outros limites', () => {
+    for (const [v, esperado] of [
+      ['1', 1],
+      ['150', 150],
+      ['999', 999],
+    ] as const) {
+      const r = CategoriaAtivoFormSchema.parse({ ...base, limiteCustoPercentual12m: v });
+      expect(r.limiteCustoPercentual12m).toBe(esperado);
+    }
+  });
+
+  it('vazio, null e ausente viram ausente, para a regra gravar null', () => {
+    for (const v of ['', null, undefined]) {
+      const r = CategoriaAtivoFormSchema.parse({ ...base, limiteCustoPercentual12m: v });
+      expect(r.limiteCustoPercentual12m).toBeUndefined();
+    }
+  });
+
+  it.each(['0', '1000', '20.5', 'abc', '-5'])('%s é inválido', (v) => {
+    const r = CategoriaAtivoFormSchema.safeParse({ ...base, limiteCustoPercentual12m: v });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.message).toBe('Limite de custo inválido.');
+  });
+
+  it('os outros limites continuam presos a 99', () => {
+    const r = CategoriaAtivoFormSchema.safeParse({ ...base, limiteCorretivos12m: '150' });
+    expect(r.error?.issues[0]?.message).toBe('Limite de corretivos inválido.');
+  });
+});

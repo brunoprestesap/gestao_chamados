@@ -19,6 +19,7 @@ import type { SituacaoSubstituicao } from '@/lib/ativos/substituicao';
 import { formatDate } from '@/lib/utils';
 import {
   formatarDia,
+  NOTA_CUSTO_NAO_AVALIADO,
   NOTA_IDADE_NAO_AVALIADA,
   textoDoMotivo,
 } from '@/shared/ativos/substituicao.constants';
@@ -49,10 +50,12 @@ export function SubstituicaoAtivo({
     );
   }
 
-  const nota = situacao.idadeNaoAvaliada
-    ? NOTA_IDADE_NAO_AVALIADA[situacao.idadeNaoAvaliada]
-    : null;
-  if (situacao.situacao === 'fora' && !nota) return null;
+  const notas = [
+    situacao.idadeNaoAvaliada ? NOTA_IDADE_NAO_AVALIADA[situacao.idadeNaoAvaliada] : null,
+    // Spec 0018, AC-15: sem valor histórico, o custo não entra na conta.
+    situacao.custoNaoAvaliado ? NOTA_CUSTO_NAO_AVALIADO : null,
+  ].filter((n): n is string => n !== null);
+  if (situacao.situacao === 'fora' && notas.length === 0) return null;
 
   return (
     <Moldura>
@@ -92,8 +95,9 @@ export function SubstituicaoAtivo({
         </div>
       )}
 
-      {nota && (
+      {notas.map((nota) => (
         <p
+          key={nota}
           className={
             situacao.situacao === 'fora'
               ? 'text-sm text-muted-foreground'
@@ -102,7 +106,7 @@ export function SubstituicaoAtivo({
         >
           {nota}
         </p>
-      )}
+      ))}
     </Moldura>
   );
 }

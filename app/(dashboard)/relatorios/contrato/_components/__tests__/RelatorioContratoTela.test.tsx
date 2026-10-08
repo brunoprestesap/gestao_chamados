@@ -54,6 +54,7 @@ function dados(extra: Partial<RelatorioContrato> = {}): RelatorioContrato {
       preventivasGeradas: 2,
       preventivasConcluidas: 1,
       sla: { dentro: 1, fora: 1, emAndamento: 0, semSla: 0, percentualDentro: 50 },
+      custoTotalCentavos: 0,
     },
     categorias: [
       {
@@ -68,6 +69,8 @@ function dados(extra: Partial<RelatorioContrato> = {}): RelatorioContrato {
         slaFora: 1,
         preventivasGeradas: 2,
         preventivasConcluidas: 1,
+        custoCorretivoCentavos: 0,
+        custoPreventivaCentavos: 0,
       },
     ],
     ativos: [
@@ -86,6 +89,7 @@ function dados(extra: Partial<RelatorioContrato> = {}): RelatorioContrato {
         sla: { ...sla, dentro: 1, fora: 1 },
         preventivasGeradas: 2,
         preventivasConcluidas: 1,
+        custoCentavos: 0,
       },
     ],
     ...extra,
@@ -161,6 +165,7 @@ describe('RelatorioContratoTela', () => {
             preventivasGeradas: 0,
             preventivasConcluidas: 0,
             sla: { ...sla, percentualDentro: null },
+            custoTotalCentavos: 0,
           },
           categorias: [],
           ativos: [],

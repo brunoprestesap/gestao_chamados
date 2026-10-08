@@ -4,6 +4,12 @@ import { Types } from 'mongoose';
 
 import { gravarHistoricoOuDesfazer } from '@/lib/ativos/auditoria';
 import {
+  custoDaFicha,
+  custoPorAtivo,
+  lerCustosDosChamados,
+  PROJECAO_CUSTO,
+} from '@/lib/ativos/custo';
+import {
   anosCompletos,
   dataSemHora,
   hojeEmBelem,
@@ -47,6 +53,7 @@ import {
   formatarDia,
   type IdadeNaoAvaliada,
   LIMITE_CORRETIVOS_12M_PADRAO,
+  LIMITE_CUSTO_PERCENTUAL_12M_PADRAO,
   LIMITE_REINCIDENCIA_90D_PADRAO,
   MESES_DISPENSA_SUBSTITUICAO,
   type MotivoSubstituicao,
@@ -54,6 +61,7 @@ import {
   STATUS_FORA_DA_SUBSTITUICAO,
   textoDosCriterios,
 } from '@/shared/ativos/substituicao.constants';
+import { centavos } from '@/shared/chamados/custo';
 import { type TipoServico, tipoServicoDoNomeDoTipo } from '@/shared/chamados/tipo-servico';
 
 /**
@@ -78,14 +86,19 @@ export type EntradaAvaliacao = {
     /** De `camposPatrimoniais`. */
     dataTombo: Date | null;
     dispensa: { ate: Date; em: Date; motivosNaDispensa: CriterioSubstituicao[] } | null;
+    /** De `camposPatrimoniais`, em reais (spec 0018). */
+    valorHistorico: number | null;
   };
   categoria: {
     vidaUtilAnos: number | null;
     limiteCorretivos12m: number | null;
     limiteReincidencia90d: number | null;
+    limiteCustoPercentual12m: number | null;
   };
   corretivos12m: number;
   corretivos90d: number;
+  /** Custo corretivo dos 12 meses (spec 0018); `null` quando a conta falhou (não avalia). */
+  custoCorretivo12mCentavos: number | null;
   /** `hojeEmBelem(agora)`, `YYYY-MM-DD`. */
   hoje: string;
 };
@@ -95,6 +108,8 @@ export type ResultadoAvaliacao = {
   /** Os critérios que batem hoje, na ordem idade, corretivos, reincidência. */
   motivos: MotivoSubstituicao[];
   idadeNaoAvaliada: IdadeNaoAvaliada | null;
+  /** Sem `valorHistorico` positivo, o critério de custo não é avaliado (spec 0018, AC-15). */
+  custoNaoAvaliado: boolean;
   dispensaVigente: boolean;
   /** `YYYY-MM-DD` da dispensa gravada (vigente ou não); `null` sem dispensa ou fora do AC-1. */
   dispensaGravadaAte: string | null;
@@ -112,6 +127,7 @@ export function avaliarSubstituicao(e: EntradaAvaliacao): ResultadoAvaliacao {
       situacao: 'fora',
       motivos: [],
       idadeNaoAvaliada: null,
+      custoNaoAvaliado: false,
       dispensaVigente: false,
       dispensaGravadaAte: null,
     };
@@ -148,6 +164,26 @@ export function avaliarSubstituicao(e: EntradaAvaliacao): ResultadoAvaliacao {
     });
   }
 
+  // Custo (spec 0018, AC-15): só inteiros, `custo × 100 ≥ limite × valor`.
+  const valorHistoricoCentavos =
+    e.ativo.valorHistorico !== null && e.ativo.valorHistorico > 0
+      ? centavos(e.ativo.valorHistorico)
+      : 0;
+  const custoNaoAvaliado = valorHistoricoCentavos <= 0;
+  const limiteCusto = e.categoria.limiteCustoPercentual12m ?? LIMITE_CUSTO_PERCENTUAL_12M_PADRAO;
+  if (
+    !custoNaoAvaliado &&
+    e.custoCorretivo12mCentavos !== null &&
+    e.custoCorretivo12mCentavos * 100 >= limiteCusto * valorHistoricoCentavos
+  ) {
+    motivos.push({
+      criterio: 'custo',
+      custoCentavos: e.custoCorretivo12mCentavos,
+      percentual: Math.round((e.custoCorretivo12mCentavos * 100) / valorHistoricoCentavos),
+      limite: limiteCusto,
+    });
+  }
+
   const dispensa = e.ativo.dispensa;
   // A dispensa vale até a véspera de `ate` e só cobre os critérios que batiam
   // quando foi dada: um critério novo devolve o ativo à lista (AC-12).
@@ -161,6 +197,7 @@ export function avaliarSubstituicao(e: EntradaAvaliacao): ResultadoAvaliacao {
     situacao: motivos.length === 0 ? 'fora' : dispensaVigente ? 'dispensado' : 'candidato',
     motivos,
     idadeNaoAvaliada,
+    custoNaoAvaliado,
     dispensaVigente,
     dispensaGravadaAte: dispensa ? paraYmd(dispensa.ate) : null,
   };
@@ -183,7 +220,10 @@ export type AtivoParaAvaliar = {
   status: AtivoStatus;
   categoriaId: Types.ObjectId;
   dataInstalacao?: Date | null;
-  camposPatrimoniais?: { dataTombo?: Date | null } | Record<string, unknown> | null;
+  camposPatrimoniais?:
+    | { dataTombo?: Date | null; valorHistorico?: number | null }
+    | Record<string, unknown>
+    | null;
   dispensaSubstituicao?: DispensaLida | null;
 };
 
@@ -191,15 +231,23 @@ export type CategoriaParaAvaliar = {
   vidaUtilAnos?: number | null;
   limiteCorretivos12m?: number | null;
   limiteReincidencia90d?: number | null;
+  limiteCustoPercentual12m?: number | null;
 };
 
 const CAMPOS_ATIVO_AVALIACAO =
-  'tierManutencao status categoriaId dataInstalacao camposPatrimoniais.dataTombo dispensaSubstituicao';
-const CAMPOS_CATEGORIA_AVALIACAO = 'nome vidaUtilAnos limiteCorretivos12m limiteReincidencia90d';
+  'tierManutencao status categoriaId dataInstalacao camposPatrimoniais.dataTombo camposPatrimoniais.valorHistorico dispensaSubstituicao';
+const CAMPOS_CATEGORIA_AVALIACAO =
+  'nome vidaUtilAnos limiteCorretivos12m limiteReincidencia90d limiteCustoPercentual12m';
 
 function dataTomboDe(a: AtivoParaAvaliar): Date | null {
   const v = (a.camposPatrimoniais as { dataTombo?: unknown } | null | undefined)?.dataTombo;
   return v instanceof Date ? v : null;
+}
+
+function valorHistoricoDe(a: AtivoParaAvaliar): number | null {
+  const v = (a.camposPatrimoniais as { valorHistorico?: unknown } | null | undefined)
+    ?.valorHistorico;
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
 /** Monta a entrada da regra a partir do que já foi lido do banco. */
@@ -208,6 +256,7 @@ export function entradaDaAvaliacao(
   categoria: CategoriaParaAvaliar | null,
   numeros: { corretivos12m: number; corretivos90d: number },
   hoje: string,
+  custoCorretivo12mCentavos: number | null = null,
 ): EntradaAvaliacao {
   const d = ativo.dispensaSubstituicao;
   return {
@@ -217,14 +266,17 @@ export function entradaDaAvaliacao(
       dataInstalacao: ativo.dataInstalacao ?? null,
       dataTombo: dataTomboDe(ativo),
       dispensa: d ? { ate: d.ate, em: d.em, motivosNaDispensa: d.motivosNaDispensa } : null,
+      valorHistorico: valorHistoricoDe(ativo),
     },
     categoria: {
       vidaUtilAnos: categoria?.vidaUtilAnos ?? null,
       limiteCorretivos12m: categoria?.limiteCorretivos12m ?? null,
       limiteReincidencia90d: categoria?.limiteReincidencia90d ?? null,
+      limiteCustoPercentual12m: categoria?.limiteCustoPercentual12m ?? null,
     },
     corretivos12m: numeros.corretivos12m,
     corretivos90d: numeros.corretivos90d,
+    custoCorretivo12mCentavos,
     hoje,
   };
 }
@@ -332,11 +384,13 @@ export async function listarSituacoesSubstituicao(
       ...filtroCorretivo(janela.inicio, janela.fim),
       ativoId: { $in: ativos.map((a) => a._id) },
     })
-      .select(PROJECAO_CORRETIVO)
-      .lean<ChamadoLido[]>(),
+      .select({ ...PROJECAO_CORRETIVO, ...PROJECAO_CUSTO })
+      .lean<(ChamadoLido & { _id: Types.ObjectId })[]>(),
   ]);
   const categoriaPorId = new Map(categorias.map((c) => [String(c._id), c]));
   const corretivosPorAtivo = agruparPorAtivo(docs.map(paraCorretivo));
+  // Custo corretivo dos mesmos chamados da janela (spec 0018, AC-15).
+  const custoCorretivo = custoPorAtivo(await lerCustosDosChamados(docs));
 
   const candidatos: (LinhaCandidato & { localId: string | null })[] = [];
   const dispensados: (LinhaCandidato & { localId: string | null })[] = [];
@@ -355,6 +409,7 @@ export async function listarSituacoesSubstituicao(
         categoria,
         { corretivos12m: n.corretivos, corretivos90d: n.corretivos90d },
         hoje,
+        custoCorretivo.get(id)?.corretivoCentavos ?? 0,
       ),
     );
     if (r.situacao === 'fora') continue;
@@ -443,11 +498,19 @@ export async function situacaoSubstituicaoDaFicha(params: {
   ativo: AtivoParaAvaliar;
   categoria: CategoriaParaAvaliar | null;
   indicadores: IndicadoresDaFicha;
+  /** O custo corretivo dos 12 meses que a ficha já calculou; `null` se a conta falhou. */
+  custoCorretivo12mCentavos: number | null;
   agora?: Date;
 }): Promise<SituacaoSubstituicao> {
   const { ativo, categoria, indicadores } = params;
   const r = avaliarSubstituicao(
-    entradaDaAvaliacao(ativo, categoria, indicadores, hojeEmBelem(params.agora ?? new Date())),
+    entradaDaAvaliacao(
+      ativo,
+      categoria,
+      indicadores,
+      hojeEmBelem(params.agora ?? new Date()),
+      params.custoCorretivo12mCentavos,
+    ),
   );
   const d = ativo.dispensaSubstituicao;
   if (!d || r.dispensaGravadaAte === null) return r;
@@ -475,17 +538,20 @@ async function reavaliar(ativoId: string, agora: Date) {
     .select(CAMPOS_ATIVO_AVALIACAO)
     .lean<AtivoParaAvaliar>();
   if (!ativo) return null;
-  const [categoria, indicadores] = await Promise.all([
+  const [categoria, indicadores, custo] = await Promise.all([
     CategoriaAtivoModel.findById(ativo.categoriaId)
       .select(CAMPOS_CATEGORIA_AVALIACAO)
       .lean<CategoriaParaAvaliar>(),
     indicadoresDoAtivo(ativoId, agora),
+    custoDaFicha(ativoId, 0, agora),
   ]);
   const hoje = hojeEmBelem(agora);
   return {
     ativo,
     hoje,
-    resultado: avaliarSubstituicao(entradaDaAvaliacao(ativo, categoria, indicadores, hoje)),
+    resultado: avaliarSubstituicao(
+      entradaDaAvaliacao(ativo, categoria, indicadores, hoje, custo.doze.corretivoCentavos),
+    ),
   };
 }
 

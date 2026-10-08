@@ -36,6 +36,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done     |
 | 27  | Candidatos à substituição                          | Ativos        | done     |
 | 28  | Relatório mensal por contrato com ativo            | Ativos        | done     |
+| 30  | Custo acumulado por ativo                          | Ativos        | done     |
 | 29  | Correções de integridade do chamado                | Ciclo de vida | done     |
 | 20  | Aviso de chamado duplicado                         | Slice 4       | done     |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
@@ -356,6 +357,22 @@ spec [0016](../specs/0016-relatorio-mensal-contrato-ativo/index.md) · code in `
 - [x] Verify it: `/check verify relatório mensal por contrato com ativo`
 - [x] Test it: `/test relatório mensal por contrato com ativo`
 
+### 30. Custo acumulado por ativo · done
+
+Quanto cada equipamento custou em manutenção: cotações aprovadas (com valor final) mais o material fora de cotação lançado pela gestão, somados na hora. from spec 0014, spec 0015
+**Done when:** a gestão lança o material e o valor final no chamado; a ficha, o IMR e o relatório por contrato mostram o mesmo custo para o mesmo ativo e período, só para Admin e Preposto; o custo corretivo em 12 meses acima de um percentual do valor histórico vira candidato à substituição.
+spec [0018](../specs/0018-custo-acumulado-ativo/index.md) · code in `shared/chamados/custo*.ts`, `lib/chamados/custo.ts`, `lib/ativos/custo.ts`, `app/(dashboard)/gestao/custo.actions.ts`, `app/(dashboard)/gestao/_components/CustoChamadoSecao.tsx`, `app/(dashboard)/ativos/_components/CustoAtivo.tsx`
+
+- [x] Design it (spec): `/architect custo acumulado por ativo`
+- [x] Build it: `/develop custo acumulado por ativo`
+  - [x] O fio: item de material lançado na seção "Custo" da gestão até o bloco de custo da ficha, com a conta em centavos · AC-1, AC-3, AC-4, AC-7, AC-8, AC-9, AC-10, AC-11, AC-18, AC-19
+  - [x] Editar, remover e valor final da cotação, com histórico só da gestão · AC-2, AC-2a, AC-5, AC-6, AC-18
+  - [x] Custo no IMR e no relatório por contrato (tela e PDF) · AC-12, AC-13, AC-14, AC-19
+  - [x] Critério de custo na substituição e limite por categoria · AC-15, AC-16, AC-17
+  - [x] Testes de banco real do teto e da paridade, e testes de permissão · AC-4, AC-14, AC-18
+- [x] Verify it: `/check verify custo acumulado por ativo`
+- [x] Test it: `/test custo acumulado por ativo`
+
 ## Slice 3: fechamento
 
 ### 18. Painel de acurácia da IA · needs a decision
@@ -430,7 +447,8 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Reativar local ou categoria de ativo**: hoje uma localização ou categoria desativada só volta pelo banco · from spec 0011
 - **Reserva atômica no recorrente comum**: o ramo `template` de `processRecurringTickets` pode gerar duas vezes se duas execuções do cron se cruzarem; aplicar a mesma reserva do ramo por categoria · from spec 0013
 - **Distribuição em lote da preventiva**: se o Preposto passar a distribuir sempre do mesmo jeito, avaliar rodízio entre técnicos em vez da menor carga da 0008 · from spec 0013
-- **Custo acumulado por ativo**: ficou fora da fatia 4; decidir antes a fonte do custo (cotação aprovada ou campo novo no fechamento). Quando sair, avaliar um quarto critério de custo nos candidatos à substituição (cotações aprovadas contra `valorHistorico`) · from spec 0014, spec 0015
+- **Medir o lançamento de custo**: depois de alguns meses, ver quantos chamados concluídos têm custo lançado; se for pouco, avaliar lembrete no encerramento ou tela de lançamento em lote · from spec 0018
+- **Valor de reposição por categoria**: base alternativa ao `valorHistorico` no critério de custo da substituição, e custo nas listas de `/ativos`, se a gestão pedir · from spec 0018
 - **Data do tombo como idade**: se a vistoria preencher `dataInstalacao` em massa, revisar se a data do tombo ainda deve servir de reserva no critério de idade · from spec 0015
 - **Abrir chamado da ficha pelo chat**: o botão "Abrir chamado deste ativo" levar a `/conversas?ativo=<id>` em vez do formulário · from spec 0014
 - **Ativo escolhido pelo modelo**: levar candidatos ao prompt se a decisão `ativo` mostrar muita correção ou muitos cartões sem ativo com a vistoria completa · from spec 0014

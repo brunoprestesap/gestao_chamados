@@ -3,6 +3,7 @@ import 'server-only';
 import { Document, Font, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { ReactNode } from 'react';
 
+import { formatarReais } from '@/shared/chamados/custo';
 import {
   formatarDataHoraBelem,
   formatarPercentual,
@@ -183,6 +184,18 @@ const COLUNAS_CATEGORIA: Coluna<LinhaCategoria>[] = [
     numero: true,
     valor: (l) => String(l.preventivasConcluidas),
   },
+  {
+    titulo: 'Custo corretivo',
+    flex: 1.4,
+    numero: true,
+    valor: (l) => formatarReais(l.custoCorretivoCentavos),
+  },
+  {
+    titulo: 'Custo preventiva',
+    flex: 1.4,
+    numero: true,
+    valor: (l) => formatarReais(l.custoPreventivaCentavos),
+  },
 ];
 
 const COLUNAS_ATIVO: Coluna<LinhaAtivo>[] = [
@@ -209,6 +222,7 @@ const COLUNAS_ATIVO: Coluna<LinhaAtivo>[] = [
     numero: true,
     valor: (l) => String(l.preventivasConcluidas),
   },
+  { titulo: 'Custo', flex: 1.3, numero: true, valor: (l) => formatarReais(l.custoCentavos) },
 ];
 
 export function RelatorioContratoPdf({
@@ -273,10 +287,12 @@ export function RelatorioContratoPdf({
           <Kpi rotulo="SLA em andamento" valor={topo.sla.emAndamento} />
           <Kpi rotulo="Sem SLA" valor={topo.sla.semSla} />
           <Kpi rotulo="Cumprimento de SLA" valor={formatarPercentual(topo.sla.percentualDentro)} />
+          <Kpi rotulo="Custo total do mês" valor={formatarReais(topo.custoTotalCentavos)} />
         </View>
         <Text style={{ fontSize: 7, color: COR_SUAVE }}>
           SLA conta só os corretivos com ativo. A reincidência olha os 90 dias que terminam no fim
-          do período. {'"Ativos no escopo"'} é o retrato do momento da geração.
+          do período. {'"Ativos no escopo"'} é o retrato do momento da geração. Custos lançados até{' '}
+          {geradoEm} (horário de Belém).
         </Text>
 
         {vazio ? <Text style={s.vazio}>{TEXTO_SEM_CHAMADOS}</Text> : null}

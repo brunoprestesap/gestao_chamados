@@ -2,6 +2,14 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import {
+  type ChamadoParaCusto,
+  CUSTO_ZERO,
+  type CustoAgrupado,
+  custoPorAtivo,
+  lerCustosDosChamados,
+  PROJECAO_CUSTO,
+} from '@/lib/ativos/custo';
 import { hojeEmBelem } from '@/lib/ativos/documentos/situacao';
 import {
   calcularFiltro,
@@ -107,6 +115,8 @@ export type EntradaDoCalculo = {
   categoriasDoEscopo: readonly { id: string; nome: string }[];
   /** Ativos vinculáveis por `categoriaId`, retrato do momento. */
   ativosNoEscopo: ReadonlyMap<string, number>;
+  /** Custo por ativo dos chamados abertos dentro do mês (spec 0018, AC-13). */
+  custos: ReadonlyMap<string, CustoAgrupado>;
   agora: Date;
   geradoPorNome: string;
 };
@@ -146,7 +156,11 @@ export function calcularRelatorio(e: EntradaDoCalculo): RelatorioContrato {
 
   const slaTopo = contagemVazia();
   const ativoIds = new Set([...periodoPorAtivo.keys(), ...preventivasPorAtivo.keys()]);
-  const linhas: (LinhaAtivoRelatorio & { somaMttrMs: number; reparos: number[] })[] = [];
+  const linhas: (LinhaAtivoRelatorio & {
+    somaMttrMs: number;
+    reparos: number[];
+    custo: CustoAgrupado;
+  })[] = [];
 
   for (const ativoId of ativoIds) {
     const doAtivo = periodoPorAtivo.get(ativoId) ?? [];
@@ -162,6 +176,7 @@ export function calcularRelatorio(e: EntradaDoCalculo): RelatorioContrato {
     }
     const prev = preventivasPorAtivo.get(ativoId) ?? [];
     const i = e.info.get(ativoId);
+    const custo = e.custos.get(ativoId) ?? CUSTO_ZERO;
     linhas.push({
       ativoId,
       codigo: i?.codigo ?? '—',
@@ -177,6 +192,8 @@ export function calcularRelatorio(e: EntradaDoCalculo): RelatorioContrato {
       sla,
       preventivasGeradas: prev.length,
       preventivasConcluidas: prev.filter((p) => p.resolvedAt).length,
+      custoCentavos: custo.totalCentavos,
+      custo,
       somaMttrMs: n.somaMttrMs,
       reparos: doAtivo.map(tempoDeReparoMs).filter((ms): ms is number => ms !== null),
     });
@@ -212,6 +229,8 @@ export function calcularRelatorio(e: EntradaDoCalculo): RelatorioContrato {
     slaFora: daCategoria.reduce((s, l) => s + l.sla.fora, 0),
     preventivasGeradas: daCategoria.reduce((s, l) => s + l.preventivasGeradas, 0),
     preventivasConcluidas: daCategoria.reduce((s, l) => s + l.preventivasConcluidas, 0),
+    custoCorretivoCentavos: daCategoria.reduce((s, l) => s + l.custo.corretivoCentavos, 0),
+    custoPreventivaCentavos: daCategoria.reduce((s, l) => s + l.custo.preventivaCentavos, 0),
   });
   const categorias = [...nomes.entries()]
     .sort((a, b) => porNome(a[1], b[1]))
@@ -246,12 +265,14 @@ export function calcularRelatorio(e: EntradaDoCalculo): RelatorioContrato {
         ...slaTopo,
         percentualDentro: percentual(slaTopo.dentro, slaTopo.dentro + slaTopo.fora),
       },
+      custoTotalCentavos: linhas.reduce((s, l) => s + l.custoCentavos, 0),
     },
     categorias,
     ativos: linhas.map((l) => {
-      const { somaMttrMs, reparos, ...linha } = l;
+      const { somaMttrMs, reparos, custo, ...linha } = l;
       void somaMttrMs;
       void reparos;
+      void custo;
       return linha;
     }),
   };
@@ -333,7 +354,7 @@ async function lerCategoriasDoEscopo(
   return categorias.map((c) => ({ id: String(c._id), nome: c.nome }));
 }
 
-type DocDoContrato = {
+type DocDoContrato = ChamadoParaCusto & {
   ativoId: Types.ObjectId;
   createdAt: Date;
   tipoServico?: string | null;
@@ -394,6 +415,7 @@ export async function montarRelatorioContrato(params: {
     })
       .select({
         ...PROJECAO_CORRETIVO,
+        ...PROJECAO_CUSTO,
         originTemplateId: 1,
         status: 1,
         'sla.resolutionDueAt': 1,
@@ -408,7 +430,13 @@ export async function montarRelatorioContrato(params: {
   const idsDaTabela = [
     ...new Set(chamados.filter((c) => dentro(c, inicio, fim)).map((c) => c.ativoId)),
   ];
-  const info = await lerInfoDosAtivos(idsDaTabela);
+  // Custo (spec 0018, AC-13): a leitura começa antes do mês por causa da
+  // reincidência, então só somam os chamados abertos dentro do mês. Sem
+  // `catch`: falha aqui derruba o relatório, nunca sai PDF com custo zerado.
+  const [info, custos] = await Promise.all([
+    lerInfoDosAtivos(idsDaTabela),
+    lerCustosDosChamados(docs.filter((d) => d.createdAt >= inicio && d.createdAt <= fim)),
+  ]);
 
   const categoriaIds = [
     ...new Set([
@@ -442,6 +470,7 @@ export async function montarRelatorioContrato(params: {
       info,
       categoriasDoEscopo,
       ativosNoEscopo: new Map(contagem.map((c) => [String(c._id), c.total])),
+      custos: custoPorAtivo(custos),
       agora,
       geradoPorNome: params.geradoPorNome,
     }),

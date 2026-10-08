@@ -29,6 +29,10 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'encerramento_automatico',
   'vinculo_ativo',
   'catalogo_atualizado',
+  'custo_material_lancado',
+  'custo_material_editado',
+  'custo_material_removido',
+  'cotacao_valor_final',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
@@ -42,6 +46,11 @@ export const ACOES_SO_DA_GESTAO: readonly ChamadoHistoryAction[] = [
   'correcao_ia',
   'confirmacao_ia',
   'correcao_gestao',
+  // Custo do chamado (spec 0018, AC-6): valores só para a gestão.
+  'custo_material_lancado',
+  'custo_material_editado',
+  'custo_material_removido',
+  'cotacao_valor_final',
 ];
 
 /**
@@ -89,4 +98,8 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   encerramento_automatico: 'Encerrado Automaticamente (prazo vencido)',
   vinculo_ativo: 'Vínculo de Equipamento',
   catalogo_atualizado: 'Serviço Catalogado',
+  custo_material_lancado: 'Material lançado',
+  custo_material_editado: 'Material editado',
+  custo_material_removido: 'Material removido',
+  cotacao_valor_final: 'Valor final da cotação',
 };

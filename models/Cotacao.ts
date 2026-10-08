@@ -43,6 +43,16 @@ const CotacaoSchema = new Schema(
     },
     reviewedAt: { type: Date, required: false },
     reviewObservacao: { type: String, required: false, trim: true, maxlength: 1000 },
+    // Valor efetivo da cotação aprovada (spec 0018): null faz valer o estimado.
+    // Só sai em endpoint de gestão.
+    valorFinal: { type: Number, required: false, default: null, min: 0 },
+    valorFinalPorUserId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: false,
+      default: null,
+    },
+    valorFinalEm: { type: Date, required: false, default: null },
   },
   { timestamps: true },
 );
@@ -64,6 +74,9 @@ export type Cotacao = InferSchemaType<typeof CotacaoSchema> & {
   submittedByUserId: Types.ObjectId;
   reviewedByUserId?: Types.ObjectId;
   anexoId?: Types.ObjectId;
+  valorFinal?: number | null;
+  valorFinalPorUserId?: Types.ObjectId | null;
+  valorFinalEm?: Date | null;
 };
 
 export type CotacaoDoc = Cotacao & {

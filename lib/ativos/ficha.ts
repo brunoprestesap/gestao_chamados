@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { type ChamadoComCusto, type CustoDaFicha, custoDaFicha } from '@/lib/ativos/custo';
 import { podeVerDocumentos } from '@/lib/ativos/documentos/permissao';
 import { type IndicadoresDaFicha, indicadoresDoAtivo } from '@/lib/ativos/indicadores';
 import {
@@ -123,6 +124,15 @@ export type FichaAtivo = {
    * `null` quando os indicadores ou a avaliação falharam.
    */
   substituicao?: SituacaoSubstituicao | null;
+  /**
+   * Custo de manutenção (spec 0018, AC-11). Só Admin e Preposto recebem; para
+   * os outros o servidor nem calcula. `null` quando a leitura falhou (AC-19).
+   */
+  custo?: CustoDaFichaComLinks | null;
+};
+
+export type CustoDaFichaComLinks = Omit<CustoDaFicha, 'chamados'> & {
+  chamados: (ChamadoComCusto & { href?: string })[];
 };
 
 type AtivoLean = {
@@ -202,10 +212,12 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
   const gestao = canManage(sessao.role);
   const veIndicadores = podeVerDocumentos(sessao.role);
 
-  const [categoria, local, historicoDocs, chamadosDocs, conferencia, indicadores] =
+  const [categoria, local, historicoDocs, chamadosDocs, conferencia, indicadores, custo] =
     await Promise.all([
       CategoriaAtivoModel.findById(ativo.categoriaId)
-        .select('nome vidaUtilAnos limiteCorretivos12m limiteReincidencia90d')
+        .select(
+          'nome vidaUtilAnos limiteCorretivos12m limiteReincidencia90d limiteCustoPercentual12m',
+        )
         .lean<CategoriaParaAvaliar & { nome: string }>(),
       ativo.localizacaoId
         ? LocalizacaoModel.findById(ativo.localizacaoId).select('caminho').lean()
@@ -243,25 +255,41 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
             return null;
           })
         : Promise.resolve(undefined),
+      gestao
+        ? custoDaFicha(String(ativo._id), LIMITE_CHAMADOS_FICHA).catch((err: unknown) => {
+            console.error(
+              '[ativos]',
+              JSON.stringify({
+                operacao: 'custoDaFicha',
+                ativoId: String(ativo._id),
+                error: err instanceof Error ? err.message : 'unknown',
+              }),
+            );
+            return null;
+          })
+        : Promise.resolve(undefined),
     ]);
   // A substituição usa os `indicadores` já calculados: o selo e a linha de
   // indicadores nunca divergem. O objeto não sai do servidor para quem não é gestão.
   const substituicao = !gestao
     ? undefined
     : indicadores
-      ? await situacaoSubstituicaoDaFicha({ ativo, categoria, indicadores }).catch(
-          (err: unknown) => {
-            console.error(
-              '[ativos]',
-              JSON.stringify({
-                operacao: 'situacaoSubstituicaoDaFicha',
-                ativoId: String(ativo._id),
-                error: err instanceof Error ? err.message : 'unknown',
-              }),
-            );
-            return null;
-          },
-        )
+      ? await situacaoSubstituicaoDaFicha({
+          ativo,
+          categoria,
+          indicadores,
+          custoCorretivo12mCentavos: custo ? custo.doze.corretivoCentavos : null,
+        }).catch((err: unknown) => {
+          console.error(
+            '[ativos]',
+            JSON.stringify({
+              operacao: 'situacaoSubstituicaoDaFicha',
+              ativoId: String(ativo._id),
+              error: err instanceof Error ? err.message : 'unknown',
+            }),
+          );
+          return null;
+        })
       : null;
   const campanha = conferencia
     ? await CampanhaVistoriaModel.findById(conferencia.campanhaId)
@@ -375,5 +403,16 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
     chamados,
     ...(veIndicadores && { indicadores: indicadores ?? null }),
     ...(substituicao !== undefined && { substituicao }),
+    ...(gestao && {
+      custo: custo
+        ? {
+            ...custo,
+            chamados: custo.chamados.map((c) => ({
+              ...c,
+              href: destinoDoChamado({ id: c.id }, { userId: sessao.userId, gestao }),
+            })),
+          }
+        : null,
+    }),
   };
 }

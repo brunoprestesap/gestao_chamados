@@ -69,6 +69,7 @@ import { AttachmentGallery } from '../../meus-chamados/[id]/_components/Attachme
 import { CommentThread } from '../../meus-chamados/[id]/_components/CommentThread';
 import { HistoryTimeline } from '../../meus-chamados/[id]/_components/HistoryTimeline';
 import { CotacaoApprovalCard } from './CotacaoApprovalCard';
+import { CustoChamadoSecao } from './CustoChamadoSecao';
 import { RevisaoIaPainel } from './RevisaoIaPainel';
 import { VinculoDuplicado } from './VinculoDuplicado';
 
@@ -175,6 +176,11 @@ interface Props {
   /** Papel do usuário logado. Recebido via prop para evitar fetch redundante a /api/session
    *  (a página pai já faz esse fetch uma vez). */
   userRole?: string | null;
+  /**
+   * Seção "Custo" (spec 0018): aparece só para gestão e só quando a tela
+   * passa este callback, chamado depois de cada mudança de custo.
+   */
+  onCustoAlterado?: () => void;
 }
 
 // ---------- Component ----------
@@ -206,6 +212,7 @@ export function ChamadoDetailSheet({
   onRecusarServico,
   onVincularAtivo,
   userRole = null,
+  onCustoAlterado,
 }: Props) {
   const router = useRouter();
   const timezone = useInstitutionalTimezone();
@@ -671,6 +678,20 @@ export function ChamadoDetailSheet({
                       </div>
                       <MaterialObservationsList observations={chamado.materialObservations} />
                     </section>
+                  </>
+                )}
+
+                {/* Custo do chamado (spec 0018): só gestão */}
+                {ehGestao && onCustoAlterado && (
+                  <>
+                    <Separator className="opacity-60" />
+                    <CustoChamadoSecao
+                      chamadoId={chamado._id}
+                      status={chamado.status}
+                      temAtivo={!!chamado.ativo}
+                      materiais={chamado.materiaisForaCotacao ?? []}
+                      onAlterado={onCustoAlterado}
+                    />
                   </>
                 )}
 

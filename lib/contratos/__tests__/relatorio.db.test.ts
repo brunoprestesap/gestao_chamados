@@ -19,13 +19,15 @@ import {
  *
  * Roda só com `MONGO_TEST_URI` (ver `tests/mongo-test-env.ts`).
  *
- * covers: AC-3, AC-6, AC-7, AC-10, AC-11, AC-16, AC-18
+ * covers: AC-3, AC-6, AC-7, AC-10, AC-11, AC-16, AC-18 (spec 0016); AC-13, AC-14 (spec 0018)
  */
 
 const rodar = temMongoDeTeste ? describe : describe.skip;
 
 rodar('relatório por contrato (banco real)', () => {
   let ChamadoModel: typeof import('@/models/Chamado').ChamadoModel;
+  let CotacaoModel: typeof import('@/models/Cotacao').CotacaoModel;
+  let calcularCustosAtivos: typeof import('@/lib/ativos/custo').calcularCustosAtivos;
   let AtivoModel: typeof import('@/models/Ativo').AtivoModel;
   let CategoriaAtivoModel: typeof import('@/models/CategoriaAtivo').CategoriaAtivoModel;
   let LocalizacaoModel: typeof import('@/models/Localizacao').LocalizacaoModel;
@@ -74,6 +76,8 @@ rodar('relatório por contrato (banco real)', () => {
 
   beforeAll(async () => {
     ({ ChamadoModel } = await import('@/models/Chamado'));
+    ({ CotacaoModel } = await import('@/models/Cotacao'));
+    ({ calcularCustosAtivos } = await import('@/lib/ativos/custo'));
     ({ AtivoModel } = await import('@/models/Ativo'));
     ({ CategoriaAtivoModel } = await import('@/models/CategoriaAtivo'));
     ({ LocalizacaoModel } = await import('@/models/Localizacao'));
@@ -89,6 +93,7 @@ rodar('relatório por contrato (banco real)', () => {
     gerar = await import('../pdf/gerar');
     todos = [
       ChamadoModel,
+      CotacaoModel,
       AtivoModel,
       CategoriaAtivoModel,
       LocalizacaoModel,
@@ -340,5 +345,73 @@ rodar('relatório por contrato (banco real)', () => {
     });
     expect(r).toEqual({ ok: false, status: 500, error: gerar.ERRO_PDF_FALHOU });
     expect(await EmissaoModel.countDocuments()).toBe(0);
+  });
+
+  it('o custo do mês soma só setembro e bate com o custo do IMR (spec 0018, AC-13, AC-14)', async () => {
+    // Arrange
+    const material = (valorUnitario: number) => [
+      {
+        _id: new Types.ObjectId(),
+        descricao: 'Material',
+        quantidade: 1,
+        valorUnitario,
+        criadoPorUserId: usuario,
+        criadoEm: new Date('2026-10-02T12:00:00.000Z'),
+      },
+    ];
+    const corretivoA = chamado('2026-09-02T10:00:00.000Z', { materiaisForaCotacao: material(25) });
+    const preventivaB = chamado('2026-09-09T10:00:00.000Z', {
+      ativoId: ativoB,
+      originTemplateId: new Types.ObjectId(),
+      materiaisForaCotacao: material(40),
+    });
+    // Agosto entra na leitura por causa da reincidência, mas não soma custo.
+    const agosto = chamado('2026-08-20T10:00:00.000Z', { materiaisForaCotacao: material(1000) });
+    const cancelado = chamado('2026-09-07T10:00:00.000Z', { status: 'cancelado' });
+    const elevador = chamado('2026-09-08T10:00:00.000Z', {
+      tipoServico: 'Elevador',
+      materiaisForaCotacao: material(500),
+    });
+    await ChamadoModel.collection.insertMany([
+      corretivoA,
+      preventivaB,
+      agosto,
+      cancelado,
+      elevador,
+    ]);
+    await CotacaoModel.collection.insertMany([
+      { chamadoId: corretivoA._id, status: 'aprovada', valorEstimado: 300, valorFinal: 280 },
+      { chamadoId: corretivoA._id, status: 'recusada', valorEstimado: 999 },
+      { chamadoId: cancelado._id, status: 'aprovada', valorEstimado: 5000 },
+    ]);
+    const contrato = await ContratoModel.create({ ...contratoBase, numeroNormalizado: '12/2025' });
+
+    // Act
+    const r = await relatorio.montarRelatorioContrato({
+      contratoId: String(contrato._id),
+      mes: '2026-09',
+      agora,
+      geradoPorNome: 'Admin',
+    });
+    const imr = await calcularCustosAtivos({
+      inicio: new Date('2026-09-01T00:00:00.000Z'),
+      fim: new Date('2026-09-30T23:59:59.999Z'),
+    });
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const porAtivo = Object.fromEntries(
+      r.relatorio.ativos.map((a) => [a.ativoId, a.custoCentavos]),
+    );
+    expect(porAtivo).toEqual({ [String(ativoA)]: 30_500, [String(ativoB)]: 4_000 });
+    expect(r.relatorio.topo.custoTotalCentavos).toBe(34_500);
+    expect(r.relatorio.categorias.find((c) => c.nome === 'Split')).toMatchObject({
+      custoCorretivoCentavos: 30_500,
+      custoPreventivaCentavos: 4_000,
+    });
+    const doImr = imr.porTipo['Ar-Condicionado'].porAtivo;
+    expect(doImr[String(ativoA)].totalCentavos).toBe(porAtivo[String(ativoA)]);
+    expect(doImr[String(ativoB)].totalCentavos).toBe(porAtivo[String(ativoB)]);
   });
 });
