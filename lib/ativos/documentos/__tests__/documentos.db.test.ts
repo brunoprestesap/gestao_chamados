@@ -464,6 +464,25 @@ rodar('documentos do ativo, contra o Mongo', () => {
     expect(ficha?.faltando).toEqual([]);
     expect(ficha?.herdados.map((d) => `${d.tipo}@${d.localNome}`)).toEqual(['avcb@Prédio Sede']);
   });
+
+  it('a ficha conta os dias pelo dia de Belém: às 22h, validade de amanhã vence em 1 dia', async () => {
+    const a = await ativo('MNT-0020');
+    await gravar.cadastrarDocumento(
+      dados({ ativoId: String(a._id) }, { validadeAte: '2026-10-10' }),
+      arquivo(),
+      autor,
+    );
+    // 22:00 de 09/10 em Belém já é 01:00 de 10/10 em UTC. A página chama sem `hoje`.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-10T01:00:00Z'));
+    try {
+      const ficha = await fichaDocs.carregarDocumentosDoAtivo(String(a._id));
+      expect(ficha?.vigentes.map((d) => d.situacaoTexto)).toEqual(['Vence em 1 dia']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('salvar a categoria guarda só chaves que existem, ativas ou não (AC-2)', async () => {
     const r = await categoria.editarCategoria(String(categoriaId), {
       chave: 'climatizacao',

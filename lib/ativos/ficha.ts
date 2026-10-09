@@ -223,11 +223,11 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
       ativo.localizacaoId
         ? LocalizacaoModel.findById(ativo.localizacaoId).select('caminho').lean()
         : Promise.resolve(null),
-      // A dispensa de substituição fica fora do filtro para quem não é gestão,
+      // Para quem não é gestão, a dispensa de substituição é excluída da consulta,
       // para o limite contar só o que a pessoa vê.
       AtivoHistoryModel.find({
         ativoId: ativo._id,
-        ...(!gestao && { acao: { $nin: ATIVO_HISTORY_ACOES_SO_DA_GESTAO } }),
+        ...(gestao ? {} : { acao: { $nin: ATIVO_HISTORY_ACOES_SO_DA_GESTAO } }),
       })
         .sort({ createdAt: -1 })
         .limit(LIMITE_HISTORICO_FICHA)

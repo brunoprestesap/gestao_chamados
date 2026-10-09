@@ -58,7 +58,7 @@ Feito em 03/10/2026, depois do deploy de `d1be57f`: o crontab mostra a linha das
 
 - [x] `cadastradoPorId` do documento é o usuário da sessão (conferir no banco depois de cadastrar como Preposto) → Value sourcing
 - [x] Os tipos aceitos no cadastro são só os ativos: desativar AVCB e tentar cadastrar AVCB pelo `POST` → 400 → Value sourcing
-- [ ] Dias restantes usam o dia de Belém: com validade de amanhã, abrir a ficha às 22:00 de Belém (01:00 UTC do dia seguinte) → "Vence em 1 dia", não "Vence hoje" → Value sourcing
+- [x] Dias restantes usam o dia de Belém: com validade de amanhã, abrir a ficha às 22:00 de Belém (01:00 UTC do dia seguinte) → "Vence em 1 dia", não "Vence hoje" → Value sourcing (09/10/2026, pelo teste de banco real em `documentos.db.test.ts`, com o relógio parado em 01:00 UTC e `carregarDocumentosDoAtivo` chamada sem `hoje`, como a página)
 - [x] Herança sobe pelo `parentId`: mover a sala do ativo para outro prédio e reabrir a ficha → o AVCB herdado passa a ser o do novo prédio → Value sourcing
 - [x] Tipos exigidos filtrados pelos ativos: desativar PMOC → some de "Faltando" na ficha e no painel → Value sourcing
 - [x] Prédio do ativo é o ancestral `predio` mais próximo: ativo numa área técnica dentro de um andar → o filtro de prédio do painel acha o documento dele → Value sourcing
