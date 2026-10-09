@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn().mockResolvedValue(undefined) }));
@@ -10,6 +11,7 @@ import {
 } from '@/lib/ativos/documentos/situacao';
 import {
   formatarDia,
+  NOTA_CUSTO_NAO_AVALIADO,
   NOTA_IDADE_NAO_AVALIADA,
   textoDoMotivo,
   textoDosCriterios,
@@ -18,6 +20,7 @@ import {
 import {
   avaliarSubstituicao,
   type EntradaAvaliacao,
+  entradaDaAvaliacao,
   type LinhaCandidato,
   ordenarCandidatos,
 } from '../substituicao';
@@ -37,6 +40,7 @@ function entrada(extra: {
   categoria?: Partial<EntradaAvaliacao['categoria']>;
   corretivos12m?: number;
   corretivos90d?: number;
+  custoCorretivo12mCentavos?: number | null;
   hoje?: string;
 }): EntradaAvaliacao {
   return {
@@ -46,16 +50,20 @@ function entrada(extra: {
       dataInstalacao: null,
       dataTombo: null,
       dispensa: null,
+      valorHistorico: null,
       ...extra.ativo,
     },
     categoria: {
       vidaUtilAnos: 10,
       limiteCorretivos12m: null,
       limiteReincidencia90d: null,
+      limiteCustoPercentual12m: null,
       ...extra.categoria,
     },
     corretivos12m: extra.corretivos12m ?? 0,
     corretivos90d: extra.corretivos90d ?? 0,
+    custoCorretivo12mCentavos:
+      extra.custoCorretivo12mCentavos === undefined ? 0 : extra.custoCorretivo12mCentavos,
     hoje: extra.hoje ?? HOJE,
   };
 }
@@ -121,6 +129,7 @@ describe('avaliarSubstituicao: quem pode ser candidato (AC-1)', () => {
       situacao: 'fora',
       motivos: [],
       idadeNaoAvaliada: null,
+      custoNaoAvaliado: false,
       dispensaVigente: false,
       dispensaGravadaAte: null,
     });
@@ -308,5 +317,169 @@ describe('dispensa vigente (AC-12)', () => {
     );
     expect(r.situacao).toBe('fora');
     expect(r.dispensaVigente).toBe(false);
+  });
+});
+
+describe('critério de custo (spec 0018, AC-15, AC-16)', () => {
+  // R$ 2.000,00 de valor histórico: 50% é R$ 1.000,00.
+  const comValor = { valorHistorico: 2000 };
+
+  it('bate em exatamente 50% do valor histórico, com o motivo em texto', () => {
+    const r = avaliarSubstituicao(entrada({ ativo: comValor, custoCorretivo12mCentavos: 100_000 }));
+    expect(r.situacao).toBe('candidato');
+    expect(r.motivos).toEqual([
+      { criterio: 'custo', custoCentavos: 100_000, percentual: 50, limite: 50 },
+    ]);
+    expect(textoDoMotivo(r.motivos[0]).replace(/\s/g, ' ')).toBe(
+      'Custo em 12 meses: R$ 1.000,00 (50% do valor histórico; limite 50%)',
+    );
+  });
+
+  it('um centavo abaixo não bate', () => {
+    const r = avaliarSubstituicao(entrada({ ativo: comValor, custoCorretivo12mCentavos: 99_999 }));
+    expect(r.situacao).toBe('fora');
+    expect(r.custoNaoAvaliado).toBe(false);
+  });
+
+  it('sem valor histórico, ou com zero, não avalia e avisa', () => {
+    for (const valorHistorico of [null, 0, -5]) {
+      const r = avaliarSubstituicao(
+        entrada({ ativo: { valorHistorico }, custoCorretivo12mCentavos: 10_000_000 }),
+      );
+      expect(r.situacao).toBe('fora');
+      expect(r.custoNaoAvaliado).toBe(true);
+    }
+  });
+
+  it('custo que não pôde ser calculado (null) não bate', () => {
+    const r = avaliarSubstituicao(entrada({ ativo: comValor, custoCorretivo12mCentavos: null }));
+    expect(r.motivos).toEqual([]);
+  });
+
+  it('o limite da categoria troca o padrão', () => {
+    const r = avaliarSubstituicao(
+      entrada({
+        ativo: comValor,
+        categoria: { limiteCustoPercentual12m: 120 },
+        custoCorretivo12mCentavos: 200_000,
+      }),
+    );
+    expect(r.situacao).toBe('fora');
+  });
+
+  it('dispensa antiga sem custo não cobre o critério novo (AC-17)', () => {
+    const r = avaliarSubstituicao(
+      entrada({
+        ativo: {
+          ...comValor,
+          dispensa: {
+            ate: new Date('2027-03-01T00:00:00.000Z'),
+            em: new Date('2026-09-01T12:00:00.000Z'),
+            motivosNaDispensa: ['corretivos'],
+          },
+        },
+        corretivos12m: 5,
+        custoCorretivo12mCentavos: 100_000,
+      }),
+    );
+    expect(r.situacao).toBe('candidato');
+  });
+});
+
+describe('critério de custo: percentual, ordem e leitura do banco (spec 0018, AC-15)', () => {
+  it('arredonda o percentual para inteiro no motivo', () => {
+    // R$ 1.234,56 sobre R$ 2.000,00 = 61,7%
+    const r = avaliarSubstituicao(
+      entrada({ ativo: { valorHistorico: 2000 }, custoCorretivo12mCentavos: 123_456 }),
+    );
+    expect(r.motivos).toEqual([
+      { criterio: 'custo', custoCentavos: 123_456, percentual: 62, limite: 50 },
+    ]);
+  });
+
+  it('valor histórico com centavos entra na conta só com inteiros', () => {
+    // 50% de R$ 0,03 = 1,5 centavo: 1 centavo não bate, 2 batem
+    const um = avaliarSubstituicao(
+      entrada({ ativo: { valorHistorico: 0.03 }, custoCorretivo12mCentavos: 1 }),
+    );
+    const dois = avaliarSubstituicao(
+      entrada({ ativo: { valorHistorico: 0.03 }, custoCorretivo12mCentavos: 2 }),
+    );
+    expect(um.situacao).toBe('fora');
+    expect(dois.situacao).toBe('candidato');
+  });
+
+  it('custo vem depois de idade, corretivos e reincidência na lista de motivos', () => {
+    const r = avaliarSubstituicao(
+      entrada({
+        ativo: { valorHistorico: 2000, dataInstalacao: new Date('2010-01-01T12:00:00.000Z') },
+        corretivos12m: 10,
+        corretivos90d: 10,
+        custoCorretivo12mCentavos: 100_000,
+      }),
+    );
+    expect(r.motivos.map((m) => m.criterio)).toEqual([
+      'idade',
+      'corretivos',
+      'reincidencia',
+      'custo',
+    ]);
+  });
+
+  it('custo zero com valor histórico nunca bate', () => {
+    const r = avaliarSubstituicao(
+      entrada({ ativo: { valorHistorico: 2000 }, custoCorretivo12mCentavos: 0 }),
+    );
+    expect(r.situacao).toBe('fora');
+    expect(r.custoNaoAvaliado).toBe(false);
+  });
+
+  it('a nota de custo não avaliado é o texto da ficha', () => {
+    expect(NOTA_CUSTO_NAO_AVALIADO).toBe('Custo não avaliado: o ativo não tem valor histórico.');
+  });
+
+  describe('entradaDaAvaliacao', () => {
+    const ativoLido = {
+      _id: new Types.ObjectId(),
+      tierManutencao: 'A' as const,
+      status: 'em_operacao' as const,
+      categoriaId: new Types.ObjectId(),
+    };
+
+    it('lê o valor histórico de camposPatrimoniais e o limite da categoria', () => {
+      const e = entradaDaAvaliacao(
+        { ...ativoLido, camposPatrimoniais: { valorHistorico: 2000 } },
+        { limiteCustoPercentual12m: 20 },
+        { corretivos12m: 0, corretivos90d: 0 },
+        HOJE,
+        40_000,
+      );
+      expect(e.ativo.valorHistorico).toBe(2000);
+      expect(e.categoria.limiteCustoPercentual12m).toBe(20);
+      expect(e.custoCorretivo12mCentavos).toBe(40_000);
+    });
+
+    it('valor histórico que não é número finito vira null', () => {
+      for (const valorHistorico of ['2000', NaN, Infinity, undefined]) {
+        const e = entradaDaAvaliacao(
+          { ...ativoLido, camposPatrimoniais: { valorHistorico } },
+          null,
+          { corretivos12m: 0, corretivos90d: 0 },
+          HOJE,
+        );
+        expect(e.ativo.valorHistorico).toBeNull();
+      }
+    });
+
+    it('sem custo informado, a entrada leva null (não avalia) e a categoria ausente vira limites null', () => {
+      const e = entradaDaAvaliacao(
+        { ...ativoLido, camposPatrimoniais: null },
+        null,
+        { corretivos12m: 0, corretivos90d: 0 },
+        HOJE,
+      );
+      expect(e.custoCorretivo12mCentavos).toBeNull();
+      expect(e.categoria.limiteCustoPercentual12m).toBeNull();
+    });
   });
 });

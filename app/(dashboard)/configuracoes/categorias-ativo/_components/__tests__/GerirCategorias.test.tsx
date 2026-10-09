@@ -29,6 +29,7 @@ const CLIMA: CategoriaLinha = {
   vidaUtilAnos: 10,
   limiteCorretivos12m: null,
   limiteReincidencia90d: null,
+  limiteCustoPercentual12m: null,
   serviceSubTypeId: 's1',
   isActive: true,
   totalAtivos: 37,
@@ -112,6 +113,7 @@ describe('GerirCategorias', () => {
       vidaUtilAnos: '',
       limiteCorretivos12m: '',
       limiteReincidencia90d: '',
+      limiteCustoPercentual12m: '',
       serviceSubTypeId: '',
     });
   });

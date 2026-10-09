@@ -13,11 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { CustoDoFiltro, CustosAtivos } from '@/lib/ativos/custo';
 import type { IndicadoresAtivos, IndicadoresDoFiltro } from '@/lib/ativos/indicadores';
 import type { SituacoesSubstituicao } from '@/lib/ativos/substituicao';
 import { cn } from '@/lib/utils';
 import { formatarTempoIndicador as tempo } from '@/shared/ativos/indicadores-formato';
 import { plural, textoDoMotivo } from '@/shared/ativos/substituicao.constants';
+import { formatarReais } from '@/shared/chamados/custo';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 import type { TipoServico } from '@/shared/chamados/tipo-servico';
 
@@ -45,7 +47,19 @@ function Numero({ rotulo, valor, ajuda }: { rotulo: string; valor: string; ajuda
   );
 }
 
-function VistaDoFiltro({ dados }: { dados: IndicadoresDoFiltro }) {
+/** "Custo no período" de uma linha do ranking; `—` quando o custo falhou (AC-19). */
+function custoDaLinha(custo: CustoDoFiltro | null, ativoId: string): string {
+  if (!custo) return '—';
+  return formatarReais(custo.porAtivo[ativoId]?.totalCentavos ?? 0);
+}
+
+function VistaDoFiltro({
+  dados,
+  custo,
+}: {
+  dados: IndicadoresDoFiltro;
+  custo: CustoDoFiltro | null;
+}) {
   const { topo, ranking } = dados;
 
   if (topo.corretivosComAtivo === 0) {
@@ -109,6 +123,7 @@ function VistaDoFiltro({ dados }: { dados: IndicadoresDoFiltro }) {
                 <TableHead className="text-right">MTBF</TableHead>
                 <TableHead className="text-right">MTTR médio</TableHead>
                 <TableHead className="text-right">Em 90 dias</TableHead>
+                <TableHead className="text-right">Custo no período</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -137,6 +152,9 @@ function VistaDoFiltro({ dados }: { dados: IndicadoresDoFiltro }) {
                     {tempo(linha.mttrMs)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{linha.corretivos90d}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap tabular-nums">
+                    {custoDaLinha(custo, linha.ativoId)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -144,6 +162,79 @@ function VistaDoFiltro({ dados }: { dados: IndicadoresDoFiltro }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Os 10 equipamentos de maior custo no período (spec 0018, AC-12): corretivo
+ * e preventiva, maior total primeiro. Segue o período e o seletor de tipo.
+ */
+function MaisCaros({ custo }: { custo: CustoDoFiltro | null }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Mais caros no período</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Cotações aprovadas (pelo valor final, quando informado) mais o material fora de cotação
+          dos chamados abertos no período.
+        </p>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        {!custo ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Não foi possível calcular o custo agora.
+          </p>
+        ) : custo.maisCaros.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Nenhum custo registrado no período.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Local</TableHead>
+                <TableHead className="text-right">Corretivo</TableHead>
+                <TableHead className="text-right">Preventiva</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {custo.maisCaros.map((linha) => (
+                <TableRow key={linha.ativoId}>
+                  <TableCell className="font-medium whitespace-nowrap">
+                    <Link
+                      href={`/ativos/${linha.ativoId}`}
+                      className="text-primary underline-offset-4 hover:underline focus-visible:underline"
+                    >
+                      {linha.codigo}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="max-w-[16rem] break-words whitespace-normal">
+                    {linha.descricao || '—'}
+                  </TableCell>
+                  <TableCell>{linha.categoria ?? '—'}</TableCell>
+                  <TableCell className="max-w-[16rem] break-words whitespace-normal">
+                    {linha.caminho ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap tabular-nums">
+                    {formatarReais(linha.corretivoCentavos)}
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap tabular-nums">
+                    {formatarReais(linha.preventivaCentavos)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium whitespace-nowrap tabular-nums">
+                    {formatarReais(linha.totalCentavos)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -259,12 +350,16 @@ function CandidatosSubstituicao({
 export function ImrAtivos({
   ativos,
   substituicao,
+  custos,
 }: {
   ativos: IndicadoresAtivos | null;
   /** Ausente nos testes antigos; `null` quando a leitura falhou (spec 0015, AC-8). */
   substituicao?: SituacoesSubstituicao | null;
+  /** Ausente nos testes antigos; `null` quando a leitura falhou (spec 0018, AC-19). */
+  custos?: CustosAtivos | null;
 }) {
   const [filtro, setFiltro] = useState<Filtro>('todos');
+  const custo = custos ? (filtro === 'todos' ? custos.geral : custos.porTipo[filtro]) : null;
   const opcoes: { valor: Filtro; rotulo: string }[] = [
     { valor: 'todos', rotulo: 'Todos' },
     ...TIPO_SERVICO_OPTIONS.map((tipo) => ({ valor: tipo, rotulo: tipo })),
@@ -312,7 +407,10 @@ export function ImrAtivos({
       </p>
 
       {ativos ? (
-        <VistaDoFiltro dados={filtro === 'todos' ? ativos.geral : ativos.porTipo[filtro]} />
+        <VistaDoFiltro
+          dados={filtro === 'todos' ? ativos.geral : ativos.porTipo[filtro]}
+          custo={custo}
+        />
       ) : (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -321,6 +419,8 @@ export function ImrAtivos({
           </CardContent>
         </Card>
       )}
+
+      {custos !== undefined && <MaisCaros custo={custo} />}
 
       {substituicao !== undefined && (
         <CandidatosSubstituicao dados={substituicao} filtro={filtro} />

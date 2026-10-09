@@ -28,6 +28,8 @@ export type TopoRelatorioContrato = {
   preventivasConcluidas: number;
   /** SLA só dos corretivos com ativo (AC-13). */
   sla: ContagemSla & { percentualDentro: number | null };
+  /** Custo total do mês, em centavos (spec 0018, AC-13). */
+  custoTotalCentavos: number;
 };
 
 export type LinhaAtivoRelatorio = {
@@ -45,6 +47,8 @@ export type LinhaAtivoRelatorio = {
   sla: ContagemSla;
   preventivasGeradas: number;
   preventivasConcluidas: number;
+  /** Corretivo mais preventiva do ativo no mês, em centavos (spec 0018). */
+  custoCentavos: number;
 };
 
 export type LinhaCategoriaRelatorio = {
@@ -60,6 +64,9 @@ export type LinhaCategoriaRelatorio = {
   slaFora: number;
   preventivasGeradas: number;
   preventivasConcluidas: number;
+  /** Custo dos ativos da categoria no mês, em centavos (spec 0018). */
+  custoCorretivoCentavos: number;
+  custoPreventivaCentavos: number;
 };
 
 export type ContratoDoRelatorio = {

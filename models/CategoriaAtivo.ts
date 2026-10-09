@@ -1,7 +1,12 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
 import { COLECOES_ATIVOS, CRITICIDADES } from '@/shared/ativos/ativo.constants';
-import { LIMITE_CATEGORIA_MAX, LIMITE_CATEGORIA_MIN } from '@/shared/ativos/substituicao.constants';
+import {
+  LIMITE_CATEGORIA_MAX,
+  LIMITE_CATEGORIA_MIN,
+  LIMITE_CUSTO_PERCENTUAL_MAX,
+  LIMITE_CUSTO_PERCENTUAL_MIN,
+} from '@/shared/ativos/substituicao.constants';
 
 /** Categoria de ativo (spec 0011). Só o Admin escreve. */
 const CategoriaAtivoSchema = new Schema(
@@ -26,6 +31,13 @@ const CategoriaAtivoSchema = new Schema(
       default: null,
       min: LIMITE_CATEGORIA_MIN,
       max: LIMITE_CATEGORIA_MAX,
+    },
+    // Critério de custo (spec 0018, AC-16): percentual do valor histórico; `null` usa 50.
+    limiteCustoPercentual12m: {
+      type: Number,
+      default: null,
+      min: LIMITE_CUSTO_PERCENTUAL_MIN,
+      max: LIMITE_CUSTO_PERCENTUAL_MAX,
     },
     isActive: { type: Boolean, default: true },
   },

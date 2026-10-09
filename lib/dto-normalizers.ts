@@ -33,3 +33,39 @@ export function normalizeMaterialObservations(raw: unknown): MaterialObservation
     }),
   );
 }
+
+/** Item de material fora de cotação (spec 0018): só sai em endpoint de gestão. */
+export type MaterialForaCotacaoNormalized = {
+  _id: string;
+  descricao: string;
+  quantidade: number;
+  valorUnitario: number;
+  criadoPorUserId: string;
+  criadoPorNome: string;
+  criadoEm: string;
+};
+
+export function normalizeMateriaisForaCotacao(
+  raw: unknown,
+  nomes: ReadonlyMap<string, string>,
+): MaterialForaCotacaoNormalized[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(
+    (i: {
+      _id?: unknown;
+      descricao?: string;
+      quantidade?: number;
+      valorUnitario?: number;
+      criadoPorUserId?: unknown;
+      criadoEm?: Date;
+    }) => ({
+      _id: String(i._id),
+      descricao: i.descricao ?? '',
+      quantidade: i.quantidade ?? 0,
+      valorUnitario: i.valorUnitario ?? 0,
+      criadoPorUserId: i.criadoPorUserId ? String(i.criadoPorUserId) : '',
+      criadoPorNome: i.criadoPorUserId ? (nomes.get(String(i.criadoPorUserId)) ?? '') : '',
+      criadoEm: i.criadoEm ? new Date(i.criadoEm).toISOString() : '',
+    }),
+  );
+}

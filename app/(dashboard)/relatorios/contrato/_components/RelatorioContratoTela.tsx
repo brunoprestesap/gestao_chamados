@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { formatarReais } from '@/shared/chamados/custo';
 import {
   formatarDataHoraBelem,
   formatarPercentual,
@@ -158,6 +159,11 @@ export function RelatorioContratoTela({
               ajuda="só corretivos com ativo"
             />
             <Numero
+              rotulo="Custo total do mês"
+              valor={formatarReais(topo.custoTotalCentavos)}
+              ajuda={`custos lançados até ${formatarDataHoraBelem(dados.geradoEm)}`}
+            />
+            <Numero
               rotulo="Em andamento / sem SLA"
               valor={`${topo.sla.emAndamento} / ${topo.sla.semSla}`}
             />
@@ -197,6 +203,8 @@ export function RelatorioContratoTela({
                     <TableHead className="text-right">
                       Preventivas (concluídas de geradas)
                     </TableHead>
+                    <TableHead className="text-right">Custo corretivo</TableHead>
+                    <TableHead className="text-right">Custo preventiva</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -212,6 +220,12 @@ export function RelatorioContratoTela({
                       <TableCell className={DIREITA}>{c.slaFora}</TableCell>
                       <TableCell className={DIREITA}>
                         {c.preventivasConcluidas} de {c.preventivasGeradas}
+                      </TableCell>
+                      <TableCell className={DIREITA}>
+                        {formatarReais(c.custoCorretivoCentavos)}
+                      </TableCell>
+                      <TableCell className={DIREITA}>
+                        {formatarReais(c.custoPreventivaCentavos)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -246,6 +260,7 @@ export function RelatorioContratoTela({
                     <TableHead className="text-right">
                       Preventivas (concluídas de geradas)
                     </TableHead>
+                    <TableHead className="text-right">Custo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -283,6 +298,7 @@ export function RelatorioContratoTela({
                       <TableCell className={DIREITA}>
                         {a.preventivasConcluidas} de {a.preventivasGeradas}
                       </TableCell>
+                      <TableCell className={DIREITA}>{formatarReais(a.custoCentavos)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

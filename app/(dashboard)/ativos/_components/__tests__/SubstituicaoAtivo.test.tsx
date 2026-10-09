@@ -33,6 +33,7 @@ const situacao = (extra: Partial<SituacaoSubstituicao>): SituacaoSubstituicao =>
   situacao: 'fora',
   motivos: [],
   idadeNaoAvaliada: null,
+  custoNaoAvaliado: false,
   dispensaVigente: false,
   dispensaGravadaAte: null,
   ...extra,

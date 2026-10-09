@@ -183,6 +183,20 @@ const ChamadoSchema = new Schema(
         createdAt: { type: Date, required: true, default: Date.now },
       },
     ],
+    // Material fora de cotação (spec 0018): lançado só pela gestão e só sai
+    // em endpoint de gestão; teto de MAX_MATERIAIS_CHAMADO, conferido na gravação.
+    materiaisForaCotacao: {
+      type: [
+        {
+          descricao: { type: String, required: true, trim: true, maxlength: 200 },
+          quantidade: { type: Number, required: true, min: 0 },
+          valorUnitario: { type: Number, required: true, min: 0 },
+          criadoPorUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+          criadoEm: { type: Date, required: true, default: Date.now },
+        },
+      ],
+      default: [],
+    },
     // Execuções do serviço (registro do técnico)
     executions: [
       {
@@ -290,6 +304,15 @@ export type ExecutionDoc = {
   concludedAt: Date;
 };
 
+export type MaterialForaCotacaoDoc = {
+  _id: Types.ObjectId;
+  descricao: string;
+  quantidade: number;
+  valorUnitario: number;
+  criadoPorUserId: Types.ObjectId;
+  criadoEm: Date;
+};
+
 export type ServiceRefusalDoc = {
   _id?: Types.ObjectId;
   reason: string;
@@ -317,6 +340,7 @@ export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
   pauseReason?: string;
   pauseDetails?: string;
   materialObservations?: MaterialObservationDoc[];
+  materiaisForaCotacao?: MaterialForaCotacaoDoc[];
   executions?: ExecutionDoc[];
   serviceRefusals?: ServiceRefusalDoc[];
 };

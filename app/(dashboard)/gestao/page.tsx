@@ -466,7 +466,12 @@ export default function GestaoPage() {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      setItems(Array.isArray(data.items) ? data.items : []);
+      const novos: ChamadoDTO[] = Array.isArray(data.items) ? data.items : [];
+      setItems(novos);
+      // O detalhe aberto acompanha a lista nova (o custo da spec 0018 depende disso).
+      setDetailSheetChamado((atual) =>
+        atual ? (novos.find((n) => n._id === atual._id) ?? atual) : atual,
+      );
       if (data.pagination) setPagination(data.pagination);
     } catch {
       setItems([]);
@@ -1084,6 +1089,7 @@ export default function GestaoPage() {
         onCorrigirServico={handleCorrigirServico}
         onVincularAtivo={handleVincularAtivo}
         userRole={userRole}
+        onCustoAlterado={fetchChamados}
       />
 
       <ClassificarChamadoDialog

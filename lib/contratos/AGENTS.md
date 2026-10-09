@@ -23,6 +23,7 @@ Fora daqui: `shared/contratos/` (schemas Zod, CNPJ, janela do mês, formatação
 - **Sobreposição e trava de mês emitido** são conferidas na aplicação, não por índice: dois contratos não cobrem o mesmo tipo em vigências que se cruzam (inativo também conta), e mês com `RelatorioContratoEmissao` não perde tipo nem encolhe a janela.
 - **Emissão antes do arquivo.** A rota recalcula tudo, cria o `_id` da emissão, monta o PDF com esse código no rodapé, calcula o hash e grava; só então responde. Falha em qualquer passo devolve 500 sem PDF, e o log leva só `contratoId`, `mes` e a mensagem.
 - **Nada de `camposPatrimoniais`.** O relatório lê só código, descrição, categoria e local do ativo (`lerInfoDosAtivos`).
+- **Custo (spec 0018)** sai de `lerCustosDosChamados`/`custoPorAtivo` (`lib/ativos/custo.ts`), só dos chamados abertos dentro do mês (a leitura começa antes por causa da reincidência). Sem `catch`: a falha da leitura de custo derruba o relatório, para nunca sair PDF com custo zerado. O PDF traz "Custos lançados até" com a hora de Belém da geração.
 - **Server Actions do cadastro** seguem o padrão das telas de configuração (`verifySession` mais `isAdmin`, retorno `{ ok: false, error }`), não `requireAdmin()`, que redireciona por exceção.
 - **A trava de PDF é em memória**: vale enquanto o Next roda numa instância só, como os limites de `lib/llm`.
 

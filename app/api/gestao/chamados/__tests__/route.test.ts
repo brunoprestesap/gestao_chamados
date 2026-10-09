@@ -29,6 +29,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/dto-normalizers', () => ({
   normalizeMaterialObservations: vi.fn().mockReturnValue([]),
+  normalizeMateriaisForaCotacao: vi.fn().mockReturnValue([]),
 }));
 
 const mockLean = vi.fn();

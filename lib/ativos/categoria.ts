@@ -20,6 +20,7 @@ export type DadosCategoria = {
   vidaUtilAnos?: number;
   limiteCorretivos12m?: number;
   limiteReincidencia90d?: number;
+  limiteCustoPercentual12m?: number;
   serviceSubTypeId?: string;
 };
 
@@ -55,6 +56,7 @@ function camposEditaveis(d: DadosCategoria) {
     // Vazio grava `null`, inclusive ao limpar: a regra usa o padrão (spec 0015, AC-6).
     limiteCorretivos12m: d.limiteCorretivos12m ?? null,
     limiteReincidencia90d: d.limiteReincidencia90d ?? null,
+    limiteCustoPercentual12m: d.limiteCustoPercentual12m ?? null,
     serviceSubTypeId: d.serviceSubTypeId ? new Types.ObjectId(d.serviceSubTypeId) : null,
   };
 }

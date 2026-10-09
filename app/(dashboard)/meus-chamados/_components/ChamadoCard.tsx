@@ -21,7 +21,10 @@ import { useInstitutionalTimezone } from '@/components/config/expediente-provide
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { MaterialObservationNormalized } from '@/lib/dto-normalizers';
+import type {
+  MaterialForaCotacaoNormalized,
+  MaterialObservationNormalized,
+} from '@/lib/dto-normalizers';
 import { cn, formatDateShort, formatDateTime } from '@/lib/utils';
 import type { ResumoAtivoChamado } from '@/shared/ativos/seletor.types';
 import type { AtribuicaoAutomaticaGestao } from '@/shared/chamados/atribuicao-automatica.constants';
@@ -185,6 +188,8 @@ export type ChamadoDTO = {
   avisoDuplicado?: { chamadoId: string; ticketNumber: string }[] | null;
   /** Interessados ativos, total e nomes (spec 0017, AC-19). Vem só da lista da gestão. */
   interessados?: { total: number; nomes: string[] };
+  /** Material fora de cotação (spec 0018). Vem só da lista da gestão. */
+  materiaisForaCotacao?: MaterialForaCotacaoNormalized[];
 };
 
 type Props = {

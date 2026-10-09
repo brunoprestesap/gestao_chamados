@@ -6,6 +6,7 @@ import {
   Landmark,
   Pencil,
   Plus,
+  Wallet,
   Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -43,6 +44,7 @@ import {
   StatusAtivoBadge,
   StatusCadastroBadge,
 } from '../_components/ativo-badges';
+import { CustoAtivo } from '../_components/CustoAtivo';
 import { SubstituicaoAtivo } from '../_components/SubstituicaoAtivo';
 import { SecaoDocumentosAtivo } from '../documentos/_components/SecaoDocumentosAtivo';
 
@@ -382,6 +384,12 @@ export default async function FichaAtivoPage({ params }: { params: Promise<{ id:
           </div>
         )}
       </CardSecao>
+
+      {ficha.custo !== undefined && (
+        <CardSecao titulo="Custo de manutenção" icone={Wallet}>
+          <CustoAtivo custo={ficha.custo} />
+        </CardSecao>
+      )}
 
       <CardSecao
         titulo="Linha do tempo do cadastro"

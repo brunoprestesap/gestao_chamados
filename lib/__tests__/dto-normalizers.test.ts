@@ -1,7 +1,10 @@
 import { Types } from 'mongoose';
 import { describe, expect, it } from 'vitest';
 
-import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
+import {
+  normalizeMateriaisForaCotacao,
+  normalizeMaterialObservations,
+} from '@/lib/dto-normalizers';
 
 describe('normalizeMaterialObservations', () => {
   it('deve normalizar array com observações válidas', () => {
@@ -89,5 +92,65 @@ describe('normalizeMaterialObservations', () => {
     expect(result[0].description).toBe('Primeiro');
     expect(result[1].description).toBe('Segundo');
     expect(result[2].description).toBe('Terceiro');
+  });
+});
+
+describe('normalizeMateriaisForaCotacao (spec 0018)', () => {
+  it('converte ids e data e traz o nome de quem lançou', () => {
+    // Arrange
+    const _id = new Types.ObjectId();
+    const userId = new Types.ObjectId();
+    const criadoEm = new Date('2026-10-08T12:00:00.000Z');
+    const nomes = new Map([[String(userId), 'Ana']]);
+
+    // Act
+    const r = normalizeMateriaisForaCotacao(
+      [
+        {
+          _id,
+          descricao: 'Cabo',
+          quantidade: 2.5,
+          valorUnitario: 10,
+          criadoPorUserId: userId,
+          criadoEm,
+        },
+      ],
+      nomes,
+    );
+
+    // Assert
+    expect(r).toEqual([
+      {
+        _id: String(_id),
+        descricao: 'Cabo',
+        quantidade: 2.5,
+        valorUnitario: 10,
+        criadoPorUserId: String(userId),
+        criadoPorNome: 'Ana',
+        criadoEm: '2026-10-08T12:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('usuário fora do mapa vira nome vazio, sem quebrar', () => {
+    const r = normalizeMateriaisForaCotacao(
+      [
+        {
+          _id: new Types.ObjectId(),
+          descricao: 'X',
+          quantidade: 1,
+          valorUnitario: 1,
+          criadoPorUserId: new Types.ObjectId(),
+        },
+      ],
+      new Map(),
+    );
+    expect(r[0]).toMatchObject({ criadoPorNome: '', criadoEm: '' });
+  });
+
+  it('campo ausente ou que não é lista vira lista vazia', () => {
+    expect(normalizeMateriaisForaCotacao(undefined, new Map())).toEqual([]);
+    expect(normalizeMateriaisForaCotacao(null, new Map())).toEqual([]);
+    expect(normalizeMateriaisForaCotacao({}, new Map())).toEqual([]);
   });
 });

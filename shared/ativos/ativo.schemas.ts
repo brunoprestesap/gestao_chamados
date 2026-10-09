@@ -9,9 +9,12 @@ import {
 } from './ativo.constants';
 import {
   ERRO_LIMITE_CORRETIVOS,
+  ERRO_LIMITE_CUSTO,
   ERRO_LIMITE_REINCIDENCIA,
   LIMITE_CATEGORIA_MAX,
   LIMITE_CATEGORIA_MIN,
+  LIMITE_CUSTO_PERCENTUAL_MAX,
+  LIMITE_CUSTO_PERCENTUAL_MIN,
 } from './substituicao.constants';
 
 const objectId = (mensagem: string) => z.string().regex(/^[a-f\d]{24}$/i, mensagem);
@@ -49,16 +52,16 @@ const numeroOpcional = (min: number, mensagem: string) =>
  * Limite da categoria para os candidatos à substituição (spec 0015, AC-6):
  * inteiro de 1 a 99; vazio vira ausente e a regra grava `null` (nunca 0).
  */
-const limiteOpcional = (mensagem: string) =>
+const limiteOpcional = (
+  mensagem: string,
+  min: number = LIMITE_CATEGORIA_MIN,
+  max: number = LIMITE_CATEGORIA_MAX,
+) =>
   z
     .union(
       [
         z.literal(''),
-        z.coerce
-          .number({ error: mensagem })
-          .int(mensagem)
-          .min(LIMITE_CATEGORIA_MIN, mensagem)
-          .max(LIMITE_CATEGORIA_MAX, mensagem),
+        z.coerce.number({ error: mensagem }).int(mensagem).min(min, mensagem).max(max, mensagem),
       ],
       { error: mensagem },
     )
@@ -114,6 +117,11 @@ export const CategoriaAtivoFormSchema = z.object({
   vidaUtilAnos: numeroOpcional(1, 'Vida útil inválida.'),
   limiteCorretivos12m: limiteOpcional(ERRO_LIMITE_CORRETIVOS),
   limiteReincidencia90d: limiteOpcional(ERRO_LIMITE_REINCIDENCIA),
+  limiteCustoPercentual12m: limiteOpcional(
+    ERRO_LIMITE_CUSTO,
+    LIMITE_CUSTO_PERCENTUAL_MIN,
+    LIMITE_CUSTO_PERCENTUAL_MAX,
+  ),
   serviceSubTypeId: idOpcional('Subtipo inválido.'),
 });
 export type CategoriaAtivoFormInput = z.input<typeof CategoriaAtivoFormSchema>;

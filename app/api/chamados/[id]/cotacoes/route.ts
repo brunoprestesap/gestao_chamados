@@ -9,8 +9,18 @@ import { UserModel } from '@/models/user.model';
 
 type LeanCotacao = Omit<CotacaoDoc, keyof Document>;
 
-function normalizeCotacao(c: LeanCotacao, nameByUserId: Record<string, string>) {
+function normalizeCotacao(c: LeanCotacao, nameByUserId: Record<string, string>, gestao: boolean) {
   return {
+    // Valor final (spec 0018, AC-18): só para Admin e Preposto. Solicitante e
+    // técnico continuam vendo só o estimado.
+    ...(gestao && {
+      valorFinal: c.valorFinal ?? null,
+      valorFinalPorName: c.valorFinalPorUserId
+        ? (nameByUserId[String(c.valorFinalPorUserId)] ?? null)
+        : null,
+      valorFinalEm:
+        c.valorFinalEm instanceof Date ? c.valorFinalEm.toISOString() : (c.valorFinalEm ?? null),
+    }),
     _id: String(c._id),
     chamadoId: String(c.chamadoId),
     pauseLogId: String(c.pauseLogId),
@@ -66,6 +76,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   for (const c of cotacoes) {
     userIds.add(String(c.submittedByUserId));
     if (c.reviewedByUserId) userIds.add(String(c.reviewedByUserId));
+    if (canManage && c.valorFinalPorUserId) userIds.add(String(c.valorFinalPorUserId));
   }
   const users = userIds.size
     ? await UserModel.find({ _id: { $in: Array.from(userIds) } })
@@ -75,7 +86,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const nameByUserId: Record<string, string> = {};
   for (const u of users) nameByUserId[String(u._id)] = u.name ?? '';
 
-  const normalized = cotacoes.map((c) => normalizeCotacao(c, nameByUserId));
+  const normalized = cotacoes.map((c) => normalizeCotacao(c, nameByUserId, canManage));
   const active = normalized.find((c) => c.status === 'enviada') ?? null;
 
   return NextResponse.json({ active, history: normalized });

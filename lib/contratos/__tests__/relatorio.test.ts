@@ -75,6 +75,7 @@ function entrada(chamados: ChamadoDoContrato[], extra: Partial<EntradaDoCalculo>
       ['k1', 12],
       ['k9', 3],
     ]),
+    custos: new Map(),
     agora,
     geradoPorNome: 'Admin',
     ...extra,
@@ -237,5 +238,67 @@ describe('conferirMesesEmitidos (AC-3)', () => {
         ['2026-03'],
       ),
     ).toBeNull();
+  });
+});
+
+describe('calcularRelatorio: custo (spec 0018, AC-13)', () => {
+  const custo = (corretivo: number, preventiva: number) => ({
+    corretivoCentavos: corretivo,
+    preventivaCentavos: preventiva,
+    totalCentavos: corretivo + preventiva,
+  });
+
+  function comCusto() {
+    return calcularRelatorio(
+      entrada(
+        [
+          chamado({ createdAt: new Date('2026-09-02T10:00:00.000Z') }),
+          chamado({ ativoId: 'a2', originTemplateId: 't1' }),
+          chamado({ ativoId: 'a3', createdAt: new Date('2026-09-05T10:00:00.000Z') }),
+        ],
+        {
+          custos: new Map([
+            ['a1', custo(30_500, 0)],
+            ['a2', custo(0, 4_000)],
+            ['a3', custo(1_000, 250)],
+            // Ativo sem chamado no mês: não entra na tabela nem no total.
+            ['a9', custo(99_999, 0)],
+          ]),
+        },
+      ),
+    );
+  }
+
+  it('a tabela por ativo traz o total do ativo no mês', () => {
+    const r = comCusto();
+    expect(Object.fromEntries(r.ativos.map((a) => [a.ativoId, a.custoCentavos]))).toEqual({
+      a1: 30_500,
+      a2: 4_000,
+      a3: 1_250,
+    });
+  });
+
+  it('a tabela por categoria separa corretivo e preventiva, com "Sem categoria"', () => {
+    const r = comCusto();
+    const porNome = Object.fromEntries(
+      r.categorias.map((c) => [c.nome, [c.custoCorretivoCentavos, c.custoPreventivaCentavos]]),
+    );
+    expect(porNome).toEqual({
+      Chiller: [0, 0],
+      Self: [0, 4_000],
+      Split: [30_500, 0],
+      'Sem categoria': [1_000, 250],
+    });
+  });
+
+  it('o resumo soma só os ativos da tabela', () => {
+    expect(comCusto().topo.custoTotalCentavos).toBe(35_750);
+  });
+
+  it('ativo sem custo no mapa vale zero, e as linhas não levam o objeto interno', () => {
+    const r = calcularRelatorio(entrada([chamado()]));
+    expect(r.ativos[0].custoCentavos).toBe(0);
+    expect(r.ativos[0]).not.toHaveProperty('custo');
+    expect(r.topo.custoTotalCentavos).toBe(0);
   });
 });

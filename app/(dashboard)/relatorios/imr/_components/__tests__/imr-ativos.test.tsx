@@ -114,7 +114,8 @@ describe('ImrAtivos', () => {
     const celulas = within(linha)
       .getAllByRole('cell')
       .map((c) => c.textContent);
-    expect(celulas).toEqual(['11998', '—', '—', '—', '1', '—', '—', '1']);
+    // A última é o "Custo no período" (spec 0018): sem a leitura de custo, "—".
+    expect(celulas).toEqual(['11998', '—', '—', '—', '1', '—', '—', '1', '—']);
   });
 
   it('o seletor troca a vista sem recarregar (AC-15)', async () => {
