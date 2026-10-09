@@ -35,6 +35,7 @@ import {
   TIERS_VINCULAVEIS,
 } from '@/shared/ativos/ativo.constants';
 import { formatarTempoIndicador } from '@/shared/ativos/indicadores-formato';
+import { centavos, formatarReais } from '@/shared/chamados/custo';
 import { PAPEL_AUTOR_LABELS } from '@/shared/vistoria/vistoria.constants';
 
 import { STATUS_BADGE } from '../../meus-chamados/_constants';
@@ -47,8 +48,6 @@ import {
 import { CustoAtivo } from '../_components/CustoAtivo';
 import { SubstituicaoAtivo } from '../_components/SubstituicaoAtivo';
 import { SecaoDocumentosAtivo } from '../documentos/_components/SecaoDocumentosAtivo';
-
-const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 function Campo({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
   return (
@@ -250,7 +249,9 @@ export default async function FichaAtivoPage({ params }: { params: Promise<{ id:
               />
               <Campo
                 rotulo="Valor histórico"
-                valor={p.valorHistorico !== undefined ? moeda.format(p.valorHistorico) : null}
+                valor={
+                  p.valorHistorico !== undefined ? formatarReais(centavos(p.valorHistorico)) : null
+                }
               />
               <Campo rotulo="Fornecedor" valor={p.fornecedor} />
               <Campo rotulo="Código do material" valor={p.codigoMaterial} />

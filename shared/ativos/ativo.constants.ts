@@ -90,6 +90,15 @@ export const ATIVO_HISTORY_ACOES = [
 ] as const;
 export type AtivoHistoryAcao = (typeof ATIVO_HISTORY_ACOES)[number];
 
+/**
+ * Ações do histórico que só a gestão vê na ficha: a dispensa de substituição
+ * diria ao técnico e ao solicitante que o ativo está marcado para troca.
+ */
+export const ATIVO_HISTORY_ACOES_SO_DA_GESTAO: readonly AtivoHistoryAcao[] = [
+  'dispensa_substituicao',
+  'dispensa_substituicao_desfeita',
+];
+
 export const ATIVO_HISTORY_ACAO_LABELS: Record<AtivoHistoryAcao, string> = {
   cadastro: 'Cadastro',
   edicao: 'Edição de dados',

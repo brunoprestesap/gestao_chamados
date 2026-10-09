@@ -243,7 +243,12 @@ rodar('candidatos à substituição (banco real)', () => {
 
     const fichaTecnico = await carregarFicha(String(velho), sessao('Técnico'));
     expect(JSON.stringify(fichaTecnico)).not.toContain('plano de compras');
+    // A dispensa some do histórico de quem não é gestão (o técnico não sabe da troca).
+    expect(fichaTecnico?.historico.map((h) => h.acao)).not.toContain('dispensa_substituicao');
+    const fichaSolicitante = await carregarFicha(String(velho), sessao('Solicitante'));
+    expect(fichaSolicitante?.historico.map((h) => h.acao)).not.toContain('dispensa_substituicao');
     const fichaGestao = await carregarFicha(String(velho), sessao('Admin', beto));
+    expect(fichaGestao?.historico.map((h) => h.acao)).toContain('dispensa_substituicao');
     expect(fichaGestao?.substituicao?.situacao).toBe('dispensado');
     expect(fichaGestao?.substituicao?.dispensa?.porNome).toBe('Ana Preposto');
     expect(fichaGestao?.substituicao?.dispensa?.motivo).toBe(MOTIVO);
@@ -293,6 +298,13 @@ rodar('candidatos à substituição (banco real)', () => {
       acao: 'dispensa_substituicao_desfeita',
     }).lean();
     expect(desfeita?.observacao).toMatch(/^Dispensa até \d{2}\/\d{2}\/\d{4} desfeita$/);
+
+    // As duas ações da dispensa ficam fora do histórico de quem não é gestão.
+    const daDispensa = ['dispensa_substituicao', 'dispensa_substituicao_desfeita'];
+    const fichaTecnico = await carregarFicha(String(velho), sessao('Técnico'));
+    expect(fichaTecnico?.historico.some((h) => daDispensa.includes(h.acao))).toBe(false);
+    const fichaGestao = await carregarFicha(String(velho), sessao('Preposto'));
+    expect(fichaGestao?.historico.map((h) => h.acao)).toContain('dispensa_substituicao_desfeita');
   });
 
   it('vencido o prazo, volta a ser candidato e a nova dispensa sobrescreve', async () => {

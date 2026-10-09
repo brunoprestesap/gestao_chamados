@@ -201,6 +201,6 @@ Tracer Bullet: o primeiro passo leva um item de material do formulário da gest�
 ## Follow-up
 
 - [ ] Medir depois de alguns meses quantos chamados concluídos têm custo lançado; se for pouco, avaliar lembrete na tela de encerramento ou uma tela de lançamento em lote.
-- [ ] Juntar os `formatBrl` de `cotacao.actions.ts`, `CotacaoApprovalCard.tsx` e da ficha em `formatarReais`.
-- [ ] Corrigir a divergência entre `app/(dashboard)/gestao/AGENTS.md` e o código sobre quem envia e quem aprova cotação (o código: envio só Preposto, aprovação e recusa só Admin).
+- [x] Juntar os `formatBrl` de `cotacao.actions.ts`, `CotacaoApprovalCard.tsx` e da ficha em `formatarReais`.
+- [x] Corrigir a divergência entre `app/(dashboard)/gestao/AGENTS.md` e o código sobre quem envia e quem aprova cotação (o código: envio só Preposto, aprovação e recusa só Admin).
 - [ ] Se a gestão pedir, valor de reposição atual por categoria como base alternativa ao `valorHistorico` no critério de custo, e custo nas listas de `/ativos`.

@@ -21,6 +21,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateTime } from '@/lib/utils';
+import { centavos, formatarReais } from '@/shared/chamados/custo';
 
 export type CotacaoDTO = {
   _id: string;
@@ -49,14 +50,6 @@ interface Props {
   ticketId: string;
   canReview: boolean;
   onChange?: () => void;
-}
-
-function formatBrl(value: number): string {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  });
 }
 
 const STATUS_BADGE: Record<CotacaoDTO['status'], string> = {
@@ -191,7 +184,7 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange }: Props) {
             )}
             <div className="flex flex-wrap items-baseline gap-3">
               <span className="text-2xl font-semibold text-foreground">
-                {formatBrl(active.valorEstimado)}
+                {formatarReais(centavos(active.valorEstimado))}
               </span>
               {active.prazoEntregaDias != null && (
                 <span className="text-sm text-muted-foreground">
@@ -255,7 +248,7 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange }: Props) {
               <div key={c._id} className="text-sm">
                 {idx > 0 && <Separator className="mb-3" />}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{formatBrl(c.valorEstimado)}</span>
+                  <span className="font-medium">{formatarReais(centavos(c.valorEstimado))}</span>
                   <Badge variant="outline" className={STATUS_BADGE[c.status]}>
                     {STATUS_LABEL[c.status]}
                   </Badge>

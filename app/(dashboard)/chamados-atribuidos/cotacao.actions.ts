@@ -24,6 +24,7 @@ import {
   type SubmitCotacaoInput,
   SubmitCotacaoSchema,
 } from '@/shared/chamados/cotacao.schemas';
+import { centavos, formatarReais } from '@/shared/chamados/custo';
 
 export type CotacaoActionResult =
   | { ok: true; cotacaoId?: string }
@@ -45,14 +46,6 @@ function formatDurationPtBr(minutes: number): string {
     return m > 0 ? `${h}h ${m}min` : `${h}h`;
   }
   return `${minutes}min`;
-}
-
-function formatBrl(value: number): string {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +172,7 @@ export async function submitCotacaoAction(raw: SubmitCotacaoInput): Promise<Cota
       throw err;
     }
 
-    const obs = `Cotação enviada: ${formatBrl(valorEstimado)} — ${detailsTrimmed}`;
+    const obs = `Cotação enviada: ${formatarReais(centavos(valorEstimado))} — ${detailsTrimmed}`;
     await ChamadoHistoryModel.create({
       chamadoId: doc._id,
       userId,
@@ -214,7 +207,7 @@ export async function submitCotacaoAction(raw: SubmitCotacaoInput): Promise<Cota
     const notifTitle = doc.ticket_number
       ? `Cotação aguardando aprovação — chamado #${doc.ticket_number}`
       : 'Cotação aguardando aprovação';
-    const notifBody = `${formatBrl(valorEstimado)} — ${detailsTrimmed}`;
+    const notifBody = `${formatarReais(centavos(valorEstimado))} — ${detailsTrimmed}`;
 
     // Exclui o próprio Preposto que submeteu — evita auto-notificação
     const managers = await UserModel.find({
@@ -374,7 +367,7 @@ async function resumeChamadoAfterQuoteReview(params: {
   const hoursStr = formatDurationPtBr(pausedMinutes);
   const reasonSummary =
     newCotacaoStatus === 'aprovada'
-      ? `Cotação aprovada (${formatBrl(cotacao.valorEstimado)}). Tempo pausado: ${hoursStr}.`
+      ? `Cotação aprovada (${formatarReais(centavos(cotacao.valorEstimado))}). Tempo pausado: ${hoursStr}.`
       : `Cotação recusada. Tempo pausado: ${hoursStr}. Motivo: ${(reviewObservacao ?? '').trim().slice(0, 300)}`;
 
   await ChamadoHistoryModel.create({

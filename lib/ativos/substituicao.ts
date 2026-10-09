@@ -609,7 +609,8 @@ export async function dispensarSubstituicao(params: {
       : falha(ERRO_ATIVO_MUDOU);
   }
 
-  // O texto do motivo nunca entra no histórico: o técnico vê o histórico.
+  // O texto do motivo nunca entra no histórico, mesmo com a ficha escondendo
+  // estas ações de quem não é gestão (`ATIVO_HISTORY_ACOES_SO_DA_GESTAO`).
   const observacao =
     `Até ${formatarDia(ate)} · critérios: ${textoDosCriterios(motivosNaDispensa)}` +
     (anterior ? ` · substitui a dispensa até ${formatarDia(paraYmd(anterior.ate))}` : '');
