@@ -221,7 +221,7 @@ Ordem de Tracer Bullet: o primeiro passo já leva um número real do banco até 
 ## Follow-up
 
 - [x] Depois de instalar `@react-pdf/renderer`, conferir o lock para a imagem Alpine antes do PR (o deploy de 01/10/2026 quebrou por isso) e rodar `npm run build`; só acrescentar `serverExternalPackages: ['@react-pdf/renderer']` no `next.config.ts` se o build falhar.
-- [ ] `/sync`: registrar `lib/contratos/` e a nova linha da tabela de referência rápida no `AGENTS.md`, e a skill `react-pdf` (`molefrog/skills`, instalada em `.agents/skills/react-pdf/` em 07/10/2026) na seção `## Agent skills`. Ela é da área de relatórios, então cabe num `lib/contratos/AGENTS.md`, com só um ponteiro na raiz.
+- [x] `/sync`: registrar `lib/contratos/` e a nova linha da tabela de referência rápida no `AGENTS.md`, e a skill `react-pdf` (`molefrog/skills`, instalada em `.agents/skills/react-pdf/` em 07/10/2026) na seção `## Agent skills`. Ela é da área de relatórios, então cabe num `lib/contratos/AGENTS.md`, com só um ponteiro na raiz.
 - [ ] Previstas x realizadas da preventiva por periodicidade da categoria ficou fora desta spec (está no Deferred do escopo).
 
 ## Rationale

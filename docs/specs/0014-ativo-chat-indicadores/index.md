@@ -193,7 +193,7 @@ Tracer Bullet: o fio do chat passa primeiro pelo caso mais estreito e exato (có
 
 ## Follow-up
 
-- [ ] Custo acumulado por ativo (da proposta de ativos, fatia 4) ficou fora: decidir antes a fonte do custo (cotação aprovada ou campo novo no fechamento).
+- [x] Custo acumulado por ativo (da proposta de ativos, fatia 4) ficou fora: decidir antes a fonte do custo (cotação aprovada ou campo novo no fechamento). Decidido e feito na spec 0018.
 - [ ] "Abrir chamado deste ativo" na ficha levar ao chat com `?ativo=<id>`, em vez do formulário.
 - [ ] Revisitar o modelo escolhendo entre candidatos no prompt quando a decisão `ativo` mostrar taxa de correção alta ou muitos cartões sem ativo com a vistoria já completa.
 - [ ] Recalcular candidatos para a unidade nova quando a pessoa troca a unidade no cartão, se a gestão sentir falta.
