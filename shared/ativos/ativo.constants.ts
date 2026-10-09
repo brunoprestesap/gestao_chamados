@@ -93,6 +93,7 @@ export type AtivoHistoryAcao = (typeof ATIVO_HISTORY_ACOES)[number];
 /**
  * Ações do histórico que só a gestão vê na ficha: a dispensa de substituição
  * diria ao técnico e ao solicitante que o ativo está marcado para troca.
+ * Ação nova ligada à substituição entra aqui (um teste confere pelo nome).
  */
 export const ATIVO_HISTORY_ACOES_SO_DA_GESTAO: readonly AtivoHistoryAcao[] = [
   'dispensa_substituicao',
