@@ -21,14 +21,15 @@ import { ConferenciaVistoriaModel } from '@/models/ConferenciaVistoria';
 import { LocalizacaoModel } from '@/models/Localizacao';
 import { ServiceCatalogModel } from '@/models/ServiceCatalog';
 import { UserModel } from '@/models/user.model';
-import type {
-  AtivoHistoryAcao,
-  AtivoHistoryActorType,
-  AtivoStatus,
-  Criticidade,
-  OrigemCodigo,
-  StatusCadastro,
-  TierManutencao,
+import {
+  ATIVO_HISTORY_ACOES_SO_DA_GESTAO,
+  type AtivoHistoryAcao,
+  type AtivoHistoryActorType,
+  type AtivoStatus,
+  type Criticidade,
+  type OrigemCodigo,
+  type StatusCadastro,
+  type TierManutencao,
 } from '@/shared/ativos/ativo.constants';
 import { CHAMADO_STATUS_LABELS, type ChamadoStatus } from '@/shared/chamados/chamado.constants';
 import type { PapelAutor } from '@/shared/vistoria/vistoria.constants';
@@ -222,7 +223,12 @@ export async function carregarFicha(id: string, sessao: SessionLike): Promise<Fi
       ativo.localizacaoId
         ? LocalizacaoModel.findById(ativo.localizacaoId).select('caminho').lean()
         : Promise.resolve(null),
-      AtivoHistoryModel.find({ ativoId: ativo._id })
+      // A dispensa de substituição fica fora do filtro para quem não é gestão,
+      // para o limite contar só o que a pessoa vê.
+      AtivoHistoryModel.find({
+        ativoId: ativo._id,
+        ...(!gestao && { acao: { $nin: ATIVO_HISTORY_ACOES_SO_DA_GESTAO } }),
+      })
         .sort({ createdAt: -1 })
         .limit(LIMITE_HISTORICO_FICHA)
         .lean(),

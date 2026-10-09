@@ -243,7 +243,12 @@ rodar('candidatos à substituição (banco real)', () => {
 
     const fichaTecnico = await carregarFicha(String(velho), sessao('Técnico'));
     expect(JSON.stringify(fichaTecnico)).not.toContain('plano de compras');
+    // A dispensa some do histórico de quem não é gestão (o técnico não sabe da troca).
+    expect(fichaTecnico?.historico.map((h) => h.acao)).not.toContain('dispensa_substituicao');
+    const fichaSolicitante = await carregarFicha(String(velho), sessao('Solicitante'));
+    expect(fichaSolicitante?.historico.map((h) => h.acao)).not.toContain('dispensa_substituicao');
     const fichaGestao = await carregarFicha(String(velho), sessao('Admin', beto));
+    expect(fichaGestao?.historico.map((h) => h.acao)).toContain('dispensa_substituicao');
     expect(fichaGestao?.substituicao?.situacao).toBe('dispensado');
     expect(fichaGestao?.substituicao?.dispensa?.porNome).toBe('Ana Preposto');
     expect(fichaGestao?.substituicao?.dispensa?.motivo).toBe(MOTIVO);
