@@ -445,6 +445,7 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **48 horas corridas ou úteis**: reavaliar o prazo para avaliar depois de um mês de uso, se vencer em fim de semana gerar reclamação · from spec 0010
 - **TLS na produção**: ligar `nginx/default.tls.conf` e `AUTH_COOKIE_SECURE=true`; sem HTTPS a câmera de `/ativos/ler` não funciona (já está na auditoria de 25/05/2026) · from spec 0011
 - **Reativar local ou categoria de ativo**: hoje uma localização ou categoria desativada só volta pelo banco · from spec 0011
+- **Reabrir campanha de vistoria**: hoje uma campanha encerrada não volta; abrir outra é o caminho, se a gestão sentir falta de reabrir · from spec 0012
 - **Reserva atômica no recorrente comum**: o ramo `template` de `processRecurringTickets` pode gerar duas vezes se duas execuções do cron se cruzarem; aplicar a mesma reserva do ramo por categoria · from spec 0013
 - **Distribuição em lote da preventiva**: se o Preposto passar a distribuir sempre do mesmo jeito, avaliar rodízio entre técnicos em vez da menor carga da 0008 · from spec 0013
 - **Medir o lançamento de custo**: depois de alguns meses, ver quantos chamados concluídos têm custo lançado; se for pouco, avaliar lembrete no encerramento ou tela de lançamento em lote · from spec 0018
