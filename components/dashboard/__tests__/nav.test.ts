@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { hrefAtivo, NAV_GROUP_ORDER, NAV_ITEMS } from '../nav';
+import {
+  hrefAtivo,
+  NAV_GROUP_LABEL,
+  NAV_GROUP_ORDER,
+  NAV_GROUPS_RECOLHIVEIS,
+  NAV_ITEMS,
+} from '../nav';
 
 /**
  * O item `Conversas` no menu (spec 0003). A regra é simples: a tela é dos
@@ -119,6 +125,41 @@ describe('NAV_ITEMS · ativos', () => {
 
   it('"Categorias de ativo" só para Admin', () => {
     expect(item('/configuracoes/categorias-ativo')?.allowedRoles).toEqual(['Admin']);
+  });
+
+  it('todas as telas do módulo ficam juntas no grupo "Gestão de ativos"', () => {
+    const hrefs = [
+      '/ativos',
+      '/ativos/vistoria',
+      '/ativos/documentos',
+      '/ativos/localizacoes',
+      '/configuracoes/categorias-ativo',
+      '/configuracoes/tipos-documento',
+    ];
+    for (const href of hrefs) expect(item(href)?.group, href).toBe('Ativos');
+    expect(NAV_GROUP_LABEL.Ativos).toBe('Gestão de ativos');
+  });
+
+  it('os itens do grupo aparecem em sequência, com a lista de ativos primeiro', () => {
+    const indices = NAV_ITEMS.flatMap((i, n) => (i.group === 'Ativos' ? [n] : []));
+    expect(indices.at(-1)! - indices[0]!).toBe(indices.length - 1);
+    expect(NAV_ITEMS[indices[0]!]?.href).toBe('/ativos');
+  });
+});
+
+describe('NAV_GROUPS', () => {
+  it('todo grupo tem título', () => {
+    for (const group of NAV_GROUP_ORDER) expect(NAV_GROUP_LABEL[group], group).toBeTruthy();
+  });
+
+  it('o grupo Principal nunca recolhe', () => {
+    expect(NAV_GROUPS_RECOLHIVEIS).not.toContain('Principal');
+  });
+
+  it('os relatórios ficam no grupo próprio', () => {
+    for (const href of ['/relatorios/imr', '/relatorios/contrato', '/relatorios/breach']) {
+      expect(NAV_ITEMS.find((i) => i.href === href)?.group, href).toBe('Relatórios');
+    }
   });
 });
 

@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileBadge,
+  FileCog,
   FileSignature,
   FileSpreadsheet,
   FileText,
@@ -29,21 +30,43 @@ import {
 /** Roles que podem ver o item. Se ausente, todos os roles têm acesso. */
 export type NavItemRole = 'Admin' | 'Preposto' | 'Solicitante' | 'Técnico';
 
+export type NavGroup = 'Principal' | 'Chamados' | 'Gestão' | 'Ativos' | 'Relatórios' | 'Admin';
+
 export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
   /** Grupo/seção do menu. Usado para agrupar e exibir títulos de seção. */
-  group: 'Principal' | 'Chamados' | 'Gestão' | 'Admin';
+  group: NavGroup;
   /** Apenas estes roles veem o item. Se não informado, todos veem. */
   allowedRoles?: readonly NavItemRole[];
 };
 
 /** Ordem dos grupos na sidebar */
-export const NAV_GROUP_ORDER: readonly NavItem['group'][] = [
+export const NAV_GROUP_ORDER: readonly NavGroup[] = [
   'Principal',
   'Chamados',
   'Gestão',
+  'Ativos',
+  'Relatórios',
+  'Admin',
+];
+
+/** Título que a sidebar mostra para cada grupo. */
+export const NAV_GROUP_LABEL: Record<NavGroup, string> = {
+  Principal: 'Principal',
+  Chamados: 'Chamados',
+  Gestão: 'Gestão',
+  Ativos: 'Gestão de ativos',
+  Relatórios: 'Relatórios',
+  Admin: 'Administração',
+};
+
+/** Grupos que a pessoa pode recolher; o Principal fica sempre aberto. */
+export const NAV_GROUPS_RECOLHIVEIS: readonly NavGroup[] = [
+  'Gestão',
+  'Ativos',
+  'Relatórios',
   'Admin',
 ];
 
@@ -67,19 +90,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     group: 'Principal',
   },
   {
-    label: 'Ativos',
-    href: '/ativos',
-    icon: PackageSearch,
-    group: 'Principal',
-  },
-  {
-    label: 'Vistoria',
-    href: '/ativos/vistoria',
-    icon: ClipboardCheck,
-    group: 'Principal',
-    allowedRoles: ['Admin', 'Preposto', 'Técnico'],
-  },
-  {
     label: 'Chamados Atribuídos',
     href: '/chamados-atribuidos',
     icon: TicketCheck,
@@ -101,51 +111,86 @@ export const NAV_ITEMS: readonly NavItem[] = [
     allowedRoles: ['Admin', 'Preposto'],
   },
   {
-    label: 'Localizações',
-    href: '/ativos/localizacoes',
-    icon: MapPinned,
-    group: 'Gestão',
-    allowedRoles: ['Admin', 'Preposto'],
-  },
-  {
-    label: 'Documentos',
-    href: '/ativos/documentos',
-    icon: FileBadge,
-    group: 'Gestão',
-    allowedRoles: ['Admin', 'Preposto', 'Técnico'],
-  },
-  {
     label: 'Painel de Gestão SLA',
     href: '/sla-dashboard',
     icon: Gauge,
     group: 'Gestão',
     allowedRoles: ['Admin', 'Preposto'],
   },
+  // ── Gestão de ativos (specs 0011–0015): operação primeiro, cadastro de apoio no fim
+  {
+    label: 'Ativos',
+    href: '/ativos',
+    icon: PackageSearch,
+    group: 'Ativos',
+  },
+  {
+    label: 'Vistoria',
+    href: '/ativos/vistoria',
+    icon: ClipboardCheck,
+    group: 'Ativos',
+    allowedRoles: ['Admin', 'Preposto', 'Técnico'],
+  },
+  {
+    label: 'Documentos',
+    href: '/ativos/documentos',
+    icon: FileBadge,
+    group: 'Ativos',
+    allowedRoles: ['Admin', 'Preposto', 'Técnico'],
+  },
+  {
+    label: 'Localizações',
+    href: '/ativos/localizacoes',
+    icon: MapPinned,
+    group: 'Ativos',
+    allowedRoles: ['Admin', 'Preposto'],
+  },
+  {
+    label: 'Categorias de ativo',
+    href: '/configuracoes/categorias-ativo',
+    icon: Tags,
+    group: 'Ativos',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'Tipos de documento',
+    href: '/configuracoes/tipos-documento',
+    icon: FileCog,
+    group: 'Ativos',
+    allowedRoles: ['Admin'],
+  },
   {
     label: 'Relatórios IMR',
     href: '/relatorios/imr',
     icon: FileText,
-    group: 'Admin',
+    group: 'Relatórios',
     allowedRoles: ['Admin'],
   },
   {
     label: 'Relatório por contrato',
     href: '/relatorios/contrato',
     icon: FileSpreadsheet,
-    group: 'Admin',
+    group: 'Relatórios',
     allowedRoles: ['Admin'],
   },
   {
     label: 'Relatório de Breaches',
     href: '/relatorios/breach',
     icon: TrendingDown,
-    group: 'Gestão',
+    group: 'Relatórios',
     allowedRoles: ['Admin', 'Preposto'],
   },
   {
     label: 'Catálogo',
     href: '/catalogo',
     icon: Wrench,
+    group: 'Admin',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'Contratos',
+    href: '/configuracoes/contratos',
+    icon: FileSignature,
     group: 'Admin',
     allowedRoles: ['Admin'],
   },
@@ -188,27 +233,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Calibração da IA',
     href: '/configuracoes/ia-confianca',
     icon: Sparkles,
-    group: 'Admin',
-    allowedRoles: ['Admin'],
-  },
-  {
-    label: 'Categorias de ativo',
-    href: '/configuracoes/categorias-ativo',
-    icon: Tags,
-    group: 'Admin',
-    allowedRoles: ['Admin'],
-  },
-  {
-    label: 'Tipos de documento',
-    href: '/configuracoes/tipos-documento',
-    icon: FileText,
-    group: 'Admin',
-    allowedRoles: ['Admin'],
-  },
-  {
-    label: 'Contratos',
-    href: '/configuracoes/contratos',
-    icon: FileSignature,
     group: 'Admin',
     allowedRoles: ['Admin'],
   },
