@@ -70,6 +70,7 @@ Testes configurados: **Vitest** (unitários, ~3300 testes em `__tests__/` e `*.t
 - Guards: `requireSession()`, `requireManager()`, `requireTechnician()`, `requireAdmin()` — redirecionam para `/dashboard` se não autorizado
 - `proxy.ts` (o Next 16 usa proxy no lugar de middleware) manda anônimo para `/login` e barra quem não é Admin em `/usuarios`, `/catalogo`, `/unidades` e `/configuracoes`. Ele ignora `/api`, então cada rota de API faz a própria checagem. A lista `protectedPrefixes` não cobre `/conversas` nem `/sla-dashboard`: quem protege essas telas é o `requireSession()` de `app/(dashboard)/layout.tsx`
 - O `matcher` do `proxy.ts` deixa `api/ativos/documentos` de fora: com o proxy rodando, o Next guarda o corpo só até 10 MB e corta o resto sem erro, e o documento aceita até 20 MB (spec 0013). Rota nova com corpo grande precisa da mesma exceção e de um bloco próprio no nginx
+- O mesmo vale para `api/cotacoes/<id>/arquivos` (spec 0019): orçamento, evidência e nota fiscal até 20 MB, com exceção no `matcher` e bloco próprio no nginx
 - 4 roles: **Admin**, **Preposto**, **Solicitante**, **Técnico**
 - Workaround de tipo em `auth.ts` (NextAuth v5 beta não exporta `NextAuthConfig` corretamente)
 
@@ -130,6 +131,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Fallback para MongoDB (model Notification) se socket offline
 - `documento:vencimento` e `preventiva:lote` (spec 0013) só existem em `Notification`, sem evento do Socket.IO: aparecem no sino na próxima leitura, e `getNotificationUrl`/`getNotificationMeta` precisam conhecer o tipo
 - `interesse:fim` (spec 0017) também só existe em `Notification`: avisa quem acompanha um chamado de outra pessoa quando ele termina, por `notificarFimAosInteressados` (`lib/chamados/interessados.ts`), chamado depois de gravar o status em toda ação que conclui, cancela ou recusa; reabertura chama `zerarAvisoDeFim`. Ação nova que encerra chamado precisa dos dois
+- `material:cotacao` (spec 0019) é o aviso da cotação de material, com evento Socket.IO próprio `material:cotacao_situacao` (`{ cotacaoId, numero, chamadoId, situacao, at }`, sem valor) e destino por pessoa no `data` (`cotacoes` ou `chamado`); quem recebe cada situação está em `lib/material/avisos.ts`
 
 ### SLA
 
@@ -152,6 +154,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Execução: técnico registra atendimento, emite `ticket:execution_registered`
 - Fechamento: emite `ticket:closed`, habilita avaliação pelo solicitante (1–5 + comentário, imutável)
 - Toda ação gera registro em `ChamadoHistoryModel` (auditoria)
+- Desde a spec 0019, toda ação que leva o chamado a `concluído`, `cancelado` ou `recusado` passa por `lib/material/chamado.ts`: a conclusão é recusada com cotação de material em trâmite, cancelar e recusar cancelam a cotação e liberam o saldo, e a retomada manual é recusada enquanto a pausa aberta for a da cotação. Um teste de varredura quebra com ação nova fora do gancho
 
 ### Modelos Mongoose
 
@@ -171,6 +174,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **Contrato** (spec 0016): contrato de manutenção com vigência em strings `YYYY-MM-DD` e `tiposServico`; nunca se apaga, e o `Chamado` não guarda o contrato
 - **RelatorioContratoEmissao** (spec 0016): cada PDF do relatório por contrato entregue, com o SHA-256 dos bytes; só é criado
 - **Custo do chamado** (spec 0018): `Chamado.materiaisForaCotacao` (material fora de cotação, até 50 itens) e `Cotacao.valorFinal`/`valorFinalPorUserId`/`valorFinalEm`; só saem em endpoint de gestão, nunca para solicitante nem técnico. O custo do ativo nunca é gravado: sai na leitura de `lib/ativos/custo.ts`
+- **CotacaoMaterial** e companhia (spec 0019): `CotacaoMaterial`, `CotacaoMaterialEvento` (trilha), `ArquivoCotacao`, `Empenho`, `DesignacaoMaterial`, `FaixaCompetencia` e `MaterialConfig`, todos com nome de coleção explícito. Trilha, designações e faixas são só de inclusão (`models/_somente-inclusao.ts`). O valor executado entra no custo do chamado e do ativo por `lerCustosDosChamados`. A `Cotacao` antiga não recebe mais envio (`submitCotacaoAction` recusa); as `enviada` ainda são aprovadas ou recusadas pelo cartão da gestão. Regras em `lib/material/AGENTS.md`
 
 ### Relatório IMR (Índice de Medição de Resultados)
 
@@ -271,6 +275,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `CRON_SECRET` — protege endpoint `/api/cron/recurring-tickets` (chamados recorrentes)
 - `CRON_SECRET` também protege `/api/cron/sla-monitor`; os dois endpoints de cron esperam o header `x-cron-secret` e recusam tudo se a variável estiver vazia
 - `CRON_SECRET` protege também `/api/cron/documentos-vencimento` (spec 0013), chamado uma vez por dia às 11:00 UTC (08:00 em Belém)
+- `CRON_SECRET` protege também `/api/cron/material-conciliacao` (spec 0019), chamado uma vez por dia às 06:00 UTC: cancela a cotação de material de chamado encerrado e libera reserva órfã de empenho
 - `AUTH_COOKIE_SECURE`: `true` só depois de habilitar TLS (ver `nginx/default.tls.conf`); no compose o padrão é `false`
 
 ### LDAP/AD (opcional — `/.env.local` ou `.env` na VPS)
@@ -341,6 +346,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Preventiva por categoria         | `lib/chamados/preventiva-categoria.ts` (`gerarLotePreventiva`), `lib/recurring-job.ts`, `app/(dashboard)/gestao/recurring/`, `docs/specs/0013-documentos-preventiva-ativo/`                                                                                                                                                   |
 | Relatório por contrato           | `lib/contratos/` (cálculo, cadastro e PDF), `shared/contratos/`, `app/(dashboard)/relatorios/contrato/`, `app/(dashboard)/configuracoes/contratos/`, `app/api/relatorios/contrato/pdf/route.ts`, `docs/specs/0016-relatorio-mensal-contrato-ativo/`                                                                           |
 | Aviso de chamado duplicado       | `lib/assistente/duplicados.ts` (`buscarDuplicados`), `lib/chamados/interessados.ts` (interesse e aviso de fim), `models/ChamadoInteressado.ts`, `app/(dashboard)/conversas/_lib/acompanhar.ts` e `acompanhamento.ts`, `app/(dashboard)/conversas/_components/AvisoDuplicados.tsx`, `docs/specs/0017-aviso-chamado-duplicado/` |
+| Cotação de material              | `lib/material/` (ver `lib/material/AGENTS.md`), `shared/material/`, `models/CotacaoMaterial*.ts`, `models/Empenho.ts`, `models/DesignacaoMaterial.ts`, `app/(dashboard)/cotacoes/`, `app/(dashboard)/configuracoes/material/`, `app/api/cotacoes/`, `app/api/cron/material-conciliacao/`, `docs/specs/0019-cotacao-material/` |
 
 ## CI/CD
 
@@ -359,6 +365,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 
 - **VPS**: `/opt/severino` — 5 containers: next-app, socket-server, mongodb, nginx, cron (chama `/api/cron/recurring-tickets` a cada 30min)
 - **Documentos (spec 0013)**: o crontab do container `cron` chama também `documentos-vencimento` uma vez por dia; o nginx tem um bloco `location /api/ativos/documentos` com `client_max_body_size 21M` (repetido em `default.tls.conf`); a carga dos tipos roda uma vez com `sudo docker exec -i severino-mongodb-1 mongosh manutencao < scripts/carga-tipos-documento.js` (idempotente, sem dado pessoal)
+- **Material (spec 0019)**: o crontab do container `cron` chama `material-conciliacao` às 06:00 UTC; o nginx tem um bloco `location ~ ^/api/cotacoes/[^/]+/arquivos$` com `client_max_body_size 21M` (repetido em `default.tls.conf`). Antes de usar, o Admin cadastra empenho, faixas e designações em `/configuracoes/material`; sem isso nada é aprovado
 - Todos os 5 containers têm `healthcheck` no `docker-compose.yml`; nginx expõe `/healthz`
 - **Nginx** como proxy reverso na porta 80 (`/` → Next, `/socket.io/` → Socket)
 - **Deploy automático**: push na `main` dispara CI/CD (ver seção CI/CD acima)
@@ -387,6 +394,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - Padrão: Arrange-Act-Assert
 - Cobertura mínima: 80%
 - **Banco real**: testes de índice único, TTL e corrida usam o MongoDB de verdade por `tests/mongo-test-env.ts`. Sem `MONGO_TEST_URI`, os `*.db.test.ts` são pulados. O apoio aceita um `dbName` por arquivo e chama `createIndexes()` de propósito
+- **E2E fora do banco de desenvolvimento**: o `e2e/global-setup.ts` desfaz as atribuições de todos os chamados dos técnicos E2E; rode a suíte num banco próprio (`MONGODB_URI` apontando para outro banco), nunca no `manutencao` de desenvolvimento
 - **Vitest**: `vitest.config.ts` tira as diretivas `'use server'` e `'use client'` dos módulos e troca `server-only` e `next/cache` pelos mocks de `tests/mocks/`. A cobertura mede só `lib/**/*.ts` e `shared/**/*.ts`, sem limite mínimo configurado
 
 ## Convenções
@@ -414,3 +422,4 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - [models/AGENTS.md](models/AGENTS.md): os schemas Mongoose, os dois padrões de registro do modelo e os índices parciais
 - [lib/ativos/AGENTS.md](lib/ativos/AGENTS.md): a gestão de ativos, com árvore de locais, cadastro e histórico, regras do seletor, carga do Tier A e leitura de etiqueta
 - [lib/contratos/AGENTS.md](lib/contratos/AGENTS.md): contratos e o relatório mensal por contrato, com a paridade com o IMR, a emissão do PDF e a skill `react-pdf`
+- [lib/material/AGENTS.md](lib/material/AGENTS.md): a cotação e o fornecimento de material, com a máquina de estados, o saldo do empenho sem transação, as designações, a visibilidade e os ganchos no ciclo do chamado
