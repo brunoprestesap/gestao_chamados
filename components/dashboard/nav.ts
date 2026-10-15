@@ -12,10 +12,12 @@ import {
   FileSpreadsheet,
   FileText,
   Gauge,
+  Landmark,
   LayoutDashboard,
   MapPinned,
   MessagesSquare,
   PackageSearch,
+  ReceiptText,
   Repeat,
   Settings,
   Sparkles,
@@ -30,7 +32,14 @@ import {
 /** Roles que podem ver o item. Se ausente, todos os roles têm acesso. */
 export type NavItemRole = 'Admin' | 'Preposto' | 'Solicitante' | 'Técnico';
 
-export type NavGroup = 'Principal' | 'Chamados' | 'Gestão' | 'Ativos' | 'Relatórios' | 'Admin';
+export type NavGroup =
+  | 'Principal'
+  | 'Chamados'
+  | 'Gestão'
+  | 'Material'
+  | 'Ativos'
+  | 'Relatórios'
+  | 'Admin';
 
 export type NavItem = {
   label: string;
@@ -40,6 +49,11 @@ export type NavItem = {
   group: NavGroup;
   /** Apenas estes roles veem o item. Se não informado, todos veem. */
   allowedRoles?: readonly NavItemRole[];
+  /**
+   * Cotação de material (spec 0019): além do perfil, aparece para quem tem
+   * designação vigente no fluxo; o Admin vê sempre (leitura).
+   */
+  exigeDesignacaoMaterial?: boolean;
 };
 
 /** Ordem dos grupos na sidebar */
@@ -47,6 +61,7 @@ export const NAV_GROUP_ORDER: readonly NavGroup[] = [
   'Principal',
   'Chamados',
   'Gestão',
+  'Material',
   'Ativos',
   'Relatórios',
   'Admin',
@@ -57,6 +72,7 @@ export const NAV_GROUP_LABEL: Record<NavGroup, string> = {
   Principal: 'Principal',
   Chamados: 'Chamados',
   Gestão: 'Gestão',
+  Material: 'Material',
   Ativos: 'Gestão de ativos',
   Relatórios: 'Relatórios',
   Admin: 'Administração',
@@ -65,6 +81,7 @@ export const NAV_GROUP_LABEL: Record<NavGroup, string> = {
 /** Grupos que a pessoa pode recolher; o Principal fica sempre aberto. */
 export const NAV_GROUPS_RECOLHIVEIS: readonly NavGroup[] = [
   'Gestão',
+  'Material',
   'Ativos',
   'Relatórios',
   'Admin',
@@ -116,6 +133,22 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Gauge,
     group: 'Gestão',
     allowedRoles: ['Admin', 'Preposto'],
+  },
+  // ── Material (spec 0019): a fila das cotações, por designação
+  {
+    label: 'Cotações',
+    href: '/cotacoes',
+    icon: ReceiptText,
+    group: 'Material',
+    allowedRoles: ['Admin', 'Preposto', 'Técnico'],
+    exigeDesignacaoMaterial: true,
+  },
+  {
+    label: 'Cadastro de material',
+    href: '/configuracoes/material',
+    icon: Landmark,
+    group: 'Material',
+    allowedRoles: ['Admin'],
   },
   // ── Gestão de ativos (specs 0011–0015): operação primeiro, cadastro de apoio no fim
   {

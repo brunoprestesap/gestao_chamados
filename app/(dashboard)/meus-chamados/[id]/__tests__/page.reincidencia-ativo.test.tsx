@@ -10,6 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * devolve 404 para `baixado` ou Tier C/D, e aí o formulário abre sem ativo.
  */
 
+// O cartão da cotação de material (spec 0019) tem testes próprios.
+vi.mock('@/app/(dashboard)/cotacoes/_components/CartaoCotacaoMaterial', () => ({
+  CartaoCotacaoMaterial: () => null,
+}));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('@/components/config/expediente-provider', () => ({

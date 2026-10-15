@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { CartaoCotacaoMaterial } from '@/app/(dashboard)/cotacoes/_components/CartaoCotacaoMaterial';
 import { CotacaoApprovalCard } from '@/app/(dashboard)/gestao/_components/CotacaoApprovalCard';
 import { ReatribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/ReatribuirChamadoDialog';
 import { AvaliarChamadoDialog } from '@/app/(dashboard)/meus-chamados/_components/AvaliarChamadoDialog';
@@ -459,6 +460,8 @@ export default function ChamadoDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Cotação de material (spec 0019, AC-15): o solicitante vê só a situação. */}
+              <CartaoCotacaoMaterial chamadoId={chamado._id} />
               {/* Description */}
               <div className="min-w-0">
                 <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground/70">

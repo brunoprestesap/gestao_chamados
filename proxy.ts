@@ -72,7 +72,10 @@ export default async function proxy(req: NextRequest) {
 
 // `api/ativos/documentos` fica fora do matcher: com o proxy rodando, o Next guarda
 // o corpo só até 10 MB e corta o resto sem erro, e o documento aceita até 20 MB
-// (spec 0013, AC-15). O proxy já ignora `/api`, então nada muda na checagem.
+// (spec 0013, AC-15). Os arquivos da cotação de material (`api/cotacoes/<id>/arquivos`,
+// spec 0019) também vão até 20 MB. O proxy já ignora `/api`, então nada muda na checagem.
 export const config = {
-  matcher: ['/((?!api/ativos/documentos|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/((?!api/ativos/documentos|api/cotacoes/[^/]+/arquivos|_next/static|_next/image|favicon.ico).*)',
+  ],
 };

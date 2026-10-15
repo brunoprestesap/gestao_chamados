@@ -16,8 +16,19 @@ const banco = vi.hoisted(() => ({
   filtroCotacao: null as unknown,
   filtroChamado: null as unknown,
   cotacoesLidas: 0,
+  cotacoesMaterial: [] as object[],
+  filtroCotacaoMaterial: null as unknown,
 }));
 
+// Cotação de material (spec 0019): por padrão, nenhuma executada.
+vi.mock('@/models/CotacaoMaterial', () => ({
+  CotacaoMaterialModel: {
+    find: (filtro: unknown) => {
+      banco.filtroCotacaoMaterial = filtro;
+      return { select: () => ({ lean: async () => banco.cotacoesMaterial }) };
+    },
+  },
+}));
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/models/Chamado', () => ({
   ChamadoModel: {
@@ -196,6 +207,23 @@ describe('lerCustosDosChamados (AC-9)', () => {
         totalCentavos: 5000,
       }),
     ]);
+  });
+
+  it('soma o valor executado da cotação de material na parte de cotações (spec 0019, AC-17)', async () => {
+    // Arrange: antiga aprovada (R$ 2,00), material fora de cotação (R$ 3,00) e cotação de material executada (R$ 0,04)
+    const c = chamado({ materiais: [{ quantidade: 1, valorUnitario: 3 }] });
+    banco.cotacoes = [{ chamadoId: c._id, status: 'aprovada', valorEstimado: 2 }];
+    banco.cotacoesMaterial = [{ chamadoId: c._id, valorExecutadoCentavos: 4 }];
+
+    // Act
+    const [r] = await lerCustosDosChamados([c]);
+
+    // Assert
+    expect(banco.filtroCotacaoMaterial).toMatchObject({
+      situacao: { $in: ['executada', 'atestada'] },
+    });
+    expect(r).toMatchObject({ cotacoesCentavos: 204, materialCentavos: 300, totalCentavos: 504 });
+    banco.cotacoesMaterial = [];
   });
 
   it('chamado sem ativo e sem material vale zero e ativo null', async () => {

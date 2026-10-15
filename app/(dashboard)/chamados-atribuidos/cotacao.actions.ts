@@ -3,7 +3,7 @@
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
-import { isAdmin, isPreposto, requireSession } from '@/lib/dal';
+import { isAdmin, requireSession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
@@ -22,9 +22,9 @@ import {
   type RejectCotacaoInput,
   RejectCotacaoSchema,
   type SubmitCotacaoInput,
-  SubmitCotacaoSchema,
 } from '@/shared/chamados/cotacao.schemas';
 import { centavos, formatarReais } from '@/shared/chamados/custo';
+import { MSG_ENVIO_ANTIGO_FECHADO } from '@/shared/material/mensagens';
 
 export type CotacaoActionResult =
   | { ok: true; cotacaoId?: string }
@@ -49,215 +49,14 @@ function formatDurationPtBr(minutes: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// submitCotacaoAction — Preposto (representante da contratada) envia cotação
-// para aprovação do Gestor do Contrato (Admin). Somente Preposto pode submeter.
+// submitCotacaoAction: fechada pela spec 0019 (AC-18). A cotação nova nasce no
+// chamado como cotação de material; as antigas `enviada` terminam pelo cartão
+// atual (aprovar ou recusar), e as `aprovada` continuam no custo.
 // ---------------------------------------------------------------------------
 
-export async function submitCotacaoAction(raw: SubmitCotacaoInput): Promise<CotacaoActionResult> {
-  try {
-    const session = await requireSession();
-    if (!isPreposto(session.role)) {
-      return {
-        ok: false,
-        error: 'Apenas o Preposto pode enviar cotação para aprovação do contrato.',
-      };
-    }
-
-    const parsed = SubmitCotacaoSchema.safeParse(raw);
-    if (!parsed.success) {
-      const fieldErrors = parsed.error.flatten().fieldErrors;
-      const msg =
-        fieldErrors.valorEstimado?.[0] ??
-        fieldErrors.descricao?.[0] ??
-        fieldErrors.prazoEntregaDias?.[0] ??
-        fieldErrors.observacoes?.[0] ??
-        fieldErrors.ticketId?.[0] ??
-        'Dados inválidos.';
-      return { ok: false, error: msg };
-    }
-
-    const { ticketId, valorEstimado, descricao, prazoEntregaDias, observacoes, anexoId } =
-      parsed.data;
-
-    await dbConnect();
-
-    const doc = await ChamadoModel.findById(ticketId);
-    if (!doc) return { ok: false, error: 'Chamado não encontrado.' };
-
-    if (doc.status !== 'em atendimento') {
-      return {
-        ok: false,
-        error: 'Somente chamados em atendimento podem ter cotação enviada.',
-      };
-    }
-
-    const existingActive = await CotacaoModel.findOne({
-      chamadoId: doc._id,
-      status: 'enviada',
-    })
-      .select('_id')
-      .lean();
-    if (existingActive) {
-      return {
-        ok: false,
-        error: 'Já existe uma cotação aguardando aprovação para este chamado.',
-      };
-    }
-
-    const now = new Date();
-    const userId = new Types.ObjectId(session.userId);
-    const detailsTrimmed = descricao.trim().slice(0, 200);
-
-    // Preposto age em nome do contrato — não há vínculo de atribuição direta.
-    const updateResult = await ChamadoModel.updateOne(
-      { _id: ticketId, status: 'em atendimento' },
-      {
-        $set: {
-          status: 'aguardando_terceiros',
-          slaPausedAt: now,
-          pauseReason: 'falta_peca_aprovacao_cliente',
-          pauseDetails: detailsTrimmed,
-        },
-      },
-    );
-
-    if (updateResult.matchedCount === 0) {
-      return {
-        ok: false,
-        error: 'Chamado não encontrado ou status já alterado. Atualize a página.',
-      };
-    }
-
-    const pauseLog = await PauseLogModel.create({
-      chamadoId: doc._id,
-      reason: 'falta_peca_aprovacao_cliente',
-      details: detailsTrimmed,
-      pausedAt: now,
-      pausedByUserId: userId,
-    });
-
-    let cotacao;
-    try {
-      cotacao = await CotacaoModel.create({
-        chamadoId: doc._id,
-        pauseLogId: pauseLog._id,
-        status: 'enviada',
-        valorEstimado,
-        descricao: descricao.trim(),
-        prazoEntregaDias,
-        observacoes: observacoes?.trim(),
-        anexoId: anexoId ? new Types.ObjectId(anexoId) : undefined,
-        submittedByUserId: userId,
-        submittedAt: now,
-      });
-    } catch (err: unknown) {
-      // Compensa: chamado já foi para aguardando_terceiros e PauseLog foi criado.
-      // Sem rollback, o ticket fica travado num estado inconsistente (pausado sem cotação).
-      await ChamadoModel.updateOne(
-        { _id: doc._id, status: 'aguardando_terceiros', slaPausedAt: now },
-        {
-          $set: { status: 'em atendimento' },
-          $unset: { slaPausedAt: 1, pauseReason: 1, pauseDetails: 1 },
-        },
-      ).catch(() => {});
-      await PauseLogModel.findByIdAndDelete(pauseLog._id).catch(() => {});
-
-      const code = (err as { code?: number })?.code;
-      if (code === 11000) {
-        return {
-          ok: false,
-          error: 'Já existe uma cotação aguardando aprovação para este chamado.',
-        };
-      }
-      throw err;
-    }
-
-    const obs = `Cotação enviada: ${formatarReais(centavos(valorEstimado))} — ${detailsTrimmed}`;
-    await ChamadoHistoryModel.create({
-      chamadoId: doc._id,
-      userId,
-      action: 'cotacao_enviada',
-      statusAnterior: 'em atendimento',
-      statusNovo: 'aguardando_terceiros',
-      observacoes: obs,
-    });
-
-    const actionUser = await UserModel.findById(session.userId).select('name').lean();
-    const submittedByName = actionUser?.name ?? undefined;
-
-    const quotePayload = {
-      ticketId: String(ticketId),
-      ticketNumber: doc.ticket_number,
-      title: doc.titulo,
-      cotacaoId: String(cotacao._id),
-      valorEstimado,
-      submittedBy: { id: session.userId, name: submittedByName },
-      at: now.toISOString(),
-    };
-
-    const pausePayload = {
-      ticketId: String(ticketId),
-      ticketNumber: doc.ticket_number,
-      title: doc.titulo,
-      pausedBy: { id: session.userId, name: submittedByName },
-      reason: 'Aguardando Aprovação de Cotação',
-      at: now.toISOString(),
-    };
-
-    const notifTitle = doc.ticket_number
-      ? `Cotação aguardando aprovação — chamado #${doc.ticket_number}`
-      : 'Cotação aguardando aprovação';
-    const notifBody = `${formatarReais(centavos(valorEstimado))} — ${detailsTrimmed}`;
-
-    // Exclui o próprio Preposto que submeteu — evita auto-notificação
-    const managers = await UserModel.find({
-      role: { $in: ['Preposto', 'Admin'] },
-      isActive: true,
-      _id: { $ne: userId },
-    })
-      .select('_id')
-      .lean();
-
-    if (managers.length > 0) {
-      await NotificationModel.insertMany(
-        managers.map((m) => ({
-          userId: m._id,
-          type: 'ticket:quote_submitted',
-          title: notifTitle,
-          body: notifBody,
-          data: quotePayload,
-          readAt: null,
-        })),
-      );
-      for (const m of managers) {
-        sendNotificationEmail(String(m._id), 'ticket:quote_submitted', quotePayload).catch(
-          () => {},
-        );
-      }
-    }
-
-    await NotificationModel.create({
-      userId: doc.solicitanteId,
-      type: 'ticket:paused',
-      title: notifTitle,
-      body: notifBody,
-      data: pausePayload,
-      readAt: null,
-    });
-    sendNotificationEmail(String(doc.solicitanteId), 'ticket:paused', pausePayload).catch(() => {});
-
-    await emitToRoom('managers', 'ticket:quote_submitted', quotePayload);
-    await emitToRoom(`user:${String(doc.solicitanteId)}`, 'ticket:paused', pausePayload);
-
-    revalidateTicketPaths(String(ticketId));
-    return { ok: true, cotacaoId: String(cotacao._id) };
-  } catch (e) {
-    console.error('submitCotacaoAction:', e);
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : 'Erro ao enviar cotação. Tente novamente.',
-    };
-  }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- a assinatura antiga continua para quem ainda chama
+export async function submitCotacaoAction(_raw: SubmitCotacaoInput): Promise<CotacaoActionResult> {
+  return { ok: false, error: MSG_ENVIO_ANTIGO_FECHADO };
 }
 
 // ---------------------------------------------------------------------------

@@ -45,8 +45,15 @@ export function valorDoItemCentavos(i: MaterialParaCusto): number {
 export function custoDoChamado(entrada: {
   cotacoes: readonly CotacaoParaCusto[];
   materiais: readonly MaterialParaCusto[];
+  /**
+   * Valor executado das cotações de material (spec 0019, AC-17), já em
+   * centavos e só das `executada` ou `atestada`. Soma na parte de cotações.
+   */
+  cotacoesMaterialCentavos?: readonly number[];
 }): CustoDoChamado {
-  const cotacoesCentavos = entrada.cotacoes.reduce((s, c) => s + valorDaCotacaoCentavos(c), 0);
+  const cotacoesCentavos =
+    entrada.cotacoes.reduce((s, c) => s + valorDaCotacaoCentavos(c), 0) +
+    (entrada.cotacoesMaterialCentavos ?? []).reduce((s, v) => s + v, 0);
   const materialCentavos = entrada.materiais.reduce((s, i) => s + valorDoItemCentavos(i), 0);
   return { cotacoesCentavos, materialCentavos, totalCentavos: cotacoesCentavos + materialCentavos };
 }

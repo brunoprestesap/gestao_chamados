@@ -5,6 +5,7 @@
  */
 
 import type {
+  MaterialCotacaoSituacaoPayload,
   SlaBreachPayload,
   SlaWarningPayload,
   TicketAssignedPayload,
@@ -49,7 +50,8 @@ export type AllowedEmitEvents =
   | 'ticket:reopened'
   | 'ticket:corrected'
   | 'sla:warning'
-  | 'sla:breach';
+  | 'sla:breach'
+  | 'material:cotacao_situacao';
 
 /**
  * Envia evento para uma room no socket-server.
@@ -78,7 +80,8 @@ export async function emitToRoom(
     | TicketReopenedPayload
     | TicketCorrectedPayload
     | SlaWarningPayload
-    | SlaBreachPayload,
+    | SlaBreachPayload
+    | MaterialCotacaoSituacaoPayload,
 ): Promise<boolean> {
   if (!INTERNAL_SECRET) {
     console.warn('[realtime-emit] SOCKET_INTERNAL_SECRET não definido; emit ignorado.');

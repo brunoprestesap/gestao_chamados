@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────────
 
+// Cotação de material (spec 0019): sem cotação em trâmite nestes testes.
+vi.mock('@/lib/material/chamado', () => ({
+  impedimentoDeConclusao: vi.fn().mockResolvedValue(null),
+  impedimentoDeRetomada: vi.fn().mockResolvedValue(null),
+  cancelarCotacaoPeloChamado: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 const TECH_USER_ID = new Types.ObjectId().toHexString();

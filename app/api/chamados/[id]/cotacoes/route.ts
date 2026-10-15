@@ -3,9 +3,13 @@ import { NextResponse } from 'next/server';
 
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { papeisDe } from '@/lib/material/papeis';
+import { visaoDe } from '@/lib/material/serializar';
 import { ChamadoModel } from '@/models/Chamado';
 import { type CotacaoDoc, CotacaoModel } from '@/models/Cotacao';
+import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { UserModel } from '@/models/user.model';
+import { type SituacaoCotacao, SITUACOES_NO_CUSTO } from '@/shared/material/material.constants';
 
 type LeanCotacao = Omit<CotacaoDoc, keyof Document>;
 
@@ -89,5 +93,47 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const normalized = cotacoes.map((c) => normalizeCotacao(c, nameByUserId, canManage));
   const active = normalized.find((c) => c.status === 'enviada') ?? null;
 
-  return NextResponse.json({ active, history: normalized });
+  // Cotação de material executada (spec 0019, AC-17): o valor que entra no
+  // custo, só para a gestão, como o valor final.
+  let materialExecutado:
+    | { id: string; numero: string; valorExecutadoCentavos: number; podeAbrir: boolean }[]
+    | undefined;
+  if (canManage) {
+    const executadas = await CotacaoMaterialModel.find({
+      chamadoId: new Types.ObjectId(id),
+      situacao: { $in: [...SITUACOES_NO_CUSTO] },
+    })
+      .select('numero valorExecutadoCentavos situacao emTramite updatedAt')
+      .sort({ createdAt: 1 })
+      .lean();
+    // O link para `/cotacoes/[id]` só para quem a tela deixa abrir (o Preposto
+    // sem designação, por exemplo, recebe 404 lá).
+    const papeis = executadas.length ? await papeisDe(session.userId, session.role) : null;
+    materialExecutado = executadas.map((c) => ({
+      id: String(c._id),
+      numero: c.numero,
+      valorExecutadoCentavos: c.valorExecutadoCentavos ?? 0,
+      podeAbrir:
+        !!papeis &&
+        visaoDe(
+          {
+            userId: session.userId,
+            papeis,
+            ehTecnicoAtribuido: !!isAssigned,
+            ehSolicitante: false,
+          },
+          {
+            situacao: c.situacao as SituacaoCotacao,
+            emTramite: c.emTramite,
+            updatedAt: c.updatedAt,
+          },
+        ) !== null,
+    }));
+  }
+
+  return NextResponse.json({
+    active,
+    history: normalized,
+    ...(materialExecutado ? { materialExecutado } : {}),
+  });
 }

@@ -14,8 +14,11 @@ import {
   tituloDeCorrecaoAoTecnico,
 } from '@/shared/chamados/aviso-atribuicao';
 import { PAUSE_REASON_LABELS } from '@/shared/chamados/pause-reason.constants';
+import type { SituacaoCotacao } from '@/shared/material/material.constants';
+import { tituloAvisoCotacao } from '@/shared/material/mensagens';
 import {
   type ClientToServerEvents,
+  type MaterialCotacaoSituacaoPayload,
   type ServerToClientEvents,
   type SlaBreachPayload,
   type SlaWarningPayload,
@@ -379,6 +382,23 @@ export function RealtimeProvider({
         },
       });
       emitNotificationEvent();
+    });
+
+    // Spec 0019, AC-16: o aviso da cotação de material, sem valor.
+    socket.on('material:cotacao_situacao', (payload: MaterialCotacaoSituacaoPayload) => {
+      playNotificationSound();
+      const situacao = payload.situacao as SituacaoCotacao;
+      toast.info(tituloAvisoCotacao(payload.numero, situacao), {
+        duration: 8000,
+        action: {
+          label: 'Ver cotação',
+          onClick: () => {
+            routerRef.current.push(`/cotacoes/${payload.cotacaoId}`);
+          },
+        },
+      });
+      emitNotificationEvent();
+      routerRef.current.refresh();
     });
 
     socketRef.current = socket;

@@ -7,6 +7,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const mockVerifySession = vi.fn();
+// Cotação de material (spec 0019): por padrão, nenhuma executada.
+const material = vi.hoisted(() => ({ executadas: [] as object[] }));
+vi.mock('@/models/CotacaoMaterial', () => ({
+  CotacaoMaterialModel: {
+    find: () => ({
+      select: () => ({
+        lean: async () => material.executadas,
+        sort: () => ({ lean: async () => material.executadas }),
+      }),
+    }),
+  },
+}));
+const papeis = vi.hoisted(() => ({ ladoTrf1: false, leitorAdmin: false, contratada: false }));
+vi.mock('@/lib/material/papeis', () => ({
+  papeisDe: async (userId: string, role: string) => ({
+    userId,
+    role,
+    designacoes: [],
+    tem: () => false,
+    ...papeis,
+  }),
+}));
 vi.mock('@/lib/dal', () => ({ verifySession: () => mockVerifySession() }));
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 
@@ -65,6 +87,48 @@ const pedir = () =>
 beforeEach(() => {
   vi.clearAllMocks();
   estado.chamado = undefined;
+  material.executadas = [];
+  Object.assign(papeis, { ladoTrf1: false, leitorAdmin: false, contratada: false });
+});
+
+describe('GET /api/chamados/[id]/cotacoes · cotação de material executada (spec 0019)', () => {
+  const executada = {
+    _id: new Types.ObjectId(),
+    numero: 'COT-2026-0001',
+    valorExecutadoCentavos: 1000,
+    situacao: 'executada',
+    emTramite: false,
+    updatedAt: new Date(),
+  };
+
+  it('o Preposto sem designação vê o valor, mas sem link para a cotação (item 14)', async () => {
+    mockVerifySession.mockResolvedValue({ userId: String(PREPOSTO_ID), role: 'Preposto' });
+    material.executadas = [executada];
+    const json = await (await pedir()).json();
+    expect(json.materialExecutado).toEqual([
+      {
+        id: String(executada._id),
+        numero: 'COT-2026-0001',
+        valorExecutadoCentavos: 1000,
+        podeAbrir: false,
+      },
+    ]);
+  });
+
+  it('o Admin (lado TRF1 ou leitor) recebe o link', async () => {
+    mockVerifySession.mockResolvedValue({ userId: String(PREPOSTO_ID), role: 'Admin' });
+    papeis.leitorAdmin = true;
+    material.executadas = [executada];
+    const json = await (await pedir()).json();
+    expect(json.materialExecutado[0].podeAbrir).toBe(true);
+  });
+
+  it('o solicitante não recebe a lista', async () => {
+    mockVerifySession.mockResolvedValue({ userId: String(SOLICITANTE_ID), role: 'Solicitante' });
+    material.executadas = [executada];
+    const json = await (await pedir()).json();
+    expect(json.materialExecutado).toBeUndefined();
+  });
 });
 
 describe('GET /api/chamados/[id]/cotacoes', () => {

@@ -33,6 +33,11 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'custo_material_editado',
   'custo_material_removido',
   'cotacao_valor_final',
+  // Cotação de material (spec 0019): sem valores em `details`, o solicitante vê a linha do tempo.
+  'cotacao_material_enviada',
+  'cotacao_material_autorizada',
+  'cotacao_material_reprovada',
+  'cotacao_material_cancelada',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
@@ -102,4 +107,8 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   custo_material_editado: 'Material editado',
   custo_material_removido: 'Material removido',
   cotacao_valor_final: 'Valor final da cotação',
+  cotacao_material_enviada: 'Cotação de material enviada',
+  cotacao_material_autorizada: 'Cotação de material autorizada',
+  cotacao_material_reprovada: 'Cotação de material reprovada',
+  cotacao_material_cancelada: 'Cotação de material cancelada',
 };

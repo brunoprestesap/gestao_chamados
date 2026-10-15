@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { notificarFimAosInteressados } from '@/lib/chamados/interessados';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { cancelarCotacaoPeloChamado } from '@/lib/material/chamado';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 
@@ -81,6 +82,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Quem acompanha o chamado recebe o aviso de fim no sino (spec 0017, AC-17).
   void notificarFimAosInteressados(id, 'cancelado');
+  // A cotação de material em trâmite cai junto e libera o saldo (spec 0019, AC-12).
+  await cancelarCotacaoPeloChamado({
+    chamadoId: id,
+    userId: session.userId,
+    motivo: 'chamado_cancelado',
+  });
 
   return NextResponse.json({ ok: true });
 }

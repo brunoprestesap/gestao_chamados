@@ -1,36 +1,39 @@
 /**
- * Testes E2E — Fluxo de Cotação com SLA Condicional
+ * Testes E2E: cotação e fornecimento de material (spec 0019, Fatia 1).
  *
- * Cenários cobertos (permissões segregadas por role):
- * 1. Técnico tenta pausar com "Falta de Peça (Responsabilidade da Contratada)" →
- *    SISTEMA BLOQUEIA com alerta destrutivo + botão de submit desabilitado.
- * 2. Técnico **não vê** a opção "Falta de Peça (Aguardando Aprovação do Cliente)"
- *    no dropdown de pausa — apenas Preposto pode iniciar fluxo de cotação.
- * 3. Preposto (via Gestão → Sheet → Pausar) seleciona o motivo, preenche cotação
- *    e envia → chamado vai para "aguardando_terceiros" e SLA pausa.
- * 4. Admin (Gestor do Contrato) vê CotacaoApprovalCard com botões Aprovar/Recusar →
- *    aprova → chamado volta a "em atendimento".
- * 5. Preposto **não vê** botões Aprovar/Recusar (somente leitura após submeter).
+ * Cenários cobertos:
+ * 1. Pausa: "Falta de Peça (Responsabilidade da Contratada)" continua
+ *    bloqueada, e o motivo de cotação ("Aguardando Aprovação do Cliente")
+ *    não aparece para ninguém: a pausa por cotação só nasce do envio da
+ *    cotação de material (AC-18).
+ * 2. O fio da cotação de material:
+ *    - o técnico registra o material no chamado (AC-1);
+ *    - o Preposto, como responsável técnico, monta com 3 orçamentos e envia,
+ *      e o chamado pausa (AC-2, AC-4);
+ *    - o Admin, como fiscal, assume e encaminha (AC-5, AC-6);
+ *    - o Admin, como aprovador, aprova no empenho E2E, e o chamado retoma
+ *      (AC-7, AC-8);
+ *    - o técnico registra a execução com evidência (AC-10);
+ *    - o solicitante vê só a situação, sem valor (AC-15).
  *
  * PRÉ-REQUISITOS
  * ──────────────
- * 1. Servidor rodando em localhost:3000 (ou E2E_BASE_URL).
- * 2. Seed executado: `node scripts/seed.js`.
- * 3. Usuários E2E: admin / preposto / tecnico / solicitante (senha 123456).
+ * 1. Servidor rodando em localhost:3000 (ou E2E_BASE_URL), no mesmo banco do
+ *    MONGODB_URI usado aqui.
+ * 2. Seed executado (`scripts/seed.js`) e o global-setup (usuários E2E).
+ * 3. `garantirCadastroMaterial` cria empenho, faixa e designações que faltarem.
  *
- * NÃO EXECUTAR diretamente — requer servidor ativo.
+ * NÃO EXECUTAR contra o banco de desenvolvimento: o global-setup desfaz as
+ * atribuições dos técnicos E2E.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
 import { login } from './fixtures/auth';
 import { selectFinalPriorityInClassificarDialog } from './fixtures/classificar-dialog';
-import {
-  gestaoChamadoCard,
-  gestaoOpenDetailSheetFromRow,
-  gestaoRowAtribuirButton,
-} from './fixtures/gestao';
+import { gestaoChamadoCard, gestaoRowAtribuirButton } from './fixtures/gestao';
+import { EMPENHO_E2E, garantirCadastroMaterial, pdf } from './fixtures/material';
 import {
   clickChamadosAtribuidosRowOpenDetail,
   gotoChamadosAtribuidosReady,
@@ -43,11 +46,8 @@ import { abrirPauseDialogNaDetalhe, selecionarMotivoPausa } from './fixtures/pau
 // Helpers locais
 // ---------------------------------------------------------------------------
 
-async function criarChamadoEmAtendimento(
-  page: Parameters<typeof login>[0],
-  sufixo: string,
-): Promise<string> {
-  const titulo = `E2E Cotacao ${sufixo} ${Date.now()}`;
+async function criarChamadoEmAtendimento(page: Page, sufixo: string): Promise<string> {
+  const titulo = `E2E Material ${sufixo} ${Date.now()}`;
 
   await login(page, 'solicitante');
   await page.goto('/meus-chamados');
@@ -57,8 +57,7 @@ async function criarChamadoEmAtendimento(
   await expect(novoDialog).toBeVisible();
   await novoDialog.getByRole('combobox', { name: /unidade/i }).click();
   await page.getByRole('option').first().click();
-  // titulo no localExato torna o título auto-gerado (`Manutenção Predial — <titulo>`)
-  // localizável via gestaoChamadoCard (filtra row da tabela por hasText).
+  // titulo no localExato torna o título auto-gerado localizável na gestão.
   await novoDialog.getByLabel(/local exato/i).fill(titulo);
   await novoDialog.getByText('Manutenção Predial').click();
   await selectFirstSubtypeAndCatalogService(page, novoDialog);
@@ -92,183 +91,214 @@ async function criarChamadoEmAtendimento(
   return titulo;
 }
 
-async function navegarDetalheTecnico(
-  page: Parameters<typeof login>[0],
-  titulo: string,
-): Promise<string> {
+/** Abre a tela do chamado como técnico e devolve o caminho dela. */
+async function abrirChamadoDoTecnico(page: Page, titulo: string): Promise<string> {
   await login(page, 'tecnico');
   await gotoChamadosAtribuidosReady(page);
-  // /chamados-atribuidos foi revitalizada para tabela (linhas com role="row").
   await clickChamadosAtribuidosRowOpenDetail(page, titulo);
   await page.waitForURL(/\/chamados-atribuidos\/.+/, { timeout: 30000, waitUntil: 'commit' });
-  return page.url();
+  return new URL(page.url()).pathname;
 }
 
-// Abre o sheet de detalhes de um chamado em /gestao e clica em "Pausar" dentro do sheet.
-async function abrirPauseDialogNaGestao(
-  page: Parameters<typeof login>[0],
-  titulo: string,
-): Promise<ReturnType<typeof page.getByRole>> {
-  const card = gestaoChamadoCard(page, titulo);
-  await expect(card).toBeVisible({ timeout: 15000 });
-  await gestaoOpenDetailSheetFromRow(card);
+/** O cartão "Material" da tela do chamado. */
+function cartaoMaterial(page: Page) {
+  return page.locator('section').filter({ has: page.getByRole('heading', { name: 'Material' }) });
+}
 
-  const sheet = page.locator('[data-slot="sheet-content"]');
-  await expect(sheet).toBeVisible({ timeout: 5000 });
-
-  const btnPausar = sheet.getByRole('button', { name: /^pausar$/i });
-  await expect(btnPausar).toBeVisible({ timeout: 5000 });
-  await btnPausar.click();
-
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible({ timeout: 5000 });
-  return dialog;
+/** Abre a cotação pela fila de quem está logado. */
+async function abrirCotacaoNaFila(page: Page, numero: string, aba = 'todas') {
+  await page.goto(`/cotacoes?aba=${aba}`);
+  await page.getByRole('link', { name: numero }).click();
+  await page.waitForURL(/\/cotacoes\/[a-f\d]{24}$/, { timeout: 30000 });
+  await expect(page.getByRole('heading', { name: `Cotação ${numero}` })).toBeVisible({
+    timeout: 15000,
+  });
 }
 
 // ---------------------------------------------------------------------------
-// Suite 1 — "Falta de Peça (Responsabilidade da Contratada)" bloqueia pausa
+// Suite 1: o diálogo de pausa (AC-18)
 // ---------------------------------------------------------------------------
 
-test.describe.serial('Cotação — Falta de peça contratada bloqueia pausa', () => {
-  let tituloChamado = '';
+test.describe.serial('Cotação de material: o diálogo de pausa', () => {
+  let titulo = '';
 
   test('cria chamado até em atendimento', async ({ page }) => {
     test.slow();
-    tituloChamado = await criarChamadoEmAtendimento(page, 'Bloqueio');
+    titulo = await criarChamadoEmAtendimento(page, 'Pausa');
   });
 
-  test('técnico recebe alerta ao selecionar motivo 100% contratada', async ({ page }) => {
-    await navegarDetalheTecnico(page, tituloChamado);
-
+  test('técnico recebe alerta ao escolher a peça de responsabilidade da contratada', async ({
+    page,
+  }) => {
+    await abrirChamadoDoTecnico(page, titulo);
     const dialog = await abrirPauseDialogNaDetalhe(page);
     await selecionarMotivoPausa(page, dialog, 'Falta de Peça (Responsabilidade da Contratada)');
 
-    await expect(dialog.getByText(/responsabilidade da contratada/i).first()).toBeVisible({
-      timeout: 5000,
-    });
-
-    const btnSubmit = dialog.getByRole('button', { name: /pausar atendimento/i });
-    await expect(btnSubmit).toBeDisabled();
+    await expect(dialog.getByText(/responsabilidade da contratada/i).first()).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /pausar atendimento/i })).toBeDisabled();
   });
 
-  test('técnico NÃO vê opção "Aguardando Aprovação do Cliente" no dropdown', async ({ page }) => {
-    await navegarDetalheTecnico(page, tituloChamado);
-
+  test('o motivo de cotação não aparece no diálogo de pausa (AC-18)', async ({ page }) => {
+    await abrirChamadoDoTecnico(page, titulo);
     const dialog = await abrirPauseDialogNaDetalhe(page);
     await dialog.getByRole('combobox').first().click();
 
     await expect(
-      page.getByRole('option', {
-        name: 'Falta de Peça (Aguardando Aprovação do Cliente)',
-        exact: true,
-      }),
-    ).toHaveCount(0, { timeout: 3000 });
-
+      page.getByRole('option', { name: 'Falta de Peça (Aguardando Aprovação do Cliente)' }),
+    ).toHaveCount(0);
     await page.keyboard.press('Escape');
   });
 });
 
 // ---------------------------------------------------------------------------
-// Suite 2 — Preposto submete cotação, Admin aprova (fluxo completo)
+// Suite 2: o fio da cotação de material
 // ---------------------------------------------------------------------------
 
-test.describe('Cotação — Fluxo de envio (Preposto) e aprovação (Admin)', () => {
-  let tituloChamado: string;
+test.describe.serial('Cotação de material: do registro do técnico à execução', () => {
+  let titulo = '';
+  let caminhoDoChamado = '';
+  let numero = '';
 
-  test.describe.serial('setup e envio da cotação', () => {
-    test('cria chamado até em atendimento', async ({ page }) => {
-      test.slow();
-      tituloChamado = await criarChamadoEmAtendimento(page, 'Fluxo');
+  test.beforeAll(async () => {
+    await garantirCadastroMaterial();
+  });
+
+  test('cria chamado até em atendimento', async ({ page }) => {
+    test.slow();
+    titulo = await criarChamadoEmAtendimento(page, 'Fio');
+  });
+
+  test('técnico registra o material do diagnóstico (AC-1)', async ({ page }) => {
+    test.skip(!titulo, 'setup não executado');
+    caminhoDoChamado = await abrirChamadoDoTecnico(page, titulo);
+
+    const cartao = cartaoMaterial(page);
+    await cartao.getByRole('button', { name: 'Registrar material' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Descrição').fill('Disjuntor bipolar 40 A');
+    await dialog.getByLabel('Quantidade').fill('2');
+    await dialog.getByLabel('Para que serve').fill('Trocar o disjuntor queimado do quadro');
+    await dialog.getByRole('button', { name: 'Registrar' }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 15000 });
+
+    await expect(cartao.getByText('Rascunho')).toBeVisible({ timeout: 15000 });
+    numero = (await cartao.getByText(/^COT-\d{4}-\d{4}$/).innerText()).trim();
+    expect(numero).toMatch(/^COT-\d{4}-\d{4}$/);
+  });
+
+  test('o rascunho não aparece na fila do fiscal (AC-1)', async ({ page }) => {
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'admin');
+    await page.goto('/cotacoes?aba=todas');
+    await expect(page.getByRole('heading', { name: 'Cotações de material' })).toBeVisible();
+    await expect(page.getByRole('link', { name: numero })).toHaveCount(0);
+  });
+
+  test('responsável técnico monta com 3 orçamentos e envia; o chamado pausa (AC-2, AC-4)', async ({
+    page,
+  }) => {
+    test.slow();
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'preposto');
+    await abrirCotacaoNaFila(page, numero, 'minhas');
+
+    const precos = ['12,00', '10,00', '11,00'];
+    for (const [i, preco] of precos.entries()) {
+      const n = i + 1;
+      await page.getByRole('button', { name: 'Acrescentar orçamento' }).click();
+      const orc = page
+        .locator('fieldset')
+        .filter({ hasText: `Orçamento ${n}` })
+        .last();
+      await orc.getByLabel('Fornecedor').fill(`Loja E2E ${n}`);
+      await orc.getByLabel('CNPJ').fill(`${n}${n}.${n}${n}${n}.${n}${n}${n}/0001-91`);
+      await orc.getByLabel('Data').fill('2026-10-10');
+      await orc.locator('input[type=file]').setInputFiles(pdf(`orcamento-${n}.pdf`));
+      await expect(orc.getByText(`orcamento-${n}.pdf`)).toBeVisible({ timeout: 15000 });
+      await orc.getByLabel(/Disjuntor bipolar 40 A/).fill(preco);
+    }
+    // Menor preço (R$ 10,00) × 2.
+    await expect(page.getByText(/linha R\$\s*20,00/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Salvar e enviar para análise' }).click();
+    await expect(page.getByText('Enviada').first()).toBeVisible({ timeout: 15000 });
+
+    await login(page, 'tecnico');
+    await page.goto(caminhoDoChamado);
+    await expect(page.getByText(/aguardando terceiros/i).first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test('fiscal assume e encaminha para aprovação (AC-5, AC-6)', async ({ page }) => {
+    test.slow();
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'admin');
+    await abrirCotacaoNaFila(page, numero, 'analise');
+
+    await page.getByRole('button', { name: 'Assumir análise' }).click();
+    await expect(page.getByRole('button', { name: 'Encaminhar para aprovação' })).toBeVisible({
+      timeout: 15000,
+    });
+    await page.getByRole('button', { name: 'Encaminhar para aprovação' }).click();
+    await expect(page.getByText('Em aprovação').first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test('aprovador aprova no empenho E2E, reservando o saldo; o chamado retoma (AC-7, AC-8)', async ({
+    page,
+  }) => {
+    test.slow();
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'admin');
+    await abrirCotacaoNaFila(page, numero, 'aprovacao');
+
+    await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('radio', { name: new RegExp(EMPENHO_E2E) }).check();
+    await dialog.getByRole('button', { name: 'Aprovar e reservar' }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 15000 });
+
+    await expect(page.getByText('Autorizada').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(new RegExp(`Reservado no empenho ${EMPENHO_E2E}`))).toBeVisible();
+    await expect(page.getByText(/limite no ato/)).toBeVisible();
+
+    await login(page, 'tecnico');
+    await page.goto(caminhoDoChamado);
+    await expect(page.getByRole('button', { name: /pausar atendimento/i })).toBeVisible({
+      timeout: 15000,
+    });
+  });
+
+  test('técnico registra a execução com evidência, sem o diálogo fechar no upload (AC-10)', async ({
+    page,
+  }) => {
+    test.slow();
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'tecnico');
+    await page.goto(caminhoDoChamado);
+
+    const cartao = cartaoMaterial(page);
+    await cartao.getByRole('button', { name: 'Registrar execução', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: /execução do material/i })).toBeVisible();
+
+    await dialog.locator('#evid-arquivo').setInputFiles(pdf('evidencia.pdf'));
+    await expect(dialog.getByRole('link', { name: 'evidencia.pdf' })).toBeVisible({
+      timeout: 15000,
     });
 
-    test('Preposto envia cotação via Gestão → Sheet → Pausar', async ({ page }) => {
-      test.slow();
-      test.skip(!tituloChamado, 'setup não executado — pulando dependente');
+    await dialog.getByLabel(/Aplicado/).fill('1');
+    await dialog.getByRole('button', { name: 'Registrar execução' }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 15000 });
+    await expect(cartao.getByText('Executada')).toBeVisible({ timeout: 15000 });
+  });
 
-      await login(page, 'preposto');
-      await gotoGestaoChamadosReady(page);
+  test('o solicitante vê só a situação do material, sem valor (AC-15)', async ({ page }) => {
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'solicitante');
+    await page.goto(caminhoDoChamado.replace('/chamados-atribuidos/', '/meus-chamados/'));
 
-      const pauseDialog = await abrirPauseDialogNaGestao(page, tituloChamado);
-      await selecionarMotivoPausa(
-        page,
-        pauseDialog,
-        'Falta de Peça (Aguardando Aprovação do Cliente)',
-      );
-
-      // Preposto vê o botão "Continuar para Cotação"
-      const btnContinuar = pauseDialog.getByRole('button', {
-        name: /continuar para cotação/i,
-      });
-      await expect(btnContinuar).toBeVisible({ timeout: 5000 });
-      await btnContinuar.click();
-
-      // Pausar fecha e o SubmitCotacaoDialog abre — não usar getByRole('dialog') genérico
-      // (sempre resolve para um dialog visível e falha o expect.not.toBeVisible).
-      const cotacaoHeading = page.getByRole('heading', { name: /solicitar aprovação de cotação/i });
-      await expect(cotacaoHeading).toBeVisible({ timeout: 10000 });
-      const cotacaoDialog = page.getByRole('dialog').filter({ has: cotacaoHeading });
-      await expect(cotacaoDialog).toBeVisible({ timeout: 5000 });
-
-      await cotacaoDialog.getByLabel(/valor estimado/i).fill('1500');
-      await cotacaoDialog
-        .getByLabel(/material\/serviço/i)
-        .fill('Lâmpada LED 18W, 20 unidades, marca especificada no contrato.');
-      await cotacaoDialog.getByLabel(/prazo de entrega/i).fill('5');
-
-      await cotacaoDialog.getByRole('button', { name: /enviar para aprovação/i }).click();
-      await expect(cotacaoDialog).not.toBeVisible({ timeout: 30000 });
-    });
-
-    test('Preposto vê a cotação no sheet SEM botões Aprovar/Recusar', async ({ page }) => {
-      test.slow();
-      test.skip(!tituloChamado, 'setup não executado — pulando dependente');
-
-      await login(page, 'preposto');
-      await gotoGestaoChamadosReady(page);
-
-      const card = gestaoChamadoCard(page, tituloChamado);
-      await expect(card).toBeVisible({ timeout: 15000 });
-      await gestaoOpenDetailSheetFromRow(card);
-
-      const sheet = page.locator('[data-slot="sheet-content"]');
-      await expect(sheet).toBeVisible({ timeout: 5000 });
-
-      // Card de cotação visível
-      await expect(sheet.getByText(/cotação aguardando aprovação/i).first()).toBeVisible({
-        timeout: 10000,
-      });
-
-      // Botões Aprovar/Recusar NÃO existem para Preposto (apenas Admin aprova)
-      await expect(sheet.getByRole('button', { name: /^aprovar$/i })).toHaveCount(0);
-      await expect(sheet.getByRole('button', { name: /^recusar$/i })).toHaveCount(0);
-    });
-
-    test('Admin aprova a cotação e SLA retoma', async ({ page }) => {
-      test.slow();
-      test.skip(!tituloChamado, 'setup não executado — pulando dependente');
-      await login(page, 'admin');
-      await gotoGestaoChamadosReady(page);
-
-      const card = gestaoChamadoCard(page, tituloChamado);
-      await expect(card).toBeVisible({ timeout: 15000 });
-      await gestaoOpenDetailSheetFromRow(card);
-
-      const sheet = page.locator('[data-slot="sheet-content"]');
-      await expect(sheet).toBeVisible({ timeout: 5000 });
-
-      await expect(sheet.getByText(/cotação aguardando aprovação/i).first()).toBeVisible({
-        timeout: 10000,
-      });
-      await expect(sheet.getByText(/R\$\s*1\.500,00/)).toBeVisible();
-
-      const btnAprovar = sheet.getByRole('button', { name: /^aprovar$/i });
-      await expect(btnAprovar).toBeVisible();
-      await btnAprovar.click();
-
-      // Após aprovação, card ativo desaparece (status do chamado volta a "em atendimento")
-      await expect(sheet.getByText(/cotação aguardando aprovação/i).first()).not.toBeVisible({
-        timeout: 10000,
-      });
-    });
+    const linha = page.getByText('Material do chamado:');
+    await expect(linha).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Executada').first()).toBeVisible();
+    await expect(page.getByText(/R\$\s*10,00|R\$\s*20,00/)).toHaveCount(0);
   });
 });

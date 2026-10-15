@@ -22,7 +22,6 @@ import { toast } from 'sonner';
 
 import { PauseTicketDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseTicketDialog';
 import { ResumeFromRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/ResumeFromRequesterDialog';
-import { SubmitCotacaoDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/SubmitCotacaoDialog';
 import { AtribuirChamadoDialog } from '@/app/(dashboard)/gestao/_components/AtribuirChamadoDialog';
 import { ChamadoDetailSheet } from '@/app/(dashboard)/gestao/_components/ChamadoDetailSheet';
 import { ClassificarChamadoDialog } from '@/app/(dashboard)/gestao/_components/ClassificarChamadoDialog';
@@ -389,7 +388,6 @@ export default function GestaoPage() {
   const [corrigirServicoChamado, setCorrigirServicoChamado] = useState<ChamadoDTO | null>(null);
   const [reatribuirChamado, setReatribuirChamado] = useState<ChamadoDTO | null>(null);
   const [pausarChamado, setPausarChamado] = useState<ChamadoDTO | null>(null);
-  const [cotacaoChamado, setCotacaoChamado] = useState<ChamadoDTO | null>(null);
   const [retomarChamado, setRetomarChamado] = useState<ChamadoDTO | null>(null);
   const [selected, setSelected] = useState<ChamadoDTO | null>(null);
   const [detailSheetChamado, setDetailSheetChamado] = useState<ChamadoDTO | null>(null);
@@ -1168,25 +1166,6 @@ export default function GestaoPage() {
           }}
           ticketId={pausarChamado._id}
           onSuccess={handlePausarSuccess}
-          onRequiresQuote={() => {
-            setCotacaoChamado(pausarChamado);
-            setPausarChamado(null);
-          }}
-          userRole={userRole ?? undefined}
-        />
-      )}
-
-      {cotacaoChamado && (
-        <SubmitCotacaoDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setCotacaoChamado(null);
-          }}
-          ticketId={cotacaoChamado._id}
-          onSuccess={() => {
-            setCotacaoChamado(null);
-            fetchChamados();
-          }}
         />
       )}
 

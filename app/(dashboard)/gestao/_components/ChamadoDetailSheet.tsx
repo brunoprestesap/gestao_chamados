@@ -30,6 +30,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { CartaoCotacaoMaterial } from '@/app/(dashboard)/cotacoes/_components/CartaoCotacaoMaterial';
 import {
   PrazoAvaliacao,
   VinculoReincidencia,
@@ -492,6 +493,7 @@ export function ChamadoDetailSheet({
             <TabsContent value="detalhes" className="mt-0">
               <div className="space-y-5 px-5 py-5">
                 <CotacaoApprovalCard ticketId={chamado._id} canReview={userRole === 'Admin'} />
+                <CartaoCotacaoMaterial chamadoId={chamado._id} />
 
                 {/* Description — primary focus area */}
                 <section aria-labelledby="desc-heading">
