@@ -22,7 +22,7 @@ import { MaterialObservationDialog } from '@/app/(dashboard)/chamados-atribuidos
 import { PauseTicketDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/PauseTicketDialog';
 import { RegisterExecutionDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/RegisterExecutionDialog';
 import { ResumeFromRequesterDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/ResumeFromRequesterDialog';
-import { SubmitCotacaoDialog } from '@/app/(dashboard)/chamados-atribuidos/[id]/_components/SubmitCotacaoDialog';
+import { CartaoCotacaoMaterial } from '@/app/(dashboard)/cotacoes/_components/CartaoCotacaoMaterial';
 import { CotacaoApprovalCard } from '@/app/(dashboard)/gestao/_components/CotacaoApprovalCard';
 import {
   CHAMADO_STATUS_LABELS,
@@ -92,7 +92,6 @@ export default function ChamadoAtribuidoDetailPage({
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
   const [materialObsDialogOpen, setMaterialObsDialogOpen] = useState(false);
   const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
-  const [cotacaoDialogOpen, setCotacaoDialogOpen] = useState(false);
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -402,6 +401,10 @@ export default function ChamadoAtribuidoDetailPage({
             />
           )}
 
+          {chamadoId && (
+            <CartaoCotacaoMaterial chamadoId={chamadoId} onAlterado={onActionSuccess} />
+          )}
+
           {/* Material Necessário */}
           {chamado.materialObservations && chamado.materialObservations.length > 0 && (
             <Card className="rounded-2xl border-border/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
@@ -497,17 +500,6 @@ export default function ChamadoAtribuidoDetailPage({
         <PauseTicketDialog
           open={pauseDialogOpen}
           onOpenChange={setPauseDialogOpen}
-          ticketId={chamadoId}
-          onSuccess={onActionSuccess}
-          onRequiresQuote={() => setCotacaoDialogOpen(true)}
-          userRole={userRole ?? undefined}
-        />
-      )}
-
-      {chamadoId && (
-        <SubmitCotacaoDialog
-          open={cotacaoDialogOpen}
-          onOpenChange={setCotacaoDialogOpen}
           ticketId={chamadoId}
           onSuccess={onActionSuccess}
         />

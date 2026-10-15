@@ -37,6 +37,7 @@ type ServerToClientEvents = {
   'ticket:corrected': (payload: unknown) => void;
   'sla:warning': (payload: unknown) => void;
   'sla:breach': (payload: unknown) => void;
+  'material:cotacao_situacao': (payload: unknown) => void;
 };
 
 /** Dados armazenados no socket (padrão Socket.IO). */
@@ -65,6 +66,7 @@ const ALLOWED_EVENTS = new Set<string>([
   'ticket:corrected',
   'sla:warning',
   'sla:breach',
+  'material:cotacao_situacao',
 ]);
 const ROOM_REGEX = /^user:[a-zA-Z0-9_-]+$/;
 const MANAGERS_ROOM = 'managers';

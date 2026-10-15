@@ -22,6 +22,10 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
  * aqui confere só a fiação: quando o painel mostra o selo e o botão.
  */
 
+// O cartão da cotação de material (spec 0019) tem testes próprios.
+vi.mock('@/app/(dashboard)/cotacoes/_components/CartaoCotacaoMaterial', () => ({
+  CartaoCotacaoMaterial: () => null,
+}));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock('../CotacaoApprovalCard', () => ({ CotacaoApprovalCard: () => null }));
 // `CommentThread`/`HistoryTimeline`/`AttachmentGallery` só montam nas outras

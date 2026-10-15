@@ -159,6 +159,8 @@ services:
           '*/15 * * * * /usr/local/bin/chamar-cron sla-monitor' \
           '# 11:00 UTC = 08:00 em Belém (spec 0013)' \
           '0 11 * * * /usr/local/bin/chamar-cron documentos-vencimento' \
+          '# 06:00 UTC = 03:00 em Belém (spec 0019)' \
+          '0 6 * * * /usr/local/bin/chamar-cron material-conciliacao' \
           | crontab -
         # `exec`: o crond vira o PID 1, e `/proc/1/fd/1` passa a ser a saída que o
         # Docker registra (com o `sh` como PID 1 a linha do job se perdia).

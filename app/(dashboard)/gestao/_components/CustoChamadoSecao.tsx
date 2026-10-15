@@ -35,6 +35,15 @@ type CotacaoDaGestao = {
   valorFinalPorName?: string | null;
 };
 
+/** Cotação de material executada (spec 0019, AC-17): conta no custo pelo valor executado. */
+type MaterialExecutado = {
+  id: string;
+  numero: string;
+  valorExecutadoCentavos: number;
+  /** Quem lê consegue abrir `/cotacoes/[id]`. */
+  podeAbrir: boolean;
+};
+
 type Props = {
   chamadoId: string;
   status: string;
@@ -60,6 +69,7 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
   const ids = useId();
   const editavel = custoEditavel(status);
   const [cotacoes, setCotacoes] = useState<CotacaoDaGestao[] | null>(null);
+  const [materialCotado, setMaterialCotado] = useState<MaterialExecutado[]>([]);
   const [erroCotacoes, setErroCotacoes] = useState(false);
   const [rascunho, setRascunho] = useState<Rascunho>(RASCUNHO_VAZIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -72,9 +82,13 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
     try {
       const res = await fetch(`/api/chamados/${chamadoId}/cotacoes`, { cache: 'no-store' });
       if (!res.ok) throw new Error(String(res.status));
-      const json = (await res.json()) as { history: CotacaoDaGestao[] };
+      const json = (await res.json()) as {
+        history: CotacaoDaGestao[];
+        materialExecutado?: MaterialExecutado[];
+      };
       const aprovadas = json.history.filter((c) => c.status === 'aprovada');
       setCotacoes(aprovadas);
+      setMaterialCotado(json.materialExecutado ?? []);
       setValoresFinais(
         Object.fromEntries(
           aprovadas.map((c) => [
@@ -153,8 +167,13 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
     });
   };
 
-  const total = custoDoChamado({ cotacoes: cotacoes ?? [], materiais });
-  const semCusto = (cotacoes?.length ?? 0) === 0 && materiais.length === 0;
+  const total = custoDoChamado({
+    cotacoes: cotacoes ?? [],
+    materiais,
+    cotacoesMaterialCentavos: materialCotado.map((m) => m.valorExecutadoCentavos),
+  });
+  const semCusto =
+    (cotacoes?.length ?? 0) === 0 && materiais.length === 0 && materialCotado.length === 0;
 
   return (
     <section aria-labelledby={`${ids}-titulo`}>
@@ -236,6 +255,33 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
                 </li>
               );
             })}
+          </ul>
+        </div>
+      )}
+
+      {materialCotado.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Cotações de material executadas
+          </h3>
+          <ul className="space-y-2">
+            {materialCotado.map((m) => (
+              <li
+                key={m.id}
+                className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+              >
+                {m.podeAbrir ? (
+                  <a href={`/cotacoes/${m.id}`} className="text-primary hover:underline">
+                    {m.numero}
+                  </a>
+                ) : (
+                  <span className="text-foreground">{m.numero}</span>
+                )}
+                <span className="font-medium text-foreground">
+                  {formatarReais(m.valorExecutadoCentavos)}
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
       )}

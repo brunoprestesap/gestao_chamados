@@ -168,4 +168,25 @@ describe('getNotificationUrl · spec 0013', () => {
     expect(getNotificationUrl('interesse:fim', { chamadoId: '../x' })).toBe('/conversas');
     expect(getNotificationUrl('interesse:fim', null)).toBe('/conversas');
   });
+
+  it('aviso de cotação de material leva à cotação (spec 0019, AC-16)', () => {
+    expect(
+      getNotificationUrl('material:cotacao', { cotacaoId: ID, chamadoId: ID, destino: 'cotacoes' }),
+    ).toBe(`/cotacoes/${ID}`);
+  });
+
+  it('aviso de cotação de material para o técnico leva ao chamado', () => {
+    expect(
+      getNotificationUrl('material:cotacao', { cotacaoId: ID, chamadoId: ID, destino: 'chamado' }),
+    ).toBe(`/chamados-atribuidos/${ID}`);
+  });
+
+  it('aviso de cotação de material com id fora do formato cai na fila', () => {
+    expect(getNotificationUrl('material:cotacao', { cotacaoId: '../x', destino: 'cotacoes' })).toBe(
+      '/cotacoes',
+    );
+    expect(getNotificationUrl('material:cotacao', { chamadoId: '../x', destino: 'chamado' })).toBe(
+      '/cotacoes',
+    );
+  });
 });

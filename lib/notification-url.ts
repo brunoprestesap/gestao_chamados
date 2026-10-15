@@ -32,6 +32,13 @@ export function getNotificationUrl(type: string, data?: Record<string, unknown> 
       const chamadoId = texto(data?.chamadoId);
       return chamadoId ? `/conversas/${chamadoId}` : '/conversas';
     }
+    case 'material:cotacao': {
+      // Spec 0019, AC-16: o técnico vai ao chamado; o resto, à cotação na fila.
+      const cotacaoId = texto(data?.cotacaoId);
+      const chamadoId = texto(data?.chamadoId);
+      if (data?.destino === 'chamado' && chamadoId) return `/chamados-atribuidos/${chamadoId}`;
+      return cotacaoId ? `/cotacoes/${cotacaoId}` : '/cotacoes';
+    }
     default:
       return '/meus-chamados';
   }

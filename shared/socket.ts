@@ -238,6 +238,18 @@ export interface TicketCorrectedPayload {
   at: string;
 }
 
+/**
+ * Mudança de situação de uma cotação de material (spec 0019, AC-16). Sem
+ * valor: só número, situação e onde abrir.
+ */
+export interface MaterialCotacaoSituacaoPayload {
+  cotacaoId: string;
+  numero: string;
+  chamadoId: string;
+  situacao: string;
+  at: string;
+}
+
 export interface ServerToClientEvents {
   'ticket:assigned': (payload: TicketAssignedPayload) => void;
   'ticket:classified': (payload: TicketClassifiedPayload) => void;
@@ -258,6 +270,7 @@ export interface ServerToClientEvents {
   'ticket:corrected': (payload: TicketCorrectedPayload) => void;
   'sla:warning': (payload: SlaWarningPayload) => void;
   'sla:breach': (payload: SlaBreachPayload) => void;
+  'material:cotacao_situacao': (payload: MaterialCotacaoSituacaoPayload) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

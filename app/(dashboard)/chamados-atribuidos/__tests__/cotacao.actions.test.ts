@@ -229,7 +229,7 @@ describe('pauseTicketAction — guards de cotação', () => {
     expect(mockPauseLogCreate).not.toHaveBeenCalled();
   });
 
-  it('retorna code REQUIRES_QUOTE quando motivo é falta_peca_aprovacao_cliente', async () => {
+  it('recusa o motivo de cotação, que só nasce da cotação de material (spec 0019, AC-18)', async () => {
     // Arrange
     mockRequireSession.mockResolvedValue(SESSION_TECNICO);
 
@@ -242,8 +242,8 @@ describe('pauseTicketAction — guards de cotação', () => {
     // Assert
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.code).toBe('REQUIRES_QUOTE');
-      expect(result.error).toMatch(/cotação/i);
+      expect(result.code).toBeUndefined();
+      expect(result.error).toMatch(/cotação de material/i);
     }
     expect(mockPauseLogCreate).not.toHaveBeenCalled();
   });
@@ -268,164 +268,32 @@ describe('pauseTicketAction — guards de cotação', () => {
 // ── submitCotacaoAction ──────────────────────────────────────────
 
 describe('submitCotacaoAction', () => {
-  const VALID_INPUT = {
-    ticketId: TICKET_ID,
-    valorEstimado: 1500,
-    descricao: 'Lâmpada LED 18W, 20 unidades',
-    prazoEntregaDias: 5,
-  };
+  it.each([
+    ['Preposto', () => SESSION_PREPOSTO],
+    ['Técnico', () => SESSION_TECNICO],
+    ['Solicitante', () => SESSION_SOLICITANTE],
+  ])(
+    'recusa o envio pelo fluxo antigo para %s, sem tocar no chamado (spec 0019, AC-18)',
+    async (_perfil, sessao) => {
+      // Arrange
+      mockRequireSession.mockResolvedValue(sessao());
+      mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
 
-  it('nega acesso a Solicitante', async () => {
-    // Arrange
-    mockRequireSession.mockResolvedValue(SESSION_SOLICITANTE);
+      // Act
+      const result = await submitCotacaoAction({
+        ticketId: TICKET_ID,
+        valorEstimado: 1500,
+        descricao: 'Lâmpada LED 18W, 20 unidades',
+      });
 
-    // Act
-    const result = await submitCotacaoAction(VALID_INPUT);
-
-    // Assert
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/apenas o preposto/i);
-  });
-
-  it('nega acesso a Técnico (mesmo atribuído)', async () => {
-    // Arrange — Técnico agora é bloqueado; mesmo atribuído ao chamado não pode submeter
-    mockRequireSession.mockResolvedValue(SESSION_TECNICO);
-
-    // Act
-    const result = await submitCotacaoAction(VALID_INPUT);
-
-    // Assert
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/apenas o preposto/i);
-    // Não chega a consultar o chamado — guard rejeita no topo
-    expect(mockChamadoFindById).not.toHaveBeenCalled();
-  });
-
-  it('nega acesso a Admin (apenas Preposto submete)', async () => {
-    // Arrange — Admin representa a contratante; não pode submeter cotação em nome da contratada
-    mockRequireSession.mockResolvedValue(SESSION_ADMIN);
-
-    // Act
-    const result = await submitCotacaoAction(VALID_INPUT);
-
-    // Assert
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/apenas o preposto/i);
-    expect(mockChamadoFindById).not.toHaveBeenCalled();
-  });
-
-  it('bloqueia quando chamado não está em atendimento', async () => {
-    // Arrange
-    mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
-    mockChamadoFindById.mockResolvedValue(makeChamadoDoc({ status: 'aberto' }));
-
-    // Act
-    const result = await submitCotacaoAction(VALID_INPUT);
-
-    // Assert
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/em atendimento/i);
-  });
-
-  it('bloqueia quando já existe cotação enviada', async () => {
-    // Arrange
-    mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
-    mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
-    mockCotacaoFindOne.mockReturnValue({
-      select: () => ({ lean: () => Promise.resolve({ _id: new Types.ObjectId() }) }),
-    });
-
-    // Act
-    const result = await submitCotacaoAction(VALID_INPUT);
-
-    // Assert
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/já existe uma cotação/i);
-    expect(mockPauseLogCreate).not.toHaveBeenCalled();
-  });
-
-  it('rejeita payload inválido (descricao curta)', async () => {
-    // Arrange
-    mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
-
-    // Act
-    const result = await submitCotacaoAction({ ...VALID_INPUT, descricao: 'curto' });
-
-    // Assert
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/10/);
-  });
-
-  it('rejeita valor zero ou negativo', async () => {
-    // Arrange
-    mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
-
-    // Act
-    const result = await submitCotacaoAction({ ...VALID_INPUT, valorEstimado: 0 });
-
-    // Assert
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/maior que zero/i);
-  });
-
-  it('happy path: Preposto cria PauseLog + Cotacao + History e pausa chamado', async () => {
-    // Arrange
-    mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
-    mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
-
-    // Act
-    const result = await submitCotacaoAction(VALID_INPUT);
-
-    // Assert
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.cotacaoId).toBe(COTACAO_ID);
-
-    // Chamado é atualizado para aguardando_terceiros com slaPausedAt
-    expect(mockChamadoUpdateOne).toHaveBeenCalledOnce();
-    const updateCall = mockChamadoUpdateOne.mock.calls[0];
-    expect(updateCall[1].$set).toMatchObject({
-      status: 'aguardando_terceiros',
-      pauseReason: 'falta_peca_aprovacao_cliente',
-    });
-    expect(updateCall[1].$set.slaPausedAt).toBeInstanceOf(Date);
-
-    // PauseLog é criado com reason correto
-    expect(mockPauseLogCreate).toHaveBeenCalledOnce();
-    expect(mockPauseLogCreate.mock.calls[0][0]).toMatchObject({
-      reason: 'falta_peca_aprovacao_cliente',
-    });
-
-    // Cotação é criada vinculada ao PauseLog
-    expect(mockCotacaoCreate).toHaveBeenCalledOnce();
-    expect(mockCotacaoCreate.mock.calls[0][0]).toMatchObject({
-      status: 'enviada',
-      valorEstimado: 1500,
-      prazoEntregaDias: 5,
-    });
-
-    // History com action cotacao_enviada
-    expect(mockHistoryCreate).toHaveBeenCalledOnce();
-    expect(mockHistoryCreate.mock.calls[0][0]).toMatchObject({
-      action: 'cotacao_enviada',
-      statusAnterior: 'em atendimento',
-      statusNovo: 'aguardando_terceiros',
-    });
-  });
-
-  it('traduz erro de duplicate key (11000) em mensagem amigável', async () => {
-    // Arrange
-    mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
-    mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
-    const dupErr = Object.assign(new Error('E11000 duplicate key'), { code: 11000 });
-    mockCotacaoCreate.mockRejectedValueOnce(dupErr);
-
-    // Act
-    const result = await submitCotacaoAction(VALID_INPUT);
-
-    // Assert
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/já existe uma cotação/i);
-  });
+      // Assert
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toMatch(/cotação de material/i);
+      expect(mockChamadoUpdateOne).not.toHaveBeenCalled();
+      expect(mockPauseLogCreate).not.toHaveBeenCalled();
+      expect(mockCotacaoCreate).not.toHaveBeenCalled();
+    },
+  );
 });
 
 // ── approveCotacaoAction ─────────────────────────────────────────
@@ -719,34 +587,5 @@ describe('Casos de borda', () => {
 
     // Assert — não crasha; só notifica solicitante e managers (sem técnico)
     expect(result.ok).toBe(true);
-  });
-
-  it('submit reverte status do chamado quando criação da Cotacao falha por erro inesperado', async () => {
-    // Arrange — chamado em atendimento, sem cotação ativa; Preposto submetendo
-    mockRequireSession.mockResolvedValue(SESSION_PREPOSTO);
-    mockChamadoFindById.mockResolvedValue(makeChamadoDoc());
-
-    // Simula falha não-11000 no create da Cotacao (ex.: erro de rede, WriteConcern)
-    mockCotacaoCreate.mockRejectedValueOnce(new Error('connection lost'));
-
-    // Act
-    const result = await submitCotacaoAction({
-      ticketId: TICKET_ID,
-      valorEstimado: 1500,
-      descricao: 'Material com descrição válida',
-    });
-
-    // Assert — retorna erro
-    expect(result.ok).toBe(false);
-
-    // E roda compensação: 2 updateOne (1 para pausar + 1 para reverter) + delete do PauseLog
-    expect(mockChamadoUpdateOne).toHaveBeenCalledTimes(2);
-    const rollbackCall = mockChamadoUpdateOne.mock.calls[1];
-    expect(rollbackCall[1].$set.status).toBe('em atendimento');
-    expect(rollbackCall[1].$unset).toMatchObject({
-      slaPausedAt: 1,
-      pauseReason: 1,
-      pauseDetails: 1,
-    });
   });
 });

@@ -23,6 +23,8 @@ const NOTIFICATION_TYPES = [
   'preventiva:lote',
   // Spec 0017: só gravado, o fim de um chamado que a pessoa acompanha.
   'interesse:fim',
+  // Spec 0019: mudança de situação da cotação de material, sem valor.
+  'material:cotacao',
 ] as const;
 
 const NotificationSchema = new Schema(

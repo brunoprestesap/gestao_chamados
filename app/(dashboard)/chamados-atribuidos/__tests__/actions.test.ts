@@ -2,6 +2,12 @@ import { Types } from 'mongoose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Spec 0017: os interessados ficam fora deste teste.
+// Cotação de material (spec 0019): sem cotação em trâmite nestes testes.
+vi.mock('@/lib/material/chamado', () => ({
+  impedimentoDeConclusao: vi.fn().mockResolvedValue(null),
+  impedimentoDeRetomada: vi.fn().mockResolvedValue(null),
+  cancelarCotacaoPeloChamado: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('@/lib/chamados/interessados', () => ({
   notificarFimAosInteressados: vi.fn().mockResolvedValue(undefined),
   zerarAvisoDeFim: vi.fn().mockResolvedValue(undefined),

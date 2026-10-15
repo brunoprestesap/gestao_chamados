@@ -37,11 +37,17 @@ type SessionUser = {
   name: string;
   role: string;
   username: string;
+  designacaoMaterial: boolean;
 };
 
-function filterByRole(items: readonly NavItem[], role: string | undefined): NavItem[] {
+function filterByRole(
+  items: readonly NavItem[],
+  role: string | undefined,
+  designacaoMaterial = false,
+): NavItem[] {
   if (!role) return [];
   return items.filter((item) => {
+    if (item.exigeDesignacaoMaterial && role !== 'Admin' && !designacaoMaterial) return false;
     if (!item.allowedRoles) return true;
     return item.allowedRoles.includes(role as (typeof item.allowedRoles)[number]);
   });
@@ -102,6 +108,7 @@ export function SidebarContent({
             name: data.name ?? data.username,
             role: data.role ?? '—',
             username: data.username ?? '',
+            designacaoMaterial: data.designacaoMaterial === true,
           });
         }
       })
@@ -142,9 +149,9 @@ export function SidebarContent({
   }
 
   const grouped = useMemo(() => {
-    const filtered = filterByRole([...NAV_ITEMS], user?.role);
+    const filtered = filterByRole([...NAV_ITEMS], user?.role, user?.designacaoMaterial);
     return groupItems(filtered);
-  }, [user?.role]);
+  }, [user?.role, user?.designacaoMaterial]);
   const ativo = hrefAtivo(
     pathname,
     grouped.flatMap(({ items }) => items.map((i) => i.href)),

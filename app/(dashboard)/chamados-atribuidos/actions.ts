@@ -9,6 +9,7 @@ import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { getBusinessCalendarConfig } from '@/lib/expediente-config';
 import { getActiveHolidaysForRange } from '@/lib/holidays';
+import { impedimentoDeConclusao, impedimentoDeRetomada } from '@/lib/material/chamado';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { computeNewResolutionDueAtOnResume, evaluateResolutionBreach } from '@/lib/sla-utils';
 import { ChamadoModel } from '@/models/Chamado';
@@ -106,6 +107,10 @@ export async function registerExecutionAction(
         error: 'Somente chamados em atendimento podem ter execução registrada.',
       };
     }
+
+    // Cotação de material em trâmite segura a conclusão (spec 0019, AC-13).
+    const impedimentoMaterial = await impedimentoDeConclusao(String(ticketId));
+    if (impedimentoMaterial) return { ok: false, error: impedimentoMaterial };
 
     const now = new Date();
     const userId = new Types.ObjectId(session.userId);
@@ -285,8 +290,7 @@ export async function pauseTicketAction(raw: PauseTicketInput): Promise<ActionRe
     if (reason === 'falta_peca_aprovacao_cliente') {
       return {
         ok: false,
-        error: 'Use o fluxo "Solicitar Aprovação de Cotação" para este motivo.',
-        code: 'REQUIRES_QUOTE',
+        error: 'Este motivo vem só da cotação de material: registre o material no chamado.',
       };
     }
 
@@ -449,6 +453,10 @@ export async function resumeTicketAction(raw: ResumeTicketInput): Promise<Action
     if (!pausedStatuses.includes(doc.status as (typeof pausedStatuses)[number])) {
       return { ok: false, error: 'Chamado não está pausado.' };
     }
+
+    // A pausa de uma cotação de material em trâmite só sai pela cotação (spec 0019, AC-2).
+    const impedimentoMaterial = await impedimentoDeRetomada(String(ticketId));
+    if (impedimentoMaterial) return { ok: false, error: impedimentoMaterial };
 
     const slaPausedAt = doc.slaPausedAt;
     if (!slaPausedAt) {

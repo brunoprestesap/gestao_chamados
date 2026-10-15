@@ -18,6 +18,7 @@ import { canManage, isAdmin, requireManager, verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { sendNotificationEmail } from '@/lib/email/send-notification-email';
 import { logRevisaoIa } from '@/lib/gestao/log-revisao-ia';
+import { cancelarCotacaoPeloChamado } from '@/lib/material/chamado';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { montarSnapshotCorrecao, montarSnapshotSla } from '@/lib/sla-snapshot';
 import { evaluateResponseBreach } from '@/lib/sla-utils';
@@ -1602,6 +1603,12 @@ export async function rejectTicketAction(raw: RejectTicketInput): Promise<Reject
 
     // Quem acompanha o chamado recebe o aviso de fim no sino (spec 0017, AC-17).
     void notificarFimAosInteressados(chamadoId, 'recusado');
+    // A cotação de material em trâmite cai junto e libera o saldo (spec 0019, AC-12).
+    await cancelarCotacaoPeloChamado({
+      chamadoId,
+      userId: session.userId,
+      motivo: 'chamado_recusado',
+    });
 
     const solicitanteId = doc.solicitanteId.toString();
     const rejectedByUser = await UserModel.findById(session.userId).select('name').lean();

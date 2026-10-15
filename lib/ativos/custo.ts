@@ -12,9 +12,11 @@ import {
 import { dbConnect } from '@/lib/db';
 import { ChamadoModel } from '@/models/Chamado';
 import { CotacaoModel } from '@/models/Cotacao';
+import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { custoDoChamado } from '@/shared/chamados/custo';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 import type { TipoServico } from '@/shared/chamados/tipo-servico';
+import { SITUACOES_NO_CUSTO } from '@/shared/material/material.constants';
 
 /**
  * Custo acumulado por ativo (spec 0018, AC-9, AC-10, AC-14). Nada é gravado:
@@ -89,11 +91,27 @@ export async function lerCustosDosChamados(
     const k = String(c.chamadoId);
     porChamado.set(k, [...(porChamado.get(k) ?? []), c]);
   }
+  // Cotação de material (spec 0019, AC-17): o valor executado conta a partir de `executada`.
+  const cotacoesMaterial = await CotacaoMaterialModel.find({
+    chamadoId: { $in: chamados.map((c) => c._id) },
+    situacao: { $in: [...SITUACOES_NO_CUSTO] },
+  })
+    .select('chamadoId valorExecutadoCentavos')
+    .lean<{ chamadoId: Types.ObjectId; valorExecutadoCentavos?: number | null }[]>();
+  const materialPorChamado = new Map<string, number[]>();
+  for (const c of cotacoesMaterial) {
+    const k = String(c.chamadoId);
+    materialPorChamado.set(k, [
+      ...(materialPorChamado.get(k) ?? []),
+      c.valorExecutadoCentavos ?? 0,
+    ]);
+  }
   return chamados.map((c) => {
     const id = String(c._id);
     const conta = custoDoChamado({
       cotacoes: porChamado.get(id) ?? [],
       materiais: c.materiaisForaCotacao ?? [],
+      cotacoesMaterialCentavos: materialPorChamado.get(id) ?? [],
     });
     return {
       chamadoId: id,

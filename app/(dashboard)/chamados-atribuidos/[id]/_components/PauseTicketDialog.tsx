@@ -61,21 +61,9 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   ticketId: string;
   onSuccess: () => void;
-  /** Chamado quando o usuário escolhe "Falta de peça — aguardando aprovação do cliente". */
-  onRequiresQuote?: () => void;
-  /** Papel do usuário logado (Admin, Preposto, Técnico, Solicitante). Usado para filtrar
-   *  motivos de pausa — o fluxo de cotação é restrito ao Preposto. */
-  userRole?: string;
 }
 
-export function PauseTicketDialog({
-  open,
-  onOpenChange,
-  ticketId,
-  onSuccess,
-  onRequiresQuote,
-  userRole,
-}: Props) {
+export function PauseTicketDialog({ open, onOpenChange, ticketId, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,15 +75,12 @@ export function PauseTicketDialog({
 
   const watchedReason = form.watch('reason');
   const isBlockedReason = watchedReason === 'falta_peca_contratada';
-  const isQuoteReason = watchedReason === 'falta_peca_aprovacao_cliente';
 
-  // O fluxo de cotação é exclusivo do Preposto (submete em nome da contratada).
-  // Outros perfis não veem essa opção no dropdown — defesa em UI complementa
-  // a validação server-side em submitCotacaoAction.
-  const visibleReasons = PAUSE_REASONS_SELECTABLE.filter((r) => {
-    if (r === 'falta_peca_aprovacao_cliente') return userRole === 'Preposto';
-    return true;
-  });
+  // A pausa por cotação nasce só do envio da cotação de material (spec 0019,
+  // AC-18): o motivo não aparece para ninguém aqui.
+  const visibleReasons = PAUSE_REASONS_SELECTABLE.filter(
+    (r) => r !== 'falta_peca_aprovacao_cliente',
+  );
 
   useEffect(() => {
     if (open) {
@@ -112,11 +97,6 @@ export function PauseTicketDialog({
         );
         return;
       }
-      if (values.reason === 'falta_peca_aprovacao_cliente') {
-        onOpenChange(false);
-        onRequiresQuote?.();
-        return;
-      }
       setSubmitting(true);
       setError(null);
       try {
@@ -128,9 +108,6 @@ export function PauseTicketDialog({
         if (result.ok) {
           onOpenChange(false);
           onSuccess();
-        } else if (result.code === 'REQUIRES_QUOTE') {
-          onOpenChange(false);
-          onRequiresQuote?.();
         } else {
           setError(result.error);
         }
@@ -140,7 +117,7 @@ export function PauseTicketDialog({
         setSubmitting(false);
       }
     },
-    [ticketId, onOpenChange, onSuccess, onRequiresQuote],
+    [ticketId, onOpenChange, onSuccess],
   );
 
   const handleOpenChange = useCallback(
@@ -150,11 +127,7 @@ export function PauseTicketDialog({
     [submitting, onOpenChange],
   );
 
-  const submitLabel = submitting
-    ? 'Pausando...'
-    : isQuoteReason
-      ? 'Continuar para Cotação'
-      : 'Pausar Atendimento';
+  const submitLabel = submitting ? 'Pausando...' : 'Pausar Atendimento';
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -224,13 +197,6 @@ export function PauseTicketDialog({
               </div>
             )}
 
-            {isQuoteReason && (
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-3 text-sm text-indigo-900 dark:border-indigo-800/50 dark:bg-indigo-950/30 dark:text-indigo-100">
-                Para este motivo, o SLA só pausa após o envio da cotação ao gestor. No próximo passo
-                você informa o valor e a descrição do material para aprovação.
-              </div>
-            )}
-
             <FormField
               control={form.control}
               name="details"
@@ -257,7 +223,7 @@ export function PauseTicketDialog({
               )}
             />
 
-            {!isBlockedReason && !isQuoteReason && (
+            {!isBlockedReason && (
               <div className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-sm text-orange-900 dark:border-orange-800/50 dark:bg-orange-950/30 dark:text-orange-100">
                 O SLA será pausado até que o atendimento seja retomado.
               </div>

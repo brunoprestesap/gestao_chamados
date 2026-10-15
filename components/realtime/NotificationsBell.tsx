@@ -13,6 +13,7 @@ import {
   Loader2,
   MessageSquare,
   OctagonAlert,
+  Package,
   Paperclip,
   TicketCheck,
   UserCheck,
@@ -122,6 +123,13 @@ function getNotificationMeta(type: string): NotificationMeta {
         iconBg: 'bg-indigo-100 dark:bg-indigo-500/20',
         iconColor: 'text-indigo-600 dark:text-indigo-400',
         label: 'Chamado que você acompanha',
+      };
+    case 'material:cotacao':
+      return {
+        icon: Package,
+        iconBg: 'bg-amber-100 dark:bg-amber-500/20',
+        iconColor: 'text-amber-600 dark:text-amber-400',
+        label: 'Cotação de material',
       };
     default:
       return {
