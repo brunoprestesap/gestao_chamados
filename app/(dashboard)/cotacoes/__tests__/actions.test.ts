@@ -18,12 +18,18 @@ const banco = vi.hoisted(() => ({
   arquivo: null as null | Record<string, unknown>,
   situacao: 'rascunho',
   notaFiscal: null as null | { arquivoId: string },
+  responsavelTecnico: true,
   atualizado: vi.fn(),
 }));
 
 vi.mock('@/lib/dal', () => ({ verifySession: async () => sessao.atual }));
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 vi.mock('@/lib/material/transicoes', () => lib);
+vi.mock('@/lib/material/papeis', () => ({
+  papeisDe: async () => ({
+    tem: (p: string) => p === 'responsavel_tecnico' && banco.responsavelTecnico,
+  }),
+}));
 vi.mock('@/models/CotacaoMaterial', () => ({
   CotacaoMaterialModel: {
     findById: () => ({
@@ -68,6 +74,7 @@ beforeEach(() => {
   banco.arquivo = { _id: 'a'.repeat(24), cotacaoId: ID, tipo: 'orcamento', enviadoPorUserId: EU };
   banco.situacao = 'rascunho';
   banco.notaFiscal = null;
+  banco.responsavelTecnico = true;
 });
 
 describe('sessão', () => {
@@ -179,6 +186,14 @@ describe('removerArquivoAction', () => {
     banco.notaFiscal = null;
     expect((await removerArquivoAction({ arquivoId: 'a'.repeat(24) })).ok).toBe(true);
     expect(banco.atualizado).toHaveBeenCalled();
+  });
+
+  it('na atestada, quem enviou mas perdeu a designação de responsável técnico não remove (AC-22)', async () => {
+    banco.situacao = 'atestada';
+    banco.arquivo = { ...banco.arquivo, tipo: 'nota_fiscal' };
+    banco.responsavelTecnico = false;
+    expect((await removerArquivoAction({ arquivoId: 'a'.repeat(24) })).ok).toBe(false);
+    expect(banco.atualizado).not.toHaveBeenCalled();
   });
 
   it('na atestada, a NF ligada à nota não sai (AC-22)', async () => {

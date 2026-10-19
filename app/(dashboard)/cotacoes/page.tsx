@@ -56,6 +56,7 @@ export default async function CotacoesPage({
   const fila = await listarFila({ userId: sessao.userId, role: sessao.role }, aba);
   if (!fila) redirect('/dashboard');
   const comRecebimento = fila.aba === 'ateste';
+  const colunas = 5 + (fila.trf1 ? 1 : 0) + (comRecebimento ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -98,7 +99,7 @@ export default async function CotacoesPage({
           <TableBody>
             {fila.linhas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={colunas} className="py-10 text-center text-muted-foreground">
                   Nada nesta aba.
                 </TableCell>
               </TableRow>

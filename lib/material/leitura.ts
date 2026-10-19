@@ -305,8 +305,7 @@ export async function listarFila(
   const trf1 = papeis.ladoTrf1 || papeis.leitorAdmin;
   if (!trf1 && !papeis.contratada) return null;
   const abas = abasDaFila(trf1);
-  if (!abas.includes(abaPedida)) abaPedida = 'minhas';
-  const aba = abaPedida;
+  const aba: AbaFila = abas.includes(abaPedida) ? abaPedida : 'minhas';
 
   const filtro: Record<string, unknown> = {};
   const e: Record<string, unknown>[] = [];

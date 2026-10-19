@@ -167,6 +167,32 @@ describe('serializarCotacao', () => {
     expect(dto.advertencias).toEqual(['divergencia_execucao']);
     expect(dto.trilha?.[0]?.limiteCentavosNoAto).toBe(1_000_00);
   });
+
+  it('só o TRF1 vê quem registrou o recebimento; técnico e contratada veem o ato sem autor (AC-21)', () => {
+    const recebimento: EventoBruto = {
+      ...eventos[0]!,
+      _id: new Types.ObjectId(),
+      de: 'executada',
+      para: 'executada',
+      acao: 'receber_provisorio',
+      autorNome: 'Gestora',
+      papel: 'gestor',
+      limiteCentavosNoAto: null,
+      valorCentavos: null,
+      empenhoId: null,
+    };
+    const lista = [...eventos, recebimento];
+    const autorDoRecebimento = (visao: 'trf1' | 'contratada' | 'tecnico') =>
+      serializarCotacao(cot, visao, { userId: 'u' }, { eventos: lista }).trilha?.find(
+        (e) => e.acao === 'receber_provisorio',
+      );
+    expect(autorDoRecebimento('trf1')).toMatchObject({ autorNome: 'Gestora', papel: 'gestor' });
+    expect(autorDoRecebimento('contratada')).toMatchObject({ autorNome: null, papel: 'gestor' });
+    expect(autorDoRecebimento('tecnico')).toMatchObject({ autorNome: null, papel: 'gestor' });
+    // Os outros atos continuam com o autor para o técnico.
+    const aprovar = serializarCotacao(cot, 'tecnico', { userId: 'u' }, { eventos: lista });
+    expect(aprovar.trilha?.[0]?.autorNome).toBe('Aprovador');
+  });
 });
 
 describe('podeBaixar', () => {

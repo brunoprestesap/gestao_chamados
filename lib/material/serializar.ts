@@ -226,8 +226,11 @@ const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 const ACOES_COM_MOTIVO = new Set(['devolver', 'reprovar', 'cancelar', 'alterar']);
 
-/** Atos do gestor cujo autor a contratada não vê: só a data do recebimento (AC-21). */
-const ACOES_SEM_AUTOR_PARA_CONTRATADA = new Set(['receber_provisorio', 'receber_definitivo']);
+/**
+ * Atos do gestor cujo autor a contratada não vê, só a data do recebimento
+ * (AC-21). O técnico, que vê menos que a contratada (AC-15), também não.
+ */
+const ACOES_SEM_AUTOR_FORA_DO_TRF1 = new Set(['receber_provisorio', 'receber_definitivo']);
 
 export function serializarCotacao(
   cot: CotacaoBruta,
@@ -293,7 +296,7 @@ export function serializarCotacao(
       de: ev.de,
       para: ev.para,
       acao: ev.acao,
-      autorNome: ev.autorNome,
+      autorNome: ACOES_SEM_AUTOR_FORA_DO_TRF1.has(ev.acao) ? null : ev.autorNome,
       papel: ev.papel,
       motivo: ACOES_COM_MOTIVO.has(ev.acao) ? ev.motivo : null,
       em: ev.em.toISOString(),
@@ -339,7 +342,7 @@ export function serializarCotacao(
         de: ev.de,
         para: ev.para,
         acao: ev.acao,
-        autorNome: ACOES_SEM_AUTOR_PARA_CONTRATADA.has(ev.acao) ? null : ev.autorNome,
+        autorNome: ACOES_SEM_AUTOR_FORA_DO_TRF1.has(ev.acao) ? null : ev.autorNome,
         papel: ev.papel,
         motivo: ev.motivo,
         em: ev.em.toISOString(),

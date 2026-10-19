@@ -71,6 +71,8 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
   const [conferindo, setConferindo] = useState(false);
   const [nf, setNf] = useState({ numero: '', data: '', arquivoId: '', nomeArquivo: '' });
   const [enviando, setEnviando] = useState(false);
+  // Anexos já removidos nesta tela, até a página recarregar a lista do servidor.
+  const [removidos, setRemovidos] = useState<ReadonlySet<string>>(new Set());
   const [pendente, iniciar] = useTransition();
 
   if (c.situacao !== 'executada' && c.situacao !== 'atestada') return null;
@@ -100,7 +102,33 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
    * nem gastar o limite de 10 (AC-22). Falha aqui não atrapalha o registro.
    */
   async function soltarAnexo(arquivoId: string) {
-    if (arquivoId) await removerArquivoAction({ arquivoId }).catch(() => undefined);
+    if (!arquivoId) return;
+    setRemovidos((atual) => new Set(atual).add(arquivoId));
+    await removerArquivoAction({ arquivoId }).catch(() => undefined);
+  }
+
+  /**
+   * Quem saiu da página com o diálogo aberto deixou um anexo sem nota: ao
+   * reabrir, o mais recente volta como anexo do diálogo, e os outros saem,
+   * para nenhum arquivo ficar preso ocupando o limite de 10 (AC-22).
+   */
+  function abrirNf() {
+    const soltos = (c.arquivos ?? []).filter(
+      (a) =>
+        a.tipo === 'nota_fiscal' &&
+        a.meu &&
+        a.id !== c.notaFiscal?.arquivoId &&
+        !removidos.has(a.id),
+    );
+    const reaproveitado = soltos.at(-1);
+    for (const a of soltos.slice(0, -1)) void soltarAnexo(a.id);
+    setNf({
+      numero: '',
+      data: '',
+      arquivoId: reaproveitado?.id ?? '',
+      nomeArquivo: reaproveitado?.nomeOriginal ?? '',
+    });
+    setNfAberta(true);
   }
 
   async function anexarNf(arquivos: FileList | null) {
@@ -197,7 +225,7 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
             </Button>
           )}
           {acoes.registrarNotaFiscal && (
-            <Button disabled={pendente} onClick={() => setNfAberta(true)}>
+            <Button disabled={pendente} onClick={abrirNf}>
               Registrar nota fiscal
             </Button>
           )}
@@ -234,7 +262,7 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
       <Dialog
         open={nfAberta}
         onOpenChange={(o) => {
-          if (o) setNfAberta(true);
+          if (o) abrirNf();
           else if (!pendente) fecharNf();
         }}
       >

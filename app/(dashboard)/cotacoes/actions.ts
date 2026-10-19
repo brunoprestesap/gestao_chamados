@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { podeRemoverArquivo } from '@/lib/material/arquivos';
+import { papeisDe } from '@/lib/material/papeis';
 import {
   criarCotacao,
   type EntradaTransicao,
@@ -206,12 +207,17 @@ export async function removerArquivoAction(raw: unknown): Promise<ResultadoMater
       const cot = await CotacaoMaterialModel.findById(arq.cotacaoId)
         .select('situacao notaFiscal')
         .lean();
+      // A exceção da `atestada` é do responsável técnico vigente, não só de quem enviou.
+      const responsavelTecnico =
+        cot?.situacao === 'atestada' &&
+        (await papeisDe(s.userId, s.role)).tem('responsavel_tecnico');
       if (
         !cot ||
-        !podeRemoverArquivo(arq, {
-          situacao: cot.situacao as SituacaoCotacao,
-          notaFiscal: cot.notaFiscal ?? null,
-        })
+        !podeRemoverArquivo(
+          arq,
+          { situacao: cot.situacao as SituacaoCotacao, notaFiscal: cot.notaFiscal ?? null },
+          { responsavelTecnico },
+        )
       ) {
         return { ok: false, error: 'O arquivo não pode mais ser removido nesta situação.' };
       }

@@ -66,33 +66,65 @@ describe('NotaFiscalSchema (AC-22)', () => {
 });
 
 describe('podeRemoverArquivo (AC-22)', () => {
+  const rt = { responsavelTecnico: true };
   const arquivo = (tipo: 'orcamento' | 'evidencia' | 'nota_fiscal') => ({
     _id: new Types.ObjectId(),
     tipo,
   });
 
   it('remove em rascunho e devolvida, como antes', () => {
-    expect(podeRemoverArquivo(arquivo('orcamento'), { situacao: 'rascunho' })).toBe(true);
-    expect(podeRemoverArquivo(arquivo('orcamento'), { situacao: 'devolvida' })).toBe(true);
-    expect(podeRemoverArquivo(arquivo('orcamento'), { situacao: 'enviada' })).toBe(false);
+    expect(podeRemoverArquivo(arquivo('orcamento'), { situacao: 'rascunho' }, rt)).toBe(true);
+    expect(podeRemoverArquivo(arquivo('orcamento'), { situacao: 'devolvida' }, rt)).toBe(true);
+    expect(podeRemoverArquivo(arquivo('orcamento'), { situacao: 'enviada' }, rt)).toBe(false);
   });
 
   it('na atestada, só a NF ainda não ligada à nota', () => {
     const solta = arquivo('nota_fiscal');
     const ligada = arquivo('nota_fiscal');
-    expect(podeRemoverArquivo(solta, { situacao: 'atestada', notaFiscal: null })).toBe(true);
+    expect(podeRemoverArquivo(solta, { situacao: 'atestada', notaFiscal: null }, rt)).toBe(true);
     expect(
-      podeRemoverArquivo(solta, { situacao: 'atestada', notaFiscal: { arquivoId: ligada._id } }),
+      podeRemoverArquivo(
+        solta,
+        { situacao: 'atestada', notaFiscal: { arquivoId: ligada._id } },
+        rt,
+      ),
     ).toBe(true);
     expect(
-      podeRemoverArquivo(ligada, { situacao: 'atestada', notaFiscal: { arquivoId: ligada._id } }),
+      podeRemoverArquivo(
+        ligada,
+        { situacao: 'atestada', notaFiscal: { arquivoId: ligada._id } },
+        rt,
+      ),
     ).toBe(false);
-    expect(podeRemoverArquivo(arquivo('evidencia'), { situacao: 'atestada' })).toBe(false);
-    expect(podeRemoverArquivo(arquivo('orcamento'), { situacao: 'atestada' })).toBe(false);
+    expect(podeRemoverArquivo(arquivo('evidencia'), { situacao: 'atestada' }, rt)).toBe(false);
+    expect(podeRemoverArquivo(arquivo('orcamento'), { situacao: 'atestada' }, rt)).toBe(false);
+  });
+
+  it('a exceção da atestada é só do responsável técnico vigente', () => {
+    const solta = arquivo('nota_fiscal');
+    expect(
+      podeRemoverArquivo(
+        solta,
+        { situacao: 'atestada', notaFiscal: null },
+        {
+          responsavelTecnico: false,
+        },
+      ),
+    ).toBe(false);
+    // Em rascunho e devolvida, a regra de sempre não depende do papel.
+    expect(
+      podeRemoverArquivo(
+        arquivo('orcamento'),
+        { situacao: 'rascunho' },
+        {
+          responsavelTecnico: false,
+        },
+      ),
+    ).toBe(true);
   });
 
   it('a NF fora da atestada não sai', () => {
-    expect(podeRemoverArquivo(arquivo('nota_fiscal'), { situacao: 'executada' })).toBe(false);
+    expect(podeRemoverArquivo(arquivo('nota_fiscal'), { situacao: 'executada' }, rt)).toBe(false);
   });
 });
 

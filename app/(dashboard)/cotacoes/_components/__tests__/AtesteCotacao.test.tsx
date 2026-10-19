@@ -280,6 +280,79 @@ describe('AtesteCotacao', () => {
   });
 });
 
+describe('AtesteCotacao, anexo que sobrou de outra visita', () => {
+  const arquivo = (id: string, nome: string, em: string, meu = true) => ({
+    id,
+    tipo: 'nota_fiscal' as const,
+    nomeOriginal: nome,
+    tamanho: 10,
+    em,
+    meu,
+  });
+
+  it('reaproveita o anexo mais recente e remove os outros ao reabrir (AC-22)', async () => {
+    const user = userEvent.setup();
+    m.registrarNotaFiscalAction.mockResolvedValue({ ok: true, situacao: 'atestada', versao: 10 });
+    render(
+      <AtesteCotacao
+        cotacao={{
+          ...base,
+          situacao: 'atestada',
+          visao: 'contratada',
+          arquivos: [
+            arquivo('a'.repeat(24), 'velha.pdf', '2026-10-17T12:00:00Z'),
+            arquivo('c'.repeat(24), 'de-outro.pdf', '2026-10-17T13:00:00Z', false),
+            arquivo('b'.repeat(24), 'recente.pdf', '2026-10-18T12:00:00Z'),
+          ],
+        }}
+        acoes={{ ...semAcao, registrarNotaFiscal: true }}
+        onAlterado={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Registrar nota fiscal' }));
+    expect(screen.getByText('Anexado: recente.pdf')).toBeVisible();
+    await waitFor(() =>
+      expect(m.removerArquivoAction).toHaveBeenCalledWith({ arquivoId: 'a'.repeat(24) }),
+    );
+    // O arquivo de outra pessoa nunca sai por aqui.
+    expect(m.removerArquivoAction).not.toHaveBeenCalledWith({ arquivoId: 'c'.repeat(24) });
+    expect(m.enviarArquivo).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText('Número'), '12');
+    await user.type(screen.getByLabelText('Data de emissão'), '2026-10-18');
+    await user.click(screen.getByRole('button', { name: 'Conferir' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar e registrar' }));
+    await waitFor(() =>
+      expect(m.registrarNotaFiscalAction).toHaveBeenCalledWith(
+        expect.objectContaining({ arquivoId: 'b'.repeat(24) }),
+      ),
+    );
+  });
+
+  it('um anexo removido nesta tela não volta ao reabrir antes de a página recarregar', async () => {
+    const user = userEvent.setup();
+    render(
+      <AtesteCotacao
+        cotacao={{
+          ...base,
+          situacao: 'atestada',
+          visao: 'contratada',
+          arquivos: [arquivo('b'.repeat(24), 'recente.pdf', '2026-10-18T12:00:00Z')],
+        }}
+        acoes={{ ...semAcao, registrarNotaFiscal: true }}
+        onAlterado={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Registrar nota fiscal' }));
+    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await waitFor(() =>
+      expect(m.removerArquivoAction).toHaveBeenCalledWith({ arquivoId: 'b'.repeat(24) }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Registrar nota fiscal' }));
+    expect(screen.queryByText(/Anexado:/)).not.toBeInTheDocument();
+  });
+});
+
 describe('SeloPrazoAteste', () => {
   it('lê os rótulos de mensagens.ts, no prazo e atrasado (AC-21)', () => {
     const { rerender } = render(
