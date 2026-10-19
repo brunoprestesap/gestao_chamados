@@ -56,6 +56,9 @@ export const ACOES_COTACAO = [
   'aprovar',
   'alterar',
   'executar',
+  'receber_provisorio',
+  'receber_definitivo',
+  'registrar_nf',
   'cancelar',
 ] as const;
 export type AcaoCotacao = (typeof ACOES_COTACAO)[number];
@@ -103,6 +106,8 @@ export const MAX_TAMANHO_ARQUIVO_COTACAO = 20 * 1024 * 1024;
 export const MIN_ORCAMENTOS_POR_ITEM = 3;
 /** Reserva órfã mais velha que isto é liberada pela conciliação (AC-8). */
 export const CONCILIACAO_TOLERANCIA_MS = 10 * 60 * 1000;
+/** Prazo do ateste: 5 dias corridos para cada recebimento, no fuso de Belém (AC-21). */
+export const PRAZO_ATESTE_DIAS = 5;
 /** O responsável técnico vê as encerradas dos últimos 90 dias (AC-15). */
 export const DIAS_ENCERRADAS_VISIVEIS_RT = 90;
 

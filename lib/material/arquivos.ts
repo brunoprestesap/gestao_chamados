@@ -125,7 +125,7 @@ export async function arquivoParaBaixar(
   const arq = await ArquivoCotacaoModel.findOne({ _id: arquivoId, removidoEm: null }).lean();
   if (!arq) return { ok: false, status: 404 };
   const cot = await CotacaoMaterialModel.findById(arq.cotacaoId)
-    .select('chamadoId situacao emTramite updatedAt')
+    .select('chamadoId situacao emTramite updatedAt notaFiscal')
     .lean();
   if (!cot) return { ok: false, status: 404 };
   const chamado = await ChamadoModel.findById(cot.chamadoId)
@@ -143,6 +143,7 @@ export async function arquivoParaBaixar(
       situacao: cot.situacao as SituacaoCotacao,
       emTramite: cot.emTramite,
       updatedAt: cot.updatedAt,
+      notaFiscal: cot.notaFiscal ?? null,
     },
   );
   if (!visao || !podeBaixar(visao, arq.tipo as TipoArquivoCotacao)) {

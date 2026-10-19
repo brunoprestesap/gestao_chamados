@@ -5,6 +5,8 @@ import {
   CriarDesignacaoSchema,
   ExecutarSchema,
   MovimentoEmpenhoSchema,
+  NotaFiscalSchema,
+  RecebimentoSchema,
   SalvarRascunhoSchema,
   TransicaoComMotivoSchema,
 } from '../cotacao.schemas';
@@ -14,7 +16,7 @@ import { MAX_ITENS_COTACAO } from '../material.constants';
  * As entradas das actions da cotação de material (spec 0019). O servidor
  * confere aqui o formato antes de qualquer regra.
  *
- * covers: AC-1, AC-5, AC-10, AC-19
+ * covers: AC-1, AC-5, AC-10, AC-19, AC-21, AC-22
  */
 
 const ID = 'a'.repeat(24);
@@ -233,5 +235,40 @@ describe('MovimentoEmpenhoSchema (AC-19)', () => {
         ato: '',
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('NotaFiscalSchema (AC-22)', () => {
+  const nf = { id: ID, versao: 3, numero: '123', data: '2026-10-18', arquivoId: ID };
+
+  it('aceita número, data e arquivo', () => {
+    expect(NotaFiscalSchema.safeParse(nf).success).toBe(true);
+  });
+
+  it.each(['2026-02-31', '2026-13-01', '2026-00-10', '18/10/2026'])(
+    'recusa a data %s com "Data inválida."',
+    (data) => {
+      const r = NotaFiscalSchema.safeParse({ ...nf, data });
+      expect(r.success).toBe(false);
+      expect(r.error?.issues[0]?.message).toBe('Data inválida.');
+    },
+  );
+
+  it('aceita 29/02 só em ano bissexto', () => {
+    expect(NotaFiscalSchema.safeParse({ ...nf, data: '2028-02-29' }).success).toBe(true);
+    expect(NotaFiscalSchema.safeParse({ ...nf, data: '2026-02-29' }).success).toBe(false);
+  });
+
+  it('recusa número vazio', () => {
+    expect(NotaFiscalSchema.safeParse({ ...nf, numero: '  ' }).success).toBe(false);
+  });
+});
+
+describe('RecebimentoSchema (AC-21)', () => {
+  it('aceita só provisório e definitivo', () => {
+    expect(RecebimentoSchema.safeParse({ id: ID, versao: 1, etapa: 'provisorio' }).success).toBe(
+      true,
+    );
+    expect(RecebimentoSchema.safeParse({ id: ID, versao: 1, etapa: 'final' }).success).toBe(false);
   });
 });

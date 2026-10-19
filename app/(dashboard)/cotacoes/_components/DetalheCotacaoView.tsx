@@ -48,6 +48,8 @@ import {
   reprovarAction,
 } from '../actions';
 import { SituacaoBadge } from './apoio';
+import { AtesteCotacao } from './AtesteCotacao';
+import { BotaoPdfCotacao } from './BotaoPdfCotacao';
 import { DialogExecucao } from './DialogExecucao';
 import { DialogMaterial } from './DialogMaterial';
 import { EditorContratada } from './EditorContratada';
@@ -122,6 +124,11 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           · {chamado.titulo}
         </span>
         {chamado.ativo && <span>· Ativo {chamado.ativo}</span>}
+        {acoes.gerarPdf && (
+          <span className="ml-auto">
+            <BotaoPdfCotacao cotacaoId={c.id} numero={c.numero} />
+          </span>
+        )}
       </div>
 
       {c.ultimoMotivo && ['devolvida', 'reprovada', 'cancelada'].includes(c.situacao) && (
@@ -286,6 +293,8 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           </ul>
         </section>
       )}
+
+      <AtesteCotacao cotacao={c} acoes={acoes} onAlterado={() => router.refresh()} />
 
       {trf1 && (
         <section

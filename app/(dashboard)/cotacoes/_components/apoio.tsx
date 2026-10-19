@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { SituacaoCotacao } from '@/shared/material/material.constants';
-import { ROTULO_SITUACAO } from '@/shared/material/mensagens';
+import { ROTULO_ETAPA_ATESTE, ROTULO_SITUACAO } from '@/shared/material/mensagens';
 
 /** Apoio das telas da cotação de material (spec 0019). */
 
@@ -71,4 +71,27 @@ export async function enviarArquivo(
   } catch {
     return { ok: false, error: 'Falha no envio. Confira a conexão e tente de novo.' };
   }
+}
+
+/** Selo do prazo do ateste (AC-21): 5 dias corridos por etapa, só aviso, nunca trava. */
+export function SeloPrazoAteste({
+  prazo,
+}: {
+  prazo: { etapa: 'provisorio' | 'definitivo'; venceEm: string; atrasado: boolean } | null;
+}) {
+  if (!prazo) return null;
+  const etapa = ROTULO_ETAPA_ATESTE[prazo.etapa];
+  const data = prazo.venceEm.split('-').reverse().join('/');
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        prazo.atrasado
+          ? 'border-rose-300 text-rose-700 dark:text-rose-300'
+          : 'border-slate-300 text-slate-600 dark:text-slate-300',
+      )}
+    >
+      {prazo.atrasado ? `${etapa} atrasado (prazo ${data})` : `${etapa} até ${data}`}
+    </Badge>
+  );
 }

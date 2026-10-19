@@ -17,6 +17,8 @@ import {
   AprovarSchema,
   CriarCotacaoSchema,
   ExecutarSchema,
+  NotaFiscalSchema,
+  RecebimentoSchema,
   SalvarRascunhoSchema,
   TransicaoComMotivoSchema,
   TransicaoSchema,
@@ -164,6 +166,22 @@ export async function executarAction(raw: unknown): Promise<ResultadoTransicao> 
   const p = ExecutarSchema.safeParse(raw);
   if (!p.success) return primeiroErro(p.error.issues);
   return transicao('executar', p.data);
+}
+
+/** O gestor registra o recebimento provisório e, depois, o definitivo (AC-21). */
+export async function registrarRecebimentoAction(raw: unknown): Promise<ResultadoTransicao> {
+  const p = RecebimentoSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  const { etapa, ...resto } = p.data;
+  return transicao(etapa === 'provisorio' ? 'receber_provisorio' : 'receber_definitivo', resto);
+}
+
+/** O responsável técnico registra a nota fiscal da cotação atestada (AC-22). */
+export async function registrarNotaFiscalAction(raw: unknown): Promise<ResultadoTransicao> {
+  const p = NotaFiscalSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  const { numero, data, arquivoId, ...resto } = p.data;
+  return transicao('registrar_nf', { ...resto, notaFiscal: { numero, data, arquivoId } });
 }
 
 /** Remover só marca `removidoEm`, só em `rascunho` ou `devolvida`, e só para quem enviou. */

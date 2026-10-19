@@ -16,7 +16,7 @@ import { type AbaFila, ABAS_FILA, listarFila } from '@/lib/material/leitura';
 import { cn } from '@/lib/utils';
 import { formatarReais } from '@/shared/chamados/custo';
 
-import { SituacaoBadge } from './_components/apoio';
+import { SeloPrazoAteste, SituacaoBadge } from './_components/apoio';
 
 const ROTULO_ABA: Record<AbaFila, string> = {
   minhas: 'Minhas ações',
@@ -113,7 +113,10 @@ export default async function CotacoesPage({
                   </TableCell>
                 )}
                 <TableCell>
-                  <SituacaoBadge situacao={l.situacao} />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <SituacaoBadge situacao={l.situacao} />
+                    <SeloPrazoAteste prazo={l.prazoAteste} />
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{idade(l.atualizadaEm)}</TableCell>
               </TableRow>

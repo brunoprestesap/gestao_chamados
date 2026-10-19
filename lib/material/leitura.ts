@@ -8,6 +8,7 @@ import { ChamadoModel } from '@/models/Chamado';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { EmpenhoModel } from '@/models/Empenho';
+import { UserModel } from '@/models/user.model';
 import {
   DIAS_ENCERRADAS_VISIVEIS_RT,
   type SituacaoCotacao,
@@ -21,6 +22,7 @@ import {
   type Papeis,
   papeisDe,
 } from './papeis';
+import { type PrazoAteste, prazoDoAteste } from './prazos';
 import { type EmpenhoElegivel, empenhosElegiveis } from './saldo';
 import {
   type ArquivoBruto,
@@ -51,10 +53,23 @@ export type Acoes = {
   alterar: boolean;
   cancelar: boolean;
   executar: boolean;
+  receberProvisorio: boolean;
+  receberDefinitivo: boolean;
+  registrarNotaFiscal: boolean;
+  /** O PDF da cotação é de fiscal, gestor e aprovador; o Admin sem designação só lê (AC-23). */
+  gerarPdf: boolean;
 };
 
 export function acoesDisponiveis(
-  cot: Pick<CotacaoBruta, 'situacao' | 'emTramite' | 'montadoPorUserId' | 'valorTotalCentavos'>,
+  cot: Pick<
+    CotacaoBruta,
+    | 'situacao'
+    | 'emTramite'
+    | 'montadoPorUserId'
+    | 'valorTotalCentavos'
+    | 'recebimentoProvisorio'
+    | 'notaFiscal'
+  >,
   papeis: Papeis,
   ehTecnicoAtribuido: boolean,
 ): Acoes {
@@ -85,6 +100,10 @@ export function acoesDisponiveis(
     alterar: rt && s === 'autorizada',
     cancelar: (rt || papeis.tem('gestor')) && cot.emTramite,
     executar: ehTecnicoAtribuido && s === 'autorizada',
+    receberProvisorio: papeis.tem('gestor') && s === 'executada' && !cot.recebimentoProvisorio,
+    receberDefinitivo: papeis.tem('gestor') && s === 'executada' && !!cot.recebimentoProvisorio,
+    registrarNotaFiscal: rt && s === 'atestada' && !cot.notaFiscal,
+    gerarPdf: papeis.ladoTrf1 && s !== 'rascunho',
   };
 }
 
@@ -92,14 +111,31 @@ async function lerBruta(filtro: Record<string, unknown>) {
   return CotacaoMaterialModel.findOne(filtro).sort({ createdAt: -1 }).lean<CotacaoBruta>();
 }
 
-async function extras(cotacaoId: Types.ObjectId) {
-  const [eventos, arquivos] = await Promise.all([
+/** Nomes de quem recebeu, registrou a nota fiscal ou conferiu um item. */
+async function nomesDe(cot: CotacaoBruta): Promise<Map<string, string>> {
+  const ids = [
+    cot.recebimentoProvisorio?.porUserId,
+    cot.recebimentoDefinitivo?.porUserId,
+    cot.notaFiscal?.porUserId,
+    ...cot.itens.map((i) => i.conferencia?.porUserId),
+  ].filter((id): id is Types.ObjectId => !!id);
+  if (!ids.length) return new Map();
+  const usuarios = await UserModel.find({ _id: { $in: ids } })
+    .select('name')
+    .lean();
+  return new Map(usuarios.map((u) => [String(u._id), u.name as string]));
+}
+
+async function extras(cot: CotacaoBruta) {
+  const cotacaoId = cot._id;
+  const [eventos, arquivos, nomes] = await Promise.all([
     CotacaoMaterialEventoModel.find({ cotacaoId }).sort({ em: 1, _id: 1 }).lean<EventoBruto[]>(),
     ArquivoCotacaoModel.find({ cotacaoId, removidoEm: null })
       .sort({ em: 1 })
       .lean<ArquivoBruto[]>(),
+    nomesDe(cot),
   ]);
-  return { eventos, arquivos };
+  return { eventos, arquivos, nomes };
 }
 
 export type DetalheCotacao = {
@@ -138,7 +174,7 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
     ? await AtivoModel.findById(chamado.ativoId).select('codigo descricao').lean()
     : null;
   const detalhe: DetalheCotacao = {
-    cotacao: serializarCotacao(cot, visao, sessao, await extras(cot._id)),
+    cotacao: serializarCotacao(cot, visao, sessao, await extras(cot)),
     acoes: acoesDisponiveis(cot, papeis, ehTecnicoAtribuido),
     chamado: {
       id: String(chamado._id),
@@ -195,7 +231,7 @@ export async function cartaoDoChamado(
       cot,
       visao,
       sessao,
-      visao === 'solicitante' ? {} : await extras(cot._id),
+      visao === 'solicitante' ? {} : await extras(cot),
     ),
     acoes: visao === 'solicitante' ? null : acoesDisponiveis(cot, papeis, ehTecnicoAtribuido),
     podeCriar,
@@ -217,10 +253,12 @@ export type LinhaFila = {
   atualizadaEm: string;
   criadaEm: string;
   urgente: boolean;
+  /** Selo de atraso do ateste, só em `executada` (AC-21). */
+  prazoAteste: PrazoAteste | null;
 };
 
-/** Situações que esperam cada papel, para a aba "Minhas ações". */
-function situacoesQueEsperam(papeis: Papeis): SituacaoCotacao[] {
+/** O que espera cada papel, para a aba "Minhas ações". */
+function filtroDoQueEspera(papeis: Papeis): Record<string, unknown> {
   const out = new Set<SituacaoCotacao>();
   if (papeis.tem('responsavel_tecnico')) {
     out.add('rascunho');
@@ -232,7 +270,10 @@ function situacoesQueEsperam(papeis: Papeis): SituacaoCotacao[] {
   }
   if (papeis.tem('aprovador')) out.add('em_aprovacao');
   if (papeis.tem('gestor')) out.add('executada');
-  return [...out];
+  const ou: Record<string, unknown>[] = [{ situacao: { $in: [...out] } }];
+  // A contratada ainda deve a nota fiscal da atestada (AC-22).
+  if (papeis.tem('responsavel_tecnico')) ou.push({ situacao: 'atestada', notaFiscal: null });
+  return { $or: ou };
 }
 
 /** A fila de `/cotacoes`. `null` quando a pessoa não tem acesso. */
@@ -245,7 +286,8 @@ export async function listarFila(
   if (!trf1 && !papeis.contratada) return null;
 
   const filtro: Record<string, unknown> = {};
-  if (aba === 'minhas') filtro.situacao = { $in: situacoesQueEsperam(papeis) };
+  const e: Record<string, unknown>[] = [];
+  if (aba === 'minhas') e.push(filtroDoQueEspera(papeis));
   if (aba === 'analise') filtro.situacao = { $in: ['enviada', 'em_analise'] };
   if (aba === 'aprovacao') filtro.situacao = 'em_aprovacao';
   if (aba === 'ateste') filtro.situacao = 'executada';
@@ -254,14 +296,24 @@ export async function listarFila(
     filtro.situacao = { $ne: 'rascunho' };
   }
   if (!trf1) {
-    // Contratada: em trâmite e encerradas nos últimos 90 dias (AC-15).
+    // Contratada: em trâmite, encerradas nos últimos 90 dias (AC-15) e a atestada
+    // que ainda deve a nota fiscal, por mais velha que seja (AC-22). Mesma regra de `visaoDe`.
     const limite = new Date(Date.now() - DIAS_ENCERRADAS_VISIVEIS_RT * 24 * 60 * 60 * 1000);
-    filtro.$or = [{ emTramite: true }, { updatedAt: { $gte: limite } }];
+    e.push({
+      $or: [
+        { emTramite: true },
+        { updatedAt: { $gte: limite } },
+        { situacao: 'atestada', notaFiscal: null },
+      ],
+    });
   }
+  if (e.length) filtro.$and = e;
   const docs = await CotacaoMaterialModel.find(filtro)
     .sort({ updatedAt: -1 })
     .limit(200)
-    .select('numero chamadoId ativoId situacao valorTotalCentavos updatedAt createdAt')
+    .select(
+      'numero chamadoId ativoId situacao valorTotalCentavos executadoEm recebimentoProvisorio updatedAt createdAt',
+    )
     .lean();
   const chamados = await ChamadoModel.find({ _id: { $in: docs.map((d) => d.chamadoId) } })
     .select('ticket_number')
@@ -289,6 +341,13 @@ export async function listarFila(
       criadaEm: d.createdAt.toISOString(),
       // Urgência é da fatia 4.
       urgente: false,
+      prazoAteste: !trf1
+        ? null
+        : prazoDoAteste({
+            situacao: d.situacao as SituacaoCotacao,
+            executadoEm: d.executadoEm,
+            recebimentoProvisorio: d.recebimentoProvisorio,
+          }),
     })),
   };
 }

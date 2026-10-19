@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { hojeEmBelem } from '@/lib/ativos/documentos/situacao';
 import { lerMaterialConfig } from '@/lib/material/config';
 import { ArquivoCotacaoModel } from '@/models/ArquivoCotacao';
 import { AtivoModel } from '@/models/Ativo';
@@ -35,7 +36,7 @@ import {
   valorTotalCentavos,
 } from '@/shared/material/valores';
 
-import { avisarSituacao } from './avisos';
+import { avisarNotaFiscal, avisarSituacao } from './avisos';
 import {
   desfazerPausa,
   pausarPelaCotacao,
@@ -79,6 +80,9 @@ const DE: Record<AcaoDeTransicao, readonly SituacaoCotacao[]> = {
   aprovar: ['em_aprovacao'],
   alterar: ['autorizada'],
   executar: ['autorizada'],
+  receber_provisorio: ['executada'],
+  receber_definitivo: ['executada'],
+  registrar_nf: ['atestada'],
   cancelar: SITUACOES_EM_TRAMITE,
 };
 
@@ -91,6 +95,9 @@ const PARA: Record<AcaoDeTransicao, SituacaoCotacao> = {
   aprovar: 'autorizada',
   alterar: 'devolvida',
   executar: 'executada',
+  receber_provisorio: 'executada',
+  receber_definitivo: 'atestada',
+  registrar_nf: 'atestada',
   cancelar: 'cancelada',
 };
 
@@ -131,6 +138,9 @@ async function lerCotacao(id: string) {
     valorExecutadoCentavos: number | null;
     empenhoId: Types.ObjectId | null;
     autorizadoEm: Date | null;
+    recebimentoProvisorio: { porUserId: Types.ObjectId; em: Date } | null;
+    recebimentoDefinitivo: { porUserId: Types.ObjectId; em: Date } | null;
+    notaFiscal: { numero: string } | null;
     pauseLogId: Types.ObjectId | null;
   }>();
 }
@@ -160,6 +170,11 @@ function papelDoAto(
       return tem('aprovador') ? 'aprovador' : null;
     case 'executar':
       return ehTecnicoAtribuido ? 'tecnico' : null;
+    case 'receber_provisorio':
+    case 'receber_definitivo':
+      return tem('gestor') ? 'gestor' : null;
+    case 'registrar_nf':
+      return tem('responsavel_tecnico') ? 'responsavel_tecnico' : null;
     case 'cancelar':
       if (tem('responsavel_tecnico')) return 'responsavel_tecnico';
       return tem('gestor') ? 'gestor' : null;
@@ -453,6 +468,7 @@ export type EntradaTransicao = {
   motivo?: string;
   empenhoId?: string;
   quantidades?: { itemId: string; quantidadeExecutada: number }[];
+  notaFiscal?: { numero: string; data: string; arquivoId: string };
 };
 
 export async function transicionar(
@@ -645,6 +661,41 @@ export async function transicionar(
       set.advertencias = advertencias.map((codigo) => ({ codigo, em: agora }));
       break;
     }
+    case 'receber_provisorio':
+      if (cot.recebimentoProvisorio) {
+        return { ok: false, error: 'O recebimento provisório já foi registrado.' };
+      }
+      set.recebimentoProvisorio = { porUserId: new Types.ObjectId(userId!), em: agora };
+      break;
+    case 'receber_definitivo':
+      if (!cot.recebimentoProvisorio) {
+        return { ok: false, error: 'Registre antes o recebimento provisório.' };
+      }
+      set.recebimentoDefinitivo = { porUserId: new Types.ObjectId(userId!), em: agora };
+      break;
+    case 'registrar_nf': {
+      if (cot.notaFiscal) return { ok: false, error: 'A nota fiscal já foi registrada.' };
+      const nf = e.notaFiscal;
+      if (!nf) return { ok: false, error: 'Informe a nota fiscal.' };
+      if (nf.data > hojeEmBelem(agora)) {
+        return { ok: false, error: 'A data da nota fiscal não pode ser futura.' };
+      }
+      const arquivo = await ArquivoCotacaoModel.exists({
+        _id: new Types.ObjectId(nf.arquivoId),
+        cotacaoId: cot._id,
+        tipo: 'nota_fiscal',
+        removidoEm: null,
+      });
+      if (!arquivo) return { ok: false, error: 'Anexe o arquivo da nota fiscal.' };
+      set.notaFiscal = {
+        numero: nf.numero.trim(),
+        data: new Date(`${nf.data}T12:00:00.000Z`),
+        arquivoId: new Types.ObjectId(nf.arquivoId),
+        porUserId: new Types.ObjectId(userId!),
+        em: agora,
+      };
+      break;
+    }
     case 'cancelar':
     case 'reprovar':
       break;
@@ -731,8 +782,10 @@ export async function transicionar(
   // 5. Só o vencedor aplica os efeitos no saldo e no chamado.
   await aplicarEfeitos({ e, cot, gravada, de, para, agora, papel });
 
-  // 6. Avisos, fire and forget.
-  void avisarSituacao(String(cot._id), para, userId);
+  // 6. Avisos, fire and forget: quando a situação muda, e a nota fiscal para os gestores.
+  // O provisório não avisa: quem age na etapa seguinte é o próprio gestor.
+  if (de !== para) void avisarSituacao(String(cot._id), para, userId);
+  else if (e.acao === 'registrar_nf') void avisarNotaFiscal(String(cot._id), userId);
   return { ok: true, situacao: para, versao: gravada.versao };
 }
 

@@ -84,6 +84,27 @@ const AdvertenciaSchema = new Schema(
   { _id: false },
 );
 
+// Recebimento provisório e definitivo do gestor (fatia 2, AC-21).
+const RecebimentoSchema = new Schema(
+  {
+    porUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    em: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
+// Nota fiscal do responsável técnico, só em `atestada` (fatia 2, AC-22).
+const NotaFiscalSchema = new Schema(
+  {
+    numero: { type: String, required: true, trim: true, maxlength: 60 },
+    data: { type: Date, required: true },
+    arquivoId: { type: Schema.Types.ObjectId, ref: 'ArquivoCotacao', required: true },
+    porUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    em: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const CotacaoMaterialSchema = new Schema(
   {
     numero: { type: String, required: true },
@@ -121,6 +142,9 @@ const CotacaoMaterialSchema = new Schema(
     executadoEm: { type: Date, default: null },
     executadoPorUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     valorExecutadoCentavos: { type: Number, default: null, min: 0 },
+    recebimentoProvisorio: { type: RecebimentoSchema, default: null },
+    recebimentoDefinitivo: { type: RecebimentoSchema, default: null },
+    notaFiscal: { type: NotaFiscalSchema, default: null },
     pauseLogId: { type: Schema.Types.ObjectId, ref: 'PauseLog', default: null },
     advertencias: { type: [AdvertenciaSchema], default: [] },
   },

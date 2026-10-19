@@ -12,7 +12,14 @@ import {
 /** Entradas das actions da cotação de material (spec 0019). Dinheiro chega em centavos. */
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Identificador inválido.');
-const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.');
+/** `YYYY-MM-DD` que existe no calendário: 31/02 viraria data inválida e erro no Mongoose. */
+const ymd = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.')
+  .refine((s) => {
+    const d = new Date(`${s}T00:00:00.000Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+  }, 'Data inválida.');
 const centavos = z.number().int('Valor inválido.').min(0, 'Valor inválido.');
 const quantidade = z
   .number()
@@ -129,6 +136,20 @@ export const ExecutarSchema = TransicaoSchema.extend({
     .max(MAX_ITENS_COTACAO),
 });
 export type ExecutarInput = z.infer<typeof ExecutarSchema>;
+
+/** Recebimento do gestor (AC-21): o provisório primeiro, o definitivo leva a `atestada`. */
+export const RecebimentoSchema = TransicaoSchema.extend({
+  etapa: z.enum(['provisorio', 'definitivo']),
+});
+export type RecebimentoInput = z.infer<typeof RecebimentoSchema>;
+
+/** Nota fiscal do responsável técnico, só em `atestada` (AC-22). */
+export const NotaFiscalSchema = TransicaoSchema.extend({
+  numero: z.string().trim().min(1, 'Informe o número da nota fiscal.').max(60),
+  data: ymd,
+  arquivoId: objectId,
+});
+export type NotaFiscalInput = z.infer<typeof NotaFiscalSchema>;
 
 // ---------------------------------------------------------------------------
 // Cadastro do Admin (AC-19)
