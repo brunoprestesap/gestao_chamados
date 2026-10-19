@@ -1,6 +1,6 @@
 # lib/material: cotação e fornecimento de material
 
-As regras da cotação de material (spec 0019, só a Fatia 1 construída): o técnico registra o material, o responsável técnico da contratada monta a cotação com 3 orçamentos, o fiscal analisa, o aprovador com faixa suficiente aprova e reserva o saldo do empenho, e o técnico registra a execução com evidência. As telas estão em `app/(dashboard)/cotacoes/` e `app/(dashboard)/configuracoes/material/`; as rotas, em `app/api/cotacoes/`, `app/api/chamados/[id]/cotacao-material/` e `app/api/cron/material-conciliacao/`. Spec: `docs/specs/0019-cotacao-material/` (`index.md` é a construção, `funcional.md` as regras de negócio, `verify.md` os passos de verificação).
+As regras da cotação de material (spec 0019, Fatias 1 e 2 construídas): o técnico registra o material, o responsável técnico da contratada monta a cotação com 3 orçamentos, o fiscal analisa, o aprovador com faixa suficiente aprova e reserva o saldo do empenho, o técnico registra a execução com evidência, o gestor registra o recebimento provisório e o definitivo (`atestada`), e a contratada registra a nota fiscal. O lado TRF1 gera o PDF da cotação para o SEI. As telas estão em `app/(dashboard)/cotacoes/` e `app/(dashboard)/configuracoes/material/`; as rotas, em `app/api/cotacoes/`, `app/api/chamados/[id]/cotacao-material/` e `app/api/cron/material-conciliacao/`. Spec: `docs/specs/0019-cotacao-material/` (`index.md` é a construção, `funcional.md` as regras de negócio, `verify.md` os passos de verificação).
 
 ## Arquivos principais
 
@@ -16,6 +16,8 @@ As regras da cotação de material (spec 0019, só a Fatia 1 construída): o té
 | `avisos.ts`     | `avisarSituacao`: `Notification`, email e Socket.IO para quem age na etapa seguinte                                                                                                              |
 | `cadastro.ts`   | Empenhos, faixas e designações do Admin, e o painel do que falta                                                                                                                                 |
 | `config.ts`     | `lerMaterialConfig`, os parâmetros copiados para a trilha a cada ato                                                                                                                             |
+| `prazos.ts`     | `prazoDoAteste`: 5 dias corridos por etapa do ateste, contados no dia de Belém; só gera o selo, nunca bloqueia                                                                                   |
+| `pdf/`          | `gerarPdfCotacao` (`gerar.tsx`) e o documento (`CotacaoMaterialPdf.tsx`): o PDF para o SEI, com a emissão e o SHA-256 gravados antes da entrega                                                  |
 
 Constantes, textos e schemas ficam em `shared/material/` (`material.constants.ts`, `mensagens.ts` com todo texto de situação, impedimento e aviso, `valores.ts` com a conta em centavos, `cotacao.schemas.ts`).
 
@@ -31,6 +33,9 @@ Constantes, textos e schemas ficam em `shared/material/` (`material.constants.ts
 - A pausa por cotação só nasce do envio da cotação (`pauseLogId` na cotação) e só sai pela cotação: a retomada manual é recusada enquanto essa pausa estiver aberta. O motivo `falta_peca_aprovacao_cliente` não aparece no `PauseTicketDialog`.
 - Trilha, designações, faixas e emissões de PDF são só de inclusão: `models/_somente-inclusao.ts` recusa update, delete, replace, `save` de documento existente e `bulkWrite`. As únicas escritas são `revogarDesignacao` e `desativarFaixa`, com a opção `OPCAO_ESCRITA_PROPRIA` e `$set` só nos próprios campos.
 - Avisos nunca levam valor, em nenhum canal. O título sai de `tituloAvisoCotacao` (`shared/material/mensagens.ts`). O evento `material:cotacao_situacao` entra nas mesmas listas que os outros eventos do Socket.IO.
+- O ateste e a nota fiscal (fatia 2) são ações de `transicionar` que mantêm ou mudam a situação: `receber_provisorio` (gestor, continua `executada`), `receber_definitivo` (gestor, vai a `atestada`) e `registrar_nf` (responsável técnico, só na `atestada`, uma vez, sem data futura). Só a mudança de situação dispara `avisarSituacao`; a nota fiscal tem aviso próprio, `avisarNotaFiscal`, para os gestores, e o provisório não avisa.
+- O PDF da cotação é só de quem tem papel do lado TRF1 (`papeis.ladoTrf1`): o Admin sem designação lê a cotação, mas não emite. Rascunho responde 409. Cada emissão grava `CotacaoMaterialPdfEmissao` (só inclusão) com o SHA-256 dos bytes antes de entregar, e a geração divide com o relatório por contrato a trava de um PDF por vez (`lib/contratos/pdf/trava.ts`).
+- A atestada que ainda deve a nota fiscal continua visível para a contratada por mais de 90 dias (`deveNotaFiscal` em `serializar.ts`, repetida no filtro de `listarFila`). O selo de atraso do ateste (`prazoAteste`) sai só para o lado TRF1; a contratada vê as datas e os nomes dos recebimentos.
 - Nenhuma função daqui lança erro de regra: devolve `{ ok: false, error, impedimentos? }`. Ids repetidos no rascunho (item, orçamento, arquivo, preço) são recusados no schema e de novo em `salvarRascunho`.
 
 ## Comandos
@@ -42,7 +47,8 @@ MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/materi
 ## Gotchas
 
 - Sem empenho elegível (ativo, do exercício corrente e na vigência, em Belém), faixas e designações cadastrados em `/configuracoes/material`, a cotação é montada e analisada, mas não é encaminhada nem aprovada. O painel "O que falta" da página mostra o que falta.
-- Fatias 2 a 5 da spec 0019 (ateste e PDF, Anexo V e SINAPI, controles do caminho 3, advertências e relatório) ainda não existem. Os campos delas já estão nos modelos, sem uso.
+- Fatias 3 a 5 da spec 0019 (Anexo V e SINAPI, controles do caminho 3 e urgência, advertências e relatório) ainda não existem. Os campos delas já estão nos modelos, sem uso.
+- O texto do PDF usa a Helvetica padrão, que não tem a seta `→`: escreva a mudança por extenso ("de X para Y"), senão sai um caractere trocado.
 - O E2E `e2e/cotacao-flow.spec.ts` prepara empenho, faixa e designações pelo `e2e/fixtures/material.ts`, de forma idempotente, no banco do `MONGODB_URI`.
 
 _Drafted by /sync from the introducing change, worth a quick human pass._
