@@ -486,7 +486,7 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Candidatos na troca de unidade**: recalcular os candidatos para a unidade nova escolhida no cartão, se a gestão sentir falta · from spec 0014
 - **Fotos do ativo**: foto do equipamento na ficha e na vistoria; decidir junto com Fotos no chat (19) onde as fotos ficam guardadas · from proposta da spec 0011, fatia 2
 - **Rever a regra do local vago na autonomia**: hoje o portão e a atribuição automática não olham o local; reabrir a decisão quando técnicos ou Prepostos relatarem idas ao lugar errado ou perguntas frequentes de local em chamados atribuídos sozinhos · from spec 0020
-- **Texto do assistente com o cartão na tela**: o modelo às vezes segue perguntando com o cartão já mostrado, ou diz que o chamado foi aberto; corrigir no prompt, com `PROMPT_VERSION` novo (desliga a autonomia até o Admin salvar a calibração de novo) · from spec 0020
+- **Texto do assistente com o cartão na tela**: o modelo às vezes segue perguntando com o cartão já mostrado, ou diz que o chamado foi aberto; corrigir no prompt, com `PROMPT_VERSION` novo (desliga a autonomia até o Admin salvar a calibração de novo) · from spec 0020 · feito em 19/10/2026 (PR #65, `PROMPT_VERSION` 3)
 
 ## Legend
 
