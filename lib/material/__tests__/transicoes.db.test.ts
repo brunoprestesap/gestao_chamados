@@ -14,7 +14,7 @@ import {
  * verdade (spec 0019): o rascunho, a devolução, a alteração depois de
  * autorizar, a reprovação, a versão desatualizada e quem pode cada ato.
  *
- * covers: AC-1, AC-2, AC-5, AC-7, AC-9, AC-10, AC-11, AC-12, AC-14
+ * covers: AC-1, AC-2, AC-5, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-14, AC-19
  */
 
 /** Limpa pela coleção crua: o model só de inclusão recusa `deleteMany`. */
@@ -574,6 +574,265 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       );
       expect(reservas).toEqual([{ empenhoId: String(cot?.empenhoId), valor: 2000 }]);
       expect(empenhos.reduce((s, e) => s + e.comprometidoCentavos, 0)).toBe(2000);
+    });
+  });
+
+  describe('fechamento da fatia 1', () => {
+    const MIN = 60_000;
+
+    /** Reserva sem gravação da cotação: a aprovação caiu entre os dois passos. */
+    async function reservaPresa(cotacaoId: string, empenhoId: string, idadeMs: number) {
+      await M.Empenho.collection.updateOne(
+        { _id: new Types.ObjectId(empenhoId) },
+        {
+          $push: {
+            reservas: {
+              cotacaoId: new Types.ObjectId(cotacaoId),
+              valorCentavos: 2000,
+              em: new Date(Date.now() - idadeMs),
+            },
+          } as never,
+          $inc: { comprometidoCentavos: 2000 },
+        },
+      );
+    }
+
+    const aprovar = (c: { id: string; versao: number }, empenhoId: string) =>
+      t.transicionar({
+        cotacaoId: c.id,
+        acao: 'aprovar',
+        versao: c.versao,
+        ator: usuario(ids.aprovador, 'Admin'),
+        empenhoId,
+      });
+
+    it('aprovar de novo depois de uma queda solta a reserva antiga e reserva uma vez só (AC-8)', async () => {
+      const c = await ate(['assumir', 'encaminhar']);
+      await reservaPresa(c.id, c.empenhoId!, 11 * MIN);
+
+      const r = await aprovar(c, c.empenhoId!);
+
+      expect(r.ok).toBe(true);
+      const emp = await M.Empenho.findById(c.empenhoId).lean();
+      expect(emp?.reservas).toHaveLength(1);
+      expect(emp?.comprometidoCentavos).toBe(2000);
+    });
+
+    it('reserva presa há poucos minutos dá a mensagem de aprovação em andamento, sem mudar nada (AC-8)', async () => {
+      const { MSG_APROVACAO_EM_ANDAMENTO } = await import('@/shared/material/mensagens');
+      const c = await ate(['assumir', 'encaminhar']);
+      await reservaPresa(c.id, c.empenhoId!, 2 * MIN);
+
+      const r = await aprovar(c, c.empenhoId!);
+
+      expect(r.ok).toBe(false);
+      expect(!r.ok && r.error).toBe(MSG_APROVACAO_EM_ANDAMENTO);
+      expect((await M.Cotacao.findById(c.id).lean())?.situacao).toBe('em_aprovacao');
+      expect((await M.Empenho.findById(c.empenhoId).lean())?.comprometidoCentavos).toBe(2000);
+    });
+
+    it('a conciliação libera reserva de cotação que não existe sem gravar evento falso (AC-8)', async () => {
+      const { conciliarReservas } = await import('../saldo');
+      const empenhoId = await empenho();
+      const fantasma = String(new Types.ObjectId());
+      await reservaPresa(fantasma, empenhoId, 11 * MIN);
+      const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const r = await conciliarReservas();
+      aviso.mockRestore();
+
+      expect(r.liberadas).toBe(1);
+      expect((await M.Empenho.findById(empenhoId).lean())?.comprometidoCentavos).toBe(0);
+      expect(await M.Evento.countDocuments({ cotacaoId: new Types.ObjectId(fantasma) })).toBe(0);
+    });
+
+    it('a cotação anterior precisa ser do mesmo chamado e já fora do trâmite (RN-16)', async () => {
+      const deOutro = await enviada();
+      const ch = await chamado();
+
+      const outroChamado = await t.criarCotacao(
+        { userId: ids.tecnico },
+        { chamadoId: ch, itens: [itemBase], cotacaoAnteriorId: deOutro.id },
+      );
+      const inexistente = await t.criarCotacao(
+        { userId: ids.tecnico },
+        { chamadoId: ch, itens: [itemBase], cotacaoAnteriorId: String(new Types.ObjectId()) },
+      );
+
+      expect(outroChamado.ok).toBe(false);
+      expect(inexistente.ok).toBe(false);
+      expect(await M.Cotacao.countDocuments({ chamadoId: new Types.ObjectId(ch) })).toBe(0);
+    });
+
+    it('o envio leva o ativo vinculado ao chamado depois da criação', async () => {
+      const c = await criada();
+      const ativoNovo = new Types.ObjectId();
+      await M.Chamado.collection.updateOne(
+        { _id: new Types.ObjectId(c.chamadoId) },
+        { $set: { ativoId: ativoNovo } },
+      );
+      const s = await t.salvarRascunho(rt(), {
+        id: c.id,
+        versao: c.versao,
+        itens: [{ id: c.itemId, ...itemBase }],
+        orcamentos: await orcamentos(c.id, c.itemId),
+      });
+      if (!s.ok) throw new Error(s.error);
+
+      const r = await t.transicionar({
+        cotacaoId: c.id,
+        acao: 'enviar',
+        versao: s.versao,
+        ator: rt(),
+      });
+
+      expect(r.ok).toBe(true);
+      expect(String((await M.Cotacao.findById(c.id).lean())?.ativoId)).toBe(String(ativoNovo));
+    });
+
+    it('quem deixou de ser Admin perde fiscal sem o Admin revogar a designação (AC-19)', async () => {
+      const c = await enviada();
+      await M.User.collection.updateOne(
+        { _id: new Types.ObjectId(ids.fiscal) },
+        { $set: { role: 'Solicitante' } },
+      );
+      const { designadosVigentes } = await import('../papeis');
+
+      // O token da sessão ainda diz Admin; vale o perfil do banco.
+      const r = await t.transicionar({
+        cotacaoId: c.id,
+        acao: 'assumir',
+        versao: c.versao,
+        ator: fiscal(),
+      });
+
+      expect(r.ok).toBe(false);
+      expect((await designadosVigentes('fiscal')).map((d) => d.userId)).not.toContain(ids.fiscal);
+    });
+
+    it('designação que começa amanhã em Belém ainda não vale às 22:00 de hoje em Belém', async () => {
+      const { papeisDe } = await import('../papeis');
+      await M.Designacao.create({
+        userId: new Types.ObjectId(ids.estranho),
+        papel: 'gestor',
+        vigenciaInicio: '2026-10-20',
+        ato: 'Portaria',
+        criadoPorUserId: new Types.ObjectId(),
+        em: new Date(),
+      });
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        // 01:00 UTC do dia 20 ainda é 22:00 do dia 19 em Belém.
+        vi.setSystemTime(new Date('2026-10-20T01:00:00Z'));
+        expect((await papeisDe(ids.estranho, 'Admin')).tem('gestor')).toBe(false);
+        vi.setSystemTime(new Date('2026-10-20T03:00:00Z'));
+        expect((await papeisDe(ids.estranho, 'Admin')).tem('gestor')).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('cancelar o chamado cancela a cotação com quem cancelou como autor (AC-12)', async () => {
+      const { cancelarCotacaoPeloChamado } = await import('../chamado');
+      const c = await ate(['assumir', 'encaminhar', 'aprovar']);
+
+      const ok = await cancelarCotacaoPeloChamado({
+        chamadoId: c.chamadoId,
+        userId: ids.gestor,
+        motivo: 'chamado_cancelado',
+      });
+
+      expect(ok).toBe(true);
+      const ev = await M.Evento.findOne({
+        cotacaoId: new Types.ObjectId(c.id),
+        acao: 'cancelar',
+        de: 'autorizada',
+      }).lean();
+      expect(ev).toMatchObject({ papel: 'sistema', motivo: 'chamado_cancelado' });
+      expect(String(ev?.autorUserId)).toBe(ids.gestor);
+    });
+
+    it('a rodada diária grava chamado_recusado para chamado recusado (AC-12)', async () => {
+      const { cancelarCotacoesDeChamadosEncerrados } = await import('../chamado');
+      const c = await ate(['assumir', 'encaminhar', 'aprovar']);
+      await M.Chamado.collection.updateOne(
+        { _id: new Types.ObjectId(c.chamadoId) },
+        { $set: { status: 'recusado' } },
+      );
+
+      const r = await cancelarCotacoesDeChamadosEncerrados();
+
+      expect(r.canceladas).toBe(1);
+      const ev = await M.Evento.findOne({
+        cotacaoId: new Types.ObjectId(c.id),
+        acao: 'cancelar',
+        de: 'autorizada',
+      }).lean();
+      expect(ev).toMatchObject({ papel: 'sistema', motivo: 'chamado_recusado', autorUserId: null });
+      expect((await M.Empenho.findById(c.empenhoId).lean())?.comprometidoCentavos).toBe(0);
+    });
+
+    it('cancelar em aprovação não mexe no empenho (AC-12)', async () => {
+      const { cancelarCotacaoPeloChamado } = await import('../chamado');
+      const c = await ate(['assumir', 'encaminhar']);
+
+      const ok = await cancelarCotacaoPeloChamado({
+        chamadoId: c.chamadoId,
+        userId: ids.gestor,
+        motivo: 'chamado_cancelado',
+      });
+
+      expect(ok).toBe(true);
+      expect((await M.Cotacao.findById(c.id).lean())?.situacao).toBe('cancelada');
+      const emp = await M.Empenho.findById(c.empenhoId).lean();
+      expect(emp?.comprometidoCentavos).toBe(0);
+      expect(emp?.reservas).toHaveLength(0);
+      expect(
+        await M.Evento.countDocuments({
+          cotacaoId: new Types.ObjectId(c.id),
+          empenhoId: { $ne: null },
+        }),
+      ).toBe(0);
+    });
+
+    it('a rodada diária que perde a corrida para uma ação manual não cancela nem lança, e a próxima termina (AC-12)', async () => {
+      const { cancelarCotacoesDeChamadosEncerrados } = await import('../chamado');
+      const c = await ate(['assumir', 'encaminhar', 'aprovar']);
+      await M.Chamado.collection.updateOne(
+        { _id: new Types.ObjectId(c.chamadoId) },
+        { $set: { status: 'cancelado' } },
+      );
+      // Uma ação manual muda a versão entre a leitura e a gravação da rodada.
+      const original = M.Cotacao.findOneAndUpdate.bind(M.Cotacao);
+      const espiao = vi.spyOn(M.Cotacao, 'findOneAndUpdate').mockImplementationOnce(((
+        ...args: Parameters<typeof original>
+      ) => {
+        const q = original(...args);
+        const exec = q.exec.bind(q);
+        q.exec = (async () => {
+          await M.Cotacao.collection.updateOne(
+            { _id: new Types.ObjectId(c.id) },
+            { $inc: { versao: 1 } },
+          );
+          return exec();
+        }) as typeof q.exec;
+        return q;
+      }) as never);
+      const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      try {
+        const primeira = await cancelarCotacoesDeChamadosEncerrados();
+        expect(primeira.canceladas).toBe(0);
+        expect((await M.Cotacao.findById(c.id).lean())?.situacao).toBe('autorizada');
+        expect((await M.Empenho.findById(c.empenhoId).lean())?.comprometidoCentavos).toBe(2000);
+      } finally {
+        espiao.mockRestore();
+        erro.mockRestore();
+      }
+
+      const segunda = await cancelarCotacoesDeChamadosEncerrados();
+      expect(segunda.canceladas).toBe(1);
+      expect((await M.Empenho.findById(c.empenhoId).lean())?.comprometidoCentavos).toBe(0);
     });
   });
 

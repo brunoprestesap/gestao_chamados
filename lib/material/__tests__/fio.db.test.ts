@@ -536,17 +536,15 @@ rodar('fio da cotação de material, contra o Mongo', () => {
   });
 
   it('quem montou não aprova (AC-7)', async () => {
-    // O responsável técnico também é aprovador nesta prova.
+    // Quem montou como responsável técnico depois vira Admin e aprovador: o
+    // perfil não deixa ter os dois papéis ao mesmo tempo (AC-19), mas a trava
+    // de quem montou vale mesmo assim.
     const faixa = await M.Faixa.create({
       nome: 'RT',
       limiteCentavos: 1_000_00,
       criadoPorUserId: new Types.ObjectId(),
       em: new Date(),
     });
-    await M.User.collection.updateOne(
-      { _id: new Types.ObjectId(ids.rt) },
-      { $set: { role: 'Admin' } },
-    );
     await M.Designacao.create({
       userId: new Types.ObjectId(ids.rt),
       papel: 'aprovador',
@@ -571,6 +569,10 @@ rodar('fio da cotação de material, contra o Mongo', () => {
       versao: a.ok ? a.versao : 0,
       ator: usuario(ids.fiscal, 'Admin'),
     });
+    await M.User.collection.updateOne(
+      { _id: new Types.ObjectId(ids.rt) },
+      { $set: { role: 'Admin' } },
+    );
 
     const r = await t.transicionar({
       cotacaoId: id,

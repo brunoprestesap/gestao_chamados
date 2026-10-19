@@ -24,7 +24,11 @@ import {
   SITUACOES_EDITAVEIS,
   SITUACOES_EM_TRAMITE,
 } from '@/shared/material/material.constants';
-import { type CodigoControle, MSG_VERSAO_DESATUALIZADA } from '@/shared/material/mensagens';
+import {
+  type CodigoControle,
+  MSG_APROVACAO_EM_ANDAMENTO,
+  MSG_VERSAO_DESATUALIZADA,
+} from '@/shared/material/mensagens';
 import {
   menorPrecoDoItem,
   valorDaLinhaCentavos,
@@ -39,7 +43,14 @@ import {
   retomarPelaCotacao,
 } from './chamado';
 import { limiteDoAprovador, type Papeis, papeisDe } from './papeis';
-import { ajustar, haSaldoElegivel, liberar, reservar } from './saldo';
+import {
+  ajustar,
+  conciliarReservas,
+  haSaldoElegivel,
+  liberar,
+  reservar,
+  temReserva,
+} from './saldo';
 
 /**
  * Máquina de estados da cotação de material (spec 0019). Toda ação passa por
@@ -238,6 +249,20 @@ export async function criarCotacao(
     emTramite: true,
   });
   if (existente) return { ok: false, error: 'Este chamado já tem uma cotação em trâmite.' };
+  // A anterior (RN-16) é do mesmo chamado e já saiu do trâmite.
+  if (
+    entrada.cotacaoAnteriorId &&
+    !(await CotacaoMaterialModel.exists({
+      _id: new Types.ObjectId(entrada.cotacaoAnteriorId),
+      chamadoId: chamado._id,
+      emTramite: false,
+    }))
+  ) {
+    return {
+      ok: false,
+      error: 'A cotação anterior citada não é deste chamado ou ainda está em trâmite.',
+    };
+  }
 
   const agora = new Date();
   const numero = await gerarNumero(agora);
@@ -630,12 +655,23 @@ export async function transicionar(
 
   // 2. Só no aprovar: a reserva no empenho (passo de restrição).
   if (e.acao === 'aprovar') {
-    const ok = await reservar({
-      empenhoId: e.empenhoId!,
-      cotacaoId: String(cot._id),
-      valorCentavos: cot.valorTotalCentavos,
-      agora,
-    });
+    const tentarReservar = () =>
+      reservar({
+        empenhoId: e.empenhoId!,
+        cotacaoId: String(cot._id),
+        valorCentavos: cot.valorTotalCentavos,
+        agora,
+      });
+    let ok = await tentarReservar();
+    // Uma aprovação que caiu entre a reserva e a gravação deixa a reserva presa,
+    // e a repetição diria "sem saldo" até o cron. A mesma regra da conciliação,
+    // só para esta cotação, solta a reserva antiga e tenta de novo.
+    if (!ok && (await conciliarReservas(agora, { cotacaoId: String(cot._id) })).liberadas > 0) {
+      ok = await tentarReservar();
+    }
+    if (!ok && (await temReserva(String(cot._id)))) {
+      return { ok: false, error: MSG_APROVACAO_EM_ANDAMENTO };
+    }
     if (!ok) {
       return {
         ok: false,

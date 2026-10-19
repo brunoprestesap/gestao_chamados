@@ -213,9 +213,8 @@ rodar('saldo do empenho, contra o Mongo', () => {
     const e = await lido(id);
     expect(e?.comprometidoCentavos).toBe(20_00);
     expect(e?.reservas.map((x) => String(x.cotacaoId))).toEqual([String(autorizada._id)]);
-    const evento = await CotacaoMaterialEventoModel.findOne({ cotacaoId: orfa }).lean();
-    expect(evento?.papel).toBe('sistema');
-    expect(evento?.valorCentavos).toBe(-30_00);
+    // A órfã não tem cotação, então não há trilha onde gravar o evento.
+    expect(await CotacaoMaterialEventoModel.countDocuments({ cotacaoId: orfa })).toBe(0);
   });
 
   it('conciliação libera reserva da cotação autorizada que está no empenho errado (AC-8)', async () => {
