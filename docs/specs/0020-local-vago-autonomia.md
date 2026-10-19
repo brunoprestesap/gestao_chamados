@@ -96,7 +96,7 @@ O custo de errar é baixo e corrigível: o técnico vê o chamado, pergunta pela
 
 Nenhuma tarefa de código: a regra do AC-1 já está no PR #61, e os AC-2 e AC-3 descrevem o comportamento que já existe.
 
-1. Atualizar a spec 0004 (AC-4 e a linha "decidir se grava cartão") para apontar para esta spec, por `/sync` depois do merge do PR #61, satisfies **AC-1**
+1. Atualizar a spec 0004 (AC-4, o campo `completo`, a linha "decidir se grava cartão" e o cenário de teste do cartão que muda) para apontar para esta spec, por `/architect` depois do merge do PR #61, satisfies **AC-1**
 2. Registrar no scope os dois itens de acompanhamento abaixo, satisfies **AC-2**
 
 ## Consequences
