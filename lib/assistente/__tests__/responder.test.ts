@@ -77,7 +77,6 @@ const CARTAO_VELHO = '6aad5286df6f201a25eda5f6';
 const MSG_SISTEMA = '6aad5286df6f201a25eda5f7';
 const SERVICO_ID = '6aad5286df6f201a25edb001';
 const SUBTIPO_ID = '6aad5286df6f201a25edb002';
-const OUTRO_SERVICO_ID = '6aad5286df6f201a25edb003';
 const UNIDADE_ID = '6aad5286df6f201a25edc001';
 const TEXTO = 'A lâmpada da sala 302 queimou.';
 
@@ -205,6 +204,11 @@ function cartaoAtual(extra: Record<string, unknown> = {}) {
       ...extra,
     },
   };
+}
+
+/** O cartão manual (`Revisar e abrir` sem serviço): o único que vale com proposta não pronta. */
+function cartaoManual(extra: Record<string, unknown> = {}) {
+  return cartaoAtual({ modo: 'manual', servico: null, ...extra });
 }
 
 function estado(proposta: unknown, cartao: unknown = null) {
@@ -746,18 +750,11 @@ describe('responderNaConversa · cartão que muda', () => {
     });
   });
 
-  it('invalida o cartão quando o serviço muda sem a proposta estar completa', async () => {
+  it('invalida o cartão quando o serviço deixa de ser reconhecido', async () => {
     // Arrange
     mockLerProposta.mockReset();
     mockLerProposta.mockResolvedValue(
-      estado(
-        propostaLida({
-          cartaoMensagemId: CARTAO_VELHO,
-          completo: false,
-          servico: { ...propostaLida().servico, catalogServiceId: OUTRO_SERVICO_ID },
-        }),
-        cartaoAtual(),
-      ),
+      estado(propostaLida({ cartaoMensagemId: CARTAO_VELHO, servico: null }), cartaoAtual()),
     );
 
     // Act
@@ -771,6 +768,20 @@ describe('responderNaConversa · cartão que muda', () => {
       cartao: null,
       substituiId: CARTAO_VELHO,
     });
+  });
+
+  it('grava cartão com serviço e local mesmo quando o modelo diz que não está completo', async () => {
+    // Arrange: o caso do Qwen que pedia o local sem fim
+    mockLerProposta.mockReset();
+    mockLerProposta.mockResolvedValue(estado(propostaLida({ completo: false })));
+    mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
+
+    // Act
+    const quadros = await responder();
+
+    // Assert
+    expect(mockGravarCartao).toHaveBeenCalledTimes(1);
+    expect(quadros.at(-1)).toMatchObject({ tipo: 'cartao', mensagemId: CARTAO_NOVO });
   });
 
   it('não grava cartão sem local, mesmo com serviço e completo', async () => {
@@ -1031,10 +1042,10 @@ describe('responderNaConversa · equipamento (spec 0014, AC-7, AC-13)', () => {
   });
 
   it('sem código e sem proposta pronta, não consulta o banco e não decide nada pelo ativo', async () => {
-    // Arrange: proposta incompleta, cartão valendo com ativo
+    // Arrange: proposta sem serviço, cartão manual valendo com ativo
     mockLerProposta.mockReset();
     mockLerProposta.mockResolvedValue(
-      estado(propostaLida({ completo: false }), cartaoAtual({ ativo: ATIVO })),
+      estado(propostaLida({ servico: null }), cartaoManual({ ativo: ATIVO })),
     );
     mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
 
@@ -1052,7 +1063,7 @@ describe('responderNaConversa · equipamento (spec 0014, AC-7, AC-13)', () => {
       conversaLida('rascunho', [{ autor: 'solicitante', tipo: 'texto', texto: 'tombo 11997' }]),
     );
     mockLerProposta.mockReset();
-    mockLerProposta.mockResolvedValue(estado(propostaLida({ completo: false })));
+    mockLerProposta.mockResolvedValue(estado(propostaLida({ servico: null })));
     mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
 
     await responder('continua pingando');
@@ -1069,7 +1080,7 @@ describe('responderNaConversa · equipamento (spec 0014, AC-7, AC-13)', () => {
       ]),
     );
     mockLerProposta.mockReset();
-    mockLerProposta.mockResolvedValue(estado(propostaLida({ completo: false })));
+    mockLerProposta.mockResolvedValue(estado(propostaLida({ servico: null })));
     mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
 
     await responder('não sei');
@@ -1130,7 +1141,7 @@ describe('responderNaConversa · chamados parecidos (spec 0017, AC-5a, AC-8, AC-
       conversaLida('rascunho', [{ autor: 'solicitante', tipo: 'texto', texto: 'tombo 11997' }]),
     );
     mockLerProposta.mockReset();
-    mockLerProposta.mockResolvedValue(estado(propostaLida({ completo: false })));
+    mockLerProposta.mockResolvedValue(estado(propostaLida({ servico: null })));
     mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));
 
     await responder('continua pingando');
@@ -1140,15 +1151,15 @@ describe('responderNaConversa · chamados parecidos (spec 0017, AC-5a, AC-8, AC-
   });
 
   it('no turno só com código, a chave dos parecidos do cartão que vale é mantida (AC-8)', async () => {
-    // Arrange: cartão valendo com um parecido; turno sem proposta pronta, mas com código
+    // Arrange: cartão manual valendo com um parecido; turno sem proposta pronta, mas com código
     mockLerConversa.mockResolvedValue(
       conversaLida('rascunho', [{ autor: 'solicitante', tipo: 'texto', texto: 'tombo 11997' }]),
     );
     mockLerProposta.mockReset();
     mockLerProposta.mockResolvedValue(
       estado(
-        propostaLida({ completo: false }),
-        cartaoAtual({ ativo: null, duplicados: [PARECIDO] }),
+        propostaLida({ servico: null }),
+        cartaoManual({ ativo: null, duplicados: [PARECIDO] }),
       ),
     );
     mockStream.mockResolvedValue(fluxo([], finalOk({ completo: false })));

@@ -373,7 +373,7 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
     expect(await m.ConversaMensagemModel.countDocuments({ conversaId, tipo: 'cartao' })).toBe(1);
   });
 
-  it('serviço que muda sem completar invalida o cartão e confirmar o velho falha (AC-4, AC-12)', async () => {
+  it('serviço que muda sem local invalida o cartão e confirmar o velho falha (AC-4, AC-12)', async () => {
     // Arrange: um segundo serviço no catálogo
     await m.ServiceCatalogModel.create({
       code: 'ELET-0002',
@@ -383,7 +383,7 @@ rodar('abertura do chamado pela conversa, contra o Mongo e o vLLM falso', () => 
     } as never);
     const conversaId = await novaConversa();
     enfileirar();
-    enfileirar({ servicoCodigo: 'ELET-0002', completo: false });
+    enfileirar({ servicoCodigo: 'ELET-0002', localExato: null });
     const cartao = cartaoDe(await responder(conversaId, 'A lâmpada da sala 302 queimou.'));
 
     // Act
