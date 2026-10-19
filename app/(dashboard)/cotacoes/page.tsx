@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { PageHeader } from '@/components/dashboard/header';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -26,6 +27,9 @@ const ROTULO_ABA: Record<AbaFila, string> = {
   todas: 'Todas',
 };
 
+const data = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Belem' }) : '—';
+
 function idade(iso: string): string {
   const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
   return dias === 0 ? 'hoje' : dias === 1 ? '1 dia' : `${dias} dias`;
@@ -33,7 +37,9 @@ function idade(iso: string): string {
 
 /**
  * A fila das cotações de material (spec 0019). Abre para quem tem
- * designação vigente; o Admin sem designação lê tudo sem ações. O técnico
+ * designação vigente; o Admin sem designação lê tudo, e só gera o PDF. A
+ * contratada tem `Minhas ações`, `Ateste` e `Todas`, e em `Ateste` vê as
+ * datas do recebimento e a NF pendente, sem selo de prazo (AC-21). O técnico
  * opera pelo cartão do chamado.
  */
 export default async function CotacoesPage({
@@ -49,6 +55,8 @@ export default async function CotacoesPage({
   await dbConnect();
   const fila = await listarFila({ userId: sessao.userId, role: sessao.role }, aba);
   if (!fila) redirect('/dashboard');
+  const comRecebimento = fila.aba === 'ateste';
+  const colunas = 5 + (fila.trf1 ? 1 : 0) + (comRecebimento ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -58,14 +66,14 @@ export default async function CotacoesPage({
       />
 
       <nav aria-label="Abas da fila" className="flex flex-wrap gap-2">
-        {ABAS_FILA.map((a) => (
+        {fila.abas.map((a) => (
           <Link
             key={a}
             href={`/cotacoes?aba=${a}`}
-            aria-current={a === aba ? 'page' : undefined}
+            aria-current={a === fila.aba ? 'page' : undefined}
             className={cn(
               'rounded-lg border px-3 py-1.5 text-sm transition-colors',
-              a === aba
+              a === fila.aba
                 ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-border hover:bg-muted',
             )}
@@ -84,13 +92,14 @@ export default async function CotacoesPage({
               <TableHead>Ativo</TableHead>
               {fila.trf1 && <TableHead className="text-right">Valor</TableHead>}
               <TableHead>Situação</TableHead>
+              {comRecebimento && <TableHead>Recebimento</TableHead>}
               <TableHead>Idade</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {fila.linhas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={colunas} className="py-10 text-center text-muted-foreground">
                   Nada nesta aba.
                 </TableCell>
               </TableRow>
@@ -116,8 +125,23 @@ export default async function CotacoesPage({
                   <div className="flex flex-wrap items-center gap-1.5">
                     <SituacaoBadge situacao={l.situacao} />
                     <SeloPrazoAteste prazo={l.prazoAteste} />
+                    {l.notaFiscalPendente && (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-300 text-amber-700 dark:text-amber-300"
+                      >
+                        Nota fiscal pendente
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
+                {comRecebimento && (
+                  <TableCell className="text-xs text-muted-foreground">
+                    Provisório {data(l.recebimentoProvisorioEm)}
+                    <br />
+                    Definitivo {data(l.recebimentoDefinitivoEm)}
+                  </TableCell>
+                )}
                 <TableCell className="text-muted-foreground">{idade(l.atualizadaEm)}</TableCell>
               </TableRow>
             ))}

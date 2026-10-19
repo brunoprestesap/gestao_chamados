@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { SituacaoCotacao } from '@/shared/material/material.constants';
-import { ROTULO_ETAPA_ATESTE, ROTULO_SITUACAO } from '@/shared/material/mensagens';
+import { ROTULO_SITUACAO, textoSeloPrazoAteste } from '@/shared/material/mensagens';
 
 /** Apoio das telas da cotação de material (spec 0019). */
 
@@ -80,8 +80,6 @@ export function SeloPrazoAteste({
   prazo: { etapa: 'provisorio' | 'definitivo'; venceEm: string; atrasado: boolean } | null;
 }) {
   if (!prazo) return null;
-  const etapa = ROTULO_ETAPA_ATESTE[prazo.etapa];
-  const data = prazo.venceEm.split('-').reverse().join('/');
   return (
     <Badge
       variant="outline"
@@ -91,7 +89,7 @@ export function SeloPrazoAteste({
           : 'border-slate-300 text-slate-600 dark:text-slate-300',
       )}
     >
-      {prazo.atrasado ? `${etapa} atrasado (prazo ${data})` : `${etapa} até ${data}`}
+      {textoSeloPrazoAteste(prazo)}
     </Badge>
   );
 }

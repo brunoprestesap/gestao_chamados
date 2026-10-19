@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
+import { podeRemoverArquivo } from '@/lib/material/arquivos';
+import { papeisDe } from '@/lib/material/papeis';
 import {
   criarCotacao,
   type EntradaTransicao,
@@ -23,7 +25,7 @@ import {
   TransicaoComMotivoSchema,
   TransicaoSchema,
 } from '@/shared/material/cotacao.schemas';
-import { type SituacaoCotacao, SITUACOES_EDITAVEIS } from '@/shared/material/material.constants';
+import type { SituacaoCotacao } from '@/shared/material/material.constants';
 
 /**
  * Actions da cotação de material (spec 0019). Cada uma confere a sessão,
@@ -184,7 +186,10 @@ export async function registrarNotaFiscalAction(raw: unknown): Promise<Resultado
   return transicao('registrar_nf', { ...resto, notaFiscal: { numero, data, arquivoId } });
 }
 
-/** Remover só marca `removidoEm`, só em `rascunho` ou `devolvida`, e só para quem enviou. */
+/**
+ * Remover só marca `removidoEm`, só para quem enviou, em `rascunho` ou
+ * `devolvida` (e a NF ainda não ligada na `atestada`, `podeRemoverArquivo`).
+ */
 export async function removerArquivoAction(raw: unknown): Promise<ResultadoMaterial> {
   const arquivoId =
     typeof raw === 'object' && raw ? (raw as { arquivoId?: unknown }).arquivoId : null;
@@ -199,8 +204,21 @@ export async function removerArquivoAction(raw: unknown): Promise<ResultadoMater
       if (String(arq.enviadoPorUserId) !== s.userId) {
         return { ok: false, error: 'Só quem enviou remove o arquivo.' };
       }
-      const cot = await CotacaoMaterialModel.findById(arq.cotacaoId).select('situacao').lean();
-      if (!cot || !SITUACOES_EDITAVEIS.includes(cot.situacao as SituacaoCotacao)) {
+      const cot = await CotacaoMaterialModel.findById(arq.cotacaoId)
+        .select('situacao notaFiscal')
+        .lean();
+      // A exceção da `atestada` é do responsável técnico vigente, não só de quem enviou.
+      const responsavelTecnico =
+        cot?.situacao === 'atestada' &&
+        (await papeisDe(s.userId, s.role)).tem('responsavel_tecnico');
+      if (
+        !cot ||
+        !podeRemoverArquivo(
+          arq,
+          { situacao: cot.situacao as SituacaoCotacao, notaFiscal: cot.notaFiscal ?? null },
+          { responsavelTecnico },
+        )
+      ) {
         return { ok: false, error: 'O arquivo não pode mais ser removido nesta situação.' };
       }
       await ArquivoCotacaoModel.updateOne(

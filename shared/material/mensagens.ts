@@ -62,6 +62,17 @@ export const ROTULO_ETAPA_ATESTE = {
   definitivo: 'Recebimento definitivo',
 } as const;
 
+/** O texto do selo de prazo do ateste (AC-21); `venceEm` é `YYYY-MM-DD`. */
+export function textoSeloPrazoAteste(prazo: {
+  etapa: keyof typeof ROTULO_ETAPA_ATESTE;
+  venceEm: string;
+  atrasado: boolean;
+}): string {
+  const etapa = ROTULO_ETAPA_ATESTE[prazo.etapa];
+  const data = prazo.venceEm.split('-').reverse().join('/');
+  return prazo.atrasado ? `${etapa} atrasado (prazo ${data})` : `${etapa} até ${data}`;
+}
+
 export const ROTULO_PAPEL: Record<PapelEvento, string> = {
   responsavel_tecnico: 'Responsável técnico',
   fiscal: 'Fiscal',
@@ -175,6 +186,16 @@ export function tituloAvisoCotacao(numero: string, situacao: SituacaoCotacao): s
 export function tituloAvisoNotaFiscal(numero: string): string {
   return `Nota fiscal registrada na cotação ${numero}`;
 }
+
+/** Recusas da nota fiscal (AC-22), por código. */
+export const ERROS_NOTA_FISCAL = {
+  ja_registrada: 'A nota fiscal já foi registrada.',
+  ausente: 'Informe a nota fiscal.',
+  data_futura: 'A data da nota fiscal não pode ser posterior a hoje.',
+  data_antes_da_autorizacao: 'A data da nota fiscal não pode ser anterior ao dia da autorização.',
+  arquivo_ausente: 'Anexe o arquivo da nota fiscal.',
+} as const;
+export type CodigoErroNotaFiscal = keyof typeof ERROS_NOTA_FISCAL;
 
 /** Mensagem da conclusão do chamado recusada por cotação em trâmite (AC-13). */
 export const MSG_CONCLUSAO_COM_COTACAO =

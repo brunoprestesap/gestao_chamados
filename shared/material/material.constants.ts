@@ -74,6 +74,10 @@ export type PapelEvento = (typeof PAPEIS_EVENTO)[number];
 /** Lado TRF1: só Admin ativo recebe essas designações (AC-19). */
 export const PAPEIS_TRF1: readonly PapelDesignacao[] = ['fiscal', 'gestor', 'aprovador'];
 
+/** Com que papel o PDF da cotação foi emitido (AC-23): o da designação, ou `admin` sem ela. */
+export const PAPEIS_EMISSAO_PDF = ['fiscal', 'gestor', 'aprovador', 'admin'] as const;
+export type PapelEmissaoPdf = (typeof PAPEIS_EMISSAO_PDF)[number];
+
 /** Perfis que podem receber cada papel (AC-19). */
 export const PERFIS_POR_PAPEL: Record<PapelDesignacao, readonly string[]> = {
   responsavel_tecnico: ['Preposto', 'Técnico'],

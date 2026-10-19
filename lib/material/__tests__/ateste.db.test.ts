@@ -35,6 +35,14 @@ function cru(m: {
 
 const rodar = temMongoDeTeste ? describe : describe.skip;
 
+const DIA = 24 * 60 * 60 * 1000;
+/** Um dia de Belém, `YYYY-MM-DD`. */
+const diaEmBelem = (d: Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Belem' }).format(d);
+/** A autorização das cotações de teste: dez dias atrás, para a NF de ontem passar. */
+const AUTORIZADA_EM = new Date(Date.now() - 10 * DIA);
+const ONTEM = diaEmBelem(new Date(Date.now() - DIA));
+
 rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
   let t: typeof import('../transicoes');
   let pdf: typeof import('../pdf/gerar');
@@ -182,7 +190,7 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
       montadoPorUserId: new Types.ObjectId(ids.rt),
       valorTotalCentavos: 20_00,
       valorAutorizadoCentavos: 20_00,
-      autorizadoEm: agora,
+      autorizadoEm: AUTORIZADA_EM,
       executadoEm: agora,
       valorExecutadoCentavos: 20_00,
       recebimentoProvisorio: null,
@@ -295,7 +303,7 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
   it('nota fiscal: só na atestada, só o responsável técnico, com arquivo de NF e uma vez (AC-22)', async () => {
     const id = await executada();
     const arquivoId = await arquivoNf(id);
-    const nf = { numero: '123', data: '2026-10-18', arquivoId };
+    const nf = { numero: '123', data: ONTEM, arquivoId };
 
     const cedo = await t.transicionar({
       cotacaoId: id,
@@ -374,6 +382,7 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
     const emissao = await M.Emissao.findById(r.emissaoId).lean();
     expect(emissao?.sha256).toBe(createHash('sha256').update(r.bytes).digest('hex'));
     expect(String(emissao?.porUserId)).toBe(ids.fiscal);
+    expect(emissao?.papel).toBe('fiscal');
 
     // A emissão é só de inclusão.
     await expect(
@@ -418,7 +427,7 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
     const id = await executada();
     const outra = await executada();
     await atestar(id);
-    const nf = { numero: '77', data: '2026-10-18', arquivoId: await arquivoNf(id) };
+    const nf = { numero: '77', data: ONTEM, arquivoId: await arquivoNf(id) };
     const tentar = (dados: typeof nf) =>
       t.transicionar({
         cotacaoId: id,
@@ -430,7 +439,7 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
 
     expect(await tentar({ ...nf, data: '2999-01-01' })).toMatchObject({
       ok: false,
-      error: expect.stringMatching(/futura/),
+      error: 'A data da nota fiscal não pode ser posterior a hoje.',
     });
     expect(await tentar({ ...nf, arquivoId: await arquivoNf(outra) })).toMatchObject({
       ok: false,
@@ -458,7 +467,7 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
       cotacaoId: id,
       acao: 'registrar_nf',
       versao: 9,
-      notaFiscal: { numero: '88', data: '2026-10-18', arquivoId: await arquivoNf(id) },
+      notaFiscal: { numero: '88', data: ONTEM, arquivoId: await arquivoNf(id) },
       ator: usuario(ids.rt, 'Preposto'),
     });
     expect(r.ok).toBe(true);
@@ -468,6 +477,8 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
       [ids.gestor, expect.stringMatching(/^Nota fiscal registrada na cotação COT-T-/)],
     ]);
     expect(JSON.stringify(avisos)).not.toMatch(/R\$|2000/);
+    // O evento leva a marca da NF, para o cliente não mostrar o toast de "atestada".
+    expect(avisos[0]?.data).toMatchObject({ situacao: 'atestada', aviso: 'nota_fiscal' });
   });
 
   it('a contratada não perde a atestada que ainda deve a nota fiscal, por mais velha que seja (AC-22)', async () => {
@@ -486,7 +497,7 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
     });
     const rt = { userId: ids.rt, role: 'Preposto' };
 
-    for (const aba of ['minhas', 'todas'] as const) {
+    for (const aba of ['minhas', 'ateste', 'todas'] as const) {
       const fila = await leitura.listarFila(rt, aba);
       const vistas = fila?.linhas.map((l) => l.id) ?? [];
       expect(vistas).toContain(semNf);
@@ -496,6 +507,8 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
     expect(detalhe?.cotacao.visao).toBe('contratada');
     expect(detalhe?.acoes.registrarNotaFiscal).toBe(true);
     expect(await leitura.lerDetalhe(comNf, rt)).toBeNull();
+    const linha = (await leitura.listarFila(rt, 'ateste'))?.linhas.find((l) => l.id === semNf);
+    expect(linha?.notaFiscalPendente).toBe(true);
   });
 
   it('o selo de atraso é só do lado TRF1; a contratada vê as datas do recebimento (AC-21)', async () => {
@@ -509,32 +522,182 @@ rodar('ateste, nota fiscal e PDF da cotação, contra o Mongo', () => {
 
     const trf1 = await leitura.lerDetalhe(id, { userId: ids.gestor, role: 'Admin' });
     expect(trf1?.cotacao.prazoAteste).toMatchObject({ etapa: 'definitivo' });
+    expect(trf1?.cotacao.recebimentoProvisorio?.porNome).toBe('Gestora');
     const rt = await leitura.lerDetalhe(id, { userId: ids.rt, role: 'Preposto' });
     expect(rt?.cotacao.prazoAteste).toBeUndefined();
-    expect(rt?.cotacao.recebimentoProvisorio?.porNome).toBe('Gestora');
+    // A contratada vê a data do recebimento, sem o nome de quem recebeu, nem na trilha.
+    expect(rt?.cotacao.recebimentoProvisorio).toMatchObject({
+      porNome: null,
+      em: expect.any(String),
+    });
+    expect(rt?.cotacao.executadoEm).toEqual(expect.any(String));
+    const atoNaTrilha = rt?.cotacao.trilha?.find((e) => e.acao === 'receber_provisorio');
+    expect(atoNaTrilha).toMatchObject({ autorNome: null, papel: 'gestor' });
+    expect(JSON.stringify(rt?.cotacao)).not.toContain('Gestora');
+    // A execução do técnico continua com o nome dele.
+    expect(rt?.cotacao.trilha?.find((e) => e.acao === 'executar')?.autorNome).toBe('Técnico');
 
     const filaRt = await leitura.listarFila({ userId: ids.rt, role: 'Preposto' }, 'todas');
     expect(filaRt?.linhas.find((l) => l.id === id)?.prazoAteste).toBeNull();
+    const atesteRt = await leitura.listarFila({ userId: ids.rt, role: 'Preposto' }, 'ateste');
+    expect(atesteRt?.linhas.find((l) => l.id === id)).toMatchObject({
+      prazoAteste: null,
+      recebimentoProvisorioEm: expect.any(String),
+      recebimentoDefinitivoEm: null,
+    });
     const filaGestor = await leitura.listarFila({ userId: ids.gestor, role: 'Admin' }, 'ateste');
     expect(filaGestor?.linhas.find((l) => l.id === id)?.prazoAteste?.atrasado).toBe(false);
   });
 
-  it('o PDF recusa rascunho com 409 e o Admin sem designação com 403 (AC-23)', async () => {
+  it('o Admin sem designação gera o PDF com papel admin; o rascunho dá 404 ao TRF1 (AC-23)', async () => {
     const rascunho = await executada({ situacao: 'rascunho', emTramite: true });
     expect(
       await pdf.gerarPdfCotacao({
         cotacaoId: rascunho,
         sessao: { userId: ids.fiscal, role: 'Admin' },
       }),
-    ).toMatchObject({ ok: false, status: 409 });
+    ).toMatchObject({ ok: false, status: 404 });
 
     const id = await executada();
-    expect(
-      await pdf.gerarPdfCotacao({ cotacaoId: id, sessao: { userId: ids.admin, role: 'Admin' } }),
-    ).toMatchObject({ ok: false, status: 403 });
-    // O Admin sem designação continua lendo a cotação.
+    const r = await pdf.gerarPdfCotacao({
+      cotacaoId: id,
+      sessao: { userId: ids.admin, role: 'Admin' },
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const emissao = await M.Emissao.findById(r.emissaoId).lean();
+    expect(emissao).toMatchObject({ papel: 'admin' });
+    expect(String(emissao?.porUserId)).toBe(ids.admin);
+    // Gerar o PDF é a única ação do Admin sem designação.
     const leitor = await leitura.lerDetalhe(id, { userId: ids.admin, role: 'Admin' });
-    expect(leitor?.cotacao.visao).toBe('trf1');
+    expect(leitor?.acoes.gerarPdf).toBe(true);
+    expect(leitor?.acoes.receberProvisorio).toBe(false);
+  });
+
+  it('quem não é TRF1 recebe 403 antes da busca, mesmo com id inexistente ou rascunho (AC-23)', async () => {
+    const rascunho = await executada({ situacao: 'rascunho', emTramite: true });
+    for (const cotacaoId of [String(new Types.ObjectId()), rascunho, 'nao-e-id']) {
+      expect(
+        await pdf.gerarPdfCotacao({ cotacaoId, sessao: { userId: ids.rt, role: 'Preposto' } }),
+      ).toMatchObject({ ok: false, status: 403 });
+    }
     expect(await M.Emissao.countDocuments({})).toBe(0);
+  });
+
+  it('a emissão grava o papel da designação (AC-23)', async () => {
+    const id = await executada();
+    const r = await pdf.gerarPdfCotacao({
+      cotacaoId: id,
+      sessao: { userId: ids.gestor, role: 'Admin' },
+    });
+    if (!r.ok) throw new Error(r.error);
+    expect(await M.Emissao.findById(r.emissaoId).lean()).toMatchObject({ papel: 'gestor' });
+  });
+
+  it('a NF anterior ao dia da autorização é recusada; a do próprio dia passa (AC-22)', async () => {
+    const id = await executada();
+    await atestar(id);
+    const arquivoId = await arquivoNf(id);
+    const base = {
+      cotacaoId: id,
+      acao: 'registrar_nf' as const,
+      versao: 9,
+      ator: usuario(ids.rt, 'Preposto'),
+    };
+    const antes = await t.transicionar({
+      ...base,
+      notaFiscal: {
+        numero: '5',
+        data: diaEmBelem(new Date(AUTORIZADA_EM.getTime() - DIA)),
+        arquivoId,
+      },
+    });
+    expect(antes).toMatchObject({
+      ok: false,
+      error: 'A data da nota fiscal não pode ser anterior ao dia da autorização.',
+    });
+    const noDia = await t.transicionar({
+      ...base,
+      notaFiscal: { numero: '5', data: diaEmBelem(AUTORIZADA_EM), arquivoId },
+    });
+    expect(noDia.ok).toBe(true);
+  });
+
+  it('dois cliques na NF gravam uma e avisam uma vez (AC-16, AC-22)', async () => {
+    const id = await executada();
+    await atestar(id);
+    await esperarAvisos();
+    await M.Notification.collection.deleteMany({});
+    const arquivoId = await arquivoNf(id);
+    const clique = () =>
+      t.transicionar({
+        cotacaoId: id,
+        acao: 'registrar_nf',
+        versao: 9,
+        notaFiscal: { numero: '9', data: ONTEM, arquivoId },
+        ator: usuario(ids.rt, 'Preposto'),
+      });
+    const resultados = await Promise.all([clique(), clique()]);
+    expect(resultados.filter((r) => r.ok)).toHaveLength(1);
+    await esperarAvisos();
+    expect(await M.Notification.countDocuments({})).toBe(1);
+    expect(
+      await M.Evento.countDocuments({ cotacaoId: new Types.ObjectId(id), acao: 'registrar_nf' }),
+    ).toBe(1);
+  });
+
+  it('dois cliques no provisório gravam um só (AC-21)', async () => {
+    const id = await executada();
+    const clique = () =>
+      t.transicionar({
+        cotacaoId: id,
+        acao: 'receber_provisorio',
+        versao: 7,
+        ator: usuario(ids.gestor, 'Admin'),
+      });
+    const resultados = await Promise.all([clique(), clique()]);
+    expect(resultados.filter((r) => r.ok)).toHaveLength(1);
+    expect(
+      await M.Evento.countDocuments({
+        cotacaoId: new Types.ObjectId(id),
+        acao: 'receber_provisorio',
+      }),
+    ).toBe(1);
+  });
+
+  it('a NF registrada tira a cotação da contratada 90 dias depois do registro (AC-15)', async () => {
+    const velho = new Date(Date.now() - 200 * DIA);
+    const notaFiscal = (em: Date) => ({
+      numero: '1',
+      data: velho,
+      arquivoId: new Types.ObjectId(),
+      porUserId: new Types.ObjectId(ids.rt),
+      em,
+    });
+    const recente = await executada({
+      situacao: 'atestada',
+      updatedAt: new Date(Date.now() - 30 * DIA),
+      notaFiscal: notaFiscal(new Date(Date.now() - 30 * DIA)),
+    });
+    const antiga = await executada({
+      situacao: 'atestada',
+      updatedAt: new Date(Date.now() - 91 * DIA),
+      notaFiscal: notaFiscal(new Date(Date.now() - 91 * DIA)),
+    });
+    const rt = { userId: ids.rt, role: 'Preposto' };
+    const vistas = (await leitura.listarFila(rt, 'todas'))?.linhas.map((l) => l.id) ?? [];
+    expect(vistas).toContain(recente);
+    expect(vistas).not.toContain(antiga);
+    expect((await leitura.lerDetalhe(recente, rt))?.cotacao.visao).toBe('contratada');
+    expect(await leitura.lerDetalhe(antiga, rt)).toBeNull();
+  });
+
+  it('a contratada só tem Minhas ações, Ateste e Todas; a aba de análise cai em Minhas ações (AC-21)', async () => {
+    const rt = await leitura.listarFila({ userId: ids.rt, role: 'Preposto' }, 'analise');
+    expect(rt?.abas).toEqual(['minhas', 'ateste', 'todas']);
+    expect(rt?.aba).toBe('minhas');
+    const fiscal = await leitura.listarFila({ userId: ids.fiscal, role: 'Admin' }, 'analise');
+    expect(fiscal?.aba).toBe('analise');
+    expect(fiscal?.abas).toHaveLength(5);
   });
 });

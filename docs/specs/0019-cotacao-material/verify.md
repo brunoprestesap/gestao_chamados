@@ -67,20 +67,20 @@ _Pede uma cotação `executada` do fio da Fatia 1 e as mesmas designações da P
 - [x] Com uma cotação executada há mais de 5 dias (pode ajustar `executadoEm` no banco de teste) → o selo fica vermelho, "Recebimento provisório atrasado", e nada é bloqueado → AC-21
 - [x] Como gestor, em `/cotacoes/<id>`, `Registrar recebimento provisório` → confirmar → a situação continua `Executada`, a seção Ateste mostra data e nome, o selo passa ao definitivo, e ninguém recebe aviso → AC-21
 - [x] Ainda como gestor, `Registrar recebimento definitivo` → a situação vira `Atestada`, a trilha ganha os dois atos com papel Gestor, e o responsável técnico recebe "Cotação X atestada" sem valor → AC-21, AC-9, AC-16
-- [ ] Como fiscal ou aprovador (sem designação de gestor), na `executada` → nenhum botão de recebimento → AC-21
+- [x] Como fiscal ou aprovador (sem designação de gestor), na `executada` → nenhum botão de recebimento → AC-21
 - [x] Como responsável técnico, na `executada` → sem `Registrar nota fiscal`; enviar arquivo `nota_fiscal` pela rota de upload → 409 → AC-22
 - [ ] Como responsável técnico, na `atestada`: a aba "Minhas ações" lista a cotação; `Registrar nota fiscal` com número, data e arquivo → a seção Ateste mostra "Nº ..., de dd/mm/aaaa" com o link do arquivo; o botão some e um segundo registro é recusado → AC-22
 - [x] Como técnico atribuído e como solicitante → o link do arquivo da nota fiscal responde 403 → AC-15, AC-22
 - [x] Como fiscal, gestor ou aprovador, `Gerar PDF para o SEI` → baixa `cotacao-COT-<ano>-####.pdf` com resumo, itens com origem e base aplicada, orçamentos, conferências, advertências e a trilha inteira com autor, papel e limite no ato; o rodapé de toda página traz o código da emissão → AC-23
-- [ ] Como responsável técnico e como técnico → o botão não aparece, e `POST /api/cotacoes/<id>/pdf` com a sessão deles responde 403 → AC-23
+- [x] Como responsável técnico e como técnico → o botão não aparece, e `POST /api/cotacoes/<id>/pdf` com a sessão deles responde 403 → AC-23
 - [ ] Como Admin sem designação → lê a cotação, mas não vê `Gerar PDF para o SEI`, e o `POST /api/cotacoes/<id>/pdf` responde 403; num rascunho, o `POST` de um fiscal responde 409 → AC-23 · added 2026-10-19 (review)
-- [ ] Como responsável técnico, `Registrar nota fiscal` → `Conferir` mostra número, data e arquivo antes de gravar; `Corrigir` volta ao formulário; data futura não é aceita; ao confirmar, os gestores recebem "Nota fiscal registrada na cotação X", sem valor → AC-22, AC-16 · added 2026-10-19 (review)
-- [ ] Com uma `atestada` sem nota fiscal parada há mais de 90 dias → continua em "Minhas ações" e no detalhe do responsável técnico; o selo de atraso do ateste não aparece para ele, só as datas → AC-21, AC-22 · added 2026-10-19 (review)
+- [x] Como responsável técnico, `Registrar nota fiscal` → `Conferir` mostra número, data e arquivo antes de gravar; `Corrigir` volta ao formulário; data futura não é aceita; ao confirmar, os gestores recebem "Nota fiscal registrada na cotação X", sem valor → AC-22, AC-16 · added 2026-10-19 (review)
+- [x] Com uma `atestada` sem nota fiscal parada há mais de 90 dias → continua em "Minhas ações" e no detalhe do responsável técnico; o selo de atraso do ateste não aparece para ele, só as datas → AC-21, AC-22 · added 2026-10-19 (review)
 
 ### Value sourcing
 
-- [ ] Prazo do provisório: execução às 23:30 de Belém (02:30 UTC do dia seguinte) → o vencimento conta do dia de Belém, não do dia UTC → AC-21
-- [ ] Prazo do definitivo: conta do `recebimentoProvisorio.em`, não da execução → AC-21
+- [x] Prazo do provisório: execução às 23:30 de Belém (02:30 UTC do dia seguinte) → o vencimento conta do dia de Belém, não do dia UTC → AC-21
+- [x] Prazo do definitivo: conta do `recebimentoProvisorio.em`, não da execução → AC-21
 - [x] Autor do recebimento e da nota fiscal: o usuário da sessão no ato, gravado na cotação e no evento → AC-9
 
 ### Commands
@@ -91,3 +91,32 @@ _Pede uma cotação `executada` do fio da Fatia 1 e as mesmas designações da P
 ### Acceptance-criteria coverage
 
 - AC-21 · provisório, definitivo, selo de prazo · AC-22 · nota fiscal só na atestada, pelo responsável técnico · AC-23 · PDF do lado TRF1 com SHA-256 da emissão
+
+## Revisão de 19/10 (passo 13a) · added 2026-10-19
+
+### UI / manual
+
+- [x] Como responsável técnico, numa cotação `atestada` sem NF, abrir `Registrar nota fiscal` → o campo de data tem `min` no dia da autorização (em Belém) e `max` em hoje; o texto pede a data entre esses dois dias → AC-22
+- [x] Digitar uma data anterior ao dia da autorização (forçando pelo teclado) e confirmar → recusa "A data da nota fiscal não pode ser anterior ao dia da autorização."; a nota não grava → AC-22
+- [x] No mesmo diálogo, anexar `nf1.pdf` e depois `nf2.pdf` → o primeiro arquivo some da lista de arquivos da cotação; clicar `Voltar` → o segundo também some (removido, não apagado do disco) → AC-22
+- [ ] Registrar a NF de verdade (número, data de hoje, arquivo) → passa pela conferência; o gestor recebe no sino "Nota fiscal registrada na cotação COT-…", sem valor e sem o número da NF, e não aparece toast de "Cotação … atestada" na tela dele → AC-16, AC-22
+- [x] Como responsável técnico, abrir uma cotação com recebimento provisório registrado → o bloco Ateste mostra a data e a hora, sem o nome do gestor e sem selo de prazo; na trilha, a linha "Recebimento provisório registrado" mostra só "Gestor" → AC-21
+- [x] Como responsável técnico, em `/cotacoes` → só as abas `Minhas ações`, `Ateste` e `Todas`; `/cotacoes?aba=analise` abre `Minhas ações`; em `Ateste` aparecem a coluna Recebimento com as datas e o selo "Nota fiscal pendente", sem selo de prazo → AC-21, AC-22
+- [x] Como gestor, na aba `Ateste` → o selo de prazo continua aparecendo → AC-21
+- [x] Como Admin sem designação, abrir uma cotação enviada → o botão do PDF aparece e o PDF baixa; nenhum outro botão de ação aparece → AC-23
+- [x] Como responsável técnico, chamar `POST /api/cotacoes/<id inexistente>/pdf` e `POST /api/cotacoes/<id de rascunho>/pdf` → 403 nos dois; como fiscal, o rascunho → 404 → AC-23
+
+### Value sourcing
+
+- [ ] Data da NF no dia de Belém: com o relógio do servidor às 22:00 de Belém (01:00 UTC do dia seguinte), a data de hoje em Belém passa e a de amanhã é recusada; a virada é às 03:00 UTC (coberto em `revisao-19-10.test.ts`) → AC-22
+- [x] Piso da data a partir de `autorizadoEm` em Belém: cotação autorizada às 01:00 UTC do dia 11 aceita NF do dia 10 → AC-22
+- [x] Janela de 90 dias da contratada contada de `updatedAt`: NF registrada há 30 dias aparece; há 91 dias some; a `atestada` sem NF de 400 dias continua aparecendo → AC-15
+- [x] `papel` da emissão do PDF: fiscal grava `fiscal`, gestor grava `gestor`, Admin sem designação grava `admin` (conferir em `cotacaomaterialpdfemissoes`) → AC-23
+
+### Commands
+
+- [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/material "app/(dashboard)/cotacoes"` → passa, inclusive `revisao-19-10.test.ts`, `pendencia.db.test.ts` (paridade entre `visaoDe` e o filtro da fila) e os casos novos de `ateste.db.test.ts` → AC-15, AC-16, AC-21, AC-22, AC-23
+
+### Acceptance-criteria coverage
+
+- AC-15 · NF pendente sempre visível, paridade memória e Mongo · AC-16 · aviso da NF sem toast de "atestada" · AC-21 · datas sem nome, trilha sem autor do recebimento, abas da contratada · AC-22 · data entre a autorização e hoje, remoção da NF não ligada · AC-23 · Admin sem designação emite com `papel: admin`, 403 antes da busca, 404 no rascunho

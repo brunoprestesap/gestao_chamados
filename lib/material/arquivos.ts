@@ -27,6 +27,27 @@ export const MIME_ARQUIVO_COTACAO = ['application/pdf', 'image/jpeg', 'image/png
 
 const SUBDIR = 'cotacoes';
 
+/**
+ * Remover um arquivo (só marca `removidoEm`) vale em `rascunho` e
+ * `devolvida`. Exceção estreita (AC-22): na `atestada`, o arquivo de nota
+ * fiscal ainda não ligado a `notaFiscal.arquivoId`, e só para quem tem a
+ * designação de responsável técnico vigente, para uma tentativa recusada
+ * não deixar um arquivo preso nem travar o limite de 10.
+ */
+export function podeRemoverArquivo(
+  arq: { _id: Types.ObjectId | string; tipo: TipoArquivoCotacao },
+  cot: { situacao: SituacaoCotacao; notaFiscal?: { arquivoId: Types.ObjectId | string } | null },
+  quem: { responsavelTecnico: boolean },
+): boolean {
+  if (SITUACOES_EDITAVEIS.includes(cot.situacao)) return true;
+  return (
+    quem.responsavelTecnico &&
+    cot.situacao === 'atestada' &&
+    arq.tipo === 'nota_fiscal' &&
+    String(cot.notaFiscal?.arquivoId ?? '') !== String(arq._id)
+  );
+}
+
 export function caminhoDoArquivoCotacao(caminhoRelativo: string): string | null {
   const partes = caminhoRelativo.split('/');
   if (partes.length !== 3 || partes[0] !== SUBDIR) return null;

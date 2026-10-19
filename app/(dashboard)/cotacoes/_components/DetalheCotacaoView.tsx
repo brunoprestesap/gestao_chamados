@@ -437,7 +437,10 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
                   {ev.de !== ev.para && ` · ${ROTULO_SITUACAO[ev.para]}`}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {dataHora(ev.em)} · {ev.autorNome ?? 'Sistema'} ({ROTULO_PAPEL[ev.papel]})
+                  {dataHora(ev.em)} ·{' '}
+                  {ev.autorNome
+                    ? `${ev.autorNome} (${ROTULO_PAPEL[ev.papel]})`
+                    : ROTULO_PAPEL[ev.papel]}
                   {ev.limiteCentavosNoAto != null &&
                     ` · limite no ato ${formatarReais(ev.limiteCentavosNoAto)}`}
                   {ev.valorCentavos != null &&
