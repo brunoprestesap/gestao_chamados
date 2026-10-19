@@ -152,7 +152,13 @@ describe('regras do prompt (AC-14)', () => {
 
   it('nunca diz prioridade, prazo, técnico ou número de chamado, nem que o chamado foi aberto', () => {
     expect(texto).toContain('nunca diga prioridade, prazo, técnico ou número de chamado');
-    expect(texto).toContain('nunca diga que o chamado foi aberto');
+    expect(texto).toContain('nunca diga que o chamado foi aberto, registrado ou encaminhado');
+  });
+
+  it('com serviço e local, não pergunta nada e aponta o resumo logo abaixo', () => {
+    expect(texto).toContain('assim que você tiver o serviço (servicocodigo) e o local exato');
+    expect(texto).toContain('nessa resposta, não pergunte nada');
+    expect(texto).toContain('o resumo está logo abaixo');
   });
 
   it('nunca pede dado pessoal', () => {
@@ -230,6 +236,25 @@ describe('montarSistema', () => {
     expect(bloco).toContain('Local exato: Sala 302');
   });
 
+  it('com serviço e local já entendidos, avisa que o resumo está na tela', () => {
+    // Act
+    const bloco = blocoDaPessoa(perfil, { codigo: 'ELET-0001', localExato: 'Sala 302' });
+
+    // Assert: o modelo para de perguntar o que o cartão já mostra
+    expect(bloco).toContain('O Sigma já mostra o resumo');
+    expect(bloco).toContain('Não pergunte de novo o que já foi entendido');
+  });
+
+  it.each([
+    ['sem proposta', null],
+    ['sem serviço', { codigo: null, localExato: 'Sala 302' }],
+    ['sem local', { codigo: 'ELET-0001', localExato: null }],
+    ['com local só de espaços', { codigo: 'ELET-0001', localExato: '   ' }],
+  ])('%s, não fala do resumo', (_caso, proposta) => {
+    // Act & Assert
+    expect(blocoDaPessoa(perfil, proposta)).not.toContain('O Sigma já mostra o resumo');
+  });
+
   it('sem catálogo, manda usar código nulo', () => {
     // Act
     const fixo = blocoFixo(null);
@@ -251,7 +276,7 @@ describe('constantes da chamada', () => {
 
   it('tem versão de prompt dentro do limite do registro', () => {
     // Assert
-    expect(PROMPT_VERSION).toBe('2');
+    expect(PROMPT_VERSION).toBe('3');
     expect(PROMPT_VERSION.length).toBeLessThanOrEqual(40);
   });
 
