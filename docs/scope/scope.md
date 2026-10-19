@@ -44,6 +44,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned     |
 | 19  | Fotos no chat                                      | Slice 4       | planned     |
 | 21  | Entrada por voz                                    | Slice 4       | planned     |
+| 33  | Texto do assistente com o cartão na tela           | Slice 4       | in-progress |
 
 ## Existing (contexto)
 
@@ -442,6 +443,20 @@ Ditar o problema em vez de digitar, com a transcrição acontecendo dentro da re
 
 - [ ] Design it (spec): `/architect entrada por voz`
 
+### 33. Texto do assistente com o cartão na tela · in-progress
+
+Com o cartão resumo na conversa, o assistente só confirma e manda conferir, sem pergunta e sem dizer que o chamado foi aberto. from spec 0020
+**Done when:** numa volta com serviço e local, a resposta não traz pergunta nem afirma a abertura (o servidor troca por frase fixa quando o modelo insiste); frases de negação ("nenhum chamado foi aberto ainda") passam sem troca; o prompt está na versão 3.
+spec [0021](../specs/0021-texto-assistente-cartao.md)
+
+- [x] Design it (spec): `/architect texto do assistente com o cartão na tela`
+- [ ] Build it: `/develop texto do assistente com o cartão na tela`
+  - [ ] A trava no servidor: padrões novos sem negação, `escolherTextoDaResposta`, textos fixos sem `?` · AC-4, AC-5, AC-6, AC-7
+  - [ ] A volta do chat: prontidão uma vez em `transmitir`, texto escolhido antes de gravar, log `resposta trocada` · AC-2, AC-3, AC-8, AC-9, AC-10
+  - [ ] O prompt na versão 3 e a reprodução contra o vLLM, com três voltas seguidas · AC-1
+- [ ] Verify it: `/check verify texto do assistente com o cartão na tela`
+- [ ] Test it: `/test texto do assistente com o cartão na tela`
+
 ## Deferred
 
 Fora desta passada, guardado para o plano continuar honesto.
@@ -486,7 +501,6 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Candidatos na troca de unidade**: recalcular os candidatos para a unidade nova escolhida no cartão, se a gestão sentir falta · from spec 0014
 - **Fotos do ativo**: foto do equipamento na ficha e na vistoria; decidir junto com Fotos no chat (19) onde as fotos ficam guardadas · from proposta da spec 0011, fatia 2
 - **Rever a regra do local vago na autonomia**: hoje o portão e a atribuição automática não olham o local; reabrir a decisão quando técnicos ou Prepostos relatarem idas ao lugar errado ou perguntas frequentes de local em chamados atribuídos sozinhos · from spec 0020
-- **Texto do assistente com o cartão na tela**: o modelo às vezes segue perguntando com o cartão já mostrado, ou diz que o chamado foi aberto; corrigir no prompt, com `PROMPT_VERSION` novo (desliga a autonomia até o Admin salvar a calibração de novo) · from spec 0020
 
 ## Legend
 
