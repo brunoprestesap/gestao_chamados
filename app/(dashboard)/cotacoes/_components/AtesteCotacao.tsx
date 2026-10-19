@@ -18,7 +18,11 @@ import { Label } from '@/components/ui/label';
 import type { Acoes } from '@/lib/material/leitura';
 import type { AtoDTO, CotacaoDTO } from '@/lib/material/serializar';
 
-import { registrarNotaFiscalAction, registrarRecebimentoAction } from '../actions';
+import {
+  registrarNotaFiscalAction,
+  registrarRecebimentoAction,
+  removerArquivoAction,
+} from '../actions';
 import { enviarArquivo, SeloPrazoAteste } from './apoio';
 
 const dataHora = (iso: string) =>
@@ -28,16 +32,23 @@ const dataHora = (iso: string) =>
     timeStyle: 'short',
   });
 
-/** Hoje no relógio de Belém, `YYYY-MM-DD`, para o limite do campo de data. */
-function hojeLocal(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Belem' }).format(new Date());
+/** O dia de `quando` no relógio de Belém, `YYYY-MM-DD`, para os limites do campo de data. */
+function diaEmBelem(quando: Date | string = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Belem' }).format(new Date(quando));
 }
 
+/** A contratada recebe só a data do recebimento, sem o nome de quem recebeu (AC-21). */
 function Ato({ rotulo, ato }: { rotulo: string; ato: AtoDTO | null | undefined }) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{rotulo}</dt>
-      <dd>{ato ? `${dataHora(ato.em)} · ${ato.porNome ?? '—'}` : 'Ainda não registrado'}</dd>
+      <dd>
+        {ato
+          ? ato.porNome
+            ? `${dataHora(ato.em)} · ${ato.porNome}`
+            : dataHora(ato.em)
+          : 'Ainda não registrado'}
+      </dd>
     </div>
   );
 }
@@ -83,10 +94,20 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
     });
   }
 
+  /**
+   * O arquivo enviado e ainda não ligado à nota é removido ao trocar o anexo
+   * ou fechar o diálogo, para uma tentativa recusada não deixar arquivo preso
+   * nem gastar o limite de 10 (AC-22). Falha aqui não atrapalha o registro.
+   */
+  async function soltarAnexo(arquivoId: string) {
+    if (arquivoId) await removerArquivoAction({ arquivoId }).catch(() => undefined);
+  }
+
   async function anexarNf(arquivos: FileList | null) {
     const a = arquivos?.[0];
     if (!a) return;
     setEnviando(true);
+    const anterior = nf.arquivoId;
     const r = await enviarArquivo(c.id, 'nota_fiscal', a);
     setEnviando(false);
     if (!r.ok) {
@@ -94,6 +115,14 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
       return;
     }
     setNf((atual) => ({ ...atual, arquivoId: r.arquivoId, nomeArquivo: a.name }));
+    void soltarAnexo(anterior);
+  }
+
+  function fecharNf() {
+    void soltarAnexo(nf.arquivoId);
+    setNf({ numero: '', data: '', arquivoId: '', nomeArquivo: '' });
+    setConferindo(false);
+    setNfAberta(false);
   }
 
   function registrarNf() {
@@ -110,6 +139,7 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
         return;
       }
       toast.success('Nota fiscal registrada.');
+      setNf({ numero: '', data: '', arquivoId: '', nomeArquivo: '' });
       setNfAberta(false);
       setConferindo(false);
       onAlterado();
@@ -204,15 +234,16 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
       <Dialog
         open={nfAberta}
         onOpenChange={(o) => {
-          setNfAberta(o);
-          if (!o) setConferindo(false);
+          if (o) setNfAberta(true);
+          else if (!pendente) fecharNf();
         }}
       >
         <DialogContent className="sm:rounded-2xl">
           <DialogHeader>
             <DialogTitle>Nota fiscal de {c.numero}</DialogTitle>
             <DialogDescription>
-              Número, data de emissão e o arquivo da nota (PDF, JPEG ou PNG, até 20 MB).
+              Número, data de emissão (entre o dia da autorização e hoje) e o arquivo da nota (PDF,
+              JPEG ou PNG, até 20 MB).
             </DialogDescription>
           </DialogHeader>
           {conferindo ? (
@@ -243,7 +274,8 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
                 <Input
                   id="nf-data"
                   type="date"
-                  max={hojeLocal()}
+                  min={c.autorizadoEm ? diaEmBelem(c.autorizadoEm) : undefined}
+                  max={diaEmBelem()}
                   value={nf.data}
                   onChange={(e) => setNf({ ...nf, data: e.target.value })}
                 />
@@ -277,7 +309,7 @@ export function AtesteCotacao({ cotacao: c, acoes, onAlterado }: Props) {
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setNfAberta(false)} disabled={pendente}>
+                <Button variant="outline" onClick={fecharNf} disabled={pendente}>
                   Voltar
                 </Button>
                 <Button

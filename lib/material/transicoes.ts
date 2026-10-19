@@ -27,6 +27,8 @@ import {
 } from '@/shared/material/material.constants';
 import {
   type CodigoControle,
+  type CodigoErroNotaFiscal,
+  ERROS_NOTA_FISCAL,
   MSG_APROVACAO_EM_ANDAMENTO,
   MSG_VERSAO_DESATUALIZADA,
 } from '@/shared/material/mensagens';
@@ -102,6 +104,22 @@ const PARA: Record<AcaoDeTransicao, SituacaoCotacao> = {
 };
 
 const MOTIVO_OBRIGATORIO: readonly AcaoDeTransicao[] = ['devolver', 'reprovar', 'cancelar'];
+
+/**
+ * A data da nota fiscal (AC-22), em dias `YYYY-MM-DD` de Belém, com os dois
+ * limites aceitando o próprio dia: nunca depois de hoje, nunca antes do dia
+ * da autorização (a contratada compra depois de autorizada). A data
+ * impossível já foi recusada no schema. `null` quando a data passa.
+ */
+export function recusaDaDataDaNotaFiscal(
+  data: string,
+  autorizadoEm: Date | null,
+  agora: Date,
+): Extract<CodigoErroNotaFiscal, 'data_futura' | 'data_antes_da_autorizacao'> | null {
+  if (data > hojeEmBelem(agora)) return 'data_futura';
+  if (autorizadoEm && data < hojeEmBelem(autorizadoEm)) return 'data_antes_da_autorizacao';
+  return null;
+}
 
 type CotacaoLida = Awaited<ReturnType<typeof lerCotacao>>;
 
@@ -674,19 +692,20 @@ export async function transicionar(
       set.recebimentoDefinitivo = { porUserId: new Types.ObjectId(userId!), em: agora };
       break;
     case 'registrar_nf': {
-      if (cot.notaFiscal) return { ok: false, error: 'A nota fiscal já foi registrada.' };
+      if (cot.notaFiscal) return { ok: false, error: ERROS_NOTA_FISCAL.ja_registrada };
       const nf = e.notaFiscal;
-      if (!nf) return { ok: false, error: 'Informe a nota fiscal.' };
-      if (nf.data > hojeEmBelem(agora)) {
-        return { ok: false, error: 'A data da nota fiscal não pode ser futura.' };
-      }
-      const arquivo = await ArquivoCotacaoModel.exists({
-        _id: new Types.ObjectId(nf.arquivoId),
-        cotacaoId: cot._id,
-        tipo: 'nota_fiscal',
-        removidoEm: null,
-      });
-      if (!arquivo) return { ok: false, error: 'Anexe o arquivo da nota fiscal.' };
+      if (!nf) return { ok: false, error: ERROS_NOTA_FISCAL.ausente };
+      const recusaDaData = recusaDaDataDaNotaFiscal(nf.data, cot.autorizadoEm ?? null, agora);
+      if (recusaDaData) return { ok: false, error: ERROS_NOTA_FISCAL[recusaDaData] };
+      const arquivo =
+        Types.ObjectId.isValid(nf.arquivoId) &&
+        (await ArquivoCotacaoModel.exists({
+          _id: new Types.ObjectId(nf.arquivoId),
+          cotacaoId: cot._id,
+          tipo: 'nota_fiscal',
+          removidoEm: null,
+        }));
+      if (!arquivo) return { ok: false, error: ERROS_NOTA_FISCAL.arquivo_ausente };
       set.notaFiscal = {
         numero: nf.numero.trim(),
         data: new Date(`${nf.data}T12:00:00.000Z`),

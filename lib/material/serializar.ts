@@ -3,7 +3,6 @@ import 'server-only';
 import type { Types } from 'mongoose';
 
 import {
-  DIAS_ENCERRADAS_VISIVEIS_RT,
   type PapelEvento,
   type SituacaoCotacao,
   type TipoArquivoCotacao,
@@ -11,6 +10,7 @@ import {
 import { type CodigoControle, CONTROLES } from '@/shared/material/mensagens';
 
 import type { Papeis } from './papeis';
+import { visivelParaContratada } from './pendencia';
 import { type PrazoAteste, prazoDoAteste } from './prazos';
 
 /**
@@ -152,7 +152,7 @@ export type ArquivoDTO = {
   meu: boolean;
 };
 
-/** Um ato do ateste: quem e quando (AC-21, AC-22). */
+/** Um ato do ateste: quem e quando (AC-21, AC-22). A contratada recebe só o quando. */
 export type AtoDTO = { porNome: string | null; em: string };
 
 export type NotaFiscalDTO = AtoDTO & { numero: string; data: string; arquivoId: string };
@@ -196,11 +196,6 @@ export type ContextoLeitura = {
   ehSolicitante: boolean;
 };
 
-/** A atestada ainda sem nota fiscal fica com a contratada, por mais velha que seja (AC-22). */
-export function deveNotaFiscal(cot: Pick<CotacaoBruta, 'situacao' | 'notaFiscal'>): boolean {
-  return cot.situacao === 'atestada' && !cot.notaFiscal;
-}
-
 /** A visão de quem lê, ou `null` quando não pode ver esta cotação. */
 export function visaoDe(
   ctx: ContextoLeitura,
@@ -212,10 +207,8 @@ export function visaoDe(
     return 'trf1';
   }
   if (ctx.papeis.contratada) {
-    const limite = agora.getTime() - DIAS_ENCERRADAS_VISIVEIS_RT * 24 * 60 * 60 * 1000;
-    if (cot.emTramite || cot.updatedAt.getTime() >= limite || deveNotaFiscal(cot)) {
-      return 'contratada';
-    }
+    // Em trâmite, encerrada há até 90 dias ou devendo a nota fiscal (AC-15).
+    if (visivelParaContratada(cot, agora)) return 'contratada';
   }
   if (ctx.ehTecnicoAtribuido) return 'tecnico';
   if (ctx.ehSolicitante) return 'solicitante';
@@ -232,6 +225,9 @@ export function podeBaixar(visao: Visao, tipo: TipoArquivoCotacao): boolean {
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 const ACOES_COM_MOTIVO = new Set(['devolver', 'reprovar', 'cancelar', 'alterar']);
+
+/** Atos do gestor cujo autor a contratada não vê: só a data do recebimento (AC-21). */
+const ACOES_SEM_AUTOR_PARA_CONTRATADA = new Set(['receber_provisorio', 'receber_definitivo']);
 
 export function serializarCotacao(
   cot: CotacaoBruta,
@@ -305,8 +301,13 @@ export function serializarCotacao(
     return base;
   }
 
-  base.recebimentoProvisorio = ato(cot.recebimentoProvisorio);
-  base.recebimentoDefinitivo = ato(cot.recebimentoDefinitivo);
+  // A contratada vê quando o recebimento aconteceu, para emitir a NF, mas não quem recebeu (AC-21).
+  const atoDoRecebimento = (a: { porUserId: Types.ObjectId; em: Date } | null | undefined) => {
+    const r = ato(a);
+    return r && visao === 'contratada' ? { ...r, porNome: null } : r;
+  };
+  base.recebimentoProvisorio = atoDoRecebimento(cot.recebimentoProvisorio);
+  base.recebimentoDefinitivo = atoDoRecebimento(cot.recebimentoDefinitivo);
   base.notaFiscal = cot.notaFiscal
     ? {
         ...ato(cot.notaFiscal)!,
@@ -338,7 +339,7 @@ export function serializarCotacao(
         de: ev.de,
         para: ev.para,
         acao: ev.acao,
-        autorNome: ev.autorNome,
+        autorNome: ACOES_SEM_AUTOR_PARA_CONTRATADA.has(ev.acao) ? null : ev.autorNome,
         papel: ev.papel,
         motivo: ev.motivo,
         em: ev.em.toISOString(),

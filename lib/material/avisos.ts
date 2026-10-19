@@ -10,6 +10,7 @@ import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
 import type { SituacaoCotacao } from '@/shared/material/material.constants';
 import { tituloAvisoCotacao, tituloAvisoNotaFiscal } from '@/shared/material/mensagens';
+import type { MaterialCotacaoSituacaoPayload } from '@/shared/socket';
 
 import { aprovadoresQueCobrem, designadosVigentes } from './papeis';
 
@@ -100,7 +101,9 @@ export async function avisarNotaFiscal(
       userId: d.userId,
       destino: 'cotacoes' as const,
     }));
-    await entregar(cot, 'atestada', lista, autorUserId, tituloAvisoNotaFiscal(cot.numero));
+    await entregar(cot, 'atestada', lista, autorUserId, tituloAvisoNotaFiscal(cot.numero), {
+      aviso: 'nota_fiscal',
+    });
   } catch (e) {
     console.error('[material] aviso de nota fiscal falhou:', e);
   }
@@ -113,6 +116,7 @@ async function entregar(
   destinos: { userId: string; destino: Destino }[],
   autorUserId: string | null,
   titulo: string,
+  marca: Pick<MaterialCotacaoSituacaoPayload, 'aviso'> = {},
 ): Promise<void> {
   const cotacaoId = String(cot._id);
   const lista = destinos.filter((d) => d.userId !== autorUserId);
@@ -123,7 +127,14 @@ async function entregar(
 
   const chamadoId = String(cot.chamadoId);
   const at = new Date().toISOString();
-  const data = { cotacaoId, numero: cot.numero, chamadoId, situacao, at };
+  const data: MaterialCotacaoSituacaoPayload = {
+    cotacaoId,
+    numero: cot.numero,
+    chamadoId,
+    situacao,
+    at,
+    ...marca,
+  };
 
   await NotificationModel.insertMany(
     [...porUsuario.entries()].map(([userId, destino]) => ({

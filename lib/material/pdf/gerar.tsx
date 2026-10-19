@@ -8,23 +8,29 @@ import { Types } from 'mongoose';
 import { soltarTrava, tentarPegarTrava } from '@/lib/contratos/pdf/trava';
 import { nomeDoUsuario } from '@/lib/contratos/usuario';
 import { lerDetalhe, type Sessao } from '@/lib/material/leitura';
-import { papeisDe } from '@/lib/material/papeis';
+import { type Papeis, papeisDe } from '@/lib/material/papeis';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { CotacaoMaterialPdfEmissaoModel } from '@/models/CotacaoMaterialPdfEmissao';
 import { formatarDataHoraBelem } from '@/shared/contratos/formato';
+import { PAPEIS_TRF1, type PapelEmissaoPdf } from '@/shared/material/material.constants';
 
 import { CotacaoMaterialPdf } from './CotacaoMaterialPdf';
 
 export const ERRO_PDF_OCUPADO = 'Outro PDF está sendo gerado. Tente em alguns segundos.';
 export const ERRO_PDF_FALHOU = 'Não foi possível gerar o PDF. Tente de novo.';
-export const ERRO_PDF_SEM_ACESSO =
-  'O PDF da cotação é de quem tem designação de fiscal, gestor ou aprovador.';
-export const ERRO_PDF_RASCUNHO = 'O PDF só existe depois que a cotação é enviada.';
+export const ERRO_PDF_SEM_ACESSO = 'O PDF da cotação é do lado TRF1.';
 export const ERRO_COTACAO_INEXISTENTE = 'Cotação não encontrada.';
 
 export type ResultadoPdfCotacao =
   | { ok: true; bytes: Buffer; nomeArquivo: string; emissaoId: string; sha256: string }
-  | { ok: false; status: 403 | 404 | 409 | 429 | 500; error: string };
+  | { ok: false; status: 403 | 404 | 429 | 500; error: string };
+
+/** O papel gravado na emissão: a primeira designação do lado TRF1, ou `admin` sem ela. */
+export function papelDaEmissao(papeis: Papeis): PapelEmissaoPdf | null {
+  const designado = PAPEIS_TRF1.find((p) => papeis.tem(p));
+  if (designado) return designado as PapelEmissaoPdf;
+  return papeis.leitorAdmin ? 'admin' : null;
+}
 
 /** Nome do arquivo: tudo que não for letra, dígito ou hífen no número vira `-`. */
 export function nomeDoArquivoPdfCotacao(numero: string): string {
@@ -32,8 +38,11 @@ export function nomeDoArquivoPdfCotacao(numero: string): string {
 }
 
 /**
- * Gera o PDF da cotação (spec 0019, AC-23): lê o detalhe pela mesma visão da
- * tela (só o lado TRF1), cria o código da emissão, monta o PDF, calcula o
+ * Gera o PDF da cotação (spec 0019, AC-23): confere primeiro se quem chama é
+ * do lado TRF1, inclusive o Admin sem designação (403), e só depois procura a
+ * cotação, para quem está de fora não distinguir um rascunho de um id
+ * inexistente; o rascunho, que o lado TRF1 não enxerga, responde 404. Lê o
+ * detalhe pela mesma visão da tela, cria o código da emissão, monta o PDF, calcula o
  * SHA-256 dos bytes e grava a emissão antes de devolver o arquivo. Uma
  * geração por vez no processo, com a mesma trava do relatório por contrato.
  * Nunca lança.
@@ -45,18 +54,18 @@ export async function gerarPdfCotacao(params: {
 }): Promise<ResultadoPdfCotacao> {
   const { cotacaoId, sessao } = params;
   try {
+    const papeis = await papeisDe(sessao.userId, sessao.role);
+    const papel = papelDaEmissao(papeis);
+    if (!papel) return { ok: false, status: 403, error: ERRO_PDF_SEM_ACESSO };
     const cot = Types.ObjectId.isValid(cotacaoId)
       ? await CotacaoMaterialModel.findById(cotacaoId).select('situacao').lean()
       : null;
-    if (!cot) return { ok: false, status: 404, error: ERRO_COTACAO_INEXISTENTE };
-    // O PDF é documento oficial com emissão gravada: só quem tem papel do lado
-    // TRF1. O Admin sem designação lê a cotação, mas não emite (AC-23).
-    const papeis = await papeisDe(sessao.userId, sessao.role);
-    if (!papeis.ladoTrf1) return { ok: false, status: 403, error: ERRO_PDF_SEM_ACESSO };
-    if (cot.situacao === 'rascunho') return { ok: false, status: 409, error: ERRO_PDF_RASCUNHO };
+    if (!cot || cot.situacao === 'rascunho') {
+      return { ok: false, status: 404, error: ERRO_COTACAO_INEXISTENTE };
+    }
     const detalhe = await lerDetalhe(cotacaoId, sessao);
     if (!detalhe || detalhe.cotacao.visao !== 'trf1') {
-      return { ok: false, status: 403, error: ERRO_PDF_SEM_ACESSO };
+      return { ok: false, status: 404, error: ERRO_COTACAO_INEXISTENTE };
     }
     if (!tentarPegarTrava()) return { ok: false, status: 429, error: ERRO_PDF_OCUPADO };
     try {
@@ -77,6 +86,7 @@ export async function gerarPdfCotacao(params: {
         cotacaoId: new Types.ObjectId(cotacaoId),
         sha256,
         porUserId: new Types.ObjectId(sessao.userId),
+        papel,
         em: agora,
       });
       return {

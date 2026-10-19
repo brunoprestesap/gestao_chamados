@@ -9,11 +9,7 @@ import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { EmpenhoModel } from '@/models/Empenho';
 import { UserModel } from '@/models/user.model';
-import {
-  DIAS_ENCERRADAS_VISIVEIS_RT,
-  type SituacaoCotacao,
-  SITUACOES_EDITAVEIS,
-} from '@/shared/material/material.constants';
+import { type SituacaoCotacao, SITUACOES_EDITAVEIS } from '@/shared/material/material.constants';
 
 import {
   aprovadoresQueCobrem,
@@ -22,6 +18,11 @@ import {
   type Papeis,
   papeisDe,
 } from './papeis';
+import {
+  FILTRO_PENDENCIA_DA_CONTRATADA,
+  filtroVisivelParaContratada,
+  pendenciaDaContratada,
+} from './pendencia';
 import { type PrazoAteste, prazoDoAteste } from './prazos';
 import { type EmpenhoElegivel, empenhosElegiveis } from './saldo';
 import {
@@ -56,7 +57,7 @@ export type Acoes = {
   receberProvisorio: boolean;
   receberDefinitivo: boolean;
   registrarNotaFiscal: boolean;
-  /** O PDF da cotação é de fiscal, gestor e aprovador; o Admin sem designação só lê (AC-23). */
+  /** O PDF da cotação é do lado TRF1, inclusive o Admin sem designação, a única ação dele (AC-23). */
   gerarPdf: boolean;
 };
 
@@ -103,7 +104,7 @@ export function acoesDisponiveis(
     receberProvisorio: papeis.tem('gestor') && s === 'executada' && !cot.recebimentoProvisorio,
     receberDefinitivo: papeis.tem('gestor') && s === 'executada' && !!cot.recebimentoProvisorio,
     registrarNotaFiscal: rt && s === 'atestada' && !cot.notaFiscal,
-    gerarPdf: papeis.ladoTrf1 && s !== 'rascunho',
+    gerarPdf: (papeis.ladoTrf1 || papeis.leitorAdmin) && s !== 'rascunho',
   };
 }
 
@@ -241,6 +242,14 @@ export async function cartaoDoChamado(
 export const ABAS_FILA = ['minhas', 'analise', 'aprovacao', 'ateste', 'todas'] as const;
 export type AbaFila = (typeof ABAS_FILA)[number];
 
+/** A contratada não analisa nem aprova: as abas dela são estas (AC-21). */
+export const ABAS_FILA_CONTRATADA: readonly AbaFila[] = ['minhas', 'ateste', 'todas'];
+
+/** As abas que cada lado vê; aba fora da lista cai em `minhas`. */
+export function abasDaFila(trf1: boolean): readonly AbaFila[] {
+  return trf1 ? ABAS_FILA : ABAS_FILA_CONTRATADA;
+}
+
 export type LinhaFila = {
   id: string;
   numero: string;
@@ -253,8 +262,13 @@ export type LinhaFila = {
   atualizadaEm: string;
   criadaEm: string;
   urgente: boolean;
-  /** Selo de atraso do ateste, só em `executada` (AC-21). */
+  /** Selo de atraso do ateste, só em `executada` e só no lado TRF1 (AC-21). */
   prazoAteste: PrazoAteste | null;
+  /** Datas do recebimento provisório e do definitivo, sem o nome de quem recebeu. */
+  recebimentoProvisorioEm: string | null;
+  recebimentoDefinitivoEm: string | null;
+  /** A atestada ainda sem nota fiscal (AC-22). */
+  notaFiscalPendente: boolean;
 };
 
 /** O que espera cada papel, para a aba "Minhas ações". */
@@ -272,25 +286,38 @@ function filtroDoQueEspera(papeis: Papeis): Record<string, unknown> {
   if (papeis.tem('gestor')) out.add('executada');
   const ou: Record<string, unknown>[] = [{ situacao: { $in: [...out] } }];
   // A contratada ainda deve a nota fiscal da atestada (AC-22).
-  if (papeis.tem('responsavel_tecnico')) ou.push({ situacao: 'atestada', notaFiscal: null });
+  if (papeis.tem('responsavel_tecnico')) ou.push({ ...FILTRO_PENDENCIA_DA_CONTRATADA });
   return { $or: ou };
 }
 
 /** A fila de `/cotacoes`. `null` quando a pessoa não tem acesso. */
 export async function listarFila(
   sessao: Sessao,
-  aba: AbaFila,
-): Promise<{ linhas: LinhaFila[]; trf1: boolean; papeis: string[] } | null> {
+  abaPedida: AbaFila,
+): Promise<{
+  linhas: LinhaFila[];
+  trf1: boolean;
+  papeis: string[];
+  aba: AbaFila;
+  abas: readonly AbaFila[];
+} | null> {
   const papeis = await papeisDe(sessao.userId, sessao.role);
   const trf1 = papeis.ladoTrf1 || papeis.leitorAdmin;
   if (!trf1 && !papeis.contratada) return null;
+  const abas = abasDaFila(trf1);
+  if (!abas.includes(abaPedida)) abaPedida = 'minhas';
+  const aba = abaPedida;
 
   const filtro: Record<string, unknown> = {};
   const e: Record<string, unknown>[] = [];
   if (aba === 'minhas') e.push(filtroDoQueEspera(papeis));
   if (aba === 'analise') filtro.situacao = { $in: ['enviada', 'em_analise'] };
   if (aba === 'aprovacao') filtro.situacao = 'em_aprovacao';
-  if (aba === 'ateste') filtro.situacao = 'executada';
+  if (aba === 'ateste') {
+    // A contratada acompanha o recebimento e a nota fiscal que ela ainda deve (AC-21, AC-22).
+    if (trf1) filtro.situacao = 'executada';
+    else e.push({ $or: [{ situacao: 'executada' }, { ...FILTRO_PENDENCIA_DA_CONTRATADA }] });
+  }
   if (trf1 && !papeis.contratada && filtro.situacao === undefined) {
     // O rascunho não aparece para fiscal, aprovador nem gestor (AC-1).
     filtro.situacao = { $ne: 'rascunho' };
@@ -298,21 +325,14 @@ export async function listarFila(
   if (!trf1) {
     // Contratada: em trâmite, encerradas nos últimos 90 dias (AC-15) e a atestada
     // que ainda deve a nota fiscal, por mais velha que seja (AC-22). Mesma regra de `visaoDe`.
-    const limite = new Date(Date.now() - DIAS_ENCERRADAS_VISIVEIS_RT * 24 * 60 * 60 * 1000);
-    e.push({
-      $or: [
-        { emTramite: true },
-        { updatedAt: { $gte: limite } },
-        { situacao: 'atestada', notaFiscal: null },
-      ],
-    });
+    e.push(filtroVisivelParaContratada(new Date()));
   }
   if (e.length) filtro.$and = e;
   const docs = await CotacaoMaterialModel.find(filtro)
     .sort({ updatedAt: -1 })
     .limit(200)
     .select(
-      'numero chamadoId ativoId situacao valorTotalCentavos executadoEm recebimentoProvisorio updatedAt createdAt',
+      'numero chamadoId ativoId situacao valorTotalCentavos executadoEm recebimentoProvisorio recebimentoDefinitivo notaFiscal updatedAt createdAt',
     )
     .lean();
   const chamados = await ChamadoModel.find({ _id: { $in: docs.map((d) => d.chamadoId) } })
@@ -328,6 +348,8 @@ export async function listarFila(
   const codigo = new Map(ativos.map((a) => [String(a._id), a.codigo as string]));
   return {
     trf1,
+    aba,
+    abas,
     papeis: papeis.designacoes.map((d) => d.papel),
     linhas: docs.map((d) => ({
       id: String(d._id),
@@ -348,6 +370,12 @@ export async function listarFila(
             executadoEm: d.executadoEm,
             recebimentoProvisorio: d.recebimentoProvisorio,
           }),
+      recebimentoProvisorioEm: d.recebimentoProvisorio?.em?.toISOString() ?? null,
+      recebimentoDefinitivoEm: d.recebimentoDefinitivo?.em?.toISOString() ?? null,
+      notaFiscalPendente: pendenciaDaContratada({
+        situacao: d.situacao as SituacaoCotacao,
+        notaFiscal: d.notaFiscal,
+      }),
     })),
   };
 }

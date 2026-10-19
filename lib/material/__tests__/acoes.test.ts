@@ -124,10 +124,12 @@ describe('acoesDisponiveis', () => {
     );
   });
 
-  it('o Admin sem designação não tem ação nenhuma, nem o PDF (AC-23)', () => {
+  it('o Admin sem designação só gera o PDF, e nunca do rascunho (AC-23)', () => {
     const leitor = { ...papeis(), leitorAdmin: true };
-    const a = acoesDisponiveis(cot('em_aprovacao'), leitor, false);
-    expect(Object.values(a).every((v) => v === false)).toBe(true);
+    const { gerarPdf, ...resto } = acoesDisponiveis(cot('em_aprovacao'), leitor, false);
+    expect(gerarPdf).toBe(true);
+    expect(Object.values(resto).every((v) => v === false)).toBe(true);
+    expect(acoesDisponiveis(cot('rascunho'), leitor, false).gerarPdf).toBe(false);
   });
 
   it('o gestor registra o provisório e, depois dele, o definitivo (AC-21)', () => {

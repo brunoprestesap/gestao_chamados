@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { PAPEIS_EMISSAO_PDF } from '@/shared/material/material.constants';
+
 import { somenteInclusao } from './_somente-inclusao';
 
 /**
@@ -11,6 +13,8 @@ const CotacaoMaterialPdfEmissaoSchema = new Schema({
   cotacaoId: { type: Schema.Types.ObjectId, ref: 'CotacaoMaterial', required: true },
   sha256: { type: String, required: true, match: /^[a-f\d]{64}$/ },
   porUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  // Revisão de 19/10: o papel com que emitiu; emissões anteriores ficam sem ele.
+  papel: { type: String, enum: PAPEIS_EMISSAO_PDF, default: null },
   em: { type: Date, required: true },
 });
 
