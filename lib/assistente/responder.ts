@@ -334,7 +334,7 @@ type AtualizarParams = {
  * Depois de uma resposta boa: grava a proposta e decide o cartão (AC-3, AC-4).
  *
  * - Conteúdo visível igual ao do cartão que vale: nada muda.
- * - Mudou e a proposta está pronta (completa, serviço válido, local): cartão novo.
+ * - Mudou e a proposta está pronta (serviço válido e local; o `completo` do modelo não conta): cartão novo.
  * - Mudou e não está pronta: o cartão que valia deixa de valer.
  */
 async function* atualizarProposta(params: AtualizarParams): AsyncGenerator<QuadroResposta> {

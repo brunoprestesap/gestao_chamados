@@ -177,11 +177,13 @@ export function mesmoConteudo(a: ConteudoVisivel, b: ConteudoVisivel): boolean {
   );
 }
 
-/** A proposta pode virar cartão sozinha? Completa, com serviço válido e local (AC-4). */
-export function propostaProntaParaCartao(
-  proposta: PropostaVisivel & { completo: boolean },
-): boolean {
-  return (
-    proposta.completo && proposta.servico !== null && limparLocal(proposta.localExato) !== null
-  );
+/**
+ * A proposta pode virar cartão sozinha? Serviço válido e local (AC-4). O
+ * `completo` do modelo fica fora: o Qwen o deixava `false` com serviço e local
+ * já dados, sobretudo para quem não tem unidade no perfil, e a conversa pedia
+ * o local sem fim. Quem confere o resumo é a pessoa, e o cartão é trocado se o
+ * local mudar depois.
+ */
+export function propostaProntaParaCartao(proposta: PropostaVisivel): boolean {
+  return proposta.servico !== null && limparLocal(proposta.localExato) !== null;
 }
