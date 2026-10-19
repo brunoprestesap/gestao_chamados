@@ -5,13 +5,13 @@
 
 ## Summary
 
-Desde a correção do chat (PR #61), o cartão resumo aparece assim que a IA reconhece o serviço e há algum local, sem esperar o `completo` do modelo (o campo em que a IA diz se já sabe tudo). Com a autonomia e a atribuição automática ligadas, um chamado com local vago pode nascer `validado` e ir direto a um técnico. Decidimos aceitar esse risco, sem regra nova no portão (a conferência que decide se a IA pode validar sozinha): quem diz onde é o problema é a pessoa, que confere e edita o local no cartão, e o técnico pergunta pela conversa quando precisar. A decisão volta para a mesa se técnicos ou Prepostos relatarem idas ao lugar errado.
+Desde a correção do chat (PR #61), o cartão resumo aparece assim que a IA reconhece o serviço e há algum local, sem esperar o `completo` do modelo (o campo em que a IA diz se já sabe tudo). Com a autonomia e a atribuição automática ligadas, um chamado com local vago pode nascer `validado` e ir direto a um técnico. Hoje, em produção, as duas estão desligadas, então o risco ainda é teórico: todo chamado do chat passa pelo Preposto. Decidimos aceitar esse risco, sem regra nova no portão (a conferência que decide se a IA pode validar sozinha): quem diz onde é o problema é a pessoa, que confere e edita o local no cartão, e o técnico pergunta pela conversa quando precisar. A decisão volta para a mesa se técnicos ou Prepostos relatarem idas ao lugar errado.
 
 ## Context
 
 O cartão resumo da conversa (spec 0004) só aparecia quando o modelo marcava `completo: true`. Em produção, o Qwen deixava esse campo `false` com serviço válido e local dado, sobretudo para quem não tem unidade no perfil, e a conversa pedia o endereço sem fim. A correção (PR #61) tirou o `completo` da regra: o cartão sai com serviço válido do catálogo e local preenchido.
 
-O `completo` era o único lugar em que alguém julgava se o local bastava. Sem ele, nada no caminho até a autonomia olha o local. O portão de confiança (spec 0007, `lib/assistente/portao.ts`) olha só a confiança da prioridade e o modo do cartão, e a atribuição automática (spec 0008) roda sempre que o chamado nasce `validado`. Em produção as duas estão ligadas.
+O `completo` era o único lugar em que alguém julgava se o local bastava. Sem ele, nada no caminho até a autonomia olha o local. O portão de confiança (spec 0007, `lib/assistente/portao.ts`) olha só a confiança da prioridade e o modo do cartão, e a atribuição automática (spec 0008) roda sempre que o chamado nasce `validado`. Em produção, em 19/10/2026, as duas estão desligadas: `IaAutonomiaConfig` tem `autonomiaAtiva: false`, `prioridade.limiteConfianca: null` e nenhum `atribuicaoAutomaticaAtiva`. Todo chamado do chat nasce `aberto`, com a prioridade só como sugestão, e o Preposto vê o local antes de atribuir. O risco passa a existir quando o Admin salvar a calibração e ligar as duas em `/configuracoes/ia-confianca`.
 
 O risco não nasceu com a correção. O botão `Revisar e abrir` sempre montou cartão em modo `ia` com serviço válido, sem olhar o `completo` (`lib/assistente/cartao.ts`). A correção só tornou esse caminho o mais comum.
 
@@ -114,6 +114,7 @@ Nenhuma tarefa de código: a regra do AC-1 já está no PR #61, e os AC-2 e AC-3
 **Neutral**:
 
 - O `completo` continua no schema e no log `[assistente] proposta`, só como diagnóstico.
+- Enquanto a autonomia estiver desligada em produção, esta decisão não tem efeito prático; ela vale a partir do dia em que o Admin ligar a autonomia e a atribuição automática.
 - Mudar a regra depois é local: uma condição a mais em `confiancaSuficienteParaPrioridade` (`lib/assistente/portao.ts`), sem migração.
 
 ## Follow-up
