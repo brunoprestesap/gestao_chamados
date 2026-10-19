@@ -131,7 +131,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Fallback para MongoDB (model Notification) se socket offline
 - `documento:vencimento` e `preventiva:lote` (spec 0013) só existem em `Notification`, sem evento do Socket.IO: aparecem no sino na próxima leitura, e `getNotificationUrl`/`getNotificationMeta` precisam conhecer o tipo
 - `interesse:fim` (spec 0017) também só existe em `Notification`: avisa quem acompanha um chamado de outra pessoa quando ele termina, por `notificarFimAosInteressados` (`lib/chamados/interessados.ts`), chamado depois de gravar o status em toda ação que conclui, cancela ou recusa; reabertura chama `zerarAvisoDeFim`. Ação nova que encerra chamado precisa dos dois
-- `material:cotacao` (spec 0019) é o aviso da cotação de material, com evento Socket.IO próprio `material:cotacao_situacao` (`{ cotacaoId, numero, chamadoId, situacao, at }`, sem valor) e destino por pessoa no `data` (`cotacoes` ou `chamado`); quem recebe cada situação está em `lib/material/avisos.ts`
+- `material:cotacao` (spec 0019) é o aviso da cotação de material, com evento Socket.IO próprio `material:cotacao_situacao` (`{ cotacaoId, numero, chamadoId, situacao, at, aviso? }`, sem valor; `aviso: 'nota_fiscal'` marca o registro da NF, que não muda a situação e não mostra toast) e destino por pessoa no `data` (`cotacoes` ou `chamado`); quem recebe cada situação está em `lib/material/avisos.ts`
 
 ### SLA
 
