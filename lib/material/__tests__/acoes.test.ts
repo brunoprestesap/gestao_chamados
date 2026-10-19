@@ -124,10 +124,51 @@ describe('acoesDisponiveis', () => {
     );
   });
 
-  it('o Admin sem designação não tem ação nenhuma', () => {
+  it('o Admin sem designação não tem ação nenhuma, nem o PDF (AC-23)', () => {
     const leitor = { ...papeis(), leitorAdmin: true };
     const a = acoesDisponiveis(cot('em_aprovacao'), leitor, false);
     expect(Object.values(a).every((v) => v === false)).toBe(true);
+  });
+
+  it('o gestor registra o provisório e, depois dele, o definitivo (AC-21)', () => {
+    const gestor = papeis({ papel: 'gestor' });
+    const sem = acoesDisponiveis(cot('executada'), gestor, false);
+    expect([sem.receberProvisorio, sem.receberDefinitivo]).toEqual([true, false]);
+    const com = acoesDisponiveis(
+      cot('executada', {
+        recebimentoProvisorio: { porUserId: new Types.ObjectId(), em: new Date() },
+      }),
+      gestor,
+      false,
+    );
+    expect([com.receberProvisorio, com.receberDefinitivo]).toEqual([false, true]);
+    expect(acoesDisponiveis(cot('autorizada'), gestor, false).receberProvisorio).toBe(false);
+    expect(
+      acoesDisponiveis(cot('executada'), papeis({ papel: 'fiscal' }), false).receberProvisorio,
+    ).toBe(false);
+  });
+
+  it('só o responsável técnico registra a nota fiscal, só na atestada e uma vez (AC-22)', () => {
+    const rt = papeis({ papel: 'responsavel_tecnico' });
+    expect(acoesDisponiveis(cot('atestada'), rt, false).registrarNotaFiscal).toBe(true);
+    expect(acoesDisponiveis(cot('executada'), rt, false).registrarNotaFiscal).toBe(false);
+    expect(
+      acoesDisponiveis(cot('atestada', { notaFiscal: { numero: '1' } as never }), rt, false)
+        .registrarNotaFiscal,
+    ).toBe(false);
+    expect(
+      acoesDisponiveis(cot('atestada'), papeis({ papel: 'gestor' }), false).registrarNotaFiscal,
+    ).toBe(false);
+  });
+
+  it('o PDF é do lado TRF1, nunca da contratada nem do técnico (AC-23)', () => {
+    expect(acoesDisponiveis(cot('executada'), papeis({ papel: 'fiscal' }), false).gerarPdf).toBe(
+      true,
+    );
+    expect(
+      acoesDisponiveis(cot('executada'), papeis({ papel: 'responsavel_tecnico' }), false).gerarPdf,
+    ).toBe(false);
+    expect(acoesDisponiveis(cot('executada'), papeis(), true).gerarPdf).toBe(false);
   });
 });
 

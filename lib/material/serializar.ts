@@ -11,6 +11,7 @@ import {
 import { type CodigoControle, CONTROLES } from '@/shared/material/mensagens';
 
 import type { Papeis } from './papeis';
+import { type PrazoAteste, prazoDoAteste } from './prazos';
 
 /**
  * O único serializador da cotação de material (spec 0019, AC-15). Toda
@@ -39,7 +40,9 @@ export type CotacaoBruta = {
     motivo: string;
     doDiagnostico: boolean;
     origem: string | null;
+    baseAplicada?: string | null;
     precoAplicadoCentavos: number | null;
+    conferencia?: { texto: string; porUserId: Types.ObjectId; em: Date } | null;
     quantidadeExecutada: number | null;
     valorExecutadoCentavos: number | null;
   }[];
@@ -61,6 +64,15 @@ export type CotacaoBruta = {
   autorizadoEm: Date | null;
   executadoEm: Date | null;
   valorExecutadoCentavos: number | null;
+  recebimentoProvisorio?: { porUserId: Types.ObjectId; em: Date } | null;
+  recebimentoDefinitivo?: { porUserId: Types.ObjectId; em: Date } | null;
+  notaFiscal?: {
+    numero: string;
+    data: Date;
+    arquivoId: Types.ObjectId;
+    porUserId: Types.ObjectId;
+    em: Date;
+  } | null;
   advertencias: { codigo: string; itemId: Types.ObjectId | null }[];
   createdAt: Date;
   updatedAt: Date;
@@ -100,6 +112,10 @@ export type ItemDTO = {
   precoAplicadoCentavos: number | null;
   quantidadeExecutada: number | null;
   valorExecutadoCentavos: number | null;
+  /** Só TRF1: origem do preço, base aplicada e a conferência do fiscal. */
+  origem?: string | null;
+  baseAplicada?: string | null;
+  conferencia?: { texto: string; porNome: string | null; em: string } | null;
 };
 
 export type OrcamentoDTO = {
@@ -136,6 +152,11 @@ export type ArquivoDTO = {
   meu: boolean;
 };
 
+/** Um ato do ateste: quem e quando (AC-21, AC-22). */
+export type AtoDTO = { porNome: string | null; em: string };
+
+export type NotaFiscalDTO = AtoDTO & { numero: string; data: string; arquivoId: string };
+
 export type CotacaoDTO = {
   id: string;
   numero: string;
@@ -157,6 +178,11 @@ export type CotacaoDTO = {
   orcamentos?: OrcamentoDTO[];
   arquivos?: ArquivoDTO[];
   trilha?: EventoDTO[];
+  /** TRF1 e contratada: o ateste e a nota fiscal (fatia 2). */
+  recebimentoProvisorio?: AtoDTO | null;
+  recebimentoDefinitivo?: AtoDTO | null;
+  notaFiscal?: NotaFiscalDTO | null;
+  prazoAteste?: PrazoAteste | null;
   /** Só TRF1. */
   empenhoId?: string | null;
   valorAutorizadoCentavos?: number | null;
@@ -170,10 +196,15 @@ export type ContextoLeitura = {
   ehSolicitante: boolean;
 };
 
+/** A atestada ainda sem nota fiscal fica com a contratada, por mais velha que seja (AC-22). */
+export function deveNotaFiscal(cot: Pick<CotacaoBruta, 'situacao' | 'notaFiscal'>): boolean {
+  return cot.situacao === 'atestada' && !cot.notaFiscal;
+}
+
 /** A visão de quem lê, ou `null` quando não pode ver esta cotação. */
 export function visaoDe(
   ctx: ContextoLeitura,
-  cot: Pick<CotacaoBruta, 'situacao' | 'emTramite' | 'updatedAt'>,
+  cot: Pick<CotacaoBruta, 'situacao' | 'emTramite' | 'updatedAt' | 'notaFiscal'>,
   agora: Date = new Date(),
 ): Visao | null {
   // O rascunho é da contratada e do técnico: o lado TRF1 só vê a partir do envio (AC-1).
@@ -182,7 +213,9 @@ export function visaoDe(
   }
   if (ctx.papeis.contratada) {
     const limite = agora.getTime() - DIAS_ENCERRADAS_VISIVEIS_RT * 24 * 60 * 60 * 1000;
-    if (cot.emTramite || cot.updatedAt.getTime() >= limite) return 'contratada';
+    if (cot.emTramite || cot.updatedAt.getTime() >= limite || deveNotaFiscal(cot)) {
+      return 'contratada';
+    }
   }
   if (ctx.ehTecnicoAtribuido) return 'tecnico';
   if (ctx.ehSolicitante) return 'solicitante';
@@ -204,9 +237,18 @@ export function serializarCotacao(
   cot: CotacaoBruta,
   visao: Visao,
   ctx: { userId: string },
-  extra: { eventos?: EventoBruto[]; arquivos?: ArquivoBruto[] } = {},
+  extra: {
+    eventos?: EventoBruto[];
+    arquivos?: ArquivoBruto[];
+    /** Nomes de quem registrou recebimento, nota fiscal e conferência, por id. */
+    nomes?: ReadonlyMap<string, string>;
+  } = {},
 ): CotacaoDTO {
   const eventos = extra.eventos ?? [];
+  const nome = (id: Types.ObjectId | null | undefined) =>
+    id ? (extra.nomes?.get(String(id)) ?? null) : null;
+  const ato = (a: { porUserId: Types.ObjectId; em: Date } | null | undefined): AtoDTO | null =>
+    a ? { porNome: nome(a.porUserId), em: a.em.toISOString() } : null;
   const ultimo = [...eventos].reverse().find((ev) => ACOES_COM_MOTIVO.has(ev.acao) && ev.motivo);
   const base: CotacaoDTO = {
     id: String(cot._id),
@@ -263,6 +305,17 @@ export function serializarCotacao(
     return base;
   }
 
+  base.recebimentoProvisorio = ato(cot.recebimentoProvisorio);
+  base.recebimentoDefinitivo = ato(cot.recebimentoDefinitivo);
+  base.notaFiscal = cot.notaFiscal
+    ? {
+        ...ato(cot.notaFiscal)!,
+        numero: cot.notaFiscal.numero,
+        data: cot.notaFiscal.data.toISOString().slice(0, 10),
+        arquivoId: String(cot.notaFiscal.arquivoId),
+      }
+    : null;
+
   base.orcamentos = cot.orcamentos.map((o) => ({
     id: String(o._id),
     fornecedor: o.fornecedor,
@@ -296,6 +349,23 @@ export function serializarCotacao(
     return base;
   }
 
+  base.itens = base.itens.map((i, n) => {
+    const bruto = cot.itens[n]!;
+    return {
+      ...i,
+      origem: bruto.origem ?? null,
+      baseAplicada: bruto.baseAplicada ?? null,
+      conferencia: bruto.conferencia
+        ? {
+            texto: bruto.conferencia.texto,
+            porNome: nome(bruto.conferencia.porUserId),
+            em: bruto.conferencia.em.toISOString(),
+          }
+        : null,
+    };
+  });
+  // O selo de atraso do ateste é do lado TRF1: a contratada vê só as datas (AC-21).
+  base.prazoAteste = prazoDoAteste(cot);
   base.empenhoId = cot.empenhoId ? String(cot.empenhoId) : null;
   base.valorAutorizadoCentavos = cot.valorAutorizadoCentavos ?? null;
   base.advertencias = cot.advertencias.map((a) => a.codigo as CodigoControle);

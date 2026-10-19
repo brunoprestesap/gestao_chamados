@@ -36,8 +36,31 @@ export const ROTULO_ACAO: Record<AcaoCotacao, string> = {
   aprovar: 'Cotação autorizada',
   alterar: 'Alteração pedida após autorização',
   executar: 'Execução registrada',
+  receber_provisorio: 'Recebimento provisório registrado',
+  receber_definitivo: 'Recebimento definitivo registrado (atestada)',
+  registrar_nf: 'Nota fiscal registrada',
   cancelar: 'Cotação cancelada',
 };
+
+/** De onde vem o preço do item, em palavras de quem lê o PDF sem acompanhar o processo. */
+export const ROTULO_ORIGEM: Record<string, string> = {
+  anexo_v: 'Anexo V do contrato',
+  sinapi: 'SINAPI',
+  ambas: 'Anexo V e SINAPI',
+  orcamento: 'Três orçamentos',
+};
+
+export const ROTULO_BASE: Record<string, string> = {
+  anexo_v: 'Anexo V',
+  sinapi: 'SINAPI',
+  orcamento: 'Menor orçamento',
+};
+
+/** Etapas do ateste, para o selo de prazo da fila e do detalhe (AC-21). */
+export const ROTULO_ETAPA_ATESTE = {
+  provisorio: 'Recebimento provisório',
+  definitivo: 'Recebimento definitivo',
+} as const;
 
 export const ROTULO_PAPEL: Record<PapelEvento, string> = {
   responsavel_tecnico: 'Responsável técnico',
@@ -146,6 +169,11 @@ export function tituloAvisoCotacao(numero: string, situacao: SituacaoCotacao): s
     cancelada: `Cotação ${numero} cancelada`,
   };
   return frases[situacao];
+}
+
+/** Aviso da nota fiscal registrada (AC-22): vai aos gestores, sem valor. */
+export function tituloAvisoNotaFiscal(numero: string): string {
+  return `Nota fiscal registrada na cotação ${numero}`;
 }
 
 /** Mensagem da conclusão do chamado recusada por cotação em trâmite (AC-13). */

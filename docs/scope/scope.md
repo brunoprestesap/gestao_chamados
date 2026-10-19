@@ -388,7 +388,7 @@ spec [0019](../specs/0019-cotacao-material/index.md) · code in `lib/material/`,
 - [x] Design it (spec): `/architect cotação e fornecimento de material`
 - [ ] Build it: `/develop cotação e fornecimento de material`
   - [x] Fatia 1, o fio: rascunho do técnico, caminho 3, análise, aprovação por designação e faixa, reserva no empenho com conciliação, execução, trilha, avisos, custo e fechamento do envio antigo · AC-1 a AC-20
-  - [ ] Fatia 2: recebimento provisório e definitivo, nota fiscal e PDF da trilha · AC-21, AC-22, AC-23
+  - [x] Fatia 2: recebimento provisório e definitivo, nota fiscal e PDF da trilha · AC-21, AC-22, AC-23
   - [ ] Fatia 3: importação do Anexo V e do SINAPI, caminhos 1 e 2, duas bases, lista de anomalia · AC-24 a AC-30
   - [ ] Fatia 4: controles de CNPJ, referência, variação e validade, e a urgência · AC-31 a AC-35
   - [ ] Fatia 5: fracionamento, reincidência, projeção, consumo, item parecido, parâmetros e relatório · AC-36 a AC-42

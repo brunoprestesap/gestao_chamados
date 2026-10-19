@@ -103,7 +103,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       chamadoId: new Types.ObjectId(id),
       situacao: { $in: [...SITUACOES_NO_CUSTO] },
     })
-      .select('numero valorExecutadoCentavos situacao emTramite updatedAt')
+      .select('numero valorExecutadoCentavos situacao emTramite updatedAt notaFiscal')
       .sort({ createdAt: 1 })
       .lean();
     // O link para `/cotacoes/[id]` só para quem a tela deixa abrir (o Preposto
@@ -126,6 +126,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             situacao: c.situacao as SituacaoCotacao,
             emTramite: c.emTramite,
             updatedAt: c.updatedAt,
+            notaFiscal: c.notaFiscal ?? null,
           },
         ) !== null,
     }));

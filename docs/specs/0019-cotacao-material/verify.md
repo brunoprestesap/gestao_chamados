@@ -1,6 +1,6 @@
 # Verify: Cotação e fornecimento de material · spec 0019 · updated 2026-10-19
 
-_Steps derived from spec 0019 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones. Esta versão cobre a Fatia 1 (AC-1 a AC-20)._
+_Steps derived from spec 0019 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones. Esta versão cobre a Fatia 1 (AC-1 a AC-20) e a Fatia 2 (AC-21 a AC-23)._
 
 ## Preparação
 
@@ -56,3 +56,38 @@ _Steps derived from spec 0019 acceptance criteria. `/check verify` runs these; `
 ## Acceptance-criteria coverage
 
 - AC-1 · rascunho, trava, aviso · AC-2 · pausa, retomada, trava da retomada manual · AC-3 · uma em trâmite · AC-4 · 3 orçamentos e menor preço · AC-5 · assumir, devolver, reprovar, encaminhar · AC-6 · empenho elegível · AC-7 · faixa e quem montou · AC-8 · reserva atômica e conciliação · AC-9 · trilha · AC-10 · execução · AC-11 · alteração · AC-12 · cancelamento · AC-13 · conclusão e varredura · AC-14 · reprovada · AC-15 · visibilidade · AC-16 · avisos sem valor · AC-17 · custo · AC-18 · envio antigo fechado · AC-19 · cadastro · AC-20 · taxa zero
+
+## Fatia 2: ateste, nota fiscal e PDF · added 2026-10-19
+
+_Pede uma cotação `executada` do fio da Fatia 1 e as mesmas designações da Preparação._
+
+### UI / manual
+
+- [x] Como gestor, abrir `/cotacoes?aba=ateste` → a cotação `executada` aparece com o selo "Recebimento provisório até dd/mm" (dia da execução em Belém + 5) → AC-21
+- [x] Com uma cotação executada há mais de 5 dias (pode ajustar `executadoEm` no banco de teste) → o selo fica vermelho, "Recebimento provisório atrasado", e nada é bloqueado → AC-21
+- [x] Como gestor, em `/cotacoes/<id>`, `Registrar recebimento provisório` → confirmar → a situação continua `Executada`, a seção Ateste mostra data e nome, o selo passa ao definitivo, e ninguém recebe aviso → AC-21
+- [x] Ainda como gestor, `Registrar recebimento definitivo` → a situação vira `Atestada`, a trilha ganha os dois atos com papel Gestor, e o responsável técnico recebe "Cotação X atestada" sem valor → AC-21, AC-9, AC-16
+- [ ] Como fiscal ou aprovador (sem designação de gestor), na `executada` → nenhum botão de recebimento → AC-21
+- [x] Como responsável técnico, na `executada` → sem `Registrar nota fiscal`; enviar arquivo `nota_fiscal` pela rota de upload → 409 → AC-22
+- [ ] Como responsável técnico, na `atestada`: a aba "Minhas ações" lista a cotação; `Registrar nota fiscal` com número, data e arquivo → a seção Ateste mostra "Nº ..., de dd/mm/aaaa" com o link do arquivo; o botão some e um segundo registro é recusado → AC-22
+- [x] Como técnico atribuído e como solicitante → o link do arquivo da nota fiscal responde 403 → AC-15, AC-22
+- [x] Como fiscal, gestor ou aprovador, `Gerar PDF para o SEI` → baixa `cotacao-COT-<ano>-####.pdf` com resumo, itens com origem e base aplicada, orçamentos, conferências, advertências e a trilha inteira com autor, papel e limite no ato; o rodapé de toda página traz o código da emissão → AC-23
+- [ ] Como responsável técnico e como técnico → o botão não aparece, e `POST /api/cotacoes/<id>/pdf` com a sessão deles responde 403 → AC-23
+- [ ] Como Admin sem designação → lê a cotação, mas não vê `Gerar PDF para o SEI`, e o `POST /api/cotacoes/<id>/pdf` responde 403; num rascunho, o `POST` de um fiscal responde 409 → AC-23 · added 2026-10-19 (review)
+- [ ] Como responsável técnico, `Registrar nota fiscal` → `Conferir` mostra número, data e arquivo antes de gravar; `Corrigir` volta ao formulário; data futura não é aceita; ao confirmar, os gestores recebem "Nota fiscal registrada na cotação X", sem valor → AC-22, AC-16 · added 2026-10-19 (review)
+- [ ] Com uma `atestada` sem nota fiscal parada há mais de 90 dias → continua em "Minhas ações" e no detalhe do responsável técnico; o selo de atraso do ateste não aparece para ele, só as datas → AC-21, AC-22 · added 2026-10-19 (review)
+
+### Value sourcing
+
+- [ ] Prazo do provisório: execução às 23:30 de Belém (02:30 UTC do dia seguinte) → o vencimento conta do dia de Belém, não do dia UTC → AC-21
+- [ ] Prazo do definitivo: conta do `recebimentoProvisorio.em`, não da execução → AC-21
+- [x] Autor do recebimento e da nota fiscal: o usuário da sessão no ato, gravado na cotação e no evento → AC-9
+
+### Commands
+
+- [x] `sha256sum cotacao-COT-....pdf` → igual ao `sha256` do documento em `cotacaomaterialpdfemissoes` com o `_id` do header `X-Emissao-Id` → AC-23
+- [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/material` → passa, inclusive `ateste.db.test.ts` e `prazos.test.ts` → AC-21, AC-22, AC-23
+
+### Acceptance-criteria coverage
+
+- AC-21 · provisório, definitivo, selo de prazo · AC-22 · nota fiscal só na atestada, pelo responsável técnico · AC-23 · PDF do lado TRF1 com SHA-256 da emissão

@@ -9,7 +9,7 @@ import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
 import type { SituacaoCotacao } from '@/shared/material/material.constants';
-import { tituloAvisoCotacao } from '@/shared/material/mensagens';
+import { tituloAvisoCotacao, tituloAvisoNotaFiscal } from '@/shared/material/mensagens';
 
 import { aprovadoresQueCobrem, designadosVigentes } from './papeis';
 
@@ -75,44 +75,78 @@ export async function avisarSituacao(
       .select('numero chamadoId montadoPorUserId valorTotalCentavos')
       .lean();
     if (!cot) return;
-    const lista = (
-      await destinatarios(situacao, { ...cot, montadoPorUserId: cot.montadoPorUserId ?? null })
-    ).filter((d) => d.userId !== autorUserId);
-    // Uma pessoa, um aviso: o técnico que também é responsável técnico vai à fila.
-    const porUsuario = new Map<string, Destino>();
-    for (const d of lista) if (!porUsuario.has(d.userId)) porUsuario.set(d.userId, d.destino);
-    if (porUsuario.size === 0) return;
-
-    const titulo = tituloAvisoCotacao(cot.numero, situacao);
-    const chamadoId = String(cot.chamadoId);
-    const at = new Date().toISOString();
-    const data = { cotacaoId, numero: cot.numero, chamadoId, situacao, at };
-
-    await NotificationModel.insertMany(
-      [...porUsuario.entries()].map(([userId, destino]) => ({
-        userId: new Types.ObjectId(userId),
-        type: 'material:cotacao',
-        title: titulo,
-        body: '',
-        data: { ...data, destino },
-        readAt: null,
-      })),
-    );
-    const usuarios = await UserModel.find({
-      _id: { $in: [...porUsuario.keys()].map((id) => new Types.ObjectId(id)) },
-    })
-      .select('name email')
-      .lean();
-    for (const u of usuarios) {
-      const destino = porUsuario.get(String(u._id))!;
-      enviarEmailCotacao(
-        { email: u.email as string | undefined, name: u.name as string | undefined },
-        titulo,
-        urlDoAviso(destino, cotacaoId, chamadoId),
-      ).catch(() => {});
-      void emitToRoom(`user:${String(u._id)}`, 'material:cotacao_situacao', data);
-    }
+    const lista = await destinatarios(situacao, {
+      ...cot,
+      montadoPorUserId: cot.montadoPorUserId ?? null,
+    });
+    await entregar(cot, situacao, lista, autorUserId, tituloAvisoCotacao(cot.numero, situacao));
   } catch (e) {
     console.error('[material] aviso de cotação falhou:', e);
+  }
+}
+
+/**
+ * A nota fiscal chegou (AC-22): avisa os gestores vigentes, sem valor. A
+ * situação não muda (continua `atestada`), por isso o aviso é próprio.
+ */
+export async function avisarNotaFiscal(
+  cotacaoId: string,
+  autorUserId: string | null,
+): Promise<void> {
+  try {
+    const cot = await CotacaoMaterialModel.findById(cotacaoId).select('numero chamadoId').lean();
+    if (!cot) return;
+    const lista = (await designadosVigentes('gestor')).map((d) => ({
+      userId: d.userId,
+      destino: 'cotacoes' as const,
+    }));
+    await entregar(cot, 'atestada', lista, autorUserId, tituloAvisoNotaFiscal(cot.numero));
+  } catch (e) {
+    console.error('[material] aviso de nota fiscal falhou:', e);
+  }
+}
+
+/** Grava a `Notification`, manda o e-mail e o evento Socket.IO para cada pessoa, uma vez. */
+async function entregar(
+  cot: { _id: Types.ObjectId; numero: string; chamadoId: Types.ObjectId },
+  situacao: SituacaoCotacao,
+  destinos: { userId: string; destino: Destino }[],
+  autorUserId: string | null,
+  titulo: string,
+): Promise<void> {
+  const cotacaoId = String(cot._id);
+  const lista = destinos.filter((d) => d.userId !== autorUserId);
+  // Uma pessoa, um aviso: o técnico que também é responsável técnico vai à fila.
+  const porUsuario = new Map<string, Destino>();
+  for (const d of lista) if (!porUsuario.has(d.userId)) porUsuario.set(d.userId, d.destino);
+  if (porUsuario.size === 0) return;
+
+  const chamadoId = String(cot.chamadoId);
+  const at = new Date().toISOString();
+  const data = { cotacaoId, numero: cot.numero, chamadoId, situacao, at };
+
+  await NotificationModel.insertMany(
+    [...porUsuario.entries()].map(([userId, destino]) => ({
+      userId: new Types.ObjectId(userId),
+      type: 'material:cotacao',
+      title: titulo,
+      body: '',
+      data: { ...data, destino },
+      readAt: null,
+    })),
+  );
+  const usuarios = await UserModel.find({
+    _id: { $in: [...porUsuario.keys()].map((id) => new Types.ObjectId(id)) },
+  })
+    .select('name email')
+    .lean();
+  for (const u of usuarios) {
+    const destino = porUsuario.get(String(u._id))!;
+    enviarEmailCotacao(
+      { email: u.email as string | undefined, name: u.name as string | undefined },
+      titulo,
+      urlDoAviso(destino, cotacaoId, chamadoId),
+    ).catch(() => {});
+    void emitToRoom(`user:${String(u._id)}`, 'material:cotacao_situacao', data);
   }
 }
