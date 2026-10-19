@@ -87,6 +87,9 @@ export async function desativarFaixa(faixaId: string): Promise<Resultado> {
     : { ok: false, error: 'Faixa não encontrada ou já desativada.' };
 }
 
+const MSG_DESIGNACAO_SOBREPOSTA =
+  'Esta pessoa já tem designação para este papel num período que se sobrepõe.';
+
 /** Dois intervalos `[início, fim]` (fim vazio é aberto) se cruzam. */
 function cruzam(a: { i: string; f: string | null }, b: { i: string; f: string | null }): boolean {
   return a.i <= (b.f ?? '9999-12-31') && b.i <= (a.f ?? '9999-12-31');
@@ -121,13 +124,10 @@ export async function criarDesignacao(
     .select('vigenciaInicio vigenciaFim')
     .lean();
   const nova = { i: d.vigenciaInicio, f: d.vigenciaFim ?? null };
-  if (outras.some((o) => cruzam(nova, { i: o.vigenciaInicio, f: o.vigenciaFim ?? null }))) {
-    return {
-      ok: false,
-      error: 'Esta pessoa já tem designação para este papel num período que se sobrepõe.',
-    };
-  }
-  await DesignacaoMaterialModel.create({
+  const cruzaAlguma = (lista: typeof outras) =>
+    lista.some((o) => cruzam(nova, { i: o.vigenciaInicio, f: o.vigenciaFim ?? null }));
+  if (cruzaAlguma(outras)) return { ok: false, error: MSG_DESIGNACAO_SOBREPOSTA };
+  const criada = await DesignacaoMaterialModel.create({
     userId: new Types.ObjectId(d.userId),
     papel,
     faixaId: papel === 'aprovador' ? new Types.ObjectId(d.faixaId!) : null,
@@ -137,6 +137,24 @@ export async function criarDesignacao(
     criadoPorUserId: new Types.ObjectId(adminId),
     em: new Date(),
   });
+  // Sem transação, dois cadastros ao mesmo tempo passam pela conferência acima.
+  // Depois de gravar, fica a de menor `_id`; a outra se revoga (nunca apaga).
+  const anteriores = await DesignacaoMaterialModel.find({
+    userId: criada.userId,
+    papel,
+    revogadaEm: null,
+    _id: { $lt: criada._id },
+  })
+    .select('vigenciaInicio vigenciaFim')
+    .lean();
+  if (cruzaAlguma(anteriores)) {
+    await DesignacaoMaterialModel.updateOne(
+      { _id: criada._id, revogadaEm: null },
+      { $set: { revogadaEm: new Date(), revogadaPorUserId: new Types.ObjectId(adminId) } },
+      OPCAO_ESCRITA_PROPRIA,
+    );
+    return { ok: false, error: MSG_DESIGNACAO_SOBREPOSTA };
+  }
   return { ok: true };
 }
 

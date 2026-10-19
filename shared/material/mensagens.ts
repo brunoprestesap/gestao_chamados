@@ -160,5 +160,9 @@ export const MSG_RETOMADA_COM_COTACAO =
 export const MSG_ENVIO_ANTIGO_FECHADO =
   'O envio de cotação por aqui foi encerrado. Use a cotação de material do chamado.';
 
+/** Aprovação recusada porque outra, da mesma cotação, ainda segura a reserva (AC-8). */
+export const MSG_APROVACAO_EM_ANDAMENTO =
+  'Outra aprovação desta cotação está em andamento ou parou no meio há poucos minutos. Recarregue a página e, se ela continuar em aprovação, tente de novo daqui a 10 minutos.';
+
 export const MSG_VERSAO_DESATUALIZADA =
   'A cotação mudou desde que você abriu. Recarregue a página.';

@@ -91,7 +91,14 @@ rodar('arquivos e avisos da cotação de material, contra o Mongo', () => {
         username: k,
         name: k,
         email: `${k}@teste`,
-        role: k === 'rt' ? 'Preposto' : k === 'tecnico' ? 'Técnico' : 'Admin',
+        role:
+          k === 'rt'
+            ? 'Preposto'
+            : k === 'tecnico'
+              ? 'Técnico'
+              : k === 'solicitante' || k === 'estranho'
+                ? 'Solicitante'
+                : 'Admin',
         isActive: true,
       })),
     );

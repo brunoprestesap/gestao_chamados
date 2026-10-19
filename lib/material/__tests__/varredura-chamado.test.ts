@@ -16,6 +16,15 @@ const RAIZ = path.resolve(__dirname, '../../..');
 
 const STATUS_FINAL = /status:\s*'(concluído|cancelado|recusado)'/;
 
+type StatusFinal = 'concluído' | 'cancelado' | 'recusado';
+
+/** O gancho que cada status final exige no mesmo arquivo. */
+const GANCHO: Record<StatusFinal, RegExp> = {
+  concluído: /impedimentoDeConclusao\(/,
+  cancelado: /cancelarCotacaoPeloChamado\([\s\S]*?'chamado_cancelado'/,
+  recusado: /cancelarCotacaoPeloChamado\([\s\S]*?'chamado_recusado'/,
+};
+
 /**
  * Arquivos que citam o status sem gravá-lo no chamado. Cada um com o motivo;
  * arquivo novo só entra aqui depois de conferido à mão.
@@ -63,10 +72,14 @@ describe('varredura: o status final do chamado passa pelo gancho do material', (
       .map((p) => path.relative(RAIZ, p).split(path.sep).join('/'))
       .filter((rel) => !rel.startsWith('lib/material/'))
       .filter((rel) => STATUS_FINAL.test(readFileSync(path.join(RAIZ, rel), 'utf8'))),
-  )('%s chama lib/material/chamado ou está na lista conferida', (rel) => {
+  )('%s chama o gancho de cada status final que grava, ou está na lista conferida', (rel) => {
+    if (rel in SEM_ESCRITA) return;
     const texto = readFileSync(path.join(RAIZ, rel), 'utf8');
-    const usaGancho = texto.includes("from '@/lib/material/chamado'");
-    expect(usaGancho || rel in SEM_ESCRITA).toBe(true);
+    expect(texto).toContain("from '@/lib/material/chamado'");
+    const gravados = new Set(
+      [...texto.matchAll(new RegExp(STATUS_FINAL, 'g'))].map((m) => m[1] as StatusFinal),
+    );
+    for (const status of gravados) expect(texto, status).toMatch(GANCHO[status]);
   });
 
   it('a conclusão confere a cotação, e cancelar e recusar cancelam a cotação', () => {

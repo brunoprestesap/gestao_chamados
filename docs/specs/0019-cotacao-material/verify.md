@@ -1,4 +1,4 @@
-# Verify: Cotação e fornecimento de material · spec 0019 · updated 2026-10-15
+# Verify: Cotação e fornecimento de material · spec 0019 · updated 2026-10-19
 
 _Steps derived from spec 0019 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones. Esta versão cobre a Fatia 1 (AC-1 a AC-20)._
 
@@ -27,7 +27,7 @@ _Steps derived from spec 0019 acceptance criteria. `/check verify` runs these; `
 - [x] Como solicitante, abrir `/meus-chamados/<id>` → só a linha "Material do chamado: <situação>", sem itens nem valores; `GET /api/cotacoes/arquivos/<orçamento>` devolve 403 → AC-15
 - [x] Como técnico, baixar um orçamento pela URL do arquivo → 403; baixar a evidência → 200 com `Content-Disposition: attachment` e `X-Content-Type-Options: nosniff` → AC-15
 - [x] Como responsável técnico, a tela da cotação não mostra empenho, saldo, limite nem advertência de divergência → AC-15
-- [ ] Notificação, e-mail e toast de cada mudança de situação não contêm "R$" → AC-16
+- [x] Notificação, e-mail e toast de cada mudança de situação não contêm "R$" → AC-16 (os três saem só de `tituloAvisoCotacao` e do link; `mensagens.test.ts` e `arquivos-avisos.db.test.ts`)
 - [x] No `PauseTicketDialog` (técnico e gestão), o motivo "Falta de Peça (Aguardando Aprovação do Cliente)" não aparece; uma cotação antiga `enviada` ainda é aprovada pelo cartão antigo → AC-18
 - [x] `/configuracoes/material` mostra "Taxa de administração sobre material: R$ 0,00" sem campo de edição → AC-20
 - [x] Designar a mesma pessoa no mesmo papel em período que se cruza → recusado; designar um Técnico como fiscal → recusado; anular mais que o saldo livre → recusado → AC-19
@@ -35,7 +35,7 @@ _Steps derived from spec 0019 acceptance criteria. `/check verify` runs these; `
 ## Value sourcing
 
 - [x] Número: duas cotações seguidas no mesmo ano saem `COT-<ano>-0001` e `-0002` (contador `cotacao_material_<ano>`)
-- [ ] `ativoId`: vincular outro ativo ao chamado entre criar e enviar → a cotação enviada carrega o ativo novo
+- [x] `ativoId`: vincular outro ativo ao chamado entre criar e enviar → a cotação enviada carrega o ativo novo
 - [x] Preço caminho 3: mudar o menor orçamento antes do envio muda o total; depois do envio, o preço não muda
 - [x] Valor da linha: quantidade 1,333 × R$ 0,03 → R$ 0,04 (um arredondamento só, como `shared/chamados/custo.ts`)
 - [x] Trava do técnico: some no primeiro salvamento do responsável técnico
@@ -43,8 +43,8 @@ _Steps derived from spec 0019 acceptance criteria. `/check verify` runs these; `
 - [x] Limite do aprovador: desativar a faixa grande → o aprovador perde o `Aprovar`
 - [x] Executar: técnico reatribuído depois da autorização → o antigo não executa, o novo executa
 - [x] Executar: data do servidor posterior a `autorizadoEm`
-- [ ] Cancelar pelo chamado: autor do evento = quem cancelou o chamado, motivo `chamado_cancelado`; recusa grava `chamado_recusado`
-- [ ] "Hoje" em Belém: designação com início amanhã (Belém) ainda não vale às 22:00 de hoje em Belém (01:00 UTC)
+- [x] Cancelar pelo chamado: autor do evento = quem cancelou o chamado, motivo `chamado_cancelado`; recusa grava `chamado_recusado`
+- [x] "Hoje" em Belém: designação com início amanhã (Belém) ainda não vale às 22:00 de hoje em Belém (01:00 UTC)
 - [x] Custo: um chamado com cotação antiga aprovada, cotação nova executada e material fora de cotação soma os três na ficha, no IMR e no relatório
 
 ## Commands

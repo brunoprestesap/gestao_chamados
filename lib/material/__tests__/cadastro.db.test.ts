@@ -170,6 +170,19 @@ rodar('cadastro e designações do material, contra o Mongo', () => {
       expect((await designar(u.adm, 'gestor')).ok).toBe(true);
     });
 
+    it('dois cadastros simultâneos que se sobrepõem deixam uma só vigente', async () => {
+      const r = await Promise.all([
+        designar(u.adm, 'fiscal', { ato: 'Portaria A' }),
+        designar(u.adm, 'fiscal', { ato: 'Portaria B' }),
+        designar(u.adm, 'fiscal', { ato: 'Portaria C' }),
+      ]);
+
+      expect(r.filter((x) => x.ok)).toHaveLength(1);
+      expect(
+        await Designacao.countDocuments({ userId: new Types.ObjectId(u.adm), revogadaEm: null }),
+      ).toBe(1);
+    });
+
     it('designação revogada não bloqueia uma nova no mesmo período', async () => {
       await designar(u.adm, 'fiscal');
       const d = await Designacao.findOne({ userId: new Types.ObjectId(u.adm) }).lean();

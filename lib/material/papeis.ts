@@ -7,12 +7,18 @@ import { hojeEmBelem } from '@/lib/ativos/documentos/situacao';
 import { DesignacaoMaterialModel } from '@/models/DesignacaoMaterial';
 import { FaixaCompetenciaModel } from '@/models/FaixaCompetencia';
 import { UserModel } from '@/models/user.model';
-import { PAPEIS_TRF1, type PapelDesignacao } from '@/shared/material/material.constants';
+import {
+  PAPEIS_TRF1,
+  type PapelDesignacao,
+  PERFIS_POR_PAPEL,
+} from '@/shared/material/material.constants';
 
 /**
  * Competência no fluxo de material (spec 0019): vem da `DesignacaoMaterial`
  * vigente, nunca do perfil. Os 4 perfis não mudam; o Admin sem designação
- * só lê.
+ * só lê. O perfil ainda limita o papel no uso (AC-19): quem deixou de ser
+ * Admin perde fiscal, gestor e aprovador sem o Admin revogar nada, e o perfil
+ * vem do banco, não do token da sessão, que pode ter dias.
  */
 
 export type DesignacaoVigente = {
@@ -43,14 +49,27 @@ export function filtroVigente(hoje: string) {
   };
 }
 
-async function carregarPapeis(userId: string, role: string): Promise<Papeis> {
+/** O papel cabe no perfil (AC-19). */
+function perfilAceita(papel: PapelDesignacao, role: unknown): boolean {
+  return PERFIS_POR_PAPEL[papel].includes(String(role));
+}
+
+async function carregarPapeis(userId: string, roleDaSessao: string): Promise<Papeis> {
   const hoje = hojeEmBelem();
-  const docs = await DesignacaoMaterialModel.find({
-    userId: new Types.ObjectId(userId),
-    ...filtroVigente(hoje),
-  })
-    .select('papel faixaId')
-    .lean();
+  const [user, todas] = await Promise.all([
+    UserModel.findById(userId).select('role isActive').lean(),
+    DesignacaoMaterialModel.find({
+      userId: new Types.ObjectId(userId),
+      ...filtroVigente(hoje),
+    })
+      .select('papel faixaId')
+      .lean(),
+  ]);
+  const role = (user?.role as string | undefined) ?? roleDaSessao;
+  const docs =
+    user && user.isActive !== false
+      ? todas.filter((d) => perfilAceita(d.papel as PapelDesignacao, role))
+      : [];
   const faixaIds = docs.map((d) => d.faixaId).filter((f): f is Types.ObjectId => !!f);
   const faixas = faixaIds.length
     ? await FaixaCompetenciaModel.find({ _id: { $in: faixaIds }, ativa: true })
@@ -106,7 +125,11 @@ export async function designadosVigentes(papel: PapelDesignacao): Promise<Design
   if (docs.length === 0) return [];
   const faixaIds = docs.map((d) => d.faixaId).filter((f): f is Types.ObjectId => !!f);
   const [usuarios, faixas] = await Promise.all([
-    UserModel.find({ _id: { $in: docs.map((d) => d.userId) }, isActive: true })
+    UserModel.find({
+      _id: { $in: docs.map((d) => d.userId) },
+      isActive: true,
+      role: { $in: [...PERFIS_POR_PAPEL[papel]] },
+    })
       .select('name')
       .lean(),
     faixaIds.length

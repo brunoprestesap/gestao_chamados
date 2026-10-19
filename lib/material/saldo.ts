@@ -218,19 +218,27 @@ export async function registrarMovimento(params: {
  * Conciliação diária (AC-8): libera reservas com mais de 10 minutos cuja
  * cotação não está em `autorizada`, `executada` ou `atestada`, ou que estão
  * num empenho diferente do gravado na cotação, e grava evento do sistema.
- * Devolve quantas liberou.
+ * Devolve quantas liberou. Com `cotacaoId`, confere só as reservas dela (a
+ * aprovação repetida depois de uma queda usa a mesma regra, sem esperar o cron).
  */
-export async function conciliarReservas(agora: Date = new Date()): Promise<{
+export async function conciliarReservas(
+  agora: Date = new Date(),
+  opcoes: { cotacaoId?: string } = {},
+): Promise<{
   verificadas: number;
   liberadas: number;
 }> {
   const limite = new Date(agora.getTime() - CONCILIACAO_TOLERANCIA_MS);
-  const empenhos = await EmpenhoModel.find({ 'reservas.0': { $exists: true } })
+  const daCotacao = opcoes.cotacaoId ? new Types.ObjectId(opcoes.cotacaoId) : null;
+  const empenhos = await EmpenhoModel.find(
+    daCotacao ? { 'reservas.cotacaoId': daCotacao } : { 'reservas.0': { $exists: true } },
+  )
     .select('reservas')
     .lean();
   const reservas = empenhos.flatMap((e) =>
     e.reservas
       .filter((r) => r.em < limite)
+      .filter((r) => !daCotacao || String(r.cotacaoId) === opcoes.cotacaoId)
       .map((r) => ({ empenhoId: e._id, cotacaoId: r.cotacaoId })),
   );
   if (reservas.length === 0) return { verificadas: 0, liberadas: 0 };
@@ -251,10 +259,17 @@ export async function conciliarReservas(agora: Date = new Date()): Promise<{
     const liberado = await liberar(String(r.cotacaoId), String(r.empenhoId));
     if (!liberado) continue;
     liberadas++;
+    // Sem a cotação não há trilha onde gravar: o evento afirmaria uma situação falsa.
+    if (!s) {
+      console.warn(
+        `[material] reserva de ${liberado.valorCentavos} centavos da cotação inexistente ${String(r.cotacaoId)} liberada no empenho ${String(r.empenhoId)}.`,
+      );
+      continue;
+    }
     await CotacaoMaterialEventoModel.create({
       cotacaoId: r.cotacaoId,
-      de: s ?? null,
-      para: s ?? 'cancelada',
+      de: s,
+      para: s,
       acao: 'conciliar',
       papel: 'sistema',
       motivo: 'conciliacao',
@@ -264,4 +279,9 @@ export async function conciliarReservas(agora: Date = new Date()): Promise<{
     }).catch((e) => console.error('[material] evento da conciliação falhou:', e));
   }
   return { verificadas: reservas.length, liberadas };
+}
+
+/** Existe reserva da cotação em algum empenho. */
+export async function temReserva(cotacaoId: string): Promise<boolean> {
+  return !!(await EmpenhoModel.exists({ 'reservas.cotacaoId': new Types.ObjectId(cotacaoId) }));
 }
