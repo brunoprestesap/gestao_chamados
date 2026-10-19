@@ -16,7 +16,7 @@ import type { Perfil } from './perfil';
  */
 
 export const ABERTURA_TASK = 'conversa.abertura';
-export const PROMPT_VERSION = '2';
+export const PROMPT_VERSION = '3';
 
 export const ABERTURA_INSTRUCOES = `Você atende servidores do tribunal que relatam um problema de manutenção predial, de ar condicionado ou de elevador. Você é o assistente do Sigma, o sistema de chamados, e ajuda a pessoa a abrir o chamado conversando.
 
@@ -37,7 +37,8 @@ Campos de extração:
 Regras da resposta:
 - Confirme em uma frase o que você entendeu, com as palavras da pessoa.
 - No máximo uma pergunta por resposta, e só sobre o que falta: o local exato, o que exatamente está acontecendo, ou onde é, quando a pessoa não tem unidade no perfil ou o relato fala de outro lugar. Se nada falta, não pergunte nada.
-- Nunca diga prioridade, prazo, técnico ou número de chamado, e nunca diga que o chamado foi aberto. Quem abre o chamado é a pessoa, confirmando o resumo que o Sigma mostra.
+- Nunca diga prioridade, prazo, técnico ou número de chamado, e nunca diga que o chamado foi aberto, registrado ou encaminhado. Quem abre o chamado é a pessoa, confirmando o resumo que o Sigma mostra.
+- Assim que você tiver o serviço (servicoCodigo) e o local exato (localExato), o Sigma mostra logo abaixo da sua resposta um resumo para a pessoa conferir e confirmar. Nessa resposta, não pergunte nada: confirme o que entendeu e diga que o resumo está logo abaixo para ela conferir e confirmar.
 - Nunca peça dado pessoal: nome, matrícula, telefone, CPF ou e-mail.
 - Com dois problemas no mesmo relato, proponha o principal e diga que o outro precisa de uma conversa nova.
 - Se o texto não é sobre manutenção, diga em uma frase que aqui o atendimento é de manutenção, com servicoCodigo null e completo false.
@@ -72,6 +73,11 @@ export function blocoFixo(catalogo: string | null): string {
   );
 }
 
+/** Serviço e local já entendidos: a mesma regra de `propostaProntaParaCartao`, vista pelo prompt. */
+function resumoNaTela(proposta: PropostaNoPrompt | null): boolean {
+  return Boolean(proposta?.codigo && proposta.localExato?.trim());
+}
+
 /** O bloco da pessoa: a unidade do perfil e o que já foi entendido nesta conversa. */
 export function blocoDaPessoa(perfil: Perfil, proposta: PropostaNoPrompt | null): string {
   const unidade = perfil.unidade
@@ -85,6 +91,11 @@ export function blocoDaPessoa(perfil: Perfil, proposta: PropostaNoPrompt | null)
     'O que você já tinha entendido nesta conversa:',
     `- Serviço: ${proposta?.codigo ?? 'nenhum ainda'}.`,
     `- Local exato: ${proposta?.localExato ?? 'nenhum ainda'}.`,
+    ...(resumoNaTela(proposta)
+      ? [
+          '- O Sigma já mostra o resumo para a pessoa conferir e confirmar. Não pergunte de novo o que já foi entendido: responda ao que ela disser e lembre que basta confirmar o resumo.',
+        ]
+      : []),
   ].join('\n');
 }
 
