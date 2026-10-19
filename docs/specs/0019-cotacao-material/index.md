@@ -56,6 +56,7 @@ Fatia 2, ateste e peça para o SEI:
   - não pode ser anterior ao dia de `autorizadoEm` em Belém, porque a contratada compra depois da autorização e a nota do fornecedor costuma ser anterior à aplicação.
 
   As duas últimas são regras em `lib/material/transicoes.ts`, com códigos e textos próprios em `mensagens.ts`, devolvidas como `{ ok: false, error }`; o campo de data do diálogo leva os mesmos `min` e `max`. O diálogo mostra número e data e pede confirmação antes de gravar; a defesa contra duplo clique é do servidor (`versao` e "já registrado"). Uma tentativa recusada não prende o upload: o responsável técnico pode remover um arquivo `nota_fiscal` de uma `atestada` enquanto ele não estiver ligado a `notaFiscal.arquivoId` (exceção estreita à regra de só remover em `rascunho` ou `devolvida`). Registrar a NF avisa os gestores vigentes (ver _Avisos_).
+
 - **AC-23**: O lado TRF1 gera o PDF da cotação (itens, bases, orçamentos, conferências e a trilha inteira, com autor e limite em cada ato), legível por quem não acompanhou o processo (CA-23). Cada emissão grava o SHA-256 dos bytes. **Decisão (revisão de 19/10)**: o Admin sem designação também gera o PDF, como exceção à regra de que ele só lê, porque é quem costuma montar o processo no SEI; a emissão grava o autor e o papel com que emitiu (o da designação, ou `admin`). A rota confere primeiro se quem chama é do lado TRF1 (403) e só depois procura a cotação, para quem está de fora não distinguir um rascunho de um id inexistente; para o lado TRF1, o `rascunho` (que ele não enxerga, AC-1) responde 404.
 
 Fatia 3, Anexo V e SINAPI:
@@ -417,6 +418,7 @@ Tracer Bullet: a fatia 1 atravessa todas as camadas com o mínimo de regras (só
 
 12. Recebimento provisório e definitivo, selo de prazo e nota fiscal, satisfies **AC-21**, **AC-22**
 13. PDF da cotação com `@react-pdf/renderer` e `CotacaoMaterialPdfEmissao`, satisfies **AC-23**
+
 13a. Escolhas da revisão de 19/10: data da NF validada no schema e limitada entre a autorização e hoje, remoção do arquivo de NF não ligado, confirmação no diálogo e aviso aos gestores; `pendenciaDaContratada` usada por `visaoDe`, pela fila e por `Minhas ações`; selo e `prazoAteste` só no lado TRF1, datas do recebimento sem nome e trilha sem o autor do recebimento para a contratada; `papel` na emissão do PDF, 403 antes da busca e 404 no rascunho; o selo lê os rótulos de `mensagens.ts`; os testes do cenário "Revisão de 19/10", satisfies **AC-15**, **AC-16**, **AC-21**, **AC-22**, **AC-23**
 
 **Fatia 3: Anexo V e SINAPI**
