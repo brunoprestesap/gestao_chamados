@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   advertenciasDePreco,
-  ehAdvertenciaDePreco,
+  ehAdvertenciaRecalculada,
   impedimentosDeEnvio,
   impedimentosDoEncaminhar,
 } from '../controles';
@@ -218,10 +218,12 @@ describe('advertenciasDePreco (AC-28)', () => {
     ).toEqual([]);
   });
 
-  it('reconhece só os códigos de preço como recalculáveis', () => {
-    expect(ehAdvertenciaDePreco('anexo_v_acima_sinapi')).toBe(true);
-    expect(ehAdvertenciaDePreco('sem_referencia_sinapi')).toBe(true);
-    expect(ehAdvertenciaDePreco('divergencia_execucao')).toBe(false);
+  it('reconhece os códigos de preço e a pesquisa posterior como recalculáveis', () => {
+    expect(ehAdvertenciaRecalculada('anexo_v_acima_sinapi')).toBe(true);
+    expect(ehAdvertenciaRecalculada('sem_referencia_sinapi')).toBe(true);
+    expect(ehAdvertenciaRecalculada('pesquisa_posterior_divergente')).toBe(true);
+    expect(ehAdvertenciaRecalculada('divergencia_execucao')).toBe(false);
+    expect(ehAdvertenciaRecalculada('orcamento_vencido')).toBe(false);
   });
 });
 
@@ -235,6 +237,7 @@ describe('impedimentosDeEnvio com os caminhos 1 e 2 (AC-26)', () => {
           { _id: 'i3', origem: 'ambas' },
         ],
         orcamentos: [],
+        raizContratada: '03543374',
       }),
     ).toEqual([]);
   });
@@ -247,8 +250,9 @@ describe('impedimentosDeEnvio com os caminhos 1 e 2 (AC-26)', () => {
           { _id: 'i2', origem: 'orcamento' },
         ],
         orcamentos: [],
+        raizContratada: '03543374',
       }),
-    ).toEqual(['orcamentos_insuficientes']);
+    ).toEqual(['orcamentos_insuficientes', 'sem_referencia']);
   });
 });
 

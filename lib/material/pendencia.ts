@@ -4,29 +4,58 @@ import {
 } from '@/shared/material/material.constants';
 
 /**
- * A nota fiscal pendente da contratada (spec 0019, AC-15 e AC-22): a
- * `atestada` sem `notaFiscal` espera um ato do responsável técnico e nunca
- * some da visão dele, por mais velha que seja. As duas formas moram aqui,
+ * O que a contratada ainda deve (spec 0019, AC-15, AC-22 e AC-35): a nota
+ * fiscal da `atestada`, e a pesquisa de preços da urgência aceita ainda
+ * incompleta. Os dois esperam um ato do responsável técnico e nunca somem da
+ * visão dele, por mais velha que seja a cotação. As duas formas moram aqui,
  * juntas, para a tela (`visaoDe`) e a fila (`listarFila`) nunca divergirem;
  * um teste de paridade roda as duas sobre as mesmas cotações.
  */
 
-/** Forma em memória, para `visaoDe` e para a tela. */
-export function pendenciaDaContratada(cot: {
+type ParaPendencia = {
   situacao: SituacaoCotacao;
   notaFiscal?: unknown;
-}): boolean {
+  urgencia?: { decisao?: string | null; pesquisaCompletaEm?: unknown } | null;
+};
+
+/** A `atestada` ainda sem nota fiscal (AC-22), forma em memória. */
+export function notaFiscalPendente(cot: ParaPendencia): boolean {
   return cot.situacao === 'atestada' && !cot.notaFiscal;
 }
 
+/** A urgência aceita ainda sem os 3 orçamentos de cada item (AC-35), forma em memória. */
+export function pesquisaDaUrgenciaPendente(cot: ParaPendencia): boolean {
+  return (
+    (cot.situacao === 'autorizada' || cot.situacao === 'executada') &&
+    cot.urgencia?.decisao === 'aceita' &&
+    !cot.urgencia.pesquisaCompletaEm
+  );
+}
+
+/** Forma em memória, para `visaoDe` e para a tela. */
+export function pendenciaDaContratada(cot: ParaPendencia): boolean {
+  return notaFiscalPendente(cot) || pesquisaDaUrgenciaPendente(cot);
+}
+
 /**
- * Forma em filtro Mongo, para `listarFila` e a aba `Minhas ações`. O
- * `notaFiscal: null` do Mongo casa com o campo nulo e com o ausente, como
- * o `!cot.notaFiscal` acima.
+ * A nota fiscal pendente em filtro Mongo. O `notaFiscal: null` do Mongo casa
+ * com o campo nulo e com o ausente, como o `!cot.notaFiscal` acima.
  */
-export const FILTRO_PENDENCIA_DA_CONTRATADA = Object.freeze({
+export const FILTRO_NOTA_FISCAL_PENDENTE = Object.freeze({
   situacao: 'atestada',
   notaFiscal: null,
+});
+
+/** A pesquisa da urgência pendente em filtro Mongo (`pesquisaCompletaEm` nulo ou ausente). */
+export const FILTRO_PESQUISA_PENDENTE = Object.freeze({
+  situacao: { $in: ['autorizada', 'executada'] },
+  'urgencia.decisao': 'aceita',
+  'urgencia.pesquisaCompletaEm': null,
+});
+
+/** Forma em filtro Mongo, para `listarFila` e a aba `Minhas ações`. */
+export const FILTRO_PENDENCIA_DA_CONTRATADA = Object.freeze({
+  $or: [{ ...FILTRO_NOTA_FISCAL_PENDENTE }, { ...FILTRO_PESQUISA_PENDENTE }],
 });
 
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -42,7 +71,7 @@ export function inicioDaJanelaDaContratada(agora: Date): Date {
  * reinicia) ou com a nota fiscal pendente.
  */
 export function visivelParaContratada(
-  cot: { situacao: SituacaoCotacao; emTramite: boolean; updatedAt: Date; notaFiscal?: unknown },
+  cot: ParaPendencia & { emTramite: boolean; updatedAt: Date },
   agora: Date,
 ): boolean {
   return (

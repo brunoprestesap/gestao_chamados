@@ -60,6 +60,11 @@ export const ACOES_COTACAO = [
   'receber_definitivo',
   'registrar_nf',
   'cancelar',
+  // Fatia 4: referências do fiscal, recusa da urgência e o complemento da pesquisa.
+  'referencia_acrescentada',
+  'referencia_retirada',
+  'urgencia_recusada',
+  'pesquisa_completada',
 ] as const;
 export type AcaoCotacao = (typeof ACOES_COTACAO)[number];
 
@@ -187,6 +192,37 @@ export const TEXTO_CURTO_MAX = 500;
 /** As duas bases que o fiscal escolhe num item `ambas` (AC-27). */
 export const BASES_DE_AMBAS = ['anexo_v', 'sinapi'] as const;
 export type BaseDeAmbas = (typeof BASES_DE_AMBAS)[number];
+
+// ---------------------------------------------------------------------------
+// Fatia 4: controles do caminho 3 e urgência
+// ---------------------------------------------------------------------------
+
+/** `envio` sustenta o preço; `complemento` só entra pela pesquisa da urgência (AC-35). */
+export const FASES_ORCAMENTO = ['envio', 'complemento'] as const;
+export type FaseOrcamento = (typeof FASES_ORCAMENTO)[number];
+
+/** Referência de preço do caminho 3 (AC-32): insumo SINAPI pela tabela, ou fonte livre. */
+export const TIPOS_REFERENCIA = ['sinapi', 'livre'] as const;
+export type TipoReferencia = (typeof TIPOS_REFERENCIA)[number];
+
+/** Quem registrou a referência: a contratada no rascunho, o fiscal na análise. */
+export const PAPEIS_REFERENCIA = ['responsavel_tecnico', 'fiscal'] as const;
+export type PapelReferencia = (typeof PAPEIS_REFERENCIA)[number];
+
+export const DECISOES_URGENCIA = ['aceita', 'recusada'] as const;
+export type DecisaoUrgencia = (typeof DECISOES_URGENCIA)[number];
+
+/** Até 5 referências por item e por papel, contando as retiradas do fiscal. */
+export const MAX_REFERENCIAS_POR_PAPEL = 5;
+/** Fonte da referência livre: 10 a 200 caracteres. */
+export const FONTE_REFERENCIA_MIN = 10;
+export const FONTE_REFERENCIA_MAX = 200;
+/** A data da referência livre não é futura nem passa de 12 meses antes de hoje (Belém). */
+export const MESES_MAX_REFERENCIA = 12;
+/** Cada item do caminho 3 precisa de 3 raízes de CNPJ distintas (AC-31). */
+export const MIN_RAIZES_POR_ITEM = 3;
+/** Na urgência, basta 1 orçamento com preço por item até a pesquisa completar (AC-35). */
+export const MIN_ORCAMENTOS_URGENCIA = 1;
 
 /** Parâmetros padrão da `MaterialConfig` (fatia 1 só usa a raiz da contratada na trilha). */
 export const MATERIAL_CONFIG_PADRAO = {

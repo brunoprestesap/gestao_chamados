@@ -17,14 +17,19 @@ import {
 import { ArquivoCotacaoModel } from '@/models/ArquivoCotacao';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import {
+  AcrescentarReferenciaSchema,
   AprovarSchema,
   BuscarItensPrecoSchema,
   ClassificarItemSchema,
+  CompletarPesquisaSchema,
   CriarCotacaoSchema,
   EncaminharSchema,
+  EnviarSchema,
   ExecutarSchema,
   NotaFiscalSchema,
   RecebimentoSchema,
+  RecusarUrgenciaSchema,
+  RetirarReferenciaSchema,
   SalvarRascunhoSchema,
   TransicaoComMotivoSchema,
   TransicaoSchema,
@@ -100,7 +105,11 @@ export async function salvarRascunhoAction(
   );
 }
 
-type ResultadoTransicao = ResultadoMaterial<{ situacao: SituacaoCotacao; versao: number }>;
+type ResultadoTransicao = ResultadoMaterial<{
+  situacao: SituacaoCotacao;
+  versao: number;
+  pesquisaCompleta?: boolean;
+}>;
 
 async function transicao(
   acao: EntradaTransicao['acao'],
@@ -120,10 +129,40 @@ async function transicao(
   );
 }
 
+/** Envia ou reenvia; a urgência é pedida aqui, com justificativa no primeiro pedido (AC-35). */
 export async function enviarCotacaoAction(raw: unknown): Promise<ResultadoTransicao> {
-  const p = TransicaoSchema.safeParse(raw);
+  const p = EnviarSchema.safeParse(raw);
   if (!p.success) return primeiroErro(p.error.issues);
   return transicao('enviar', p.data);
+}
+
+/** O fiscal que assumiu acrescenta uma referência de preço a um item do caminho 3 (AC-32). */
+export async function acrescentarReferenciaAction(raw: unknown): Promise<ResultadoTransicao> {
+  const p = AcrescentarReferenciaSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return transicao('referencia_acrescentada', p.data);
+}
+
+/** O fiscal retira a própria referência: só marca, nunca apaga (regras finas de 20/10). */
+export async function retirarReferenciaAction(raw: unknown): Promise<ResultadoTransicao> {
+  const p = RetirarReferenciaSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return transicao('referencia_retirada', p.data);
+}
+
+/** Recusar a urgência devolve a cotação; a urgência recusada não volta (AC-35). */
+export async function recusarUrgenciaAction(raw: unknown): Promise<ResultadoTransicao> {
+  const p = RecusarUrgenciaSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return transicao('urgencia_recusada', p.data);
+}
+
+/** A contratada acrescenta orçamentos à pesquisa da urgência aceita (AC-35). */
+export async function completarPesquisaAction(raw: unknown): Promise<ResultadoTransicao> {
+  const p = CompletarPesquisaSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  const { orcamentos, ...resto } = p.data;
+  return transicao('pesquisa_completada', { ...resto, orcamentosNovos: orcamentos });
 }
 
 export async function assumirAction(raw: unknown): Promise<ResultadoTransicao> {
@@ -236,26 +275,49 @@ export async function removerArquivoAction(raw: unknown): Promise<ResultadoMater
         return { ok: false, error: 'Só quem enviou remove o arquivo.' };
       }
       const cot = await CotacaoMaterialModel.findById(arq.cotacaoId)
-        .select('situacao notaFiscal')
+        .select('situacao notaFiscal orcamentos.arquivoId urgencia')
         .lean();
-      // A exceção da `atestada` é do responsável técnico vigente, não só de quem enviou.
+      // As exceções da `atestada` (NF) e da urgência aceita (orçamento do complemento)
+      // são do responsável técnico vigente, não só de quem enviou.
       const responsavelTecnico =
-        cot?.situacao === 'atestada' &&
+        !!cot &&
+        ['atestada', 'autorizada', 'executada'].includes(cot.situacao) &&
         (await papeisDe(s.userId, s.role)).tem('responsavel_tecnico');
       if (
         !cot ||
         !podeRemoverArquivo(
           arq,
-          { situacao: cot.situacao as SituacaoCotacao, notaFiscal: cot.notaFiscal ?? null },
+          {
+            situacao: cot.situacao as SituacaoCotacao,
+            notaFiscal: cot.notaFiscal ?? null,
+            orcamentos: cot.orcamentos ?? [],
+            urgencia: cot.urgencia ?? null,
+          },
           { responsavelTecnico },
         )
       ) {
         return { ok: false, error: 'O arquivo não pode mais ser removido nesta situação.' };
       }
+      const removidoEm = new Date();
       await ArquivoCotacaoModel.updateOne(
         { _id: arq._id, removidoEm: null },
-        { $set: { removidoEm: new Date(), removidoPorUserId: s.userId } },
+        { $set: { removidoEm, removidoPorUserId: s.userId } },
       );
+      // Sem transação: um complemento da pesquisa (fatia 4) pode ter ligado este
+      // arquivo entre a leitura e a escrita. Ligado agora, a remoção é desfeita.
+      if (cot.situacao === 'autorizada' || cot.situacao === 'executada') {
+        const ligado = await CotacaoMaterialModel.exists({
+          _id: arq.cotacaoId,
+          'orcamentos.arquivoId': arq._id,
+        });
+        if (ligado) {
+          await ArquivoCotacaoModel.updateOne(
+            { _id: arq._id, removidoEm },
+            { $set: { removidoEm: null, removidoPorUserId: null } },
+          );
+          return { ok: false, error: 'O arquivo já está ligado a um orçamento da cotação.' };
+        }
+      }
       return { ok: true };
     },
     async () => {

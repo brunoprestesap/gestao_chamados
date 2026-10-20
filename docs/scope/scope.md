@@ -391,7 +391,7 @@ spec [0019](../specs/0019-cotacao-material/index.md) · code in `lib/material/`,
   - [x] Fatia 2: recebimento provisório e definitivo, nota fiscal e PDF da trilha · AC-21, AC-22, AC-23
   - [x] Ajustes da revisão de 19/10 (passo 13a): data e aviso da NF, NF pendente sempre visível à contratada, selo só no TRF1, papel na emissão do PDF · AC-15, AC-16, AC-21, AC-22, AC-23
   - [x] Fatia 3: importação do Anexo V e do SINAPI, caminhos 1 e 2, duas bases, lista de anomalia · AC-24 a AC-30
-  - [ ] Fatia 4: controles de CNPJ, referência, variação e validade, e a urgência · AC-31 a AC-35
+  - [x] Fatia 4: controles de CNPJ, referência (SINAPI ou livre, com a do fiscal), variação e validade, e a urgência com complemento da pesquisa (decisões e regras finas de 20/10) · AC-31 a AC-35
   - [ ] Fatia 5: fracionamento, reincidência, projeção, consumo, item parecido, parâmetros e relatório · AC-36 a AC-42
 - [ ] Verify it: `/check verify cotação e fornecimento de material`
 - [ ] Test it: `/test cotação e fornecimento de material`

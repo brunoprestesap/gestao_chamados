@@ -11,7 +11,7 @@ import { type CodigoControle, CONTROLES } from '@/shared/material/mensagens';
 import { valorProvisorio } from '@/shared/material/valores';
 
 import type { Papeis } from './papeis';
-import { visivelParaContratada } from './pendencia';
+import { pesquisaDaUrgenciaPendente, visivelParaContratada } from './pendencia';
 import { type PrazoAteste, prazoDoAteste } from './prazos';
 import type { MarcaAnomalia } from './precos';
 
@@ -54,6 +54,20 @@ export type CotacaoBruta = {
     sinapiReferencia?: string | null;
     sinapiPrecoCentavos?: number | null;
     justificativaBase?: string | null;
+    referencias?: {
+      _id: Types.ObjectId;
+      tipo?: 'sinapi' | 'livre' | null;
+      fonte: string;
+      sinapiCodigo?: string | null;
+      sinapiReferencia?: string | null;
+      unidade?: string | null;
+      valorUnitarioCentavos: number;
+      data: Date;
+      incluidaPorUserId?: Types.ObjectId | null;
+      papel?: 'responsavel_tecnico' | 'fiscal' | null;
+      em?: Date | null;
+      retiradaEm?: Date | null;
+    }[];
   }[];
   orcamentos: {
     _id: Types.ObjectId;
@@ -63,7 +77,19 @@ export type CotacaoBruta = {
     validade: Date | null;
     arquivoId: Types.ObjectId;
     precos: { itemId: Types.ObjectId; valorUnitarioCentavos: number }[];
+    fase?: 'envio' | 'complemento' | null;
   }[];
+  fiscalUserId?: Types.ObjectId | null;
+  urgencia?: {
+    pedida: boolean;
+    justificativa: string;
+    pedidaEm: Date;
+    decisao?: 'aceita' | 'recusada' | null;
+    decididaPorUserId?: Types.ObjectId | null;
+    decididaEm?: Date | null;
+    motivoRecusa?: string | null;
+    pesquisaCompletaEm?: Date | null;
+  } | null;
   montadoPorUserId: Types.ObjectId | null;
   diagnosticadoPorUserId: Types.ObjectId;
   diagnosticadoEm: Date;
@@ -82,7 +108,13 @@ export type CotacaoBruta = {
     porUserId: Types.ObjectId;
     em: Date;
   } | null;
-  advertencias: { codigo: string; itemId: Types.ObjectId | null }[];
+  advertencias: {
+    codigo: string;
+    itemId: Types.ObjectId | null;
+    orcamentoId?: Types.ObjectId | null;
+    confirmadaPorUserId?: Types.ObjectId | null;
+    em?: Date;
+  }[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -137,6 +169,25 @@ export type ItemDTO = {
   advertencias?: CodigoControle[];
   /** O item está na lista de conferência obrigatória, lida agora (AC-29). */
   marcaAnomalia?: MarcaAnomalia | null;
+  /** TRF1 e contratada: as referências de preço do caminho 3, inclusive as retiradas (AC-32). */
+  referencias?: ReferenciaDTO[];
+};
+
+/** Referência de preço (fatia 4). A contratada não recebe o nome de quem incluiu. */
+export type ReferenciaDTO = {
+  id: string;
+  tipo: 'sinapi' | 'livre';
+  fonte: string;
+  sinapiCodigo: string | null;
+  sinapiReferencia: string | null;
+  unidade: string | null;
+  valorUnitarioCentavos: number;
+  data: string;
+  papel: 'responsavel_tecnico' | 'fiscal';
+  autorNome: string | null;
+  /** Quem lê incluiu esta referência: o fiscal só retira a própria. */
+  minha: boolean;
+  retirada: boolean;
 };
 
 export type OrcamentoDTO = {
@@ -147,6 +198,23 @@ export type OrcamentoDTO = {
   validade: string | null;
   arquivoId: string;
   precos: { itemId: string; valorUnitarioCentavos: number }[];
+  fase: 'envio' | 'complemento';
+};
+
+/**
+ * Urgência (fatia 4, AC-35). O técnico recebe só a marca; a contratada, a
+ * justificativa e a decisão sem quem decidiu; o TRF1, tudo.
+ */
+export type UrgenciaDTO = {
+  pedida: boolean;
+  justificativa?: string;
+  pedidaEm?: string;
+  decisao?: 'aceita' | 'recusada' | null;
+  motivoRecusa?: string | null;
+  decididaEm?: string | null;
+  pesquisaCompletaEm?: string | null;
+  /** Só TRF1. */
+  decididaPorNome?: string | null;
 };
 
 export type EventoDTO = {
@@ -204,10 +272,16 @@ export type CotacaoDTO = {
   recebimentoDefinitivo?: AtoDTO | null;
   notaFiscal?: NotaFiscalDTO | null;
   prazoAteste?: PrazoAteste | null;
+  /** Fatia 4: a marca para todos do fluxo e o técnico; o resto conforme `UrgenciaDTO`. */
+  urgencia?: UrgenciaDTO | null;
+  /** TRF1 e contratada: a urgência aceita ainda sem os 3 orçamentos por item (AC-35). */
+  pesquisaPendente?: boolean;
   /** Só TRF1. */
   empenhoId?: string | null;
   valorAutorizadoCentavos?: number | null;
   advertencias?: CodigoControle[];
+  /** Só TRF1: as confirmações do orçamento vencido no encaminhar (AC-34). */
+  confirmacoesVencido?: { orcamentoId: string; porNome: string | null; em: string }[];
 };
 
 export type ContextoLeitura = {
@@ -220,7 +294,7 @@ export type ContextoLeitura = {
 /** A visão de quem lê, ou `null` quando não pode ver esta cotação. */
 export function visaoDe(
   ctx: ContextoLeitura,
-  cot: Pick<CotacaoBruta, 'situacao' | 'emTramite' | 'updatedAt' | 'notaFiscal'>,
+  cot: Pick<CotacaoBruta, 'situacao' | 'emTramite' | 'updatedAt' | 'notaFiscal' | 'urgencia'>,
   agora: Date = new Date(),
 ): Visao | null {
   // O rascunho é da contratada e do técnico: o lado TRF1 só vê a partir do envio (AC-1).
@@ -245,13 +319,35 @@ export function podeBaixar(visao: Visao, tipo: TipoArquivoCotacao): boolean {
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
-const ACOES_COM_MOTIVO = new Set(['devolver', 'reprovar', 'cancelar', 'alterar']);
+const ACOES_COM_MOTIVO = new Set([
+  'devolver',
+  'reprovar',
+  'cancelar',
+  'alterar',
+  'urgencia_recusada',
+]);
 
 /**
- * Atos do gestor cujo autor a contratada não vê, só a data do recebimento
- * (AC-21). O técnico, que vê menos que a contratada (AC-15), também não.
+ * Atos do lado TRF1 cujo autor a contratada não vê: o recebimento (AC-21), a
+ * referência do fiscal e a recusa da urgência (fatia 4). O técnico, que vê
+ * menos que a contratada (AC-15), também não.
  */
-const ACOES_SEM_AUTOR_FORA_DO_TRF1 = new Set(['receber_provisorio', 'receber_definitivo']);
+const ACOES_SEM_AUTOR_FORA_DO_TRF1 = new Set([
+  'receber_provisorio',
+  'receber_definitivo',
+  'referencia_acrescentada',
+  'referencia_retirada',
+  'urgencia_recusada',
+]);
+
+/** Atos da pesquisa de preços que o técnico não vê na trilha (fatia 4). */
+const ACOES_FORA_DA_TRILHA_DO_TECNICO = new Set([
+  'referencia_acrescentada',
+  'referencia_retirada',
+  'pesquisa_completada',
+]);
+
+const ymdDe = (d: Date) => d.toISOString().slice(0, 10);
 
 export function serializarCotacao(
   cot: CotacaoBruta,
@@ -272,6 +368,10 @@ export function serializarCotacao(
   const ato = (a: { porUserId: Types.ObjectId; em: Date } | null | undefined): AtoDTO | null =>
     a ? { porNome: nome(a.porUserId), em: a.em.toISOString() } : null;
   const ultimo = [...eventos].reverse().find((ev) => ACOES_COM_MOTIVO.has(ev.acao) && ev.motivo);
+  // O motivo da recusa da urgência não é do técnico (fatia 4, visibilidade por campo).
+  const ultimoDoTecnico = [...eventos]
+    .reverse()
+    .find((ev) => ACOES_COM_MOTIVO.has(ev.acao) && ev.acao !== 'urgencia_recusada' && ev.motivo);
   const base: CotacaoDTO = {
     id: String(cot._id),
     numero: cot.numero,
@@ -313,17 +413,28 @@ export function serializarCotacao(
       meu: String(a.enviadoPorUserId) === ctx.userId,
     }));
 
+  // A marca de urgência aparece para todos do fluxo e para o técnico (AC-35).
+  base.urgencia = cot.urgencia?.pedida ? { pedida: true } : null;
+
   if (visao === 'tecnico') {
-    base.trilha = eventos.map((ev) => ({
-      id: String(ev._id),
-      de: ev.de,
-      para: ev.para,
-      acao: ev.acao,
-      autorNome: ACOES_SEM_AUTOR_FORA_DO_TRF1.has(ev.acao) ? null : ev.autorNome,
-      papel: ev.papel,
-      motivo: ACOES_COM_MOTIVO.has(ev.acao) ? ev.motivo : null,
-      em: ev.em.toISOString(),
-    }));
+    // O técnico vê só a marca da urgência (fatia 4): a pesquisa de preços some da
+    // trilha dele, e a recusa da urgência aparece como devolução comum, sem o motivo.
+    base.trilha = eventos
+      .filter((ev) => !ACOES_FORA_DA_TRILHA_DO_TECNICO.has(ev.acao))
+      .map((ev) => {
+        const recusa = ev.acao === 'urgencia_recusada';
+        return {
+          id: String(ev._id),
+          de: ev.de,
+          para: ev.para,
+          acao: recusa ? 'devolver' : ev.acao,
+          autorNome: ACOES_SEM_AUTOR_FORA_DO_TRF1.has(ev.acao) ? null : ev.autorNome,
+          papel: ev.papel,
+          motivo: !recusa && ACOES_COM_MOTIVO.has(ev.acao) ? ev.motivo : null,
+          em: ev.em.toISOString(),
+        };
+      });
+    base.ultimoMotivo = ultimoDoTecnico?.motivo ?? null;
     return base;
   }
 
@@ -354,9 +465,12 @@ export function serializarCotacao(
       itemId: String(p.itemId),
       valorUnitarioCentavos: p.valorUnitarioCentavos,
     })),
+    fase: o.fase ?? 'envio',
   }));
 
   // A origem e a referência na tabela: a contratada classificou, então vê o que escolheu.
+  // As referências de preço vão inteiras, inclusive as do fiscal (é contra elas que o
+  // preço da contratada é medido), mas o nome de quem incluiu é só do TRF1 (fatia 4).
   base.itens = base.itens.map((i, n) => {
     const bruto = cot.itens[n]!;
     return {
@@ -370,8 +484,37 @@ export function serializarCotacao(
         quantidade: bruto.quantidade,
         precoAplicadoCentavos: bruto.precoAplicadoCentavos ?? null,
       }),
+      referencias: (bruto.referencias ?? []).map((r) => ({
+        id: String(r._id),
+        tipo: r.tipo ?? 'livre',
+        fonte: r.fonte,
+        sinapiCodigo: r.sinapiCodigo ?? null,
+        sinapiReferencia: r.sinapiReferencia ?? null,
+        unidade: r.unidade ?? null,
+        valorUnitarioCentavos: r.valorUnitarioCentavos,
+        data: ymdDe(r.data),
+        papel: r.papel ?? 'responsavel_tecnico',
+        autorNome: visao === 'trf1' ? nome(r.incluidaPorUserId) : null,
+        minha: !!r.incluidaPorUserId && String(r.incluidaPorUserId) === ctx.userId,
+        retirada: !!r.retiradaEm,
+      })),
     };
   });
+
+  const u = cot.urgencia;
+  if (u?.pedida) {
+    base.urgencia = {
+      pedida: true,
+      justificativa: u.justificativa,
+      pedidaEm: u.pedidaEm.toISOString(),
+      decisao: u.decisao ?? null,
+      motivoRecusa: u.motivoRecusa ?? null,
+      decididaEm: iso(u.decididaEm),
+      pesquisaCompletaEm: iso(u.pesquisaCompletaEm),
+      ...(visao === 'trf1' ? { decididaPorNome: nome(u.decididaPorUserId) } : {}),
+    };
+  }
+  base.pesquisaPendente = pesquisaDaUrgenciaPendente(cot);
 
   if (visao === 'contratada') {
     // Sem empenho, saldo, limites, advertências do lado TRF1 nem as duas bases lado a lado.
@@ -419,7 +562,14 @@ export function serializarCotacao(
   base.prazoAteste = prazoDoAteste(cot);
   base.empenhoId = cot.empenhoId ? String(cot.empenhoId) : null;
   base.valorAutorizadoCentavos = cot.valorAutorizadoCentavos ?? null;
-  base.advertencias = cot.advertencias.map((a) => a.codigo as CodigoControle);
+  base.advertencias = [...new Set(cot.advertencias.map((a) => a.codigo as CodigoControle))];
+  base.confirmacoesVencido = cot.advertencias
+    .filter((a) => a.codigo === 'orcamento_vencido' && a.orcamentoId)
+    .map((a) => ({
+      orcamentoId: String(a.orcamentoId),
+      porNome: nome(a.confirmadaPorUserId),
+      em: iso(a.em) ?? '',
+    }));
   base.trilha = eventos.map((ev) => ({
     id: String(ev._id),
     de: ev.de,

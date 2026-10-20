@@ -91,6 +91,36 @@ export function acimaDoPercentual(
   return (precoCentavos - referenciaCentavos) * 100 > percentual * referenciaCentavos;
 }
 
+/** A raiz do CNPJ: os 8 primeiros dígitos, que identificam a empresa (AC-31). */
+export function raizCnpj(cnpj: string): string {
+  return cnpj.replace(/\D/g, '').slice(0, 8);
+}
+
+/** Quantas empresas diferentes (raízes de CNPJ) cotaram o item. CNPJ repetido conta uma vez. */
+export function raizesDoItem(
+  itemId: string,
+  orcamentos: readonly { cnpj: string; precos: readonly { itemId: string }[] }[],
+): number {
+  const raizes = new Set<string>();
+  for (const o of orcamentos) {
+    if (o.precos.some((p) => p.itemId === itemId)) raizes.add(raizCnpj(o.cnpj));
+  }
+  return raizes.size;
+}
+
+/** A referência que conta nos controles: a retirada pelo fiscal fica gravada e não conta (AC-32). */
+export function referenciaAtiva(r: { retiradaEm?: Date | string | null }): boolean {
+  return !r.retiradaEm;
+}
+
+/** A menor referência ativa do item, da contratada ou do fiscal (AC-33); `null` sem nenhuma. */
+export function menorReferencia(
+  referencias: readonly { valorUnitarioCentavos: number; retiradaEm?: Date | string | null }[],
+): number | null {
+  const valores = referencias.filter(referenciaAtiva).map((r) => r.valorUnitarioCentavos);
+  return valores.length ? Math.min(...valores) : null;
+}
+
 /**
  * Código SINAPI na forma única do Sigma: só dígitos, sem espaços, pontos nem
  * zeros à esquerda. Vazio vira `''`; outro caractere, ou só zeros, `null`.

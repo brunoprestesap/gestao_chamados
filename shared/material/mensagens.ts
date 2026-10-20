@@ -1,8 +1,10 @@
 import type {
   AcaoCotacao,
+  FaseOrcamento,
   MotivoFixo,
   PapelDesignacao,
   PapelEvento,
+  PapelReferencia,
   SituacaoCotacao,
 } from './material.constants';
 
@@ -40,6 +42,21 @@ export const ROTULO_ACAO: Record<AcaoCotacao, string> = {
   receber_definitivo: 'Recebimento definitivo registrado (atestada)',
   registrar_nf: 'Nota fiscal registrada',
   cancelar: 'Cotação cancelada',
+  referencia_acrescentada: 'Referência de preço acrescentada pelo fiscal',
+  referencia_retirada: 'Referência de preço retirada pelo fiscal',
+  urgencia_recusada: 'Urgência recusada',
+  pesquisa_completada: 'Orçamentos acrescentados à pesquisa da urgência',
+};
+
+/** Quem informou a referência de preço (AC-32), como a tela e o PDF mostram. */
+export const ROTULO_PAPEL_REFERENCIA: Record<PapelReferencia, string> = {
+  responsavel_tecnico: 'informada pela contratada',
+  fiscal: 'informada pelo fiscal',
+};
+
+export const ROTULO_FASE_ORCAMENTO: Record<FaseOrcamento, string> = {
+  envio: 'Do envio',
+  complemento: 'Complemento da urgência',
 };
 
 /** De onde vem o preço do item, em palavras de quem lê o PDF sem acompanhar o processo. */
@@ -116,6 +133,18 @@ export const CODIGOS_CONTROLE = [
   'conferencia_pendente',
   'anexo_v_acima_sinapi',
   'sem_referencia_sinapi',
+  // Fatia 4
+  'cnpj_invalido',
+  'cnpj_contratada',
+  'cnpj_mesma_raiz',
+  'sem_referencia',
+  'referencia_desatualizada',
+  'validade_ausente',
+  'variacao_acima',
+  'orcamento_vencido',
+  'urgencia_sem_decisao',
+  'pesquisa_pendente',
+  'pesquisa_posterior_divergente',
 ] as const;
 export type CodigoControle = (typeof CODIGOS_CONTROLE)[number];
 
@@ -195,6 +224,65 @@ export const CONTROLES: Record<
     ve: 'trf1',
     texto: 'Item do Anexo V sem referência SINAPI.',
   },
+  cnpj_invalido: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto: 'Um orçamento tem CNPJ com dígito verificador inválido.',
+  },
+  cnpj_contratada: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto: 'Um orçamento tem CNPJ da própria contratada (mesma raiz).',
+  },
+  cnpj_mesma_raiz: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto: 'Cada item precisa de orçamentos de 3 empresas diferentes (raízes de CNPJ distintas).',
+  },
+  sem_referencia: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto: 'Cada item com três orçamentos precisa de ao menos uma referência de preço com valor.',
+  },
+  referencia_desatualizada: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto:
+      'O código SINAPI de uma referência não está no mês mais recente do SINAPI: troque a referência.',
+  },
+  validade_ausente: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto: 'Informe a validade de cada orçamento.',
+  },
+  variacao_acima: {
+    tipo: 'impedimento',
+    ve: 'trf1',
+    texto: 'O menor orçamento de um item passa da menor referência além do percentual admitido.',
+  },
+  orcamento_vencido: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto: 'Orçamento com validade vencida: confirme cada um para encaminhar.',
+  },
+  urgencia_sem_decisao: {
+    tipo: 'impedimento',
+    ve: 'trf1',
+    texto:
+      'A urgência foi pedida e um item ainda não tem orçamentos de 3 empresas: aceite a urgência ou recuse-a.',
+  },
+  pesquisa_pendente: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto:
+      'A pesquisa da urgência ainda não tem orçamentos de 3 empresas para cada item; o recebimento definitivo espera por ela.',
+  },
+  pesquisa_posterior_divergente: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto:
+      'Um orçamento acrescentado depois da compra tem preço menor que o aplicado; avalie fora do Sigma.',
+  },
 };
 
 /** Advertências de preço da fatia 3: recalculadas a cada transição (AC-28). */
@@ -202,6 +290,56 @@ export const CODIGOS_ADVERTENCIA_PRECO: readonly CodigoControle[] = [
   'anexo_v_acima_sinapi',
   'sem_referencia_sinapi',
 ];
+
+/**
+ * Advertências refeitas a cada transição, sobre o estado do ato: as de preço
+ * e a divergência da pesquisa posterior da urgência (AC-35).
+ */
+export const CODIGOS_ADVERTENCIA_RECALCULADA: readonly CodigoControle[] = [
+  ...CODIGOS_ADVERTENCIA_PRECO,
+  'pesquisa_posterior_divergente',
+];
+
+// ---------------------------------------------------------------------------
+// Fatia 4: CNPJ, referência e urgência
+// ---------------------------------------------------------------------------
+
+/** O erro de CNPJ de um orçamento no salvar e no complemento, com o nome do fornecedor (AC-31). */
+export function erroCnpjDoOrcamento(
+  fornecedor: string,
+  codigo: 'cnpj_invalido' | 'cnpj_contratada',
+): string {
+  const nome = fornecedor.trim() || 'sem nome';
+  return codigo === 'cnpj_invalido'
+    ? `O CNPJ do orçamento de ${nome} é inválido (dígito verificador). Corrija ou remova o orçamento.`
+    : `O orçamento de ${nome} é da própria contratada (mesma raiz de CNPJ). Remova o orçamento.`;
+}
+
+/** Recusas das referências de preço e da urgência (AC-32, AC-35). */
+export const ERROS_FATIA4 = {
+  referencia_repetida: 'Uma referência aparece repetida no item.',
+  referencias_demais: 'Até 5 referências por item.',
+  codigo_fora_do_mes: 'Este código não está no mês mais recente do SINAPI.',
+  sem_sinapi: 'Não há SINAPI importado; use uma referência de fonte livre.',
+  data_referencia_futura: 'A data da referência não pode ser posterior a hoje.',
+  data_referencia_antiga: 'A data da referência não pode ser de mais de 12 meses atrás.',
+  item_fora_do_caminho_3: 'Referência de preço só vale para item com três orçamentos.',
+  so_fiscal_que_assumiu: 'Só o fiscal que assumiu a análise faz esta ação.',
+  referencia_inexistente: 'Referência não encontrada neste item.',
+  referencia_de_outro: 'Só quem incluiu a referência a retira.',
+  referencia_ja_retirada: 'Esta referência já foi retirada.',
+  urgencia_recusada_antes:
+    'A urgência desta cotação já foi recusada e não pode ser pedida de novo.',
+  urgencia_justificativa: 'Justifique a urgência.',
+  urgencia_nao_pedida: 'Esta cotação não tem urgência pedida.',
+  urgencia_ja_decidida: 'A urgência desta cotação já foi decidida.',
+  sem_urgencia_aceita: 'Só a cotação com urgência aceita recebe orçamentos depois da autorização.',
+  pesquisa_ja_completa: 'A pesquisa desta cotação já está completa.',
+  orcamento_existente: 'Um dos orçamentos já existe na cotação; os orçamentos gravados não mudam.',
+  orcamentos_demais: 'A cotação aceita até 10 orçamentos.',
+  arquivo_do_orcamento: 'Anexe o arquivo de cada orçamento novo (um por orçamento).',
+  preco_fora_do_caminho_3: 'O orçamento cita item que não é do caminho de três orçamentos.',
+} as const;
 
 // ---------------------------------------------------------------------------
 // Fatia 3: classificação, busca e importação
@@ -261,7 +399,16 @@ export function textoMarcaAnomalia(m: { automatica: boolean; manual: boolean }):
 }
 
 /** Avisos (Notification, e-mail): título por situação nova, sem valor (AC-16). */
-export function tituloAvisoCotacao(numero: string, situacao: SituacaoCotacao): string {
+export function tituloAvisoCotacao(
+  numero: string,
+  situacao: SituacaoCotacao,
+  urgente = false,
+): string {
+  // Fatia 4: o envio e a aprovação de uma urgência pedida têm título próprio.
+  if (urgente && situacao === 'enviada') return `URGENTE: cotação ${numero} enviada para análise`;
+  if (urgente && situacao === 'em_aprovacao') {
+    return `URGENTE: cotação ${numero} aguarda aprovação`;
+  }
   const frases: Record<SituacaoCotacao, string> = {
     rascunho: `Material registrado pelo técnico: cotação ${numero}`,
     enviada: `Cotação ${numero} enviada para análise`,
@@ -280,6 +427,11 @@ export function tituloAvisoCotacao(numero: string, situacao: SituacaoCotacao): s
 /** Aviso da nota fiscal registrada (AC-22): vai aos gestores, sem valor. */
 export function tituloAvisoNotaFiscal(numero: string): string {
   return `Nota fiscal registrada na cotação ${numero}`;
+}
+
+/** Aviso da pesquisa da urgência completa (AC-35): vai aos gestores, sem valor. */
+export function tituloAvisoPesquisaCompleta(numero: string): string {
+  return `Pesquisa de preços completa na cotação urgente ${numero}: o recebimento definitivo foi liberado`;
 }
 
 /** Recusas da nota fiscal (AC-22), por código. */

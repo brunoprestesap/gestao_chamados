@@ -7,20 +7,26 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { CotacaoDTO } from '@/lib/material/serializar';
+import { Textarea } from '@/components/ui/textarea';
+import type { CotacaoDTO, ReferenciaDTO } from '@/lib/material/serializar';
 import { formatarQuantidade, formatarReais } from '@/shared/chamados/custo';
 import { formatarCnpj } from '@/shared/contratos/cnpj';
+import type { ReferenciaEntrada } from '@/shared/material/cotacao.schemas';
 import {
   MAX_ITENS_COTACAO,
   MAX_ORCAMENTOS_COTACAO,
+  MAX_REFERENCIAS_POR_PAPEL,
   MIN_ORCAMENTOS_POR_ITEM,
+  TEXTO_CURTO_MAX,
+  TEXTO_CURTO_MIN,
 } from '@/shared/material/material.constants';
 import type { CodigoControle } from '@/shared/material/mensagens';
-import { reaisParaCentavos, valorDaLinhaCentavos } from '@/shared/material/valores';
+import { raizesDoItem, reaisParaCentavos, valorDaLinhaCentavos } from '@/shared/material/valores';
 
 import { classificarItemAction, enviarCotacaoAction, salvarRascunhoAction } from '../actions';
-import { centavosParaCampo, enviarArquivo, novoId, numeroBr } from './apoio';
+import { centavosParaCampo, enviarArquivo, novoId, numeroBr, SeloUrgencia } from './apoio';
 import { DialogClassificar, type EscolhaTabela } from './DialogClassificar';
+import { FormReferencia, ListaReferencias } from './ReferenciasPreco';
 
 type Item = {
   id: string;
@@ -36,7 +42,25 @@ type Item = {
   sinapiReferencia: string | null;
   precoTabelaCentavos: number | null;
   valorProvisorio: boolean;
+  /** Fatia 4: as referências da contratada (editáveis) e as do fiscal (só leitura). */
+  referencias: RefLocal[];
+  referenciasFiscal: ReferenciaDTO[];
 };
+
+/** Uma referência da contratada: a entrada que vai ao servidor e, se já gravada, como ficou. */
+type RefLocal = { entrada: ReferenciaEntrada; gravada: ReferenciaDTO | null };
+
+function entradaDaGravada(r: ReferenciaDTO): ReferenciaEntrada {
+  return r.tipo === 'sinapi' && r.sinapiCodigo
+    ? { id: r.id, sinapiCodigo: r.sinapiCodigo }
+    : { id: r.id, fonte: r.fonte, valorUnitarioCentavos: r.valorUnitarioCentavos, data: r.data };
+}
+
+/** Como a referência ainda não salva aparece: o preço SINAPI só chega ao salvar. */
+function textoDaNova(e: ReferenciaEntrada): string {
+  if ('sinapiCodigo' in e) return `SINAPI ${e.sinapiCodigo} · o preço vem da tabela ao salvar`;
+  return `${formatarReais(e.valorUnitarioCentavos)} · ${e.fonte} · ${e.data.split('-').reverse().join('/')}`;
+}
 
 const daTabela = (i: Pick<Item, 'origem'>) => !!i.origem && i.origem !== 'orcamento';
 
@@ -78,6 +102,10 @@ function doDto(c: CotacaoDTO): { itens: Item[]; orcamentos: Orcamento[] } {
       sinapiReferencia: i.sinapiReferencia ?? null,
       precoTabelaCentavos: daTabela({ origem: i.origem ?? null }) ? i.precoAplicadoCentavos : null,
       valorProvisorio: !!i.valorProvisorio,
+      referencias: (i.referencias ?? [])
+        .filter((r) => r.papel === 'responsavel_tecnico')
+        .map((r) => ({ entrada: entradaDaGravada(r), gravada: r })),
+      referenciasFiscal: (i.referencias ?? []).filter((r) => r.papel === 'fiscal'),
     })),
     orcamentos: (c.orcamentos ?? []).map((o) => ({
       id: o.id,
@@ -116,7 +144,29 @@ export function EditorContratada({
   const [erro, setErro] = useState<string | null>(null);
   const [enviandoArquivo, setEnviandoArquivo] = useState<string | null>(null);
   const [classificando, setClassificando] = useState<Item | null>(null);
+  // A urgência só é pedida uma vez e nunca depois de recusada (AC-35).
+  const urgencia = cotacao.urgencia ?? null;
+  const podePedirUrgencia = !urgencia?.pedida;
+  const [pedirUrgencia, setPedirUrgencia] = useState(false);
+  const [justificativaUrgencia, setJustificativaUrgencia] = useState('');
   const [pendente, iniciar] = useTransition();
+
+  function acrescentarReferencia(itemId: string, entrada: ReferenciaEntrada) {
+    setItens((ls) =>
+      ls.map((l) =>
+        l.id === itemId ? { ...l, referencias: [...l.referencias, { entrada, gravada: null }] } : l,
+      ),
+    );
+  }
+  function tirarReferencia(itemId: string, refId: string) {
+    setItens((ls) =>
+      ls.map((l) =>
+        l.id === itemId
+          ? { ...l, referencias: l.referencias.filter((r) => r.entrada.id !== refId) }
+          : l,
+      ),
+    );
+  }
 
   function mudarItem(id: string, campo: keyof Item, valor: string) {
     setItens((ls) => ls.map((l) => (l.id === id ? { ...l, [campo]: valor } : l)));
@@ -158,6 +208,8 @@ export function EditorContratada({
         unidade: i.unidade,
         quantidade: numeroBr(i.quantidade),
         motivo: i.motivo,
+        // Só o caminho 3 tem referência; a lista troca só as da contratada (AC-32).
+        ...(daTabela(i) ? {} : { referencias: i.referencias.map((r) => r.entrada) }),
       })),
       orcamentos: orcamentos.map((o) => ({
         id: o.id,
@@ -225,7 +277,13 @@ export function EditorContratada({
         onAlterado();
         return;
       }
-      const e = await enviarCotacaoAction({ id: cotacao.id, versao: r.versao });
+      const e = await enviarCotacaoAction({
+        id: cotacao.id,
+        versao: r.versao,
+        ...(podePedirUrgencia && pedirUrgencia
+          ? { urgencia: { justificativa: justificativaUrgencia } }
+          : {}),
+      });
       if (!e.ok) {
         // Mesmo motivo da classificação: o editor é montado de novo ao recarregar.
         toast.error(e.error);
@@ -246,6 +304,14 @@ export function EditorContratada({
   };
   const cotacoesDoItem = (itemId: string) =>
     orcamentos.filter((o) => reaisParaCentavos(o.precos[itemId] ?? '') != null).length;
+  // Empresas diferentes que cotaram o item: a mesma raiz de CNPJ conta uma vez (AC-31).
+  const empresasDoItem = (itemId: string) =>
+    raizesDoItem(
+      itemId,
+      orcamentos
+        .filter((o) => reaisParaCentavos(o.precos[itemId] ?? '') != null)
+        .map((o) => ({ cnpj: o.cnpj, precos: [{ itemId }] })),
+    );
 
   return (
     <div className="space-y-6">
@@ -338,7 +404,8 @@ export function EditorContratada({
                   </p>
                 ) : (
                   <p className="flex-1">
-                    Preço em {cotacoesDoItem(i.id)} de {MIN_ORCAMENTOS_POR_ITEM} orçamentos
+                    Preço em {cotacoesDoItem(i.id)} de {MIN_ORCAMENTOS_POR_ITEM} orçamentos, de{' '}
+                    {empresasDoItem(i.id)} empresas diferentes
                     {menor != null && Number.isFinite(qtd)
                       ? ` · menor preço ${formatarReais(menor)} · linha ${formatarReais(valorDaLinhaCentavos(qtd, menor))}`
                       : ''}
@@ -367,6 +434,45 @@ export function EditorContratada({
                   </Button>
                 )}
               </div>
+              {!daTabela(i) && (
+                <div className="space-y-2 sm:col-span-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Referências de preço (ao menos uma para enviar)
+                  </p>
+                  {i.referencias.length > 0 && (
+                    <ul className="space-y-1 text-xs">
+                      {i.referencias.map((r) => (
+                        <li key={r.entrada.id} className="flex flex-wrap items-center gap-2">
+                          <span>
+                            {r.gravada
+                              ? `${formatarReais(r.gravada.valorUnitarioCentavos)}${r.gravada.unidade ? ` por ${r.gravada.unidade}` : ''} · ${r.gravada.fonte} · ${r.gravada.data.split('-').reverse().join('/')}`
+                              : textoDaNova(r.entrada)}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            aria-label="Tirar esta referência"
+                            onClick={() => tirarReferencia(i.id, r.entrada.id)}
+                          >
+                            <Trash2 className="h-3 w-3" aria-hidden="true" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {i.referenciasFiscal.length > 0 && (
+                    <ListaReferencias referencias={i.referenciasFiscal} />
+                  )}
+                  {i.referencias.length < MAX_REFERENCIAS_POR_PAPEL && (
+                    <FormReferencia
+                      desabilitado={pendente}
+                      onAdicionar={(r) => acrescentarReferencia(i.id, r)}
+                    />
+                  )}
+                </div>
+              )}
             </fieldset>
           );
         })}
@@ -392,6 +498,8 @@ export function EditorContratada({
                   sinapiReferencia: null,
                   precoTabelaCentavos: null,
                   valorProvisorio: false,
+                  referencias: [],
+                  referenciasFiscal: [],
                 },
               ])
             }
@@ -408,8 +516,9 @@ export function EditorContratada({
         </h2>
         <p className="text-xs text-muted-foreground">
           Cada item fora do Anexo V e do SINAPI precisa de preço em ao menos{' '}
-          {MIN_ORCAMENTOS_POR_ITEM} orçamentos. Um orçamento pode cotar só parte dos itens; o preço
-          do item é o menor entre os que o cotaram.
+          {MIN_ORCAMENTOS_POR_ITEM} orçamentos de empresas diferentes (raízes de CNPJ distintas),
+          nenhum da própria contratada. Um orçamento pode cotar só parte dos itens; o preço do item
+          é o menor entre os que o cotaram.
         </p>
         {orcamentos.map((o, n) => (
           <fieldset key={o.id} className="space-y-3 rounded-xl border border-border/60 p-3">
@@ -451,7 +560,7 @@ export function EditorContratada({
               </div>
               <div className="space-y-1">
                 <Label htmlFor={`v-${o.id}`} className="text-xs">
-                  Validade (opcional)
+                  Validade (obrigatória para enviar)
                 </Label>
                 <Input
                   id={`v-${o.id}`}
@@ -543,6 +652,54 @@ export function EditorContratada({
             <Plus className="h-4 w-4" aria-hidden="true" />
             Acrescentar orçamento
           </Button>
+        )}
+      </section>
+
+      <section aria-labelledby="urg-titulo" className="space-y-2">
+        <h2 id="urg-titulo" className="flex items-center gap-2 text-base font-semibold">
+          Urgência
+          {urgencia?.pedida && <SeloUrgencia />}
+        </h2>
+        {urgencia?.pedida ? (
+          <div className="space-y-1 text-sm">
+            <p>Justificativa: {urgencia.justificativa}</p>
+            {urgencia.decisao === 'recusada' ? (
+              <p className="text-amber-800 dark:text-amber-200">
+                O fiscal recusou a urgência
+                {urgencia.motivoRecusa ? `: ${urgencia.motivoRecusa}` : ''}. O reenvio segue o fluxo
+                comum, com os {MIN_ORCAMENTOS_POR_ITEM} orçamentos de cada item.
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                Com a urgência, basta 1 orçamento por item para enviar. Depois da autorização,
+                complete a pesquisa com orçamentos de {MIN_ORCAMENTOS_POR_ITEM} empresas diferentes.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={pedirUrgencia}
+                onChange={(e) => setPedirUrgencia(e.target.checked)}
+              />
+              Pedir urgência no envio (basta 1 orçamento por item até a autorização)
+            </label>
+            {pedirUrgencia && (
+              <div className="space-y-1">
+                <Label htmlFor="urg-just" className="text-xs">
+                  Justificativa da urgência ({TEXTO_CURTO_MIN} a {TEXTO_CURTO_MAX} caracteres)
+                </Label>
+                <Textarea
+                  id="urg-just"
+                  value={justificativaUrgencia}
+                  maxLength={TEXTO_CURTO_MAX}
+                  onChange={(e) => setJustificativaUrgencia(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
         )}
       </section>
 

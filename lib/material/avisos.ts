@@ -9,7 +9,11 @@ import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
 import type { SituacaoCotacao } from '@/shared/material/material.constants';
-import { tituloAvisoCotacao, tituloAvisoNotaFiscal } from '@/shared/material/mensagens';
+import {
+  tituloAvisoCotacao,
+  tituloAvisoNotaFiscal,
+  tituloAvisoPesquisaCompleta,
+} from '@/shared/material/mensagens';
 import type { MaterialCotacaoSituacaoPayload } from '@/shared/socket';
 
 import { aprovadoresQueCobrem, designadosVigentes } from './papeis';
@@ -73,16 +77,54 @@ export async function avisarSituacao(
 ): Promise<void> {
   try {
     const cot = await CotacaoMaterialModel.findById(cotacaoId)
-      .select('numero chamadoId montadoPorUserId valorTotalCentavos')
+      .select('numero chamadoId montadoPorUserId valorTotalCentavos urgencia')
       .lean();
     if (!cot) return;
     const lista = await destinatarios(situacao, {
       ...cot,
       montadoPorUserId: cot.montadoPorUserId ?? null,
     });
-    await entregar(cot, situacao, lista, autorUserId, tituloAvisoCotacao(cot.numero, situacao));
+    // Fatia 4: a urgência pedida e ainda não recusada tem título próprio (AC-35).
+    const urgente = !!cot.urgencia?.pedida && cot.urgencia.decisao !== 'recusada';
+    await entregar(
+      cot,
+      situacao,
+      lista,
+      autorUserId,
+      tituloAvisoCotacao(cot.numero, situacao, urgente),
+    );
   } catch (e) {
     console.error('[material] aviso de cotação falhou:', e);
+  }
+}
+
+/**
+ * A pesquisa da urgência completou (AC-35): avisa os gestores vigentes, sem
+ * valor, como a nota fiscal. A situação não muda, por isso o aviso é próprio.
+ */
+export async function avisarPesquisaCompleta(
+  cotacaoId: string,
+  autorUserId: string | null,
+): Promise<void> {
+  try {
+    const cot = await CotacaoMaterialModel.findById(cotacaoId)
+      .select('numero chamadoId situacao')
+      .lean();
+    if (!cot) return;
+    const lista = (await designadosVigentes('gestor')).map((d) => ({
+      userId: d.userId,
+      destino: 'cotacoes' as const,
+    }));
+    await entregar(
+      cot,
+      cot.situacao as SituacaoCotacao,
+      lista,
+      autorUserId,
+      tituloAvisoPesquisaCompleta(cot.numero),
+      { aviso: 'pesquisa_completa' },
+    );
+  } catch (e) {
+    console.error('[material] aviso de pesquisa completa falhou:', e);
   }
 }
 

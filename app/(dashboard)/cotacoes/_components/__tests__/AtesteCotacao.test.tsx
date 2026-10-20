@@ -52,6 +52,9 @@ const semAcao: Acoes = {
   receberDefinitivo: false,
   registrarNotaFiscal: false,
   gerarPdf: false,
+  referenciasDoFiscal: false,
+  recusarUrgencia: false,
+  completarPesquisa: false,
 };
 
 const base: CotacaoDTO = {

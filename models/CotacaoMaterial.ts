@@ -2,10 +2,14 @@ import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
 import {
   BASES_APLICADAS,
+  DECISOES_URGENCIA,
+  FASES_ORCAMENTO,
   MAX_ITENS_COTACAO,
   MAX_ORCAMENTOS_COTACAO,
   ORIGENS_ITEM,
+  PAPEIS_REFERENCIA,
   SITUACOES_COTACAO,
+  TIPOS_REFERENCIA,
 } from '@/shared/material/material.constants';
 
 /**
@@ -15,14 +19,30 @@ import {
  * `transicionar` (`lib/material/transicoes.ts`).
  */
 
-const ReferenciaSchema = new Schema(
-  {
-    fonte: { type: String, required: true, trim: true, maxlength: 200 },
-    valorUnitarioCentavos: { type: Number, required: true, min: 0 },
-    data: { type: Date, required: true },
+/**
+ * Referência de preço do caminho 3 (fatia 4, AC-32). `sinapi`: preço, unidade
+ * e fonte vêm da tabela; `livre`: digitados. A do fiscal nunca se apaga:
+ * retirar só grava `retiradaEm`, e a retirada não conta em controle nenhum.
+ */
+const ReferenciaSchema = new Schema({
+  tipo: { type: String, enum: TIPOS_REFERENCIA, required: true, default: 'livre' },
+  fonte: { type: String, required: true, trim: true, maxlength: 200 },
+  sinapiCodigo: { type: String, default: null },
+  sinapiReferencia: { type: String, default: null },
+  unidade: { type: String, default: null, maxlength: 20 },
+  valorUnitarioCentavos: { type: Number, required: true, min: 1 },
+  data: { type: Date, required: true },
+  incluidaPorUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  papel: {
+    type: String,
+    enum: PAPEIS_REFERENCIA,
+    required: true,
+    default: 'responsavel_tecnico',
   },
-  { _id: false },
-);
+  em: { type: Date, default: null },
+  retiradaEm: { type: Date, default: null },
+  retiradaPorUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+});
 
 const ItemSchema = new Schema({
   descricao: { type: String, required: true, trim: true, maxlength: 300 },
@@ -74,14 +94,37 @@ const OrcamentoSchema = new Schema({
   validade: { type: Date, default: null },
   arquivoId: { type: Schema.Types.ObjectId, ref: 'ArquivoCotacao', required: true },
   precos: { type: [PrecoOrcamentoSchema], default: [] },
+  // Fatia 4: o `complemento` só entra pela pesquisa da urgência; ausente lê como `envio`.
+  fase: { type: String, enum: FASES_ORCAMENTO, default: 'envio' },
 });
 
 const AdvertenciaSchema = new Schema(
   {
     codigo: { type: String, required: true },
     itemId: { type: Schema.Types.ObjectId, default: null },
+    // A confirmação do orçamento vencido é uma por orçamento (AC-34).
+    orcamentoId: { type: Schema.Types.ObjectId, default: null },
     confirmadaPorUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     em: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
+/**
+ * Urgência (fatia 4, AC-35). `pedida` nunca volta a `false`; `recusada` nunca
+ * sai; `aceita` é limpa por uma devolução comum; `pesquisaCompletaEm` libera
+ * o recebimento definitivo.
+ */
+const UrgenciaSchema = new Schema(
+  {
+    pedida: { type: Boolean, required: true, default: true },
+    justificativa: { type: String, required: true, maxlength: 500 },
+    pedidaEm: { type: Date, required: true },
+    decisao: { type: String, enum: [...DECISOES_URGENCIA, null], default: null },
+    decididaPorUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    decididaEm: { type: Date, default: null },
+    motivoRecusa: { type: String, default: null, maxlength: 500 },
+    pesquisaCompletaEm: { type: Date, default: null },
   },
   { _id: false },
 );
@@ -149,6 +192,7 @@ const CotacaoMaterialSchema = new Schema(
     notaFiscal: { type: NotaFiscalSchema, default: null },
     pauseLogId: { type: Schema.Types.ObjectId, ref: 'PauseLog', default: null },
     advertencias: { type: [AdvertenciaSchema], default: [] },
+    urgencia: { type: UrgenciaSchema, default: null },
   },
   { timestamps: true },
 );

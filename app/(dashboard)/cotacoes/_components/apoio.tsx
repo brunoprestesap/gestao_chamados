@@ -34,6 +34,18 @@ export function SituacaoBadge({
   );
 }
 
+/** A marca de urgência (fatia 4, AC-35): para todos do fluxo e o técnico, nunca o solicitante. */
+export function SeloUrgencia({ className }: { className?: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn('border-rose-400 font-semibold text-rose-700 dark:text-rose-300', className)}
+    >
+      Urgente
+    </Badge>
+  );
+}
+
 /** Id de 24 hexadecimais para item ou orçamento novo; o servidor confere o formato. */
 export function novoId(): string {
   const bytes = new Uint8Array(12);

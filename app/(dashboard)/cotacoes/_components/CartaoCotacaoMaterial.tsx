@@ -9,7 +9,7 @@ import type { CartaoCotacao } from '@/lib/material/leitura';
 import { formatarReais } from '@/shared/chamados/custo';
 import { ROTULO_SITUACAO, textoDoMotivo } from '@/shared/material/mensagens';
 
-import { SituacaoBadge } from './apoio';
+import { SeloUrgencia, SituacaoBadge } from './apoio';
 import { DialogExecucao } from './DialogExecucao';
 import { DialogMaterial } from './DialogMaterial';
 
@@ -81,6 +81,7 @@ export function CartaoCotacaoMaterial({
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium tabular-nums">{cot.numero}</span>
             <SituacaoBadge situacao={cot.situacao} />
+            {cot.urgencia?.pedida && <SeloUrgencia />}
           </div>
         )}
       </div>

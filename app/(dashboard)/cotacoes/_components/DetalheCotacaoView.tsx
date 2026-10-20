@@ -28,10 +28,12 @@ import { Textarea } from '@/components/ui/textarea';
 import type { DetalheCotacao } from '@/lib/material/leitura';
 import { formatarQuantidade, formatarReais } from '@/shared/chamados/custo';
 import { formatarCnpj } from '@/shared/contratos/cnpj';
+import { TEXTO_CURTO_MAX, TEXTO_CURTO_MIN } from '@/shared/material/material.constants';
 import {
   type CodigoControle,
   CONTROLES,
   ROTULO_ACAO,
+  ROTULO_FASE_ORCAMENTO,
   ROTULO_PAPEL,
   ROTULO_SITUACAO,
   textoDoMotivo,
@@ -39,31 +41,37 @@ import {
 import { precoParaValor, valorDaLinhaCentavos } from '@/shared/material/valores';
 
 import {
+  acrescentarReferenciaAction,
   alterarAction,
   aprovarAction,
   assumirAction,
   cancelarAction,
   devolverAction,
   encaminharAction,
+  recusarUrgenciaAction,
   reprovarAction,
+  retirarReferenciaAction,
 } from '../actions';
-import { SituacaoBadge } from './apoio';
+import { SeloUrgencia, SituacaoBadge } from './apoio';
 import { AtesteCotacao } from './AtesteCotacao';
 import { BotaoPdfCotacao } from './BotaoPdfCotacao';
+import { CompletarPesquisa } from './CompletarPesquisa';
 import { DialogEncaminhar } from './DialogEncaminhar';
 import { DialogExecucao } from './DialogExecucao';
 import { DialogMaterial } from './DialogMaterial';
 import { EditorContratada } from './EditorContratada';
 import { OrigemDoItem } from './OrigemDoItem';
+import { FormReferencia, ListaReferencias } from './ReferenciasPreco';
 
 type ResultadoAcao = { ok: true } | { ok: false; error: string; impedimentos?: CodigoControle[] };
 
-type ComMotivo = 'devolver' | 'reprovar' | 'cancelar';
+type ComMotivo = 'devolver' | 'reprovar' | 'cancelar' | 'recusar_urgencia';
 
 const TITULO_MOTIVO: Record<ComMotivo, string> = {
   devolver: 'Devolver para correção',
   reprovar: 'Reprovar a cotação',
   cancelar: 'Cancelar a cotação',
+  recusar_urgencia: 'Recusar a urgência e devolver',
 };
 
 const dataHora = (iso: string) =>
@@ -83,13 +91,28 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   const [empenhoId, setEmpenhoId] = useState('');
   const [dialogo, setDialogo] = useState<'editar' | 'executar' | null>(null);
   const [encaminhando, setEncaminhando] = useState(false);
+  const [referenciaPara, setReferenciaPara] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
   const trf1 = c.visao === 'trf1';
   const mostraOrigem = trf1 || c.visao === 'contratada';
   // Itens `ambas` pedem a base, e os da lista de conferência, a conferência (AC-27, AC-29).
   const itensAmbas = (c.itens ?? []).filter((i) => i.origem === 'ambas');
   const itensNaLista = (c.itens ?? []).filter((i) => i.marcaAnomalia);
-  const precisaDeEscolhas = itensAmbas.length > 0 || itensNaLista.length > 0;
+  // Fatia 4: os orçamentos vencidos pedem a marca (AC-34), e a urgência, o aceite (AC-35).
+  const analise = detalhe.encaminhar;
+  const vencidos = new Set(analise?.orcamentosVencidos ?? []);
+  const orcamentosVencidos = (c.orcamentos ?? []).filter((o) => vencidos.has(o.id));
+  const urgenciaParaAceite =
+    analise?.urgenciaPrecisaAceite && c.urgencia?.justificativa
+      ? { justificativa: c.urgencia.justificativa }
+      : null;
+  const comVariacao = new Set(analise?.itensComVariacaoAcima ?? []);
+  const precisaDeEscolhas =
+    itensAmbas.length > 0 ||
+    itensNaLista.length > 0 ||
+    orcamentosVencidos.length > 0 ||
+    !!urgenciaParaAceite;
+  const confirmacao = new Map((c.confirmacoesVencido ?? []).map((x) => [x.orcamentoId, x]));
 
   const elegiveisComSaldo = (detalhe.empenhosElegiveis ?? []).filter(
     (e) => e.saldoCentavos >= (c.valorTotalCentavos ?? 0),
@@ -142,6 +165,41 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
       {c.ultimoMotivo && ['devolvida', 'reprovada', 'cancelada'].includes(c.situacao) && (
         <p className="rounded-xl border border-amber-300/60 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100">
           {ROTULO_SITUACAO[c.situacao]}: {textoDoMotivo(c.ultimoMotivo)}
+        </p>
+      )}
+
+      {c.urgencia?.pedida && (
+        <div className="space-y-1 rounded-xl border border-rose-300/60 bg-rose-50/60 p-3 text-sm text-rose-950 dark:border-rose-700/50 dark:bg-rose-950/30 dark:text-rose-100">
+          <p className="flex flex-wrap items-center gap-2 font-medium">
+            <SeloUrgencia />
+            {c.urgencia.decisao === 'aceita'
+              ? `Urgência aceita${c.urgencia.decididaPorNome ? ` por ${c.urgencia.decididaPorNome}` : ''}`
+              : c.urgencia.decisao === 'recusada'
+                ? 'Urgência recusada'
+                : 'Urgência pedida, aguardando a decisão do fiscal'}
+          </p>
+          {c.urgencia.justificativa && <p>Justificativa: {c.urgencia.justificativa}</p>}
+          {c.urgencia.motivoRecusa && <p>Motivo da recusa: {c.urgencia.motivoRecusa}</p>}
+          {c.pesquisaPendente && (
+            <p>
+              A pesquisa de preços ainda não tem orçamentos de 3 empresas para cada item. O
+              recebimento definitivo espera por ela.
+            </p>
+          )}
+          {c.urgencia.pesquisaCompletaEm && (
+            <p>Pesquisa de preços completa em {dataHora(c.urgencia.pesquisaCompletaEm)}.</p>
+          )}
+        </div>
+      )}
+
+      {trf1 && comVariacao.size > 0 && (
+        <p className="rounded-xl border border-rose-300/60 p-3 text-sm text-rose-900 dark:text-rose-100">
+          {CONTROLES.variacao_acima.texto} Itens:{' '}
+          {(c.itens ?? [])
+            .filter((i) => comVariacao.has(i.id))
+            .map((i) => i.descricao)
+            .join(', ')}
+          . Acrescente referência, devolva ou reprove.
         </p>
       )}
 
@@ -212,6 +270,39 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
                         <TableCell>
                           <p className="font-medium">{i.descricao}</p>
                           <p className="text-xs text-muted-foreground">{i.motivo}</p>
+                          {mostraOrigem && i.origem === 'orcamento' && i.referencias && (
+                            <div className="mt-1 space-y-1">
+                              <ListaReferencias
+                                referencias={i.referencias}
+                                desabilitado={pendente}
+                                onRetirar={
+                                  acoes.referenciasDoFiscal
+                                    ? (referenciaId) =>
+                                        agir(
+                                          () =>
+                                            retirarReferenciaAction({
+                                              ...base,
+                                              itemId: i.id,
+                                              referenciaId,
+                                            }),
+                                          'Referência retirada.',
+                                        )
+                                    : undefined
+                                }
+                              />
+                              {acoes.referenciasDoFiscal && (
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 text-xs"
+                                  onClick={() => setReferenciaPara(i.id)}
+                                >
+                                  Acrescentar referência do fiscal
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                         {mostraOrigem && (
                           <TableCell className="text-sm">
@@ -265,10 +356,33 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
               <ul className="grid gap-2 sm:grid-cols-2">
                 {(c.orcamentos ?? []).map((o) => (
                   <li key={o.id} className="rounded-xl border border-border/60 p-3 text-sm">
-                    <p className="font-medium">{o.fornecedor}</p>
-                    <p className="text-xs text-muted-foreground">
-                      CNPJ {formatarCnpj(o.cnpj)} · {o.data.split('-').reverse().join('/')}
+                    <p className="flex flex-wrap items-center gap-2 font-medium">
+                      {o.fornecedor}
+                      {o.fase === 'complemento' && (
+                        <span className="text-xs font-normal text-muted-foreground">
+                          ({ROTULO_FASE_ORCAMENTO.complemento})
+                        </span>
+                      )}
+                      {vencidos.has(o.id) && (
+                        <span className="text-xs font-normal text-rose-700 dark:text-rose-300">
+                          validade vencida
+                        </span>
+                      )}
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      CNPJ {formatarCnpj(o.cnpj)} · {o.data.split('-').reverse().join('/')} ·
+                      validade{' '}
+                      {o.validade ? o.validade.split('-').reverse().join('/') : 'não informada'}
+                    </p>
+                    {confirmacao.has(o.id) && (
+                      <p className="text-xs text-muted-foreground">
+                        Validade vencida confirmada pelo fiscal
+                        {confirmacao.get(o.id)!.porNome
+                          ? ` (${confirmacao.get(o.id)!.porNome})`
+                          : ''}{' '}
+                        em {dataHora(confirmacao.get(o.id)!.em)}
+                      </p>
+                    )}
                     <ul className="mt-1 text-xs text-muted-foreground">
                       {o.precos.map((p) => {
                         const item = c.itens?.find((i) => i.id === p.itemId);
@@ -314,6 +428,10 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
               ))}
           </ul>
         </section>
+      )}
+
+      {acoes.completarPesquisa && (
+        <CompletarPesquisa key={c.versao} cotacao={c} onAlterado={() => router.refresh()} />
       )}
 
       <AtesteCotacao cotacao={c} acoes={acoes} onAlterado={() => router.refresh()} />
@@ -396,6 +514,15 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
         {acoes.aprovar && (
           <Button disabled={pendente} onClick={abrirAprovar}>
             Aprovar
+          </Button>
+        )}
+        {acoes.recusarUrgencia && (
+          <Button
+            variant="outline"
+            disabled={pendente}
+            onClick={() => setMotivo({ acao: 'recusar_urgencia', texto: '' })}
+          >
+            Recusar urgência
           </Button>
         )}
         {acoes.devolver && (
@@ -487,7 +614,9 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           <DialogHeader>
             <DialogTitle>{motivo ? TITULO_MOTIVO[motivo.acao] : ''}</DialogTitle>
             <DialogDescription>
-              O motivo fica na trilha e vai para quem montou a cotação.
+              {motivo?.acao === 'recusar_urgencia'
+                ? `A urgência recusada não pode ser pedida de novo nesta cotação, e o reenvio segue o fluxo comum. O motivo (${TEXTO_CURTO_MIN} a ${TEXTO_CURTO_MAX} caracteres) fica na trilha e vai para a contratada.`
+                : 'O motivo fica na trilha e vai para quem montou a cotação.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
@@ -512,7 +641,9 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
                     ? () => devolverAction(entrada)
                     : motivo.acao === 'reprovar'
                       ? () => reprovarAction(entrada)
-                      : () => cancelarAction(entrada);
+                      : motivo.acao === 'recusar_urgencia'
+                        ? () => recusarUrgenciaAction(entrada)
+                        : () => cancelarAction(entrada);
                 agir(fn, 'Feito.', () => setMotivo(null));
               }}
             >
@@ -576,6 +707,8 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           numero={c.numero}
           ambas={itensAmbas}
           naLista={itensNaLista}
+          vencidos={orcamentosVencidos}
+          urgencia={urgenciaParaAceite}
           open
           pendente={pendente}
           onOpenChange={setEncaminhando}
@@ -588,6 +721,30 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           }
         />
       )}
+
+      <Dialog open={!!referenciaPara} onOpenChange={(o) => !o && setReferenciaPara(null)}>
+        <DialogContent className="sm:max-w-xl sm:rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Referência de preço do fiscal</DialogTitle>
+            <DialogDescription>
+              {(c.itens ?? []).find((i) => i.id === referenciaPara)?.descricao}. A referência fica
+              na trilha e a contratada a vê; o fiscal só retira a que ele mesmo incluiu.
+            </DialogDescription>
+          </DialogHeader>
+          <FormReferencia
+            desabilitado={pendente}
+            rotuloBotao="Gravar referência"
+            onAdicionar={(referencia) =>
+              referenciaPara &&
+              agir(
+                () => acrescentarReferenciaAction({ ...base, itemId: referenciaPara, referencia }),
+                'Referência acrescentada.',
+                () => setReferenciaPara(null),
+              )
+            }
+          />
+        </DialogContent>
+      </Dialog>
 
       {dialogo === 'editar' && c.itens && (
         <DialogMaterial

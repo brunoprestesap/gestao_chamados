@@ -386,9 +386,10 @@ export function RealtimeProvider({
 
     // Spec 0019, AC-16: o aviso da cotação de material, sem valor.
     socket.on('material:cotacao_situacao', (payload: MaterialCotacaoSituacaoPayload) => {
-      // A nota fiscal não muda a situação: o sino ganha o aviso dela e a tela
-      // recarrega, mas sem o toast de "atestada", que diria outra coisa.
-      if (payload.aviso === 'nota_fiscal') {
+      // A nota fiscal e a pesquisa completa da urgência não mudam a situação: o
+      // sino ganha o aviso e a tela recarrega, mas sem o toast da situação, que
+      // diria outra coisa.
+      if (payload.aviso) {
         emitNotificationEvent();
         routerRef.current.refresh();
         return;
