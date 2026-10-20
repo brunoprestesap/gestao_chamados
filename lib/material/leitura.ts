@@ -119,7 +119,9 @@ export function acoesDisponiveis(
       !!lim &&
       lim.limiteCentavos >= cot.valorTotalCentavos,
     alterar: rt && s === 'autorizada',
-    cancelar: (rt || papeis.tem('gestor')) && cot.emTramite,
+    cancelar:
+      ((rt || papeis.tem('gestor')) && cot.emTramite) ||
+      (ehTecnicoAtribuido && s === 'rascunho' && !cot.montadoPorUserId),
     executar: ehTecnicoAtribuido && s === 'autorizada',
     receberProvisorio: papeis.tem('gestor') && s === 'executada' && !cot.recebimentoProvisorio,
     // A urgência só é atestada com a pesquisa completa (AC-35); o servidor confere de novo.

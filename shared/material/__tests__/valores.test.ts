@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   acimaDoPercentual,
+  foraDeCotacaoJaCotados,
   menorPrecoDoItem,
   normalizarCodigoSinapi,
   normalizarTextoBusca,
@@ -196,5 +197,32 @@ describe('normalizarCodigoSinapi', () => {
 describe('normalizarTextoBusca', () => {
   it('tira acento, baixa a caixa e colapsa espaços', () => {
     expect(normalizarTextoBusca('  Lâmpada   FLUORESCENTE ')).toBe('lampada fluorescente');
+  });
+});
+
+describe('foraDeCotacaoJaCotados', () => {
+  const cotacoes = [
+    { numero: 'MAT-2026-0001', itens: [{ descricao: 'Disjuntor  Bipolar 20A' }] },
+    {
+      numero: 'MAT-2026-0002',
+      itens: [{ descricao: 'disjuntor bipolar 20a' }, { descricao: 'Fusível' }],
+    },
+  ];
+
+  it('casa pela descrição normalizada e aponta a primeira cotação', () => {
+    expect(
+      foraDeCotacaoJaCotados(
+        [
+          { _id: 'a', descricao: 'DISJUNTOR bipolar 20A' },
+          { _id: 'b', descricao: 'Fusivel' },
+          { _id: 'c', descricao: 'Cabo flexível' },
+        ],
+        cotacoes,
+      ),
+    ).toEqual({ a: 'MAT-2026-0001', b: 'MAT-2026-0002' });
+  });
+
+  it('sem cotação, nenhum aviso', () => {
+    expect(foraDeCotacaoJaCotados([{ _id: 'a', descricao: 'Disjuntor' }], [])).toEqual({});
   });
 });

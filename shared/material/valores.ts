@@ -191,3 +191,27 @@ export function jaccard(a: ReadonlySet<string>, b: ReadonlySet<string>): number 
   for (const p of a) if (b.has(p)) comum++;
   return comum / (a.size + b.size - comum);
 }
+
+/**
+ * Material fora de cotação (spec 0018) que já foi cotado no chamado: para
+ * cada item lançado à mão, o número da primeira cotação com item de mesma
+ * descrição normalizada. Só avisa, nunca barra.
+ */
+export function foraDeCotacaoJaCotados(
+  materiais: readonly { _id: string; descricao: string }[],
+  cotacoes: readonly { numero: string; itens: readonly { descricao: string }[] }[],
+): Record<string, string> {
+  const numeroPorDescricao = new Map<string, string>();
+  for (const c of cotacoes) {
+    for (const i of c.itens) {
+      const chave = normalizarTextoBusca(i.descricao);
+      if (!numeroPorDescricao.has(chave)) numeroPorDescricao.set(chave, c.numero);
+    }
+  }
+  const out: Record<string, string> = {};
+  for (const m of materiais) {
+    const numero = numeroPorDescricao.get(normalizarTextoBusca(m.descricao));
+    if (numero) out[m._id] = numero;
+  }
+  return out;
+}

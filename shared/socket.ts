@@ -250,9 +250,10 @@ export interface MaterialCotacaoSituacaoPayload {
   at: string;
   /**
    * A nota fiscal registrada e a pesquisa da urgência completa (spec 0019,
-   * AC-16 e AC-35): a situação não muda, a tela só recarrega, sem toast.
+   * AC-16 e AC-35), e a pesquisa da urgência atrasada (aviso da rodada
+   * diária): a situação não muda, a tela só recarrega, sem toast.
    */
-  aviso?: 'nota_fiscal' | 'pesquisa_completa';
+  aviso?: 'nota_fiscal' | 'pesquisa_completa' | 'pesquisa_atrasada';
 }
 
 export interface ServerToClientEvents {

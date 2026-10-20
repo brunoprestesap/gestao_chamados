@@ -117,6 +117,11 @@ export const MIN_ORCAMENTOS_POR_ITEM = 3;
 export const CONCILIACAO_TOLERANCIA_MS = 10 * 60 * 1000;
 /** Prazo do ateste: 5 dias corridos para cada recebimento, no fuso de Belém (AC-21). */
 export const PRAZO_ATESTE_DIAS = 5;
+/**
+ * Urgência aceita com a pesquisa ainda incompleta tantos dias corridos depois
+ * da autorização: a rodada diária avisa os gestores, uma vez por autorização.
+ */
+export const PRAZO_PESQUISA_URGENCIA_DIAS = 5;
 /** O responsável técnico vê as encerradas dos últimos 90 dias (AC-15). */
 export const DIAS_ENCERRADAS_VISIVEIS_RT = 90;
 

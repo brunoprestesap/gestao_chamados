@@ -88,16 +88,16 @@ export async function retomarPelaCotacao(params: {
   const doc = await ChamadoModel.findById(params.chamadoId);
   if (doc && doc.status !== 'aguardando_terceiros') {
     // O chamado saiu da pausa por outro caminho (cancelado, recusado): fecha o
-    // registro da pausa da cotação, para ele não ficar aberto para sempre.
-    const pausedMinutes = Math.max(
-      0,
-      Math.round((params.agora.getTime() - log.pausedAt.getTime()) / 60000),
-    );
+    // registro da pausa da cotação, para ele não ficar aberto para sempre, com
+    // a hora em que o chamado saiu, e não a deste ato (pela rodada diária, a
+    // hora atual inflaria o tempo pausado em até um dia).
+    const fim = await saidaDaPausa(params.chamadoId, doc.status, log.pausedAt, params.agora);
+    const pausedMinutes = Math.max(0, Math.round((fim.getTime() - log.pausedAt.getTime()) / 60000));
     await PauseLogModel.updateOne(
       { _id: log._id, resumedAt: { $exists: false } },
       {
         $set: {
-          resumedAt: params.agora,
+          resumedAt: fim,
           pausedMinutes,
           ...(params.userId ? { resumedByUserId: new Types.ObjectId(params.userId) } : {}),
         },
@@ -154,6 +154,29 @@ export async function retomarPelaCotacao(params: {
     },
   );
   return true;
+}
+
+/**
+ * Quando o chamado cancelado ou recusado saiu da pausa: o registro mais
+ * recente do histórico com esse status novo, entre o início da pausa e
+ * agora. Sem ele (ou em outro status), vale `agora`.
+ */
+async function saidaDaPausa(
+  chamadoId: string,
+  status: string,
+  pausedAt: Date,
+  agora: Date,
+): Promise<Date> {
+  if (status !== 'cancelado' && status !== 'recusado') return agora;
+  const h = await ChamadoHistoryModel.findOne({
+    chamadoId: new Types.ObjectId(chamadoId),
+    statusNovo: status,
+    createdAt: { $gte: pausedAt, $lte: agora },
+  })
+    .sort({ createdAt: -1 })
+    .select('createdAt')
+    .lean();
+  return h?.createdAt ?? agora;
 }
 
 /** Linha neutra na linha do tempo do chamado (sem valores: o solicitante vê). */

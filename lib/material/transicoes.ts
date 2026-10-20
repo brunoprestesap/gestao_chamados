@@ -41,6 +41,7 @@ import {
   ERROS_FATIA4,
   ERROS_NOTA_FISCAL,
   MSG_APROVACAO_EM_ANDAMENTO,
+  MSG_ITEM_CITADO_POR_ORCAMENTO,
   MSG_VERSAO_DESATUALIZADA,
 } from '@/shared/material/mensagens';
 import {
@@ -290,6 +291,7 @@ function papelDoAto(
   ator: Ator,
   papeis: Papeis | null,
   ehTecnicoAtribuido: boolean,
+  rascunhoSoDoTecnico: boolean,
 ): PapelEvento | null {
   if (ator.tipo === 'sistema') return acao === 'cancelar' ? 'sistema' : null;
   const tem = (p: Parameters<Papeis['tem']>[0]) => !!papeis?.tem(p);
@@ -319,7 +321,10 @@ function papelDoAto(
       return tem('responsavel_tecnico') ? 'responsavel_tecnico' : null;
     case 'cancelar':
       if (tem('responsavel_tecnico')) return 'responsavel_tecnico';
-      return tem('gestor') ? 'gestor' : null;
+      if (tem('gestor')) return 'gestor';
+      // O técnico atribuído descarta o rascunho enquanto ele é só dele, a mesma
+      // janela em que edita o diagnóstico (AC-1).
+      return ehTecnicoAtribuido && rascunhoSoDoTecnico ? 'tecnico' : null;
   }
 }
 
@@ -672,6 +677,13 @@ export async function salvarRascunho(
     // Sem o campo, os orçamentos gravados ficam como estão (só os itens mudam).
     const manterOrcamentos = entrada.orcamentos === undefined;
     const orcamentos = entrada.orcamentos ?? [];
+    // Mantidos, os orçamentos gravados não podem ficar citando item que saiu.
+    if (
+      manterOrcamentos &&
+      cot.orcamentos.some((o) => o.precos.some((p) => !ids.has(String(p.itemId))))
+    ) {
+      return { ok: false, error: MSG_ITEM_CITADO_POR_ORCAMENTO };
+    }
     const { raizCnpjContratada } = await lerMaterialConfig();
     for (const o of orcamentos) {
       if (o.precos.some((p) => !ids.has(p.itemId))) {
@@ -825,7 +837,8 @@ export async function transicionar(e: EntradaTransicao): Promise<
   if (!chamado) return { ok: false, error: 'Chamado da cotação não encontrado.' };
   const ehTecnicoAtribuido = !!userId && String(chamado.assignedToUserId ?? '') === userId;
 
-  const papel = papelDoAto(e.acao, de, e.ator, papeis, ehTecnicoAtribuido);
+  const rascunhoSoDoTecnico = de === 'rascunho' && !cot.montadoPorUserId;
+  const papel = papelDoAto(e.acao, de, e.ator, papeis, ehTecnicoAtribuido, rascunhoSoDoTecnico);
   if (!papel) {
     if (e.acao === 'aprovar') {
       return {
