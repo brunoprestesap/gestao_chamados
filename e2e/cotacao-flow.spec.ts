@@ -202,6 +202,17 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await login(page, 'preposto');
     await abrirCotacaoNaFila(page, numero, 'minhas');
 
+    // Fatia 4: o item do caminho 3 precisa de ao menos uma referência de preço (AC-32).
+    const item = page.locator('fieldset').filter({ hasText: 'Item 1' }).first();
+    await item.getByLabel('Outra fonte').check();
+    await item.getByLabel('Fonte da referência').fill('Painel de preços do governo');
+    await item.getByLabel('Valor unitário').fill('100,00');
+    await item
+      .getByLabel('Data da referência')
+      .fill(new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10));
+    await item.getByRole('button', { name: 'Acrescentar referência' }).click();
+    await expect(item.getByText(/Painel de preços do governo/)).toBeVisible();
+
     const precos = ['12,00', '10,00', '11,00'];
     for (const [i, preco] of precos.entries()) {
       const n = i + 1;
@@ -212,7 +223,9 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
         .last();
       await orc.getByLabel('Fornecedor').fill(`Loja E2E ${n}`);
       await orc.getByLabel('CNPJ').fill(`${n}${n}.${n}${n}${n}.${n}${n}${n}/0001-91`);
-      await orc.getByLabel('Data').fill('2026-10-10');
+      await orc.getByLabel('Data', { exact: true }).fill('2026-10-10');
+      // Fatia 4: a validade é obrigatória no envio (AC-34).
+      await orc.getByLabel(/Validade/).fill('2099-12-31');
       await orc.locator('input[type=file]').setInputFiles(pdf(`orcamento-${n}.pdf`));
       await expect(orc.getByText(`orcamento-${n}.pdf`)).toBeVisible({ timeout: 15000 });
       await orc.getByLabel(/Disjuntor bipolar 40 A/).fill(preco);

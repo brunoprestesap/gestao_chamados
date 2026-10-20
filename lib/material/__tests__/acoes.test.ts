@@ -177,35 +177,39 @@ describe('acoesDisponiveis', () => {
 describe('impedimentosDeEnvio (AC-4)', () => {
   const i1 = new Types.ObjectId();
   const i2 = new Types.ObjectId();
-  const orc = (...itens: Types.ObjectId[]) => ({ precos: itens.map((itemId) => ({ itemId })) });
+  // Raízes distintas, validade e referência: só a quantidade de orçamentos varia aqui.
+  let raiz = 0;
+  const orc = (...itens: Types.ObjectId[]) => {
+    raiz += 1;
+    return {
+      cnpj: `${(raiz % 9) + 1}`.repeat(8) + '000191',
+      validade: new Date('2099-12-31'),
+      precos: itens.map((itemId) => ({ itemId })),
+    };
+  };
+  const ref = [{ valorUnitarioCentavos: 1_00 }];
+  const envio = (itens: Types.ObjectId[], orcamentos: ReturnType<typeof orc>[]) =>
+    impedimentosDeEnvio({
+      itens: itens.map((_id) => ({ _id, referencias: ref })),
+      orcamentos,
+      raizContratada: '03543374',
+    });
 
   it('passa quando cada item tem preço em 3 orçamentos', () => {
-    expect(
-      impedimentosDeEnvio({ itens: [{ _id: i1 }], orcamentos: [orc(i1), orc(i1), orc(i1)] }),
-    ).toEqual([]);
+    expect(envio([i1], [orc(i1), orc(i1), orc(i1)])).toEqual([]);
   });
 
   it('um orçamento pode cobrir só parte dos itens', () => {
-    expect(
-      impedimentosDeEnvio({
-        itens: [{ _id: i1 }, { _id: i2 }],
-        orcamentos: [orc(i1, i2), orc(i1, i2), orc(i1), orc(i2)],
-      }),
-    ).toEqual([]);
+    expect(envio([i1, i2], [orc(i1, i2), orc(i1, i2), orc(i1), orc(i2)])).toEqual([]);
   });
 
   it('item com 2 orçamentos impede o envio', () => {
-    expect(
-      impedimentosDeEnvio({
-        itens: [{ _id: i1 }, { _id: i2 }],
-        orcamentos: [orc(i1, i2), orc(i1, i2), orc(i1)],
-      }),
-    ).toEqual(['orcamentos_insuficientes']);
+    expect(envio([i1, i2], [orc(i1, i2), orc(i1, i2), orc(i1)])).toEqual([
+      'orcamentos_insuficientes',
+    ]);
   });
 
   it('sem orçamento nenhum, impede', () => {
-    expect(impedimentosDeEnvio({ itens: [{ _id: i1 }], orcamentos: [] })).toEqual([
-      'orcamentos_insuficientes',
-    ]);
+    expect(envio([i1], [])).toEqual(['orcamentos_insuficientes']);
   });
 });

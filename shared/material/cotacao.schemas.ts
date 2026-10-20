@@ -5,8 +5,11 @@ import { somenteDigitosCnpj } from '@/shared/contratos/cnpj';
 import {
   BASES_DE_AMBAS,
   BUSCA_PRECO_MIN_LETRAS,
+  FONTE_REFERENCIA_MAX,
+  FONTE_REFERENCIA_MIN,
   MAX_ITENS_COTACAO,
   MAX_ORCAMENTOS_COTACAO,
+  MAX_REFERENCIAS_POR_PAPEL,
   PAPEIS_DESIGNACAO,
   TEXTO_CURTO_MAX,
   TEXTO_CURTO_MIN,
@@ -51,23 +54,72 @@ export const CriarCotacaoSchema = z.object({
 });
 export type CriarCotacaoInput = z.infer<typeof CriarCotacaoSchema>;
 
-/** Item no rascunho: `id` existente ou gerado pela tela para item novo. */
-export const ItemRascunhoSchema = ItemDiagnosticoSchema.extend({ id: objectId });
+/** Código SINAPI digitado: só dígitos depois de tirar espaços e pontos, sem zeros à esquerda. */
+const codigoSinapi = z
+  .string()
+  .max(30)
+  .transform((s) => normalizarCodigoSinapi(s))
+  .refine((c): c is string => !!c, 'Código SINAPI inválido: use só números.');
 
-export const OrcamentoRascunhoSchema = z.object({
+/**
+ * Referência de preço do caminho 3 (AC-32): o insumo SINAPI só pelo código
+ * (preço e fonte vêm da tabela, nunca da entrada), ou a fonte livre digitada.
+ */
+export const ReferenciaEntradaSchema = z.union([
+  z.object({ id: objectId, sinapiCodigo: codigoSinapi }).strict(),
+  z
+    .object({
+      id: objectId,
+      fonte: z
+        .string()
+        .trim()
+        .min(
+          FONTE_REFERENCIA_MIN,
+          `Diga a fonte da referência (de ${FONTE_REFERENCIA_MIN} a ${FONTE_REFERENCIA_MAX} caracteres).`,
+        )
+        .max(FONTE_REFERENCIA_MAX, `Até ${FONTE_REFERENCIA_MAX} caracteres na fonte.`),
+      valorUnitarioCentavos: z
+        .number()
+        .int('Valor inválido.')
+        .min(1, 'O valor da referência precisa ser maior que zero.'),
+      data: ymd,
+    })
+    .strict(),
+]);
+export type ReferenciaEntrada = z.infer<typeof ReferenciaEntradaSchema>;
+
+/**
+ * Item no rascunho: `id` existente ou gerado pela tela para item novo.
+ * `referencias` ausente mantém as gravadas; a lista troca só as da contratada.
+ */
+export const ItemRascunhoSchema = ItemDiagnosticoSchema.extend({
   id: objectId,
-  fornecedor: z.string().trim().min(2, 'Informe o fornecedor.').max(160),
-  cnpj: z
-    .string()
-    .transform(somenteDigitosCnpj)
-    .refine((c) => c.length === 14, 'O CNPJ tem 14 dígitos.'),
-  data: ymd,
-  validade: ymd.nullable().optional(),
-  arquivoId: objectId,
-  precos: z
-    .array(z.object({ itemId: objectId, valorUnitarioCentavos: centavos }))
-    .max(MAX_ITENS_COTACAO),
+  referencias: z
+    .array(ReferenciaEntradaSchema)
+    .max(MAX_REFERENCIAS_POR_PAPEL, `Até ${MAX_REFERENCIAS_POR_PAPEL} referências por item.`)
+    .optional(),
 });
+
+export const OrcamentoRascunhoSchema = z
+  .object({
+    id: objectId,
+    fornecedor: z.string().trim().min(2, 'Informe o fornecedor.').max(160),
+    cnpj: z
+      .string()
+      .transform(somenteDigitosCnpj)
+      .refine((c) => c.length === 14, 'O CNPJ tem 14 dígitos.'),
+    data: ymd,
+    validade: ymd.nullable().optional(),
+    arquivoId: objectId,
+    precos: z
+      .array(z.object({ itemId: objectId, valorUnitarioCentavos: centavos }))
+      .max(MAX_ITENS_COTACAO),
+  })
+  .refine((o) => !o.validade || o.validade >= o.data, {
+    message: 'A validade do orçamento não pode ser anterior à data dele.',
+    path: ['validade'],
+  });
+export type OrcamentoRascunhoInput = z.infer<typeof OrcamentoRascunhoSchema>;
 
 /** Algum id aparece mais de uma vez na lista. */
 export function temIdRepetido(ids: readonly string[]): boolean {
@@ -79,7 +131,7 @@ export function temIdRepetido(ids: readonly string[]): boolean {
  * compararia só uma das entradas. Recusa item, orçamento e preço repetidos.
  */
 export function idsRepetidosDoRascunho(e: {
-  itens: readonly { id: string }[];
+  itens: readonly { id: string; referencias?: readonly { id: string }[] }[];
   orcamentos?: readonly {
     id: string;
     arquivoId: string;
@@ -87,6 +139,9 @@ export function idsRepetidosDoRascunho(e: {
   }[];
 }): string | null {
   if (temIdRepetido(e.itens.map((i) => i.id))) return 'Um item aparece repetido na cotação.';
+  if (e.itens.some((i) => temIdRepetido((i.referencias ?? []).map((r) => r.id)))) {
+    return 'Uma referência aparece repetida no item.';
+  }
   const orcamentos = e.orcamentos ?? [];
   if (temIdRepetido(orcamentos.map((o) => o.id))) return 'Um orçamento aparece repetido.';
   if (temIdRepetido(orcamentos.map((o) => o.arquivoId))) {
@@ -131,10 +186,57 @@ const textoCurto = (vazio: string) =>
     .max(TEXTO_CURTO_MAX, `Até ${TEXTO_CURTO_MAX} caracteres.`);
 
 /**
+ * Enviar (AC-35): a urgência é pedida com justificativa. No reenvio de uma
+ * urgência já pedida, a justificativa gravada vale e a entrada é ignorada.
+ */
+export const EnviarSchema = TransicaoSchema.extend({
+  urgencia: z
+    .object({ justificativa: textoCurto('Justifique a urgência').optional() })
+    .strict()
+    .optional(),
+});
+export type EnviarInput = z.infer<typeof EnviarSchema>;
+
+/** O fiscal acrescenta uma referência a um item do caminho 3 na análise (AC-32). */
+export const AcrescentarReferenciaSchema = TransicaoSchema.extend({
+  itemId: objectId,
+  referencia: ReferenciaEntradaSchema,
+});
+export type AcrescentarReferenciaInput = z.infer<typeof AcrescentarReferenciaSchema>;
+
+/** O fiscal retira uma referência que ele mesmo incluiu (só marca, nunca apaga). */
+export const RetirarReferenciaSchema = TransicaoSchema.extend({
+  itemId: objectId,
+  referenciaId: objectId,
+});
+export type RetirarReferenciaInput = z.infer<typeof RetirarReferenciaSchema>;
+
+/** Recusar a urgência devolve a cotação, com motivo (AC-35). */
+export const RecusarUrgenciaSchema = TransicaoSchema.extend({
+  motivo: textoCurto('Escreva o motivo da recusa'),
+});
+export type RecusarUrgenciaInput = z.infer<typeof RecusarUrgenciaSchema>;
+
+/** O responsável técnico completa a pesquisa da urgência: só orçamentos novos (AC-35). */
+export const CompletarPesquisaSchema = TransicaoSchema.extend({
+  orcamentos: z
+    .array(OrcamentoRascunhoSchema)
+    .min(1, 'Acrescente ao menos um orçamento.')
+    .max(MAX_ORCAMENTOS_COTACAO),
+}).superRefine((e, ctx) => {
+  const erro = idsRepetidosDoRascunho({ itens: [], orcamentos: e.orcamentos });
+  if (erro) ctx.addIssue({ code: 'custom', message: erro });
+});
+export type CompletarPesquisaInput = z.infer<typeof CompletarPesquisaSchema>;
+
+/**
  * Encaminhar (AC-27, AC-29): a base de cada item `ambas`, com justificativa,
- * e a conferência de cada item da lista de conferência obrigatória.
+ * e a conferência de cada item da lista de conferência obrigatória. Fatia 4:
+ * a confirmação de cada orçamento vencido (AC-34) e o aceite da urgência (AC-35).
  */
 export const EncaminharSchema = TransicaoSchema.extend({
+  confirmacoes: z.array(objectId).max(MAX_ORCAMENTOS_COTACAO).default([]),
+  aceitarUrgencia: z.boolean().optional(),
   bases: z
     .array(
       z.object({
@@ -158,13 +260,6 @@ export const EncaminharSchema = TransicaoSchema.extend({
   }
 });
 export type EncaminharInput = z.infer<typeof EncaminharSchema>;
-
-/** Código SINAPI digitado: só dígitos depois de tirar espaços e pontos, sem zeros à esquerda. */
-const codigoSinapi = z
-  .string()
-  .max(30)
-  .transform((s) => normalizarCodigoSinapi(s))
-  .refine((c): c is string => !!c, 'Código SINAPI inválido: use só números.');
 
 /**
  * Classificação de um item (AC-26): a entrada é a escolha, nunca a origem

@@ -33,6 +33,16 @@ function cru(m: {
 
 const rodar = temMongoDeTeste ? describe : describe.skip;
 
+/** A referência livre que o item do caminho 3 precisa para enviar (fatia 4, AC-32). */
+const REFS = [
+  {
+    id: String(new Types.ObjectId()),
+    fonte: 'Painel de preços do governo',
+    valorUnitarioCentavos: 1_000_00,
+    data: new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10),
+  },
+];
+
 rodar('fio da cotação de material, contra o Mongo', () => {
   let t: typeof import('../transicoes');
   let chamadoLib: typeof import('../chamado');
@@ -224,7 +234,7 @@ rodar('fio da cotação de material, contra o Mongo', () => {
       fornecedor: `Loja ${cnpj}`,
       cnpj,
       data: '2026-10-01',
-      validade: null,
+      validade: '2099-12-31',
       arquivoId: await arquivo(criada.id, 'orcamento', ids.rt),
       precos: [{ itemId, valorUnitarioCentavos: preco }],
     });
@@ -238,6 +248,7 @@ rodar('fio da cotação de material, contra o Mongo', () => {
           unidade: 'un',
           quantidade: 2,
           motivo: 'Trocar o queimado',
+          referencias: REFS,
         },
       ],
       orcamentos: [
@@ -449,6 +460,7 @@ rodar('fio da cotação de material, contra o Mongo', () => {
         fornecedor: cnpj,
         cnpj,
         data: '2026-10-01',
+        validade: '2099-12-31',
         arquivoId: await arquivo(criada.id, 'orcamento', ids.rt),
         precos: [{ itemId, valorUnitarioCentavos: 5_00 }],
       })),
@@ -456,7 +468,16 @@ rodar('fio da cotação de material, contra o Mongo', () => {
     const salvo = await t.salvarRascunho(usuario(ids.rt, 'Preposto'), {
       id: criada.id,
       versao: cot.versao,
-      itens: [{ id: itemId, descricao: 'Fio', unidade: 'm', quantidade: 1, motivo: 'Ligação' }],
+      itens: [
+        {
+          id: itemId,
+          descricao: 'Fio',
+          unidade: 'm',
+          quantidade: 1,
+          motivo: 'Ligação',
+          referencias: REFS,
+        },
+      ],
       orcamentos,
     });
     if (!salvo.ok) throw new Error(salvo.error);
@@ -487,7 +508,8 @@ rodar('fio da cotação de material, contra o Mongo', () => {
       versao: 1,
       ator: usuario(ids.rt, 'Preposto'),
     });
-    expect(!r.ok && r.impedimentos).toEqual(['orcamentos_insuficientes']);
+    // Desde a fatia 4, o item do caminho 3 também precisa de referência (AC-32).
+    expect(!r.ok && r.impedimentos).toEqual(['orcamentos_insuficientes', 'sem_referencia']);
   });
 
   it('cancelar o chamado cancela a cotação autorizada e libera o saldo (AC-12)', async () => {

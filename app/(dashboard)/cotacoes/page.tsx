@@ -17,7 +17,7 @@ import { type AbaFila, ABAS_FILA, listarFila } from '@/lib/material/leitura';
 import { cn } from '@/lib/utils';
 import { formatarReais } from '@/shared/chamados/custo';
 
-import { SeloPrazoAteste, SituacaoBadge } from './_components/apoio';
+import { SeloPrazoAteste, SeloUrgencia, SituacaoBadge } from './_components/apoio';
 
 const ROTULO_ABA: Record<AbaFila, string> = {
   minhas: 'Minhas ações',
@@ -124,6 +124,7 @@ export default async function CotacoesPage({
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <SituacaoBadge situacao={l.situacao} />
+                    {l.urgente && <SeloUrgencia />}
                     <SeloPrazoAteste prazo={l.prazoAteste} />
                     {l.notaFiscalPendente && (
                       <Badge
@@ -131,6 +132,14 @@ export default async function CotacoesPage({
                         className="border-amber-300 text-amber-700 dark:text-amber-300"
                       >
                         Nota fiscal pendente
+                      </Badge>
+                    )}
+                    {l.pesquisaPendente && (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-300 text-amber-700 dark:text-amber-300"
+                      >
+                        Pesquisa de preços pendente
                       </Badge>
                     )}
                   </div>

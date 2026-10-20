@@ -69,11 +69,11 @@ _Pede uma cotação `executada` do fio da Fatia 1 e as mesmas designações da P
 - [x] Ainda como gestor, `Registrar recebimento definitivo` → a situação vira `Atestada`, a trilha ganha os dois atos com papel Gestor, e o responsável técnico recebe "Cotação X atestada" sem valor → AC-21, AC-9, AC-16
 - [x] Como fiscal ou aprovador (sem designação de gestor), na `executada` → nenhum botão de recebimento → AC-21
 - [x] Como responsável técnico, na `executada` → sem `Registrar nota fiscal`; enviar arquivo `nota_fiscal` pela rota de upload → 409 → AC-22
-- [ ] Como responsável técnico, na `atestada`: a aba "Minhas ações" lista a cotação; `Registrar nota fiscal` com número, data e arquivo → a seção Ateste mostra "Nº ..., de dd/mm/aaaa" com o link do arquivo; o botão some e um segundo registro é recusado → AC-22
+- [x] Como responsável técnico, na `atestada`: a aba "Minhas ações" lista a cotação; `Registrar nota fiscal` com número, data e arquivo → a seção Ateste mostra "Nº ..., de dd/mm/aaaa" com o link do arquivo; o botão some e um segundo registro é recusado → AC-22
 - [x] Como técnico atribuído e como solicitante → o link do arquivo da nota fiscal responde 403 → AC-15, AC-22
 - [x] Como fiscal, gestor ou aprovador, `Gerar PDF para o SEI` → baixa `cotacao-COT-<ano>-####.pdf` com resumo, itens com origem e base aplicada, orçamentos, conferências, advertências e a trilha inteira com autor, papel e limite no ato; o rodapé de toda página traz o código da emissão → AC-23
 - [x] Como responsável técnico e como técnico → o botão não aparece, e `POST /api/cotacoes/<id>/pdf` com a sessão deles responde 403 → AC-23
-- [ ] Como Admin sem designação → lê a cotação, mas não vê `Gerar PDF para o SEI`, e o `POST /api/cotacoes/<id>/pdf` responde 403; num rascunho, o `POST` de um fiscal responde 409 → AC-23 · added 2026-10-19 (review)
+- [x] Como Admin sem designação → lê a cotação sem nenhum botão de ação, vê `Gerar PDF para o SEI`, e o `POST /api/cotacoes/<id>/pdf` responde 200 com a emissão gravando `papel: admin`; quem está fora do lado TRF1 recebe 403, mesmo com id inexistente; num rascunho, o `POST` do lado TRF1 responde 404 → AC-23 · added 2026-10-19 (review), corrigido em 2026-10-20 para a decisão do AC-23
 - [x] Como responsável técnico, `Registrar nota fiscal` → `Conferir` mostra número, data e arquivo antes de gravar; `Corrigir` volta ao formulário; data futura não é aceita; ao confirmar, os gestores recebem "Nota fiscal registrada na cotação X", sem valor → AC-22, AC-16 · added 2026-10-19 (review)
 - [x] Com uma `atestada` sem nota fiscal parada há mais de 90 dias → continua em "Minhas ações" e no detalhe do responsável técnico; o selo de atraso do ateste não aparece para ele, só as datas → AC-21, AC-22 · added 2026-10-19 (review)
 
@@ -99,7 +99,7 @@ _Pede uma cotação `executada` do fio da Fatia 1 e as mesmas designações da P
 - [x] Como responsável técnico, numa cotação `atestada` sem NF, abrir `Registrar nota fiscal` → o campo de data tem `min` no dia da autorização (em Belém) e `max` em hoje; o texto pede a data entre esses dois dias → AC-22
 - [x] Digitar uma data anterior ao dia da autorização (forçando pelo teclado) e confirmar → recusa "A data da nota fiscal não pode ser anterior ao dia da autorização."; a nota não grava → AC-22
 - [x] No mesmo diálogo, anexar `nf1.pdf` e depois `nf2.pdf` → o primeiro arquivo some da lista de arquivos da cotação; clicar `Voltar` → o segundo também some (removido, não apagado do disco) → AC-22
-- [ ] Registrar a NF de verdade (número, data de hoje, arquivo) → passa pela conferência; o gestor recebe no sino "Nota fiscal registrada na cotação COT-…", sem valor e sem o número da NF, e não aparece toast de "Cotação … atestada" na tela dele → AC-16, AC-22
+- [x] Registrar a NF de verdade (número, data de hoje, arquivo) → passa pela conferência; o gestor recebe no sino "Nota fiscal registrada na cotação COT-…", sem valor e sem o número da NF, e não aparece toast de "Cotação … atestada" na tela dele → AC-16, AC-22
 - [x] Como responsável técnico, abrir uma cotação com recebimento provisório registrado → o bloco Ateste mostra a data e a hora, sem o nome do gestor e sem selo de prazo; na trilha, a linha "Recebimento provisório registrado" mostra só "Gestor" → AC-21
 - [x] Como responsável técnico, em `/cotacoes` → só as abas `Minhas ações`, `Ateste` e `Todas`; `/cotacoes?aba=analise` abre `Minhas ações`; em `Ateste` aparecem a coluna Recebimento com as datas e o selo "Nota fiscal pendente", sem selo de prazo → AC-21, AC-22
 - [x] Como gestor, na aba `Ateste` → o selo de prazo continua aparecendo → AC-21
@@ -108,7 +108,7 @@ _Pede uma cotação `executada` do fio da Fatia 1 e as mesmas designações da P
 
 ### Value sourcing
 
-- [ ] Data da NF no dia de Belém: com o relógio do servidor às 22:00 de Belém (01:00 UTC do dia seguinte), a data de hoje em Belém passa e a de amanhã é recusada; a virada é às 03:00 UTC (coberto em `revisao-19-10.test.ts`) → AC-22
+- [x] Data da NF no dia de Belém: com o relógio do servidor às 22:00 de Belém (01:00 UTC do dia seguinte), a data de hoje em Belém passa e a de amanhã é recusada; a virada é às 03:00 UTC (coberto em `revisao-19-10.test.ts`) → AC-22
 - [x] Piso da data a partir de `autorizadoEm` em Belém: cotação autorizada às 01:00 UTC do dia 11 aceita NF do dia 10 → AC-22
 - [x] Janela de 90 dias da contratada contada de `updatedAt`: NF registrada há 30 dias aparece; há 91 dias some; a `atestada` sem NF de 400 dias continua aparecendo → AC-15
 - [x] `papel` da emissão do PDF: fiscal grava `fiscal`, gestor grava `gestor`, Admin sem designação grava `admin` (conferir em `cotacaomaterialpdfemissoes`) → AC-23
@@ -169,3 +169,50 @@ _Passos derivados de AC-24 a AC-30 e das linhas da Value sourcing da fatia 3. An
 ### Acceptance-criteria coverage
 
 - AC-24 · importação, revisão, versão, herança do código e da marca, correção do código · AC-25 · layout, cabeçalho procurado, Windows-1252, mês imutável · AC-26 · busca, classificação, origem derivada, preço congelado, `classificacao_desatualizada` · AC-27 · bases lado a lado, escolha com justificativa, devolução limpa · AC-28 · advertências de preço, painel de itens sem código · AC-29 · marca automática e manual, conferência no encaminhar · AC-30 · caminho 1 só com contrato e Anexo V, caminho 2 só com SINAPI, painel
+
+## Fatia 4: controles do caminho 3 e urgência · acrescentado em 2026-10-20
+
+_Passos do AC-31 ao AC-35, com as decisões e as regras finas de 20/10. Os CNPJs de teste das fatias 1 a 3 (`11111111000191` e parecidos) já passam no dígito verificador; o que mudou nos testes antigos foi a validade e a referência obrigatórias._
+
+### UI / manual
+
+- [x] Como responsável técnico, num rascunho, lançar um orçamento com CNPJ `11.111.111/0001-92` e salvar → recusado no salvar, com o nome do fornecedor e "dígito verificador" → AC-31
+- [x] Lançar um orçamento com CNPJ da contratada (`03.543.374/0001-41`) e salvar → recusado no salvar, nomeando o fornecedor → AC-31
+- [x] Lançar 3 orçamentos para o item, dois com a mesma raiz (`11.111.111/0001-91` e `11.111.111/0002-72`) e um de outra empresa, e enviar → a linha do item diz "de 2 empresas diferentes" e o envio dá o impedimento de 3 empresas (`cnpj_mesma_raiz`) → AC-31
+- [x] Enviar com 3 empresas, mas sem referência no item → impedimento `sem_referencia` → AC-32
+- [x] Acrescentar uma referência "Insumo do SINAPI" pelo código e salvar → aparece com o preço, a unidade e a fonte da tabela do mês mais recente; o campo de valor não existe para esse tipo → AC-32
+- [x] Acrescentar uma referência "Outra fonte" com data de amanhã, e outra com data de 13 meses atrás → as duas recusadas no salvar → AC-32
+- [x] Deixar um orçamento sem validade e enviar → impedimento `validade_ausente`; a validade anterior à data do orçamento é recusada no salvar → AC-34
+- [x] Como fiscal que assumiu, acrescentar ao item uma referência livre bem abaixo do menor orçamento → a faixa "O menor orçamento de um item passa da menor referência" aparece e o encaminhar é recusado com `variacao_acima` → AC-33
+- [x] Como outro fiscal, tentar retirar essa referência → não há botão; pela action, recusa "só o fiscal que assumiu" → AC-32
+- [x] Como o fiscal que incluiu, `Retirar` a referência → ela fica riscada com "retirada" e o encaminhar passa → AC-32, AC-33
+- [x] Devolver; como responsável técnico, salvar o rascunho → a referência do fiscal continua lá, marcada "informada pelo fiscal", sem o nome dele → AC-32, AC-15
+- [x] Com um orçamento de validade de ontem, encaminhar → o diálogo pede a marca desse orçamento; sem marcar, o botão fica desligado; marcando, encaminha, e o detalhe mostra "Validade vencida confirmada pelo fiscal (nome) em ..." só para o lado TRF1 → AC-34
+- [x] Com validade de hoje, encaminhar → nenhuma marca é pedida → AC-34
+- [x] Devolver a cotação que tinha a confirmação → a confirmação some do detalhe → AC-34
+- [x] Como responsável técnico, marcar "Pedir urgência no envio", justificar e enviar com 1 orçamento por item → enviada; a fila mostra o selo "Urgente" e o fiscal recebe o aviso "URGENTE: cotação ... enviada para análise" → AC-35, AC-16
+- [x] Como fiscal, assumir e encaminhar sem marcar "Aceito a urgência" → o botão fica desligado; pela action, impedimento `urgencia_sem_decisao` → AC-35
+- [x] Aceitar a urgência e encaminhar; aprovar; executar; registrar o provisório → o botão do definitivo não aparece, a faixa da urgência diz que a pesquisa está pendente → AC-35
+- [x] Como responsável técnico, a cotação aparece em `Minhas ações` com "Pesquisa de preços pendente"; em `Completar a pesquisa da urgência`, acrescentar um orçamento mais barato que o aplicado → o preço, o valor autorizado e a reserva não mudam; o lado TRF1 vê a advertência de pesquisa posterior com preço menor; a contratada não → AC-35, AC-15
+- [x] Acrescentar o orçamento que completa 3 empresas por item → a faixa mostra "Pesquisa de preços completa", os gestores recebem o aviso uma vez, sem valor e sem toast de situação, e o definitivo aparece e passa → AC-35, AC-16
+- [x] Noutra cotação com urgência pedida, o fiscal clica `Recusar urgência` com motivo → vai para `devolvida`; o responsável técnico vê o motivo e não vê mais a opção de pedir urgência; o reenvio com 1 orçamento por item é recusado com `orcamentos_insuficientes` → AC-35
+- [x] Como solicitante, abrir o chamado de uma cotação urgente → nenhuma marca de urgência nem justificativa; como técnico atribuído → só o selo "Urgente" no cartão → AC-35, AC-15
+- [x] Gerar o PDF de uma cotação urgente com referência do fiscal e vencido confirmado → o PDF traz a seção "Referências de preço" com quem informou, a seção "Urgência", a fase do orçamento e a confirmação do vencido, e os eventos novos na trilha → AC-23
+
+### Value sourcing
+
+- [x] Raiz da contratada: mudar `MaterialConfig.raizCnpjContratada` no banco para outra raiz → o orçamento que antes era "da contratada" passa no salvar, e o da raiz nova é recusado → AC-31
+- [x] Preço da referência SINAPI: importar um mês mais novo com outro preço para o mesmo código e reenviar → a referência da contratada é recopiada com o preço novo; um código ausente do mês novo dá `referencia_desatualizada`; a referência SINAPI do fiscal não é refeita → AC-32
+- [x] Menor referência: com uma referência da contratada alta e uma do fiscal baixa, a variação é medida contra a do fiscal → AC-33
+- [x] "Hoje" do vencido: encaminhar às 22:00 de Belém (01:00 UTC do dia seguinte) com validade igual ao dia de Belém → não pede marca → AC-34
+- [x] Data da referência livre: às 22:00 de Belém, a data de hoje em Belém é aceita e a do dia seguinte recusada → AC-32
+- [x] `pesquisaCompletaEm`: gravado na hora da inclusão que fecha as 3 empresas, ou no envio quando a urgência já chega completa (sem aviso aos gestores) → AC-35
+
+### Commands
+
+- [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/material` → passa, inclusive `fatia4.test.ts`, `fatia4.db.test.ts` e o teste de paridade de `pendencia.db.test.ts` com a urgência → AC-15, AC-31 a AC-35
+- [x] `npm run test:e2e -- e2e/cotacao-flow.spec.ts` num banco próprio → o fio passa com a referência livre e a validade preenchidas → AC-32, AC-34
+
+### Acceptance-criteria coverage
+
+- AC-31 · CNPJ inválido e da contratada no salvar e no envio, 3 raízes distintas por item, mesma raiz conta uma vez · AC-32 · referência SINAPI pela tabela ou livre, do fiscal na análise, retirada só pelo próprio fiscal, salvar que não apaga a do fiscal, `referencia_desatualizada` · AC-33 · variação contra a menor referência ativa, também na urgência · AC-34 · validade obrigatória, vencido com marca por orçamento, devolução limpa · AC-35 · pedido, aceite no encaminhar, recusa que devolve, complemento sem mudar preço nem reserva, `pesquisa_pendente`, divergência posterior, pendência da contratada, avisos e marca · AC-15, AC-16, AC-23 · visibilidade dos campos novos, títulos de aviso, PDF

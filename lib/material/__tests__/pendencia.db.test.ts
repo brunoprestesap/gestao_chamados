@@ -105,4 +105,77 @@ rodar('pendência e visibilidade da contratada, memória e Mongo', () => {
     // atestada x 4 idades x (nula, ausente): 8 pendências.
     expect(pendentesMemoria).toHaveLength(8);
   });
+
+  it('a pesquisa pendente da urgência (fatia 4) também casa nas duas formas', async () => {
+    const agora = new Date();
+    const nf = {
+      numero: '1',
+      data: agora,
+      arquivoId: new Types.ObjectId(),
+      porUserId: new Types.ObjectId(),
+      em: agora,
+    };
+    const urg = (extra: object) => ({
+      pedida: true,
+      justificativa: 'Quadro sem energia',
+      pedidaEm: agora,
+      ...extra,
+    });
+    const urgencias = [
+      undefined,
+      null,
+      urg({ decisao: 'aceita', pesquisaCompletaEm: null }),
+      urg({ decisao: 'aceita' }),
+      urg({ decisao: 'aceita', pesquisaCompletaEm: agora }),
+      urg({ decisao: 'recusada', pesquisaCompletaEm: null }),
+      urg({ decisao: null, pesquisaCompletaEm: null }),
+    ];
+    const casos: Record<string, unknown>[] = [];
+    for (const situacao of ['autorizada', 'executada', 'atestada', 'cancelada', 'reprovada']) {
+      for (const urgencia of urgencias) {
+        for (const notaFiscal of [null, nf]) {
+          for (const idade of [0, 400]) {
+            casos.push({
+              numero: `COT-U-${casos.length}`,
+              chamadoId: new Types.ObjectId(),
+              situacao,
+              emTramite: situacao === 'autorizada',
+              updatedAt: new Date(agora.getTime() - idade * DIA),
+              notaFiscal,
+              ...(urgencia === undefined ? {} : { urgencia }),
+            });
+          }
+        }
+      }
+    }
+    await Cotacao.collection.insertMany(casos.map((c) => ({ _id: new Types.ObjectId(), ...c })));
+    const docs = await Cotacao.collection.find({}).toArray();
+    const ids = (lista: { _id: unknown }[]) => lista.map((d) => String(d._id)).sort();
+
+    const pendentesMemoria = ids(
+      docs.filter((d) =>
+        P.pendenciaDaContratada(d as unknown as Parameters<typeof P.pendenciaDaContratada>[0]),
+      ),
+    );
+    const pendentesMongo = ids(
+      await Cotacao.collection.find({ ...P.FILTRO_PENDENCIA_DA_CONTRATADA }).toArray(),
+    );
+    expect(pendentesMongo).toEqual(pendentesMemoria);
+    // Pesquisa: (autorizada, executada) x (aceita nula, aceita ausente) x 2 NF x 2 idades = 16.
+    // Nota fiscal: atestada x 7 urgências x 2 idades = 14.
+    expect(pendentesMemoria).toHaveLength(30);
+
+    const visiveisMemoria = ids(
+      docs.filter((d) =>
+        P.visivelParaContratada(
+          d as unknown as Parameters<typeof P.visivelParaContratada>[0],
+          agora,
+        ),
+      ),
+    );
+    const visiveisMongo = ids(
+      await Cotacao.collection.find(P.filtroVisivelParaContratada(agora)).toArray(),
+    );
+    expect(visiveisMongo).toEqual(visiveisMemoria);
+  });
 });

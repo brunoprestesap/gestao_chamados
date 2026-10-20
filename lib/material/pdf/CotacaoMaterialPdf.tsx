@@ -14,8 +14,10 @@ import {
   CONTROLES,
   ROTULO_ACAO,
   ROTULO_BASE,
+  ROTULO_FASE_ORCAMENTO,
   ROTULO_ORIGEM,
   ROTULO_PAPEL,
+  ROTULO_PAPEL_REFERENCIA,
   ROTULO_SITUACAO,
   textoDoMotivo,
 } from '@/shared/material/mensagens';
@@ -136,6 +138,8 @@ export function CotacaoMaterialPdf({ detalhe, emissaoId, geradoEm, geradoPorNome
   const orcamentos = c.orcamentos ?? [];
   const trilha = c.trilha ?? [];
   const conferidos = itens.filter((i) => i.conferencia);
+  const comReferencia = itens.filter((i) => (i.referencias ?? []).length > 0);
+  const confirmacao = new Map((c.confirmacoesVencido ?? []).map((x) => [x.orcamentoId, x]));
   const descricaoDoItem = (id: string) => itens.find((i) => i.id === id)?.descricao ?? 'item';
   // Cada `<Page>` leva o próprio rodapé `fixed`: ele só se repete nas páginas dela.
   const rodape = (
@@ -257,6 +261,52 @@ export function CotacaoMaterialPdf({ detalhe, emissaoId, geradoEm, geradoPorNome
           ]}
         />
 
+        <Text style={s.secao}>Referências de preço</Text>
+        <Text style={s.explica}>
+          Cada item com três orçamentos tem ao menos uma referência; o menor orçamento é comparado
+          com a menor referência que conta. A referência retirada pelo fiscal fica registrada e não
+          conta.
+        </Text>
+        {comReferencia.length === 0 ? (
+          <Text style={s.vazio}>Nenhum item desta cotação tem referência de preço.</Text>
+        ) : (
+          comReferencia.map((i) => (
+            <View key={i.id} style={s.item} wrap={false}>
+              <Text>{i.descricao}</Text>
+              {(i.referencias ?? []).map((r) => (
+                <Text key={r.id} style={s.detalhe}>
+                  {formatarReais(r.valorUnitarioCentavos)}
+                  {r.unidade ? ` por ${r.unidade}` : ''} · {r.fonte} · {formatarYmd(r.data)} ·{' '}
+                  {ROTULO_PAPEL_REFERENCIA[r.papel]}
+                  {r.autorNome ? ` (${r.autorNome})` : ''}
+                  {r.retirada ? ' · retirada, não conta' : ''}
+                </Text>
+              ))}
+            </View>
+          ))
+        )}
+
+        {c.urgencia?.pedida && (
+          <>
+            <Text style={s.secao}>Urgência</Text>
+            <View style={s.grade}>
+              <Campo rotulo="Pedida em">{dataHora(c.urgencia.pedidaEm)}</Campo>
+              <Campo rotulo="Decisão do fiscal">
+                {c.urgencia.decisao === 'aceita'
+                  ? `Aceita${c.urgencia.decididaPorNome ? ` por ${c.urgencia.decididaPorNome}` : ''}`
+                  : c.urgencia.decisao === 'recusada'
+                    ? `Recusada${c.urgencia.decididaPorNome ? ` por ${c.urgencia.decididaPorNome}` : ''}`
+                    : 'Sem decisão'}
+              </Campo>
+              <Campo rotulo="Pesquisa completa em">{dataHora(c.urgencia.pesquisaCompletaEm)}</Campo>
+            </View>
+            <Text style={s.item}>Justificativa: {c.urgencia.justificativa ?? '—'}</Text>
+            {c.urgencia.motivoRecusa && (
+              <Text style={s.item}>Motivo da recusa: {c.urgencia.motivoRecusa}</Text>
+            )}
+          </>
+        )}
+
         <Text style={s.secao}>Orçamentos</Text>
         {orcamentos.length === 0 ? (
           <Text style={s.vazio}>Nenhum orçamento apresentado.</Text>
@@ -264,7 +314,21 @@ export function CotacaoMaterialPdf({ detalhe, emissaoId, geradoEm, geradoPorNome
           <Tabela
             linhas={orcamentos}
             colunas={[
-              { titulo: 'Fornecedor', flex: 2.2, valor: (o) => o.fornecedor },
+              {
+                titulo: 'Fornecedor',
+                flex: 2.2,
+                // A fase e a confirmação do vencido (fatia 4) vão junto do nome.
+                valor: (o) =>
+                  [
+                    o.fornecedor,
+                    o.fase === 'complemento' ? ROTULO_FASE_ORCAMENTO.complemento : null,
+                    confirmacao.get(o.id)
+                      ? `Validade vencida confirmada por ${confirmacao.get(o.id)!.porNome ?? 'fiscal'} em ${dataHora(confirmacao.get(o.id)!.em)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join('\n'),
+              },
               { titulo: 'CNPJ', flex: 1.6, valor: (o) => formatarCnpj(o.cnpj) },
               { titulo: 'Data', flex: 0.9, valor: (o) => formatarYmd(o.data) },
               {

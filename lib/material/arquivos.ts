@@ -36,15 +36,40 @@ const SUBDIR = 'cotacoes';
  */
 export function podeRemoverArquivo(
   arq: { _id: Types.ObjectId | string; tipo: TipoArquivoCotacao },
-  cot: { situacao: SituacaoCotacao; notaFiscal?: { arquivoId: Types.ObjectId | string } | null },
+  cot: {
+    situacao: SituacaoCotacao;
+    notaFiscal?: { arquivoId: Types.ObjectId | string } | null;
+    orcamentos?: readonly { arquivoId: Types.ObjectId | string }[];
+    urgencia?: { decisao?: string | null } | null;
+  },
   quem: { responsavelTecnico: boolean },
 ): boolean {
   if (SITUACOES_EDITAVEIS.includes(cot.situacao)) return true;
+  if (!quem.responsavelTecnico) return false;
+  if (cot.situacao === 'atestada') {
+    return (
+      arq.tipo === 'nota_fiscal' && String(cot.notaFiscal?.arquivoId ?? '') !== String(arq._id)
+    );
+  }
+  // Fatia 4: na urgência aceita, o orçamento do complemento ainda não ligado
+  // a nenhum orçamento gravado; o que sustentou a aprovação nunca sai (AC-35).
   return (
-    quem.responsavelTecnico &&
-    cot.situacao === 'atestada' &&
-    arq.tipo === 'nota_fiscal' &&
-    String(cot.notaFiscal?.arquivoId ?? '') !== String(arq._id)
+    (cot.situacao === 'autorizada' || cot.situacao === 'executada') &&
+    cot.urgencia?.decisao === 'aceita' &&
+    arq.tipo === 'orcamento' &&
+    !(cot.orcamentos ?? []).some((o) => String(o.arquivoId) === String(arq._id))
+  );
+}
+
+/** O orçamento do complemento da urgência pode subir enquanto a pesquisa não completa (AC-35). */
+export function aceitaOrcamentoDoComplemento(cot: {
+  situacao: SituacaoCotacao;
+  urgencia?: { decisao?: string | null; pesquisaCompletaEm?: Date | null } | null;
+}): boolean {
+  return (
+    (cot.situacao === 'autorizada' || cot.situacao === 'executada') &&
+    cot.urgencia?.decisao === 'aceita' &&
+    !cot.urgencia.pesquisaCompletaEm
   );
 }
 
@@ -63,7 +88,9 @@ async function conferirEnvio(
   tipo: TipoArquivoCotacao,
   sessao: { userId: string; role: string },
 ): Promise<{ ok: true } | Falha> {
-  const cot = await CotacaoMaterialModel.findById(cotacaoId).select('situacao chamadoId').lean();
+  const cot = await CotacaoMaterialModel.findById(cotacaoId)
+    .select('situacao chamadoId urgencia')
+    .lean();
   if (!cot) return { ok: false, status: 404, error: 'Cotação não encontrada.' };
   const situacao = cot.situacao as SituacaoCotacao;
   if (tipo === 'evidencia') {
@@ -80,7 +107,11 @@ async function conferirEnvio(
   if (!papeis.tem('responsavel_tecnico')) {
     return { ok: false, status: 403, error: 'Só o responsável técnico envia este arquivo.' };
   }
-  if (tipo === 'orcamento' && !SITUACOES_EDITAVEIS.includes(situacao)) {
+  if (
+    tipo === 'orcamento' &&
+    !SITUACOES_EDITAVEIS.includes(situacao) &&
+    !aceitaOrcamentoDoComplemento({ situacao, urgencia: cot.urgencia })
+  ) {
     return { ok: false, status: 409, error: 'A cotação não está mais em edição.' };
   }
   if (tipo === 'nota_fiscal' && situacao !== 'atestada') {
@@ -146,7 +177,7 @@ export async function arquivoParaBaixar(
   const arq = await ArquivoCotacaoModel.findOne({ _id: arquivoId, removidoEm: null }).lean();
   if (!arq) return { ok: false, status: 404 };
   const cot = await CotacaoMaterialModel.findById(arq.cotacaoId)
-    .select('chamadoId situacao emTramite updatedAt notaFiscal')
+    .select('chamadoId situacao emTramite updatedAt notaFiscal urgencia')
     .lean();
   if (!cot) return { ok: false, status: 404 };
   const chamado = await ChamadoModel.findById(cot.chamadoId)
@@ -165,6 +196,7 @@ export async function arquivoParaBaixar(
       emTramite: cot.emTramite,
       updatedAt: cot.updatedAt,
       notaFiscal: cot.notaFiscal ?? null,
+      urgencia: cot.urgencia ?? null,
     },
   );
   if (!visao || !podeBaixar(visao, arq.tipo as TipoArquivoCotacao)) {

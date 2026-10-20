@@ -138,7 +138,7 @@ export async function itensVigentesDoContrato(contratoId: string): Promise<ItemA
   return itens.map(itemDaTabela);
 }
 
-async function insumosDoMes(
+export async function insumosDoMes(
   mes: string | null,
   codigos: Iterable<string>,
 ): Promise<Map<string, InsumoTabela>> {
@@ -402,7 +402,12 @@ export async function classificarItem(
       derivacao = derivarOrigem({ sinapiCodigo: escolha.sinapiCodigo }, tabelas);
     }
     if (!derivacao.ok) return { ok: false, error: textoDaRecusa(derivacao) };
-    novoItem = { ...alvo, ...copiaParaDocumento(derivacao.copia) };
+    // Nos caminhos 1 e 2, as referências da contratada saem; as do fiscal ficam
+    // gravadas e só voltam a contar se o item voltar ao caminho 3 (fatia 4).
+    const referencias = ((alvo.referencias as { papel?: string }[] | undefined) ?? []).filter(
+      (r) => r.papel === 'fiscal',
+    );
+    novoItem = { ...alvo, ...copiaParaDocumento(derivacao.copia), referencias };
   }
 
   const itens = cot.itens.map((i) => (String(i._id) === entrada.itemId ? novoItem : i));

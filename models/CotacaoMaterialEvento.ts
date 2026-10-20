@@ -41,6 +41,8 @@ const ItemNoAtoSchema = new Schema(
       ),
       default: null,
     },
+    // Fatia 4: as referências de preço do item no ato (valor, fonte, papel, retirada).
+    referencias: { type: [Schema.Types.Mixed], default: [] },
   },
   { _id: false },
 );
@@ -63,6 +65,12 @@ const CotacaoMaterialEventoSchema = new Schema({
   empenhoId: { type: Schema.Types.ObjectId, ref: 'Empenho', default: null },
   // Valor reservado (positivo) ou liberado (negativo) no ato.
   valorCentavos: { type: Number, default: null },
+  // Fatia 4: a referência acrescentada ou retirada, os orçamentos do complemento,
+  // a urgência pedida, aceita ou recusada e as confirmações do orçamento vencido.
+  referenciaNoAto: { type: Schema.Types.Mixed, default: null },
+  orcamentosNoAto: { type: [Schema.Types.Mixed], default: undefined },
+  urgenciaNoAto: { type: Schema.Types.Mixed, default: null },
+  confirmacoesNoAto: { type: [Schema.Types.ObjectId], default: undefined },
   em: { type: Date, required: true },
 });
 

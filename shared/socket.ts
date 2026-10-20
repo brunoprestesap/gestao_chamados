@@ -248,8 +248,11 @@ export interface MaterialCotacaoSituacaoPayload {
   chamadoId: string;
   situacao: string;
   at: string;
-  /** A nota fiscal registrada (spec 0019, AC-16): a situação não muda, a tela só recarrega, sem toast. */
-  aviso?: 'nota_fiscal';
+  /**
+   * A nota fiscal registrada e a pesquisa da urgência completa (spec 0019,
+   * AC-16 e AC-35): a situação não muda, a tela só recarrega, sem toast.
+   */
+  aviso?: 'nota_fiscal' | 'pesquisa_completa';
 }
 
 export interface ServerToClientEvents {

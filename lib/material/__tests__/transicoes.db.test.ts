@@ -164,6 +164,15 @@ rodar('transições da cotação de material, contra o Mongo', () => {
   }
 
   const itemBase = { descricao: 'Disjuntor', unidade: 'un', quantidade: 2, motivo: 'Troca' };
+  /** A referência livre que o item do caminho 3 precisa para enviar (fatia 4, AC-32). */
+  const REFS = [
+    {
+      id: String(new Types.ObjectId()),
+      fonte: 'Painel de preços do governo',
+      valorUnitarioCentavos: 1_000_00,
+      data: new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10),
+    },
+  ];
 
   async function criada(chamadoId?: string) {
     const ch = chamadoId ?? (await chamado());
@@ -180,6 +189,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
         fornecedor: `Loja ${i}`,
         cnpj: `${i + 1}`.repeat(8) + '000191',
         data: '2026-10-01',
+        validade: '2099-12-31',
         arquivoId: await arquivo(cotacaoId, 'orcamento', ids.rt),
         precos: [{ itemId, valorUnitarioCentavos: p }],
       })),
@@ -192,7 +202,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
     const s = await t.salvarRascunho(rt(), {
       id: c.id,
       versao: c.versao,
-      itens: [{ id: c.itemId, ...itemBase }],
+      itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
       orcamentos: await orcamentos(c.id, c.itemId),
     });
     if (!s.ok) throw new Error(s.error);
@@ -274,7 +284,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const com = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }, novo],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }, novo],
       });
       expect(com.ok).toBe(true);
       const cot = await M.Cotacao.findById(c.id).lean();
@@ -287,12 +297,12 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
       });
       const velha = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
       });
       expect(velha).toMatchObject({ ok: false, error: expect.stringMatching(/mudou/) });
     });
@@ -304,7 +314,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const r = await t.salvarRascunho(rt(), {
         id: a.id,
         versao: a.versao,
-        itens: [{ id: a.itemId, ...itemBase }],
+        itens: [{ id: a.itemId, ...itemBase, referencias: REFS }],
         orcamentos: orcs,
       });
       expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/arquivo/) });
@@ -315,7 +325,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const r = await t.salvarRascunho(usuario(ids.fiscal, 'Admin'), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
       });
       expect(r.ok).toBe(false);
     });
@@ -346,7 +356,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const s = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
         orcamentos: await orcamentos(c.id, c.itemId),
       });
       const e = await t.transicionar({
@@ -370,7 +380,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const s = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
         orcamentos: await orcamentos(c.id, c.itemId),
       });
       const e = await t.transicionar({
@@ -391,7 +401,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const s1 = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
         orcamentos: await orcamentos(c.id, c.itemId),
       });
       const s2 = await t.salvarRascunho(rt(), {
@@ -411,13 +421,13 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const s1 = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
         orcamentos: await orcamentos(c.id, c.itemId),
       });
       await t.salvarRascunho(rt(), {
         id: c.id,
         versao: s1.ok ? s1.versao : 0,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
         orcamentos: [],
       });
       expect((await M.Cotacao.findById(c.id).lean())?.orcamentos).toHaveLength(0);
@@ -430,7 +440,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const r = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
         orcamentos: orcs,
       });
       expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/próprio arquivo/) });
@@ -442,7 +452,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const s = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
         orcamentos: orcs,
       });
       await M.Arquivo.updateOne({ _id: orcs[0]!.arquivoId }, { $set: { removidoEm: new Date() } });
@@ -544,7 +554,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
         versao: c.versao,
         itens: [
           { id: c.itemId, ...itemBase, quantidade: 50 },
-          { id: c.itemId, ...itemBase },
+          { id: c.itemId, ...itemBase, referencias: REFS },
         ],
       });
       expect(r.ok).toBe(false);
@@ -674,7 +684,7 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       const s = await t.salvarRascunho(rt(), {
         id: c.id,
         versao: c.versao,
-        itens: [{ id: c.itemId, ...itemBase }],
+        itens: [{ id: c.itemId, ...itemBase, referencias: REFS }],
         orcamentos: await orcamentos(c.id, c.itemId),
       });
       if (!s.ok) throw new Error(s.error);
