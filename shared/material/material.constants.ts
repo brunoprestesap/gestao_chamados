@@ -122,7 +122,71 @@ export const MOTIVOS_FIXOS = [
   'chamado_recusado',
   'conciliacao',
 ] as const;
+
+/** Motivo gravado no histórico do código SINAPI quando a mudança veio do CSV (AC-24). */
+export const MOTIVO_CODIGO_PELA_IMPORTACAO = 'importacao';
 export type MotivoFixo = (typeof MOTIVOS_FIXOS)[number];
+
+// ---------------------------------------------------------------------------
+// Fatia 3: Anexo V e SINAPI
+// ---------------------------------------------------------------------------
+
+export const TIPOS_IMPORTACAO_MATERIAL = ['anexo_v', 'sinapi'] as const;
+export type TipoImportacaoMaterial = (typeof TIPOS_IMPORTACAO_MATERIAL)[number];
+
+export const ESTADOS_IMPORTACAO_MATERIAL = [
+  'pendente',
+  'aplicando',
+  'aplicada',
+  'descartada',
+] as const;
+export type EstadoImportacaoMaterial = (typeof ESTADOS_IMPORTACAO_MATERIAL)[number];
+
+/** CSV do Anexo V ou do SINAPI: até 10 MB e 20.000 linhas (AC-24, AC-25). */
+export const TAMANHO_MAXIMO_IMPORTACAO_MATERIAL = 10 * 1024 * 1024;
+export const MAX_LINHAS_IMPORTACAO_MATERIAL = 20_000;
+/** A importação pendente que ninguém aplicou nem descartou some em 7 dias. */
+export const DIAS_IMPORTACAO_PENDENTE = 7;
+/** Quantas linhas de cada grupo a revisão guarda para mostrar (as contagens são todas). */
+export const MAX_LINHAS_REVISAO_POR_GRUPO = 500;
+/** O cabeçalho do CSV é procurado nas primeiras 20 linhas. */
+export const LINHAS_PROCURA_CABECALHO = 20;
+/** Linhas inválidas listadas na recusa do arquivo. */
+export const MAX_ERROS_LISTADOS = 20;
+/** Uma aplicação parada há mais que isto pode ser retomada por outro clique. */
+export const RETOMADA_APLICACAO_MS = 5 * 60 * 1000;
+
+export const MAX_ITEM_ANEXO_V = 200;
+
+/** Colunas do layout próprio do Anexo V (_Importação e classificação_). */
+export const COLUNAS_ANEXO_V = {
+  obrigatorias: ['ITEM', 'DESCRICAO', 'UNIDADE', 'QUANTIDADE', 'PRECO'],
+  opcionais: ['CODIGO_SINAPI'],
+} as const;
+
+/** Colunas do layout próprio do SINAPI (UF AP, não desonerado). */
+export const COLUNAS_SINAPI = {
+  obrigatorias: ['CODIGO', 'DESCRICAO', 'UNIDADE', 'PRECO'],
+  opcionais: [],
+} as const;
+
+/** UF e regime do SINAPI são constantes, gravadas em cada insumo (AC-25). */
+export const SINAPI_UF = 'AP';
+export const SINAPI_REGIME = 'nao_desonerado';
+/** A Caixa publica com atraso: o painel só acusa quando o mês mais recente é anterior a hoje menos 2. */
+export const SINAPI_MESES_DE_ATRASO_ACEITOS = 2;
+
+/** Busca dos caminhos 1 e 2: ao menos 3 letras, até 20 resultados. */
+export const BUSCA_PRECO_MIN_LETRAS = 3;
+export const BUSCA_PRECO_MAX_RESULTADOS = 20;
+
+/** Justificativa da base em `ambas`, conferência, motivo de anomalia e de código: 10 a 500. */
+export const TEXTO_CURTO_MIN = 10;
+export const TEXTO_CURTO_MAX = 500;
+
+/** As duas bases que o fiscal escolhe num item `ambas` (AC-27). */
+export const BASES_DE_AMBAS = ['anexo_v', 'sinapi'] as const;
+export type BaseDeAmbas = (typeof BASES_DE_AMBAS)[number];
 
 /** Parâmetros padrão da `MaterialConfig` (fatia 1 só usa a raiz da contratada na trilha). */
 export const MATERIAL_CONFIG_PADRAO = {

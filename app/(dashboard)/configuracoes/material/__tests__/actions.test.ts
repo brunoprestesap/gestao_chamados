@@ -24,12 +24,32 @@ vi.mock('@/lib/dal', () => ({
 }));
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 vi.mock('@/lib/material/cadastro', () => cadastro);
+const tabelas = vi.hoisted(() => ({
+  aplicarImportacao: vi.fn(),
+  descartarImportacao: vi.fn(),
+  marcarAnomalia: vi.fn(),
+  corrigirCodigoSinapi: vi.fn(),
+}));
+vi.mock('@/lib/material/importacao/aplicar', () => ({
+  aplicarImportacao: tabelas.aplicarImportacao,
+}));
+vi.mock('@/lib/material/importacao/pendente', () => ({
+  descartarImportacao: tabelas.descartarImportacao,
+}));
+vi.mock('@/lib/material/tabelas', () => ({
+  marcarAnomalia: tabelas.marcarAnomalia,
+  corrigirCodigoSinapi: tabelas.corrigirCodigoSinapi,
+}));
 
 import {
+  aplicarImportacaoAction,
+  corrigirCodigoSinapiAction,
   criarDesignacaoAction,
   criarEmpenhoAction,
   criarFaixaAction,
   desativarFaixaAction,
+  descartarImportacaoAction,
+  marcarAnomaliaAction,
   movimentarEmpenhoAction,
   revogarDesignacaoAction,
 } from '../actions';
@@ -41,6 +61,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   sessao.atual = { userId: ADMIN, role: 'Admin' };
   for (const fn of Object.values(cadastro)) fn.mockResolvedValue({ ok: true });
+  for (const fn of Object.values(tabelas)) fn.mockResolvedValue({ ok: true });
 });
 
 describe('só o Admin cadastra', () => {
@@ -116,6 +137,69 @@ describe('validação e repasse', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     cadastro.criarFaixa.mockRejectedValue(new Error('mongo caiu'));
     expect(await criarFaixaAction({ nome: 'Faixa', limiteCentavos: 1 })).toEqual({
+      ok: false,
+      error: 'Não foi possível salvar agora. Tente de novo.',
+    });
+  });
+});
+
+describe('Anexo V e SINAPI (AC-24, AC-25, AC-29)', () => {
+  const motivo = 'Conferir sempre este item.';
+
+  it.each(['Preposto', 'Técnico'])('%s não aplica, descarta, marca nem corrige', async (role) => {
+    sessao.atual = { userId: ADMIN, role };
+    const resultados = await Promise.all([
+      aplicarImportacaoAction({ importacaoId: ID }),
+      descartarImportacaoAction({ importacaoId: ID }),
+      marcarAnomaliaAction({ anexoVItemId: ID, marcada: true, motivo }),
+      corrigirCodigoSinapiAction({ anexoVItemId: ID, codigo: '123', motivo }),
+    ]);
+    expect(resultados.every((r) => !r.ok)).toBe(true);
+    for (const fn of Object.values(tabelas)) expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('aplicar e descartar levam o Admin como autor', async () => {
+    await aplicarImportacaoAction({ importacaoId: ID });
+    await descartarImportacaoAction({ importacaoId: ID });
+    expect(tabelas.aplicarImportacao).toHaveBeenCalledWith(ID, ADMIN);
+    expect(tabelas.descartarImportacao).toHaveBeenCalledWith(ID, ADMIN);
+  });
+
+  it('marcar sem motivo suficiente não chega na regra', async () => {
+    const r = await marcarAnomaliaAction({ anexoVItemId: ID, marcada: true, motivo: 'curto' });
+    expect(r.ok).toBe(false);
+    expect(tabelas.marcarAnomalia).not.toHaveBeenCalled();
+  });
+
+  it('corrigir passa o código já normalizado, e null limpa', async () => {
+    await corrigirCodigoSinapiAction({ anexoVItemId: ID, codigo: '00.123', motivo });
+    expect(tabelas.corrigirCodigoSinapi).toHaveBeenCalledWith(ADMIN, {
+      anexoVItemId: ID,
+      codigo: '123',
+      motivo,
+    });
+    await corrigirCodigoSinapiAction({ anexoVItemId: ID, codigo: null, motivo });
+    expect(tabelas.corrigirCodigoSinapi).toHaveBeenLastCalledWith(
+      ADMIN,
+      expect.objectContaining({ codigo: null }),
+    );
+  });
+
+  it('a recusa da aplicação volta como veio', async () => {
+    tabelas.aplicarImportacao.mockResolvedValue({
+      ok: false,
+      error: 'O Anexo V mudou depois da revisão; envie o arquivo de novo.',
+    });
+    expect(await aplicarImportacaoAction({ importacaoId: ID })).toEqual({
+      ok: false,
+      error: 'O Anexo V mudou depois da revisão; envie o arquivo de novo.',
+    });
+  });
+
+  it('erro inesperado na aplicação vira mensagem fixa', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    tabelas.aplicarImportacao.mockRejectedValue(new Error('mongo caiu'));
+    expect(await aplicarImportacaoAction({ importacaoId: ID })).toEqual({
       ok: false,
       error: 'Não foi possível salvar agora. Tente de novo.',
     });

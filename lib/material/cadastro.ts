@@ -4,6 +4,9 @@ import { Types } from 'mongoose';
 
 import { hojeEmBelem } from '@/lib/ativos/documentos/situacao';
 import { OPCAO_ESCRITA_PROPRIA } from '@/models/_somente-inclusao';
+import { AnexoVItemModel } from '@/models/AnexoVItem';
+import { AnexoVVigenciaModel } from '@/models/AnexoVVigencia';
+import { ContratoModel } from '@/models/Contrato';
 import { DesignacaoMaterialModel } from '@/models/DesignacaoMaterial';
 import { EmpenhoModel } from '@/models/Empenho';
 import { FaixaCompetenciaModel } from '@/models/FaixaCompetencia';
@@ -14,9 +17,15 @@ import type {
   CriarFaixaInput,
   MovimentoEmpenhoInput,
 } from '@/shared/material/cotacao.schemas';
-import { type PapelDesignacao, PERFIS_POR_PAPEL } from '@/shared/material/material.constants';
+import {
+  PAPEIS_DESIGNACAO,
+  type PapelDesignacao,
+  PERFIS_POR_PAPEL,
+  SINAPI_MESES_DE_ATRASO_ACEITOS,
+} from '@/shared/material/material.constants';
 
 import { filtroVigente } from './papeis';
+import { mesSinapiMaisRecente } from './precos';
 import { filtroElegivel, registrarMovimento } from './saldo';
 
 /**
@@ -205,28 +214,133 @@ export type DesignacaoLinha = {
 
 export type UsuarioOpcao = { id: string; nome: string; role: string };
 
-export type PainelMaterial = {
+export type ItemSemCodigo = { contrato: string; numero: number; descricao: string };
+
+export type PendenciasMaterial = {
+  /** O que falta para o fluxo encaminhar e aprovar, e para os caminhos 1 e 2 (AC-30). */
+  faltando: string[];
+  /** Itens vigentes do Anexo V sem código SINAPI (AC-28). */
+  itensSemCodigo: ItemSemCodigo[];
+};
+
+export type PainelMaterial = PendenciasMaterial & {
   empenhos: EmpenhoLinha[];
   faixas: FaixaLinha[];
   designacoes: DesignacaoLinha[];
   usuarios: UsuarioOpcao[];
-  /** O que falta para o fluxo aprovar (AC-30, parte da fatia 1). */
-  faltando: string[];
 };
+
+const ROTULO_PAPEL_PENDENCIA: Record<PapelDesignacao, string> = {
+  responsavel_tecnico: 'responsável técnico',
+  fiscal: 'fiscal',
+  gestor: 'gestor',
+  aprovador: 'aprovador',
+};
+
+/** O mês `AAAA-MM` de `n` meses antes de `mes`. */
+export function mesesAntes(mes: string, n: number): string {
+  const [a, m] = mes.split('-').map(Number) as [number, number];
+  const total = a * 12 + (m - 1) - n;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
+}
+
+/**
+ * O painel do que falta (AC-30, _Painel do que falta_), numa leitura: sem
+ * empenho elegível, papel sem designação vigente, contrato ativo e vigente
+ * sem Anexo V, SINAPI ausente ou atrasado e itens do Anexo V sem código.
+ */
+export async function lerPendenciasMaterial(): Promise<PendenciasMaterial> {
+  const hoje = hojeEmBelem();
+  const [elegiveis, vigentes, contratos, ponteiros, mes] = await Promise.all([
+    EmpenhoModel.find(filtroElegivel()).select('_id').lean(),
+    DesignacaoMaterialModel.find(filtroVigente(hoje)).select('papel').lean(),
+    ContratoModel.find({
+      isActive: true,
+      vigenciaInicio: { $lte: hoje },
+      vigenciaFim: { $gte: hoje },
+    })
+      .select('numero')
+      .sort({ numero: 1 })
+      .lean(),
+    AnexoVVigenciaModel.find().lean(),
+    mesSinapiMaisRecente(),
+  ]);
+
+  const faltando: string[] = [];
+  if (elegiveis.length === 0) {
+    faltando.push('Nenhum empenho elegível (ativo, do exercício e na vigência).');
+  }
+  const papeisVigentes = new Set(vigentes.map((v) => v.papel));
+  for (const p of PAPEIS_DESIGNACAO) {
+    if (!papeisVigentes.has(p))
+      faltando.push(`Ninguém designado como ${ROTULO_PAPEL_PENDENCIA[p]}.`);
+  }
+
+  const ponteiroDe = new Map(ponteiros.map((p) => [String(p.contratoId), p]));
+  const comItens = ponteiros.length
+    ? await AnexoVItemModel.aggregate<{ _id: Types.ObjectId }>([
+        { $match: { $or: ponteiros.map((p) => ({ contratoId: p.contratoId, versao: p.versao })) } },
+        { $group: { _id: '$contratoId' } },
+      ])
+    : [];
+  const contratosComItens = new Set(comItens.map((c) => String(c._id)));
+  for (const c of contratos) {
+    if (!ponteiroDe.has(String(c._id)) || !contratosComItens.has(String(c._id))) {
+      faltando.push(`O contrato ${c.numero} não tem Anexo V carregado: o caminho 1 fica fechado.`);
+    }
+  }
+
+  const mesCorrente = hoje.slice(0, 7);
+  if (!mes) {
+    faltando.push('Nenhum mês do SINAPI importado: o caminho 2 fica fechado.');
+  } else if (mes < mesesAntes(mesCorrente, SINAPI_MESES_DE_ATRASO_ACEITOS)) {
+    faltando.push(
+      `O SINAPI está atrasado: o mês mais recente importado é ${mes.split('-').reverse().join('/')}.`,
+    );
+  }
+
+  const numeroContrato = new Map(contratos.map((c) => [String(c._id), c.numero]));
+  const semCodigo = ponteiros.length
+    ? await AnexoVItemModel.find({
+        $or: ponteiros.map((p) => ({ contratoId: p.contratoId, versao: p.versao })),
+        sinapiCodigo: null,
+      })
+        .select('contratoId numero descricao')
+        .sort({ contratoId: 1, numero: 1 })
+        .lean()
+    : [];
+  const faltaNumero = semCodigo.filter((s) => !numeroContrato.has(String(s.contratoId)));
+  if (faltaNumero.length) {
+    const outros = await ContratoModel.find({ _id: { $in: faltaNumero.map((s) => s.contratoId) } })
+      .select('numero')
+      .lean();
+    for (const o of outros) numeroContrato.set(String(o._id), o.numero);
+  }
+  return {
+    faltando,
+    itensSemCodigo: semCodigo.map((s) => ({
+      contrato: numeroContrato.get(String(s.contratoId)) ?? '—',
+      numero: s.numero,
+      descricao: s.descricao,
+    })),
+  };
+}
 
 export async function lerPainelMaterial(): Promise<PainelMaterial> {
   const hoje = hojeEmBelem();
-  const [empenhos, elegiveis, faixas, designacoes, vigentes, usuarios] = await Promise.all([
-    EmpenhoModel.find().sort({ exercicio: -1, numero: 1 }).lean(),
-    EmpenhoModel.find(filtroElegivel()).select('_id').lean(),
-    FaixaCompetenciaModel.find().sort({ limiteCentavos: 1 }).lean(),
-    DesignacaoMaterialModel.find().sort({ em: -1 }).limit(500).lean(),
-    DesignacaoMaterialModel.find(filtroVigente(hoje)).select('_id papel').lean(),
-    UserModel.find({ isActive: true, role: { $in: ['Admin', 'Preposto', 'Técnico'] } })
-      .select('name role')
-      .sort({ name: 1 })
-      .lean(),
-  ]);
+  const [empenhos, elegiveis, faixas, designacoes, vigentes, usuarios, pendencias] =
+    await Promise.all([
+      EmpenhoModel.find().sort({ exercicio: -1, numero: 1 }).lean(),
+      EmpenhoModel.find(filtroElegivel()).select('_id').lean(),
+      FaixaCompetenciaModel.find().sort({ limiteCentavos: 1 }).lean(),
+      DesignacaoMaterialModel.find().sort({ em: -1 }).limit(500).lean(),
+      DesignacaoMaterialModel.find(filtroVigente(hoje)).select('_id papel').lean(),
+      UserModel.find({ isActive: true, role: { $in: ['Admin', 'Preposto', 'Técnico'] } })
+        .select('name role')
+        .sort({ name: 1 })
+        .lean(),
+      lerPendenciasMaterial(),
+    ]);
   const elegivel = new Set(elegiveis.map((e) => String(e._id)));
   const vigenteIds = new Set(vigentes.map((v) => String(v._id)));
   const nomeFaixa = new Map(faixas.map((f) => [String(f._id), f.nome]));
@@ -239,21 +353,8 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
     for (const u of outros) nomeUser.set(String(u._id), u.name as string);
   }
 
-  const faltando: string[] = [];
-  if (elegivel.size === 0)
-    faltando.push('Nenhum empenho elegível (ativo, do exercício e na vigência).');
-  const papeisVigentes = new Set(vigentes.map((v) => v.papel));
-  const rotulos: Record<PapelDesignacao, string> = {
-    responsavel_tecnico: 'responsável técnico',
-    fiscal: 'fiscal',
-    gestor: 'gestor',
-    aprovador: 'aprovador',
-  };
-  for (const p of Object.keys(rotulos) as PapelDesignacao[]) {
-    if (!papeisVigentes.has(p)) faltando.push(`Ninguém designado como ${rotulos[p]}.`);
-  }
-
   return {
+    ...pendencias,
     empenhos: empenhos.map((e) => ({
       id: String(e._id),
       numero: e.numero,
@@ -295,6 +396,5 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
       nome: u.name as string,
       role: u.role as string,
     })),
-    faltando,
   };
 }

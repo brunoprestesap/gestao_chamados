@@ -3,11 +3,16 @@ import { z } from 'zod';
 import { somenteDigitosCnpj } from '@/shared/contratos/cnpj';
 
 import {
+  BASES_DE_AMBAS,
+  BUSCA_PRECO_MIN_LETRAS,
   MAX_ITENS_COTACAO,
   MAX_ORCAMENTOS_COTACAO,
   PAPEIS_DESIGNACAO,
+  TEXTO_CURTO_MAX,
+  TEXTO_CURTO_MIN,
   TIPOS_MOVIMENTO_EMPENHO,
 } from './material.constants';
+import { normalizarCodigoSinapi } from './valores';
 
 /** Entradas das actions da cotação de material (spec 0019). Dinheiro chega em centavos. */
 
@@ -118,6 +123,76 @@ export type TransicaoInput = z.infer<typeof TransicaoSchema>;
 export const TransicaoComMotivoSchema = TransicaoSchema.extend({ motivo: motivoObrigatorio });
 export type TransicaoComMotivoInput = z.infer<typeof TransicaoComMotivoSchema>;
 
+const textoCurto = (vazio: string) =>
+  z
+    .string()
+    .trim()
+    .min(TEXTO_CURTO_MIN, `${vazio} (de ${TEXTO_CURTO_MIN} a ${TEXTO_CURTO_MAX} caracteres).`)
+    .max(TEXTO_CURTO_MAX, `Até ${TEXTO_CURTO_MAX} caracteres.`);
+
+/**
+ * Encaminhar (AC-27, AC-29): a base de cada item `ambas`, com justificativa,
+ * e a conferência de cada item da lista de conferência obrigatória.
+ */
+export const EncaminharSchema = TransicaoSchema.extend({
+  bases: z
+    .array(
+      z.object({
+        itemId: objectId,
+        base: z.enum(BASES_DE_AMBAS),
+        justificativa: textoCurto('Justifique a base escolhida'),
+      }),
+    )
+    .max(MAX_ITENS_COTACAO)
+    .default([]),
+  conferencias: z
+    .array(z.object({ itemId: objectId, texto: textoCurto('Descreva a conferência') }))
+    .max(MAX_ITENS_COTACAO)
+    .default([]),
+}).superRefine((e, ctx) => {
+  if (temIdRepetido(e.bases.map((b) => b.itemId))) {
+    ctx.addIssue({ code: 'custom', message: 'Um item aparece com duas bases.' });
+  }
+  if (temIdRepetido(e.conferencias.map((c) => c.itemId))) {
+    ctx.addIssue({ code: 'custom', message: 'Um item aparece com duas conferências.' });
+  }
+});
+export type EncaminharInput = z.infer<typeof EncaminharSchema>;
+
+/** Código SINAPI digitado: só dígitos depois de tirar espaços e pontos, sem zeros à esquerda. */
+const codigoSinapi = z
+  .string()
+  .max(30)
+  .transform((s) => normalizarCodigoSinapi(s))
+  .refine((c): c is string => !!c, 'Código SINAPI inválido: use só números.');
+
+/**
+ * Classificação de um item (AC-26): a entrada é a escolha, nunca a origem
+ * nem o preço. `orcamento` volta o item para o caminho 3.
+ */
+export const ClassificarItemSchema = TransicaoSchema.extend({
+  itemId: objectId,
+  escolha: z.union([
+    z.object({ anexoVItemId: objectId }).strict(),
+    z.object({ sinapiCodigo: codigoSinapi }).strict(),
+    z.object({ orcamento: z.literal(true) }).strict(),
+  ]),
+});
+export type ClassificarItemInput = z.infer<typeof ClassificarItemSchema>;
+
+export const BuscarItensPrecoSchema = z.object({
+  cotacaoId: objectId,
+  texto: z
+    .string()
+    .trim()
+    .max(100, 'Texto longo demais.')
+    .refine(
+      (t) => t.replace(/\s/g, '').length >= BUSCA_PRECO_MIN_LETRAS,
+      `Digite ao menos ${BUSCA_PRECO_MIN_LETRAS} letras.`,
+    ),
+});
+export type BuscarItensPrecoInput = z.infer<typeof BuscarItensPrecoSchema>;
+
 export const AprovarSchema = TransicaoSchema.extend({ empenhoId: objectId });
 export type AprovarInput = z.infer<typeof AprovarSchema>;
 
@@ -201,3 +276,30 @@ export const CriarDesignacaoSchema = z
 export type CriarDesignacaoInput = z.infer<typeof CriarDesignacaoSchema>;
 
 export const RevogarDesignacaoSchema = z.object({ designacaoId: objectId });
+
+// ---------------------------------------------------------------------------
+// Anexo V e SINAPI (fatia 3, só Admin)
+// ---------------------------------------------------------------------------
+
+/** Mês de referência do SINAPI, `AAAA-MM`. */
+export const referenciaSinapi = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Informe o mês de referência do SINAPI (mês e ano).');
+
+export const ImportacaoMaterialIdSchema = z.object({ importacaoId: objectId });
+
+/** Marca ou desmarca a conferência obrigatória à mão (AC-29). */
+export const MarcarAnomaliaSchema = z.object({
+  anexoVItemId: objectId,
+  marcada: z.boolean(),
+  motivo: textoCurto('Escreva o motivo'),
+});
+export type MarcarAnomaliaInput = z.infer<typeof MarcarAnomaliaSchema>;
+
+/** Corrige o código SINAPI de um item do Anexo V; `null` limpa (AC-24). */
+export const CorrigirCodigoSinapiSchema = z.object({
+  anexoVItemId: objectId,
+  codigo: codigoSinapi.nullable(),
+  motivo: textoCurto('Escreva o motivo'),
+});
+export type CorrigirCodigoSinapiInput = z.infer<typeof CorrigirCodigoSinapiSchema>;

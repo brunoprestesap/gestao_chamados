@@ -8,10 +8,12 @@ import {
   type TipoArquivoCotacao,
 } from '@/shared/material/material.constants';
 import { type CodigoControle, CONTROLES } from '@/shared/material/mensagens';
+import { valorProvisorio } from '@/shared/material/valores';
 
 import type { Papeis } from './papeis';
 import { visivelParaContratada } from './pendencia';
 import { type PrazoAteste, prazoDoAteste } from './prazos';
+import type { MarcaAnomalia } from './precos';
 
 /**
  * O único serializador da cotação de material (spec 0019, AC-15). Toda
@@ -45,6 +47,13 @@ export type CotacaoBruta = {
     conferencia?: { texto: string; porUserId: Types.ObjectId; em: Date } | null;
     quantidadeExecutada: number | null;
     valorExecutadoCentavos: number | null;
+    anexoVItemId?: Types.ObjectId | null;
+    anexoVNumero?: number | null;
+    anexoVPrecoCentavos?: number | null;
+    sinapiCodigo?: string | null;
+    sinapiReferencia?: string | null;
+    sinapiPrecoCentavos?: number | null;
+    justificativaBase?: string | null;
   }[];
   orcamentos: {
     _id: Types.ObjectId;
@@ -112,10 +121,22 @@ export type ItemDTO = {
   precoAplicadoCentavos: number | null;
   quantidadeExecutada: number | null;
   valorExecutadoCentavos: number | null;
-  /** Só TRF1: origem do preço, base aplicada e a conferência do fiscal. */
+  /** Contratada e TRF1: de onde vem o preço e a referência na tabela (fatia 3). */
   origem?: string | null;
+  anexoVNumero?: number | null;
+  sinapiCodigo?: string | null;
+  sinapiReferencia?: string | null;
+  /** Item `ambas` sem base escolhida: o valor dele é o provisório. */
+  valorProvisorio?: boolean;
+  /** Só TRF1: as duas bases lado a lado, a escolha e a conferência do fiscal (AC-27, AC-29). */
   baseAplicada?: string | null;
+  anexoVPrecoCentavos?: number | null;
+  sinapiPrecoCentavos?: number | null;
+  justificativaBase?: string | null;
   conferencia?: { texto: string; porNome: string | null; em: string } | null;
+  advertencias?: CodigoControle[];
+  /** O item está na lista de conferência obrigatória, lida agora (AC-29). */
+  marcaAnomalia?: MarcaAnomalia | null;
 };
 
 export type OrcamentoDTO = {
@@ -241,6 +262,8 @@ export function serializarCotacao(
     arquivos?: ArquivoBruto[];
     /** Nomes de quem registrou recebimento, nota fiscal e conferência, por id. */
     nomes?: ReadonlyMap<string, string>;
+    /** Só TRF1: a marca de conferência obrigatória de cada item, lida agora. */
+    marcas?: ReadonlyMap<string, MarcaAnomalia>;
   } = {},
 ): CotacaoDTO {
   const eventos = extra.eventos ?? [];
@@ -333,8 +356,25 @@ export function serializarCotacao(
     })),
   }));
 
+  // A origem e a referência na tabela: a contratada classificou, então vê o que escolheu.
+  base.itens = base.itens.map((i, n) => {
+    const bruto = cot.itens[n]!;
+    return {
+      ...i,
+      origem: bruto.origem ?? null,
+      anexoVNumero: bruto.anexoVNumero ?? null,
+      sinapiCodigo: bruto.sinapiCodigo ?? null,
+      sinapiReferencia: bruto.sinapiReferencia ?? null,
+      valorProvisorio: valorProvisorio({
+        origem: bruto.origem ?? null,
+        quantidade: bruto.quantidade,
+        precoAplicadoCentavos: bruto.precoAplicadoCentavos ?? null,
+      }),
+    };
+  });
+
   if (visao === 'contratada') {
-    // Sem empenho, saldo, limites nem advertências do lado TRF1.
+    // Sem empenho, saldo, limites, advertências do lado TRF1 nem as duas bases lado a lado.
     base.trilha = eventos
       .filter((ev) => ev.acao !== 'conciliar')
       .map((ev) => ({
@@ -355,10 +395,17 @@ export function serializarCotacao(
 
   base.itens = base.itens.map((i, n) => {
     const bruto = cot.itens[n]!;
+    const id = String(bruto._id);
     return {
       ...i,
-      origem: bruto.origem ?? null,
       baseAplicada: bruto.baseAplicada ?? null,
+      anexoVPrecoCentavos: bruto.anexoVPrecoCentavos ?? null,
+      sinapiPrecoCentavos: bruto.sinapiPrecoCentavos ?? null,
+      justificativaBase: bruto.justificativaBase ?? null,
+      advertencias: cot.advertencias
+        .filter((a) => a.itemId && String(a.itemId) === id)
+        .map((a) => a.codigo as CodigoControle),
+      marcaAnomalia: extra.marcas?.get(id) ?? null,
       conferencia: bruto.conferencia
         ? {
             texto: bruto.conferencia.texto,

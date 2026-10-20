@@ -6,6 +6,7 @@ import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { podeRemoverArquivo } from '@/lib/material/arquivos';
 import { papeisDe } from '@/lib/material/papeis';
+import { buscarItensPreco, classificarItem, type ResultadoBusca } from '@/lib/material/precos';
 import {
   criarCotacao,
   type EntradaTransicao,
@@ -17,7 +18,10 @@ import { ArquivoCotacaoModel } from '@/models/ArquivoCotacao';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import {
   AprovarSchema,
+  BuscarItensPrecoSchema,
+  ClassificarItemSchema,
   CriarCotacaoSchema,
+  EncaminharSchema,
   ExecutarSchema,
   NotaFiscalSchema,
   RecebimentoSchema,
@@ -140,10 +144,37 @@ export async function reprovarAction(raw: unknown): Promise<ResultadoTransicao> 
   return transicao('reprovar', p.data);
 }
 
+/** O fiscal encaminha com a base de cada item `ambas` e as conferências obrigatórias (AC-27, AC-29). */
 export async function encaminharAction(raw: unknown): Promise<ResultadoTransicao> {
-  const p = TransicaoSchema.safeParse(raw);
+  const p = EncaminharSchema.safeParse(raw);
   if (!p.success) return primeiroErro(p.error.issues);
   return transicao('encaminhar', p.data);
+}
+
+/** O responsável técnico classifica um item: a entrada é a escolha, nunca a origem nem o preço (AC-26). */
+export async function classificarItemAction(
+  raw: unknown,
+): Promise<ResultadoMaterial<{ versao: number }>> {
+  const p = ClassificarItemSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return executar(
+    'classificar',
+    (s) => classificarItem(s, p.data),
+    async () => revalidar(await chamadoDa(p.data.id), p.data.id),
+  );
+}
+
+/** A busca dos caminhos 1 e 2, para o responsável técnico e o fiscal. Só lê. */
+export async function buscarItensPrecoAction(
+  raw: unknown,
+): Promise<ResultadoMaterial<ResultadoBusca>> {
+  const p = BuscarItensPrecoSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return executar(
+    'buscar',
+    (s) => buscarItensPreco(s, p.data),
+    () => {},
+  );
 }
 
 export async function aprovarAction(raw: unknown): Promise<ResultadoTransicao> {

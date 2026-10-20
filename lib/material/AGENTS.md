@@ -1,6 +1,6 @@
 # lib/material: cotação e fornecimento de material
 
-As regras da cotação de material (spec 0019, Fatias 1 e 2 construídas): o técnico registra o material, o responsável técnico da contratada monta a cotação com 3 orçamentos, o fiscal analisa, o aprovador com faixa suficiente aprova e reserva o saldo do empenho, o técnico registra a execução com evidência, o gestor registra o recebimento provisório e o definitivo (`atestada`), e a contratada registra a nota fiscal. O lado TRF1 gera o PDF da cotação para o SEI. As telas estão em `app/(dashboard)/cotacoes/` e `app/(dashboard)/configuracoes/material/`; as rotas, em `app/api/cotacoes/`, `app/api/chamados/[id]/cotacao-material/` e `app/api/cron/material-conciliacao/`. Spec: `docs/specs/0019-cotacao-material/` (`index.md` é a construção, `funcional.md` as regras de negócio, `verify.md` os passos de verificação).
+As regras da cotação de material (spec 0019, Fatias 1 a 3 construídas): o técnico registra o material, o responsável técnico da contratada monta a cotação (item do Anexo V, do SINAPI ou com 3 orçamentos), o fiscal analisa, o aprovador com faixa suficiente aprova e reserva o saldo do empenho, o técnico registra a execução com evidência, o gestor registra o recebimento provisório e o definitivo (`atestada`), e a contratada registra a nota fiscal. O lado TRF1 gera o PDF da cotação para o SEI. O Admin importa o Anexo V e o SINAPI por CSV. As telas estão em `app/(dashboard)/cotacoes/` e `app/(dashboard)/configuracoes/material/`; as rotas, em `app/api/cotacoes/`, `app/api/material/importacoes/`, `app/api/chamados/[id]/cotacao-material/` e `app/api/cron/material-conciliacao/`. Spec: `docs/specs/0019-cotacao-material/` (`index.md` é a construção, `funcional.md` as regras de negócio, `verify.md` os passos de verificação).
 
 ## Arquivos principais
 
@@ -19,6 +19,10 @@ As regras da cotação de material (spec 0019, Fatias 1 e 2 construídas): o té
 | `config.ts`     | `lerMaterialConfig`, os parâmetros copiados para a trilha a cada ato                                                                                                                             |
 | `prazos.ts`     | `prazoDoAteste`: 5 dias corridos por etapa do ateste, contados no dia de Belém; só gera o selo, nunca bloqueia                                                                                   |
 | `pdf/`          | `gerarPdfCotacao` (`gerar.tsx`) e o documento (`CotacaoMaterialPdf.tsx`): o PDF para o SEI, com a emissão e o SHA-256 gravados antes da entrega                                                  |
+| `precos.ts`     | Fatia 3: o contrato da cotação, o mês SINAPI mais recente, `derivarOrigem` (pura), `classificarItem`, `buscarItensPreco` e `marcasDeConferencia` (a lista de conferência lida no ato)            |
+| `controles.ts`  | Controles puros: `impedimentosDeEnvio`, `advertenciasDePreco` e `impedimentosDoEncaminhar`; o texto de cada código fica em `mensagens.ts`                                                        |
+| `importacao/`   | O CSV do Anexo V e do SINAPI: `csv.ts` (leitura), `revisao.ts`, `pendente.ts` (envio e descarte), `aplicar.ts` (os cinco passos) e `anomalia.ts` (`recalcularAnomalia`)                          |
+| `tabelas.ts`    | As ações do Admin num item vigente do Anexo V (`marcarAnomalia`, `corrigirCodigoSinapi`) e `lerTabelasPreco`, a leitura das abas Anexo V e SINAPI                                                |
 
 Constantes, textos e schemas ficam em `shared/material/` (`material.constants.ts`, `mensagens.ts` com todo texto de situação, impedimento e aviso, `valores.ts` com a conta em centavos, `cotacao.schemas.ts`).
 
@@ -39,6 +43,12 @@ Constantes, textos e schemas ficam em `shared/material/` (`material.constants.ts
 - A atestada que ainda deve a nota fiscal continua visível para a contratada por mais de 90 dias, e a janela de 90 dias conta de `updatedAt` (registrar a NF reinicia a conta). A regra mora só em `pendencia.ts`, na forma em memória e na forma Mongo, e `pendencia.db.test.ts` confere a paridade: regra nova de visibilidade da contratada muda as duas formas juntas.
 - O selo de atraso do ateste (`prazoAteste`) sai só para o lado TRF1, com o texto de `textoSeloPrazoAteste`. A contratada vê as datas dos recebimentos sem o nome de quem recebeu, e a trilha dela e a do técnico chegam sem o autor de `receber_provisorio` e `receber_definitivo` (`ACOES_SEM_AUTOR_FORA_DO_TRF1`). Na fila, a contratada tem só `Minhas ações`, `Ateste` e `Todas` (`abasDaFila`); outra aba cai em `Minhas ações`.
 - Nenhuma função daqui lança erro de regra: devolve `{ ok: false, error, impedimentos? }`. Ids repetidos no rascunho (item, orçamento, arquivo, preço) são recusados no schema e de novo em `salvarRascunho`.
+- Caminhos 1 e 2 (fatia 3): a origem e o preço nunca vêm da entrada. A classificação recebe só a escolha (`{ anexoVItemId }`, `{ sinapiCodigo }` ou `{ orcamento: true }`, schema `.strict()`), e `derivarOrigem` decide `anexo_v`, `sinapi` ou `ambas` com as tabelas daquele momento; o `enviar` deriva de novo (o Anexo V pelo `anexoVNumero` vigente, o SINAPI pelo mês mais recente) e congela as cópias. Item que não deriva mais vira `classificacao_desatualizada`. `salvarRascunho` preserva as cópias de tabela do item classificado, inclusive a unidade.
+- O Anexo V vigente é a versão do ponteiro `AnexoVVigencia`, e um mês SINAPI só existe com o `SinapiReferencia`. A aplicação da importação (`aplicar.ts`) roda sem transação e pode ser repetida: grava linhas invisíveis por upsert, apaga as sobras, vira a chave numa escrita só e depois recalcula a anomalia. Parada em `aplicando` há mais de 5 minutos, outro clique retoma.
+- A anomalia do item do Anexo V é escrita só por caminho de campo (`anomalia.automatica`, `anomalia.manual`...), nunca o objeto inteiro, para o recálculo e a marca do Admin não se apagarem. O recálculo nunca toca `anomalia.manual`.
+- As advertências de preço (`anexo_v_acima_sinapi`, `sem_referencia_sinapi`) são recalculadas em toda transição sobre os itens do ato; as outras advertências gravadas ficam. Em `ambas`, até o fiscal escolher a base, o valor do item é o maior dos dois preços (`precoParaValor`), e a devolução limpa base, justificativa e conferência.
+- No `encaminhar`, a lista de conferência obrigatória é lida no ato (`marcasDeConferencia`), e só o fiscal que assumiu (`fiscalUserId`) registra a conferência.
+- No editor da contratada, salvar antes de classificar ou enviar sobe a versão, e a tela monta o editor com `key={versao}`: recusa depois de salvar vai por `toast.error`, porque um erro guardado no estado do editor some no recarregamento.
 
 ## Comandos
 
@@ -49,7 +59,10 @@ MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/materi
 ## Gotchas
 
 - Sem empenho elegível (ativo, do exercício corrente e na vigência, em Belém), faixas e designações cadastrados em `/configuracoes/material`, a cotação é montada e analisada, mas não é encaminhada nem aprovada. O painel "O que falta" da página mostra o que falta.
-- Fatias 3 a 5 da spec 0019 (Anexo V e SINAPI, controles do caminho 3 e urgência, advertências e relatório) ainda não existem. Os campos delas já estão nos modelos, sem uso.
+- Fatias 4 e 5 da spec 0019 (controles do caminho 3 e urgência, advertências e relatório) ainda não existem. Os campos delas já estão nos modelos, sem uso. O `percentualSinapi` (padrão 10) já está em `MaterialConfig`, mas a tela que o edita é da fatia 5.
+- O CSV do Anexo V e do SINAPI vai até 10 MB pelos limites padrão (nginx `client_max_body_size 10M` e o corpo guardado pelo `proxy.ts`), como o importador do SICAM: um arquivo bem perto de 10 MB pode ser cortado. A planilha de 20.000 linhas costuma ficar bem abaixo disso.
+- Marcar a anomalia ou corrigir o código SINAPI exatamente durante a aplicação de um Anexo V pode cair na versão que está saindo e não passar para a nova. A janela é curta; confira a marca depois de aplicar.
+- `MONGO_TEST_URI` também roda `__tests__/fatia3.db.test.ts`: queda e retomada da aplicação, dois cliques, recálculo junto da marca manual, envio, encaminhar e o painel.
 - O PDF da cotação e o do relatório por contrato dividem a mesma trava em memória (`lib/contratos/pdf/trava.ts`), e a renderização não tem prazo: uma renderização travada bloqueia os dois até o processo reiniciar. Aceito sob a regra de instância única; se acontecer, ponha um prazo.
 - O texto do PDF usa a Helvetica padrão, que não tem a seta `→`: escreva a mudança por extenso ("de X para Y"), senão sai um caractere trocado.
 - O E2E `e2e/cotacao-flow.spec.ts` prepara empenho, faixa e designações pelo `e2e/fixtures/material.ts`, de forma idempotente, no banco do `MONGODB_URI`.

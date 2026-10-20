@@ -25,6 +25,8 @@ const banco = vi.hoisted(() => ({
 vi.mock('@/lib/dal', () => ({ verifySession: async () => sessao.atual }));
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 vi.mock('@/lib/material/transicoes', () => lib);
+const precos = vi.hoisted(() => ({ classificarItem: vi.fn(), buscarItensPreco: vi.fn() }));
+vi.mock('@/lib/material/precos', () => precos);
 vi.mock('@/lib/material/papeis', () => ({
   papeisDe: async () => ({
     tem: (p: string) => p === 'responsavel_tecnico' && banco.responsavelTecnico,
@@ -53,8 +55,11 @@ vi.mock('@/models/ArquivoCotacao', () => ({
 
 import {
   aprovarAction,
+  buscarItensPrecoAction,
+  classificarItemAction,
   criarCotacaoAction,
   devolverAction,
+  encaminharAction,
   enviarCotacaoAction,
   executarAction,
   removerArquivoAction,
@@ -156,6 +161,88 @@ describe('repasse', () => {
     lib.transicionar.mockRejectedValue(new Error('mongo caiu'));
     const r = await enviarCotacaoAction({ id: ID, versao: 1 });
     expect(r).toEqual({ ok: false, error: expect.not.stringContaining('mongo') });
+  });
+});
+
+describe('fatia 3: classificar, buscar e encaminhar (AC-26, AC-27, AC-29)', () => {
+  beforeEach(() => {
+    precos.classificarItem.mockResolvedValue({ ok: true, versao: 4 });
+    precos.buscarItensPreco.mockResolvedValue({
+      ok: true,
+      contrato: 'CT-1',
+      mes: '2026-09',
+      anexoV: [],
+      sinapi: [],
+    });
+  });
+
+  it('classificar repassa só a escolha, com o ator da sessão', async () => {
+    const entrada = { id: ID, versao: 3, itemId: ID, escolha: { sinapiCodigo: '00.700' } };
+    expect(await classificarItemAction(entrada)).toEqual({ ok: true, versao: 4 });
+    expect(precos.classificarItem).toHaveBeenCalledWith(
+      { userId: EU, role: 'Preposto' },
+      { ...entrada, escolha: { sinapiCodigo: '700' } },
+    );
+  });
+
+  it('classificar com origem ou preço na entrada é recusado antes da regra', async () => {
+    const r = await classificarItemAction({
+      id: ID,
+      versao: 3,
+      itemId: ID,
+      escolha: { sinapiCodigo: '700', origem: 'anexo_v', precoCentavos: 1 },
+    });
+    expect(r.ok).toBe(false);
+    expect(precos.classificarItem).not.toHaveBeenCalled();
+  });
+
+  it('a recusa da classificação volta como veio', async () => {
+    precos.classificarItem.mockResolvedValue({
+      ok: false,
+      error: 'Este insumo equivale aos itens 4 e 5 do Anexo V; escolha um deles.',
+    });
+    expect(
+      await classificarItemAction({
+        id: ID,
+        versao: 3,
+        itemId: ID,
+        escolha: { sinapiCodigo: '400' },
+      }),
+    ).toEqual({
+      ok: false,
+      error: 'Este insumo equivale aos itens 4 e 5 do Anexo V; escolha um deles.',
+    });
+  });
+
+  it('buscar com menos de 3 letras não consulta', async () => {
+    expect((await buscarItensPrecoAction({ cotacaoId: ID, texto: 'ab' })).ok).toBe(false);
+    expect(precos.buscarItensPreco).not.toHaveBeenCalled();
+  });
+
+  it('buscar devolve o resultado da regra', async () => {
+    expect(await buscarItensPrecoAction({ cotacaoId: ID, texto: 'cabo' })).toMatchObject({
+      ok: true,
+      contrato: 'CT-1',
+    });
+  });
+
+  it('encaminhar repassa bases e conferências a transicionar', async () => {
+    const bases = [{ itemId: ID, base: 'sinapi', justificativa: 'Mais barato e equivalente.' }];
+    const conferencias = [{ itemId: ID, texto: 'Conferido no mercado local.' }];
+    await encaminharAction({ id: ID, versao: 2, bases, conferencias });
+    expect(lib.transicionar).toHaveBeenCalledWith(
+      expect.objectContaining({ acao: 'encaminhar', bases, conferencias }),
+    );
+  });
+
+  it('encaminhar com justificativa curta é recusado antes da regra', async () => {
+    const r = await encaminharAction({
+      id: ID,
+      versao: 2,
+      bases: [{ itemId: ID, base: 'sinapi', justificativa: 'curta' }],
+    });
+    expect(r.ok).toBe(false);
+    expect(lib.transicionar).not.toHaveBeenCalled();
   });
 });
 

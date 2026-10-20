@@ -33,6 +33,8 @@ const ItemSchema = new Schema({
   origem: { type: String, enum: [...ORIGENS_ITEM, null], default: null },
   // Caminhos 1 e 2 (fatia 3): cópia na classificação, congelada no envio.
   anexoVItemId: { type: Schema.Types.ObjectId, default: null },
+  // O número do item no Anexo V: o envio copia de novo o item vigente de mesmo número.
+  anexoVNumero: { type: Number, default: null },
   anexoVPrecoCentavos: { type: Number, default: null },
   anexoVVersao: { type: Number, default: null },
   sinapiCodigo: { type: String, default: null },

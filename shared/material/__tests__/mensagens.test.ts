@@ -6,11 +6,15 @@ import {
   TAXA_ADMINISTRACAO_MATERIAL,
 } from '../material.constants';
 import {
+  CODIGOS_ADVERTENCIA_PRECO,
   CODIGOS_CONTROLE,
   CONTROLES,
+  erroColunasFaltando,
+  erroInsumoEquivaleAVarios,
   ROTULO_SITUACAO,
   TEXTO_MOTIVO_FIXO,
   textoDoMotivo,
+  textoMarcaAnomalia,
   tituloAvisoCotacao,
 } from '../mensagens';
 
@@ -78,5 +82,57 @@ describe('constantes', () => {
 
   it('toda situação tem rótulo', () => {
     for (const s of SITUACOES_COTACAO) expect(ROTULO_SITUACAO[s]).toBeTruthy();
+  });
+});
+
+describe('textos da fatia 3 (AC-15, AC-26, AC-28, AC-29)', () => {
+  it('as advertências de preço, a base e a conferência ficam só com o lado TRF1', () => {
+    for (const c of [
+      'base_nao_escolhida',
+      'conferencia_pendente',
+      'anexo_v_acima_sinapi',
+      'sem_referencia_sinapi',
+    ] as const) {
+      expect(CONTROLES[c].ve).toBe('trf1');
+    }
+  });
+
+  it('a classificação desatualizada aparece para a contratada, que é quem classifica', () => {
+    expect(CONTROLES.classificacao_desatualizada).toMatchObject({
+      tipo: 'impedimento',
+      ve: 'todos',
+    });
+  });
+
+  it('as advertências de preço são exatamente as recalculadas a cada transição', () => {
+    expect([...CODIGOS_ADVERTENCIA_PRECO].sort()).toEqual([
+      'anexo_v_acima_sinapi',
+      'sem_referencia_sinapi',
+    ]);
+  });
+
+  it('a recusa do insumo equivalente cita os números em ordem', () => {
+    expect(erroInsumoEquivaleAVarios([5, 4])).toBe(
+      'Este insumo equivale aos itens 4 e 5 do Anexo V; escolha um deles.',
+    );
+    expect(erroInsumoEquivaleAVarios([9, 2, 5])).toContain('itens 2, 5 e 9');
+  });
+
+  it('a recusa do cabeçalho diz a coluna no singular ou no plural', () => {
+    expect(erroColunasFaltando(['PRECO'])).toBe('Falta a coluna PRECO no cabeçalho.');
+    expect(erroColunasFaltando(['UNIDADE', 'PRECO'])).toBe(
+      'Faltam as colunas UNIDADE, PRECO no cabeçalho.',
+    );
+  });
+
+  it('a marca de anomalia diz de onde veio, e nada quando não há marca', () => {
+    expect(textoMarcaAnomalia({ automatica: true, manual: false })).toBe(
+      'acima do SINAPI além do percentual',
+    );
+    expect(textoMarcaAnomalia({ automatica: false, manual: true })).toBe('marcado pelo Admin');
+    expect(textoMarcaAnomalia({ automatica: true, manual: true })).toBe(
+      'acima do SINAPI e marcado pelo Admin',
+    );
+    expect(textoMarcaAnomalia({ automatica: false, manual: false })).toBeNull();
   });
 });
