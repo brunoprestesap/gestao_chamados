@@ -8,10 +8,14 @@ import { ChamadoModel } from '@/models/Chamado';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
-import type { SituacaoCotacao } from '@/shared/material/material.constants';
+import {
+  PRAZO_PESQUISA_URGENCIA_DIAS,
+  type SituacaoCotacao,
+} from '@/shared/material/material.constants';
 import {
   tituloAvisoCotacao,
   tituloAvisoNotaFiscal,
+  tituloAvisoPesquisaAtrasada,
   tituloAvisoPesquisaCompleta,
 } from '@/shared/material/mensagens';
 import type { MaterialCotacaoSituacaoPayload } from '@/shared/socket';
@@ -126,6 +130,54 @@ export async function avisarPesquisaCompleta(
   } catch (e) {
     console.error('[material] aviso de pesquisa completa falhou:', e);
   }
+}
+
+/**
+ * Rodada diária: a urgência aceita cuja pesquisa continua incompleta mais de
+ * `PRAZO_PESQUISA_URGENCIA_DIAS` dias corridos depois da autorização avisa os
+ * gestores vigentes, sem valor e uma vez por autorização (o `alterar` e a
+ * nova autorização recomeçam a conta). Sem gestor vigente, tenta no dia seguinte.
+ */
+export async function avisarPesquisasAtrasadas(agora = new Date()): Promise<{ avisadas: number }> {
+  const limite = new Date(agora.getTime() - PRAZO_PESQUISA_URGENCIA_DIAS * 86_400_000);
+  const atrasadas = await CotacaoMaterialModel.find({
+    situacao: { $in: ['autorizada', 'executada'] },
+    'urgencia.decisao': 'aceita',
+    'urgencia.pesquisaCompletaEm': null,
+    autorizadoEm: { $lte: limite },
+  })
+    .select('numero chamadoId situacao autorizadoEm')
+    .lean();
+  if (atrasadas.length === 0) return { avisadas: 0 };
+  const gestores = (await designadosVigentes('gestor')).map((d) => ({
+    userId: d.userId,
+    destino: 'cotacoes' as const,
+  }));
+  if (gestores.length === 0) return { avisadas: 0 };
+  let avisadas = 0;
+  for (const cot of atrasadas) {
+    const jaAvisada = await NotificationModel.exists({
+      type: 'material:cotacao',
+      'data.cotacaoId': String(cot._id),
+      'data.aviso': 'pesquisa_atrasada',
+      createdAt: { $gte: cot.autorizadoEm },
+    });
+    if (jaAvisada) continue;
+    try {
+      await entregar(
+        cot,
+        cot.situacao as SituacaoCotacao,
+        gestores,
+        null,
+        tituloAvisoPesquisaAtrasada(cot.numero, PRAZO_PESQUISA_URGENCIA_DIAS),
+        { aviso: 'pesquisa_atrasada' },
+      );
+      avisadas++;
+    } catch (e) {
+      console.error('[material] aviso de pesquisa atrasada falhou:', e);
+    }
+  }
+  return { avisadas };
 }
 
 /**

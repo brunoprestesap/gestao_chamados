@@ -124,6 +124,16 @@ describe('acoesDisponiveis', () => {
     );
   });
 
+  it('cancelar: o técnico atribuído descarta o rascunho só enquanto ele é só dele', () => {
+    expect(acoesDisponiveis(cot('rascunho'), papeis(), true).cancelar).toBe(true);
+    expect(
+      acoesDisponiveis(cot('rascunho', { montadoPorUserId: new Types.ObjectId() }), papeis(), true)
+        .cancelar,
+    ).toBe(false);
+    expect(acoesDisponiveis(cot('rascunho'), papeis(), false).cancelar).toBe(false);
+    expect(acoesDisponiveis(cot('enviada'), papeis(), true).cancelar).toBe(false);
+  });
+
   it('o Admin sem designação só gera o PDF, e nunca do rascunho (AC-23)', () => {
     const leitor = { ...papeis(), leitorAdmin: true };
     const { gerarPdf, ...resto } = acoesDisponiveis(cot('em_aprovacao'), leitor, false);

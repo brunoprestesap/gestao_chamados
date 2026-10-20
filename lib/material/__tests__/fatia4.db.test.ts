@@ -780,6 +780,45 @@ rodar('fatia 4 da cotação de material, contra o Mongo', () => {
       return c;
     }
 
+    it('a rodada diária avisa os gestores da pesquisa atrasada, uma vez por autorização', async () => {
+      const { avisarPesquisasAtrasadas } = await import('../avisos');
+      const atrasada = await urgenciaAutorizada();
+      const recente = await urgenciaAutorizada();
+      await M.Cotacao.collection.updateOne(
+        { _id: new Types.ObjectId(atrasada.id) },
+        { $set: { autorizadoEm: new Date(Date.now() - 6 * 86_400_000) } },
+      );
+      const avisos = (id: string) =>
+        M.Notification.countDocuments({
+          userId: new Types.ObjectId(ids.gestor),
+          'data.cotacaoId': id,
+          'data.aviso': 'pesquisa_atrasada',
+        });
+      await avisarPesquisasAtrasadas();
+      await avisarPesquisasAtrasadas();
+      expect(await avisos(atrasada.id)).toBe(1);
+      expect(await avisos(recente.id)).toBe(0);
+    });
+
+    it('a pesquisa completa não é avisada como atrasada', async () => {
+      const { avisarPesquisasAtrasadas } = await import('../avisos');
+      const c = await urgenciaAutorizada();
+      await agir(c.id, 'pesquisa_completada', {
+        orcamentosNovos: [await orcamento(c.id, c.itemId, B), await orcamento(c.id, c.itemId, C)],
+      });
+      await M.Cotacao.collection.updateOne(
+        { _id: new Types.ObjectId(c.id) },
+        { $set: { autorizadoEm: new Date(Date.now() - 6 * 86_400_000) } },
+      );
+      await avisarPesquisasAtrasadas();
+      expect(
+        await M.Notification.countDocuments({
+          'data.cotacaoId': c.id,
+          'data.aviso': 'pesquisa_atrasada',
+        }),
+      ).toBe(0);
+    });
+
     it('só a contratada completa a pesquisa', async () => {
       const c = await urgenciaAutorizada();
       const r = await t.transicionar({

@@ -90,7 +90,7 @@ A cláusula 9.1.2 do TR estabelece **três origens de preço**:
 
 **RN-05.** Independentemente do caminho, **todo pedido de material é registrado e autorizado antes da aplicação**. A dispensa dos caminhos 1 e 2 alcança a _pesquisa de preços_, não a autorização.
 
-> **Decisão de interpretação a validar:** o TR exige expressamente "aprovação prévia" apenas no caminho 3. Para os caminhos 1 e 2 a especificação impõe autorização registrada por dois motivos: o Indicador 4 do IMR é aferido a partir de pedido documentado, e o material consome saldo de empenho próprio, cuja folga é estreita (seção 14). Se o fiscal entender que isso trava a rotina nos itens de prateleira, a alternativa é registro simplificado sem etapa de aprovação — **pendência 4 da seção 18**.
+> **Decisão de interpretação a validar:** o TR exige expressamente "aprovação prévia" apenas no caminho 3. Para os caminhos 1 e 2 a especificação impõe autorização registrada por dois motivos: o Indicador 4 do IMR é aferido a partir de pedido documentado, e o material consome saldo de empenho próprio, cuja folga é estreita (seção 14). Se o fiscal entender que isso trava a rotina nos itens de prateleira, a alternativa é registro simplificado sem etapa de aprovação — **pendência 5 da seção 18**.
 
 **RN-06.** Os preços de material, em qualquer caminho, já compreendem todos os custos de aquisição — tributos, frete, seguro, garantias e demais despesas (TR 9.1.2.3). Não há parcela adicional a título de intermediação.
 
@@ -185,18 +185,18 @@ Boa parte dos 79 itens do Anexo V é material comum de construção, com entrada
               devolvida ─────────┘            reprovada
 ```
 
-| Situação               | Significado                                            |
-| ---------------------- | ------------------------------------------------------ |
-| **Rascunho**           | Em montagem. Não visível ao fiscal                     |
-| **Enviada**            | Aguardando análise técnica                             |
-| **Em análise técnica** | Sob avaliação do fiscal dos serviços                   |
-| **Devolvida**          | Retornada para correção, com motivo registrado         |
-| **Em aprovação**       | Aprovada tecnicamente, aguardando competência de valor |
-| **Reprovada**          | Negada, com motivo registrado. Final                   |
-| **Autorizada**         | Aquisição e execução liberadas                         |
-| **Executada**          | Material aplicado, nota fiscal anexada                 |
-| **Atestada**           | Recebimento definitivo emitido. Final                  |
-| **Cancelada**          | Encerrada sem efeito, possível até a execução          |
+| Situação               | Significado                                                         |
+| ---------------------- | ------------------------------------------------------------------- |
+| **Rascunho**           | Em montagem. Não visível ao fiscal                                  |
+| **Enviada**            | Aguardando análise técnica                                          |
+| **Em análise técnica** | Sob avaliação do fiscal dos serviços                                |
+| **Devolvida**          | Retornada para correção, com motivo registrado                      |
+| **Em aprovação**       | Aprovada tecnicamente, aguardando competência de valor              |
+| **Reprovada**          | Negada, com motivo registrado. Final                                |
+| **Autorizada**         | Aquisição e execução liberadas                                      |
+| **Executada**          | Material aplicado, com evidência (a NF vem depois do ateste, RN-20) |
+| **Atestada**           | Recebimento definitivo emitido. Final                               |
+| **Cancelada**          | Encerrada sem efeito, possível até a execução                       |
 
 ### 8.3 Regras de transição
 

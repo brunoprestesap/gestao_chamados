@@ -416,6 +416,28 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       expect(cot?.itens[0]?.motivo).toBe('Troca urgente');
     });
 
+    it('salvar sem o campo de orçamentos e tirando item que um orçamento cota é recusado', async () => {
+      const c = await criada();
+      const extra = String(new Types.ObjectId());
+      const s1 = await t.salvarRascunho(rt(), {
+        id: c.id,
+        versao: c.versao,
+        itens: [
+          { id: c.itemId, ...itemBase, referencias: REFS },
+          { id: extra, ...itemBase, descricao: 'Fusível', referencias: REFS },
+        ],
+        orcamentos: await orcamentos(c.id, extra),
+      });
+      expect(s1.ok).toBe(true);
+      const s2 = await t.salvarRascunho(rt(), {
+        id: c.id,
+        versao: s1.ok ? s1.versao : 0,
+        itens: [{ id: c.itemId, ...itemBase }],
+      });
+      expect(s2).toMatchObject({ ok: false, error: expect.stringMatching(/Tire o preço/) });
+      expect((await M.Cotacao.findById(c.id).lean())?.itens).toHaveLength(2);
+    });
+
     it('lista de orçamentos vazia, mandada de propósito, apaga os orçamentos (item 4)', async () => {
       const c = await criada();
       const s1 = await t.salvarRascunho(rt(), {
@@ -479,6 +501,35 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       expect(typeof log?.pausedMinutes).toBe('number');
       // O chamado continua cancelado: fechar a pausa não o retoma.
       expect((await M.Chamado.findById(c.chamadoId).lean())?.status).toBe('cancelado');
+    });
+
+    it('pela rodada diária, a pausa fecha na hora em que o chamado foi cancelado', async () => {
+      const c = await enviada();
+      const cot = await M.Cotacao.findById(c.id).lean();
+      const pausa = new Date(Date.now() - 5 * 3_600_000);
+      const cancelamento = new Date(Date.now() - 4 * 3_600_000);
+      await M.PauseLog.collection.updateOne(
+        { _id: cot!.pauseLogId! },
+        { $set: { pausedAt: pausa } },
+      );
+      await M.Chamado.collection.updateOne(
+        { _id: new Types.ObjectId(c.chamadoId) },
+        { $set: { status: 'cancelado' } },
+      );
+      await M.History.collection.insertOne({
+        chamadoId: new Types.ObjectId(c.chamadoId),
+        userId: new Types.ObjectId(ids.estranho),
+        action: 'cancelamento',
+        statusAnterior: 'aguardando_terceiros',
+        statusNovo: 'cancelado',
+        createdAt: cancelamento,
+        updatedAt: cancelamento,
+      });
+      const { cancelarCotacoesDeChamadosEncerrados } = await import('../chamado');
+      await cancelarCotacoesDeChamadosEncerrados();
+      const log = await M.PauseLog.findById(cot?.pauseLogId).lean();
+      expect(log?.resumedAt?.getTime()).toBe(cancelamento.getTime());
+      expect(log?.pausedMinutes).toBe(60);
     });
 
     it('reserva sumida no cancelamento da autorizada vai para o log (item 2)', async () => {
@@ -947,6 +998,49 @@ rodar('transições da cotação de material, contra o Mongo', () => {
   // ── reprovar, alterar, cancelar (AC-11, AC-12, AC-14) ──────────────
 
   describe('reprovar, alterar e cancelar', () => {
+    it('o técnico atribuído descarta o próprio rascunho enquanto ele é só dele', async () => {
+      const c = await criada();
+      const r = await t.transicionar({
+        cotacaoId: c.id,
+        acao: 'cancelar',
+        versao: c.versao,
+        ator: usuario(ids.tecnico, 'Técnico'),
+        motivo: 'Não vai precisar de material',
+      });
+      expect(r.ok && r.situacao).toBe('cancelada');
+      const ev = await M.Evento.findOne({ cotacaoId: new Types.ObjectId(c.id), acao: 'cancelar' });
+      expect(ev?.papel).toBe('tecnico');
+    });
+
+    it('depois que o responsável técnico salvou, o técnico não descarta o rascunho', async () => {
+      const c = await criada();
+      const s = await t.salvarRascunho(rt(), {
+        id: c.id,
+        versao: c.versao,
+        itens: [{ id: c.itemId, ...itemBase }],
+      });
+      const r = await t.transicionar({
+        cotacaoId: c.id,
+        acao: 'cancelar',
+        versao: s.ok ? s.versao : 0,
+        ator: usuario(ids.tecnico, 'Técnico'),
+        motivo: 'Não vai precisar de material',
+      });
+      expect(r.ok).toBe(false);
+    });
+
+    it('outro técnico, não atribuído, não descarta o rascunho', async () => {
+      const c = await criada();
+      const r = await t.transicionar({
+        cotacaoId: c.id,
+        acao: 'cancelar',
+        versao: c.versao,
+        ator: usuario(ids.estranho, 'Técnico'),
+        motivo: 'Não vai precisar de material',
+      });
+      expect(r.ok).toBe(false);
+    });
+
     it('reprovar retoma o chamado e libera o chamado para cotação nova (AC-14, AC-2)', async () => {
       const c = await ate(['assumir']);
       const r = await t.transicionar({

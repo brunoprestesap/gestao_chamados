@@ -565,7 +565,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
             disabled={pendente}
             onClick={() => setMotivo({ acao: 'cancelar', texto: '' })}
           >
-            Cancelar cotação
+            {c.situacao === 'rascunho' ? 'Descartar rascunho' : 'Cancelar cotação'}
           </Button>
         )}
         {pendente && (

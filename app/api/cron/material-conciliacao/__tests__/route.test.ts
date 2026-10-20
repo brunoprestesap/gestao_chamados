@@ -12,6 +12,8 @@ vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 vi.mock('@/lib/material/saldo', () => ({ conciliarReservas: conciliar }));
 const encerrar = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/material/chamado', () => ({ cancelarCotacoesDeChamadosEncerrados: encerrar }));
+const avisarAtrasadas = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/material/avisos', () => ({ avisarPesquisasAtrasadas: avisarAtrasadas }));
 
 import { GET, POST } from '../route';
 
@@ -29,6 +31,7 @@ beforeEach(() => {
   process.env.CRON_SECRET = SEGREDO;
   conciliar.mockResolvedValue({ verificadas: 4, liberadas: 1 });
   encerrar.mockResolvedValue({ verificadas: 2, canceladas: 2 });
+  avisarAtrasadas.mockResolvedValue({ avisadas: 1 });
 });
 
 afterEach(() => {
@@ -56,6 +59,7 @@ describe('POST /api/cron/material-conciliacao', () => {
       verificadas: 4,
       liberadas: 1,
       cotacoesCanceladas: 2,
+      pesquisasAtrasadas: 1,
     });
   });
 
@@ -84,7 +88,16 @@ describe('POST /api/cron/material-conciliacao', () => {
       verificadas: 4,
       liberadas: 1,
       cotacoesCanceladas: null,
+      pesquisasAtrasadas: 1,
     });
+  });
+
+  it('falha no aviso da pesquisa atrasada não derruba a rodada', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    avisarAtrasadas.mockRejectedValue(new Error('smtp caiu'));
+    const r = await POST(requisicao(SEGREDO));
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ ok: true, liberadas: 1, pesquisasAtrasadas: null });
   });
 
   it('aceita GET também, com a mesma checagem', async () => {

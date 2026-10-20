@@ -17,6 +17,7 @@ import {
   valorDoItemCentavos,
 } from '@/shared/chamados/custo';
 import { custoEditavel } from '@/shared/chamados/custo.constants';
+import { textoJaCotado } from '@/shared/material/mensagens';
 
 import {
   adicionarMaterialAction,
@@ -70,6 +71,8 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
   const editavel = custoEditavel(status);
   const [cotacoes, setCotacoes] = useState<CotacaoDaGestao[] | null>(null);
   const [materialCotado, setMaterialCotado] = useState<MaterialExecutado[]>([]);
+  /** Item fora de cotação → número da cotação de material com a mesma descrição. */
+  const [jaCotados, setJaCotados] = useState<Record<string, string>>({});
   const [erroCotacoes, setErroCotacoes] = useState(false);
   const [rascunho, setRascunho] = useState<Rascunho>(RASCUNHO_VAZIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -85,10 +88,12 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
       const json = (await res.json()) as {
         history: CotacaoDaGestao[];
         materialExecutado?: MaterialExecutado[];
+        jaCotados?: Record<string, string>;
       };
       const aprovadas = json.history.filter((c) => c.status === 'aprovada');
       setCotacoes(aprovadas);
       setMaterialCotado(json.materialExecutado ?? []);
+      setJaCotados(json.jaCotados ?? {});
       setValoresFinais(
         Object.fromEntries(
           aprovadas.map((c) => [
@@ -305,6 +310,11 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
                   </span>
                   {i.criadoPorNome ? ` · lançado por ${i.criadoPorNome}` : ''}
                 </p>
+                {jaCotados[i._id] && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    {textoJaCotado(jaCotados[i._id]!)}
+                  </p>
+                )}
               </div>
               {editavel && (
                 <div className="flex shrink-0 items-center gap-1">

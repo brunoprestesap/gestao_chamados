@@ -131,7 +131,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Fallback para MongoDB (model Notification) se socket offline
 - `documento:vencimento` e `preventiva:lote` (spec 0013) só existem em `Notification`, sem evento do Socket.IO: aparecem no sino na próxima leitura, e `getNotificationUrl`/`getNotificationMeta` precisam conhecer o tipo
 - `interesse:fim` (spec 0017) também só existe em `Notification`: avisa quem acompanha um chamado de outra pessoa quando ele termina, por `notificarFimAosInteressados` (`lib/chamados/interessados.ts`), chamado depois de gravar o status em toda ação que conclui, cancela ou recusa; reabertura chama `zerarAvisoDeFim`. Ação nova que encerra chamado precisa dos dois
-- `material:cotacao` (spec 0019) é o aviso da cotação de material, com evento Socket.IO próprio `material:cotacao_situacao` (`{ cotacaoId, numero, chamadoId, situacao, at, aviso? }`, sem valor; `aviso: 'nota_fiscal'` marca o registro da NF e `aviso: 'pesquisa_completa'` a pesquisa da urgência completa, que não mudam a situação e não mostram toast) e destino por pessoa no `data` (`cotacoes` ou `chamado`); quem recebe cada situação está em `lib/material/avisos.ts`
+- `material:cotacao` (spec 0019) é o aviso da cotação de material, com evento Socket.IO próprio `material:cotacao_situacao` (`{ cotacaoId, numero, chamadoId, situacao, at, aviso? }`, sem valor; `aviso: 'nota_fiscal'` marca o registro da NF, `aviso: 'pesquisa_completa'` a pesquisa da urgência completa e `aviso: 'pesquisa_atrasada'` a pesquisa da urgência atrasada (rodada diária), que não mudam a situação e não mostram toast) e destino por pessoa no `data` (`cotacoes` ou `chamado`); quem recebe cada situação está em `lib/material/avisos.ts`
 
 ### SLA
 
@@ -275,7 +275,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `CRON_SECRET` — protege endpoint `/api/cron/recurring-tickets` (chamados recorrentes)
 - `CRON_SECRET` também protege `/api/cron/sla-monitor`; os dois endpoints de cron esperam o header `x-cron-secret` e recusam tudo se a variável estiver vazia
 - `CRON_SECRET` protege também `/api/cron/documentos-vencimento` (spec 0013), chamado uma vez por dia às 11:00 UTC (08:00 em Belém)
-- `CRON_SECRET` protege também `/api/cron/material-conciliacao` (spec 0019), chamado uma vez por dia às 06:00 UTC: cancela a cotação de material de chamado encerrado e libera reserva órfã de empenho
+- `CRON_SECRET` protege também `/api/cron/material-conciliacao` (spec 0019), chamado uma vez por dia às 06:00 UTC: cancela a cotação de material de chamado encerrado, libera reserva órfã de empenho e avisa os gestores da urgência com a pesquisa de preços atrasada
 - `AUTH_COOKIE_SECURE`: `true` só depois de habilitar TLS (ver `nginx/default.tls.conf`); no compose o padrão é `false`
 
 ### LDAP/AD (opcional — `/.env.local` ou `.env` na VPS)

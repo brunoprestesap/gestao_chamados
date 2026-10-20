@@ -9,7 +9,12 @@ import { ChamadoModel } from '@/models/Chamado';
 import { type CotacaoDoc, CotacaoModel } from '@/models/Cotacao';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { UserModel } from '@/models/user.model';
-import { type SituacaoCotacao, SITUACOES_NO_CUSTO } from '@/shared/material/material.constants';
+import {
+  type SituacaoCotacao,
+  SITUACOES_JA_AUTORIZADAS,
+  SITUACOES_NO_CUSTO,
+} from '@/shared/material/material.constants';
+import { foraDeCotacaoJaCotados } from '@/shared/material/valores';
 
 type LeanCotacao = Omit<CotacaoDoc, keyof Document>;
 
@@ -133,9 +138,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }));
   }
 
+  // Material fora de cotação que já foi cotado no chamado (follow-up da spec
+  // 0019): só o número da cotação por item, para a gestão conferir.
+  let jaCotados: Record<string, string> | undefined;
+  const materiais = chamado.materiaisForaCotacao ?? [];
+  if (canManage && materiais.length > 0) {
+    const autorizadas = await CotacaoMaterialModel.find({
+      chamadoId: new Types.ObjectId(id),
+      situacao: { $in: [...SITUACOES_JA_AUTORIZADAS] },
+    })
+      .select('numero itens.descricao')
+      .sort({ createdAt: 1 })
+      .lean();
+    jaCotados = foraDeCotacaoJaCotados(
+      materiais.map((m) => ({ _id: String(m._id), descricao: m.descricao })),
+      autorizadas,
+    );
+  }
+
   return NextResponse.json({
     active,
     history: normalized,
     ...(materialExecutado ? { materialExecutado } : {}),
+    ...(jaCotados ? { jaCotados } : {}),
   });
 }

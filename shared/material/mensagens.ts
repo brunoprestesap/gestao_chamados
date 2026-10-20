@@ -530,6 +530,10 @@ export function tituloAvisoPesquisaCompleta(numero: string): string {
   return `Pesquisa de preços completa na cotação urgente ${numero}: o recebimento definitivo foi liberado`;
 }
 
+export function tituloAvisoPesquisaAtrasada(numero: string, dias: number): string {
+  return `Pesquisa de preços pendente há mais de ${dias} dias na cotação urgente ${numero}`;
+}
+
 /** Recusas da nota fiscal (AC-22), por código. */
 export const ERROS_NOTA_FISCAL = {
   ja_registrada: 'A nota fiscal já foi registrada.',
@@ -556,5 +560,14 @@ export const MSG_ENVIO_ANTIGO_FECHADO =
 export const MSG_APROVACAO_EM_ANDAMENTO =
   'Outra aprovação desta cotação está em andamento ou parou no meio há poucos minutos. Recarregue a página e, se ela continuar em aprovação, tente de novo daqui a 10 minutos.';
 
+/** Salvar sem os orçamentos e tirando um item que um orçamento gravado cota. */
+export const MSG_ITEM_CITADO_POR_ORCAMENTO =
+  'Um orçamento gravado cota um item que você tirou. Tire o preço dos orçamentos antes de remover o item.';
+
 export const MSG_VERSAO_DESATUALIZADA =
   'A cotação mudou desde que você abriu. Recarregue a página.';
+
+/** Material fora de cotação (spec 0018) com a mesma descrição de item de cotação autorizada. */
+export function textoJaCotado(numero: string): string {
+  return `A cotação de material ${numero} deste chamado já tem um item com esta descrição. Confira se não é o mesmo material.`;
+}
