@@ -195,6 +195,95 @@ describe('serializarCotacao', () => {
   });
 });
 
+describe('serializarCotacao com as tabelas de preço (fatia 3)', () => {
+  // covers: AC-15, AC-27, AC-28, AC-29
+  const itemAmbas = {
+    _id: new Types.ObjectId(),
+    descricao: 'Cabo',
+    unidade: 'm',
+    quantidade: 10,
+    motivo: 'Troca',
+    doDiagnostico: true,
+    origem: 'ambas',
+    anexoVItemId: new Types.ObjectId(),
+    anexoVNumero: 1,
+    anexoVPrecoCentavos: 150_00,
+    sinapiCodigo: '100',
+    sinapiReferencia: '2026-09',
+    sinapiPrecoCentavos: 100_00,
+    baseAplicada: null,
+    justificativaBase: null,
+    precoAplicadoCentavos: null,
+    quantidadeExecutada: null,
+    valorExecutadoCentavos: null,
+  };
+  const itemAnexo = {
+    ...itemAmbas,
+    _id: new Types.ObjectId(),
+    origem: 'anexo_v',
+    anexoVNumero: 3,
+    anexoVPrecoCentavos: 25_00,
+    sinapiCodigo: null,
+    sinapiReferencia: null,
+    sinapiPrecoCentavos: null,
+    baseAplicada: 'anexo_v',
+    precoAplicadoCentavos: 25_00,
+  };
+  const comTabelas: CotacaoBruta = {
+    ...cot,
+    situacao: 'em_analise',
+    itens: [itemAmbas, itemAnexo],
+    advertencias: [
+      { codigo: 'anexo_v_acima_sinapi', itemId: itemAmbas._id },
+      { codigo: 'sem_referencia_sinapi', itemId: itemAnexo._id },
+    ],
+  };
+  const marcas = new Map([[String(itemAmbas._id), { automatica: true, manual: false }]]);
+
+  it('a contratada vê a origem e a referência na tabela, mas não as duas bases nem as advertências de preço (AC-15)', () => {
+    const dto = serializarCotacao(comTabelas, 'contratada', { userId: 'u' }, { marcas });
+    const [ambas, anexo] = dto.itens!;
+    expect(ambas).toMatchObject({
+      origem: 'ambas',
+      anexoVNumero: 1,
+      sinapiCodigo: '100',
+      sinapiReferencia: '2026-09',
+      valorProvisorio: true,
+    });
+    for (const i of dto.itens!) {
+      expect(i).not.toHaveProperty('anexoVPrecoCentavos');
+      expect(i).not.toHaveProperty('sinapiPrecoCentavos');
+      expect(i).not.toHaveProperty('advertencias');
+      expect(i).not.toHaveProperty('marcaAnomalia');
+      expect(i).not.toHaveProperty('justificativaBase');
+    }
+    expect(anexo).toMatchObject({ origem: 'anexo_v', valorProvisorio: false });
+    expect(dto.advertencias).toEqual([]);
+  });
+
+  it('o TRF1 vê as duas bases, as advertências de cada item e a marca de conferência (AC-27, AC-28, AC-29)', () => {
+    const dto = serializarCotacao(comTabelas, 'trf1', { userId: 'u' }, { marcas });
+    const [ambas, anexo] = dto.itens!;
+    expect(ambas).toMatchObject({
+      anexoVPrecoCentavos: 150_00,
+      sinapiPrecoCentavos: 100_00,
+      baseAplicada: null,
+      advertencias: ['anexo_v_acima_sinapi'],
+      marcaAnomalia: { automatica: true, manual: false },
+      valorProvisorio: true,
+    });
+    expect(anexo).toMatchObject({ advertencias: ['sem_referencia_sinapi'], marcaAnomalia: null });
+    expect(dto.advertencias).toEqual(['anexo_v_acima_sinapi', 'sem_referencia_sinapi']);
+  });
+
+  it('o técnico não vê origem, bases nem marca', () => {
+    const dto = serializarCotacao(comTabelas, 'tecnico', { userId: 'u' }, { marcas });
+    expect(dto.itens![0]).not.toHaveProperty('origem');
+    expect(dto.itens![0]).not.toHaveProperty('anexoVPrecoCentavos');
+    expect(dto.itens![0]).not.toHaveProperty('marcaAnomalia');
+  });
+});
+
 describe('podeBaixar', () => {
   it('técnico só evidência; solicitante nada', () => {
     expect(podeBaixar('tecnico', 'evidencia')).toBe(true);

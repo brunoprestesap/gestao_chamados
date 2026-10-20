@@ -207,14 +207,28 @@ export function CotacaoMaterialPdf({ detalhe, emissaoId, geradoEm, geradoPorNome
             },
             {
               titulo: 'Origem',
-              flex: 1.3,
-              valor: (i) => (i.origem ? (ROTULO_ORIGEM[i.origem] ?? i.origem) : '—'),
+              flex: 1.8,
+              // As duas bases lado a lado, com a referência na tabela (fatia 3).
+              valor: (i) =>
+                [
+                  i.origem ? (ROTULO_ORIGEM[i.origem] ?? i.origem) : '—',
+                  i.anexoVNumero != null
+                    ? `Anexo V item ${i.anexoVNumero}: ${reais(i.anexoVPrecoCentavos ?? null)}`
+                    : null,
+                  i.sinapiCodigo
+                    ? `SINAPI ${i.sinapiCodigo} (${(i.sinapiReferencia ?? '').split('-').reverse().join('/')}): ${reais(i.sinapiPrecoCentavos ?? null)}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join('\n'),
             },
             {
               titulo: 'Base aplicada',
-              flex: 1.2,
+              flex: 1.4,
               valor: (i) =>
-                i.baseAplicada ? (ROTULO_BASE[i.baseAplicada] ?? i.baseAplicada) : '—',
+                i.baseAplicada
+                  ? `${ROTULO_BASE[i.baseAplicada] ?? i.baseAplicada}${i.justificativaBase ? `\n${i.justificativaBase}` : ''}`
+                  : '—',
             },
             {
               titulo: 'Preço unitário',

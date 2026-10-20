@@ -3,11 +3,13 @@
 import {
   AlertTriangle,
   BadgeCheck,
+  FileSpreadsheet,
   Landmark,
   Loader2,
   Plus,
   Power,
   Scale,
+  Table2,
   UserCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -36,6 +38,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { EmpenhoLinha, PainelMaterial } from '@/lib/material/cadastro';
+import type { TabelasPreco } from '@/lib/material/tabelas';
 import { formatarReais } from '@/shared/chamados/custo';
 import {
   PAPEIS_DESIGNACAO,
@@ -55,6 +58,7 @@ import {
   movimentarEmpenhoAction,
   revogarDesignacaoAction,
 } from '../actions';
+import { AbaAnexoV, AbaSinapi } from './TabelasPreco';
 
 type Resultado = { ok: true } | { ok: false; error: string };
 
@@ -67,8 +71,14 @@ function dataBr(ymd: string | null): string {
   return `${d}/${m}/${a}`;
 }
 
-/** Abas do cadastro do material (spec 0019, AC-19). */
-export function GerirMaterial({ painel }: { painel: PainelMaterial }) {
+/** Abas do cadastro do material (spec 0019, AC-19, e o Anexo V e o SINAPI da fatia 3). */
+export function GerirMaterial({
+  painel,
+  tabelas,
+}: {
+  painel: PainelMaterial;
+  tabelas: TabelasPreco;
+}) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
 
@@ -87,7 +97,7 @@ export function GerirMaterial({ painel }: { painel: PainelMaterial }) {
 
   return (
     <div className="space-y-6">
-      {painel.faltando.length > 0 && (
+      {(painel.faltando.length > 0 || painel.itensSemCodigo.length > 0) && (
         <section
           aria-labelledby="faltando-titulo"
           className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 dark:border-amber-700/50 dark:bg-amber-950/30"
@@ -96,16 +106,36 @@ export function GerirMaterial({ painel }: { painel: PainelMaterial }) {
             id="faltando-titulo"
             className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200"
           >
-            <AlertTriangle className="h-4 w-4" aria-hidden="true" />O que falta para o fluxo aprovar
+            <AlertTriangle className="h-4 w-4" aria-hidden="true" />O que falta
           </h2>
-          <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-amber-900 dark:text-amber-100">
-            {painel.faltando.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs text-amber-800 dark:text-amber-200/80">
-            Sem isso, a cotação é montada e analisada, mas não é encaminhada nem aprovada.
-          </p>
+          {painel.faltando.length > 0 && (
+            <>
+              <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-amber-900 dark:text-amber-100">
+                {painel.faltando.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200/80">
+                Sem empenho e designações, a cotação é montada e analisada, mas não é encaminhada
+                nem aprovada. Sem Anexo V ou SINAPI, a busca não oferece o caminho dela.
+              </p>
+            </>
+          )}
+          {painel.itensSemCodigo.length > 0 && (
+            <details className="mt-3 text-sm text-amber-900 dark:text-amber-100">
+              <summary className="cursor-pointer font-medium">
+                {painel.itensSemCodigo.length} itens do Anexo V sem código SINAPI (sem referência
+                para comparar o preço)
+              </summary>
+              <ul className="mt-1 list-disc space-y-0.5 pl-6">
+                {painel.itensSemCodigo.map((i) => (
+                  <li key={`${i.contrato}-${i.numero}`}>
+                    Contrato {i.contrato}, item {i.numero}: {i.descricao}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </section>
       )}
 
@@ -118,7 +148,7 @@ export function GerirMaterial({ painel }: { painel: PainelMaterial }) {
       </p>
 
       <Tabs defaultValue="empenhos">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="empenhos" className="flex-1 gap-2 rounded-lg sm:flex-none">
             <Landmark className="h-4 w-4" aria-hidden="true" />
             Empenhos
@@ -131,6 +161,14 @@ export function GerirMaterial({ painel }: { painel: PainelMaterial }) {
             <Scale className="h-4 w-4" aria-hidden="true" />
             Faixas
           </TabsTrigger>
+          <TabsTrigger value="anexo-v" className="flex-1 gap-2 rounded-lg sm:flex-none">
+            <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
+            Anexo V
+          </TabsTrigger>
+          <TabsTrigger value="sinapi" className="flex-1 gap-2 rounded-lg sm:flex-none">
+            <Table2 className="h-4 w-4" aria-hidden="true" />
+            SINAPI
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="empenhos" className="mt-6 focus-visible:outline-none">
@@ -141,6 +179,12 @@ export function GerirMaterial({ painel }: { painel: PainelMaterial }) {
         </TabsContent>
         <TabsContent value="faixas" className="mt-6 focus-visible:outline-none">
           <Faixas painel={painel} pendente={pendente} executar={executar} />
+        </TabsContent>
+        <TabsContent value="anexo-v" className="mt-6 focus-visible:outline-none">
+          <AbaAnexoV tabelas={tabelas} />
+        </TabsContent>
+        <TabsContent value="sinapi" className="mt-6 focus-visible:outline-none">
+          <AbaSinapi tabelas={tabelas} />
         </TabsContent>
       </Tabs>
     </div>

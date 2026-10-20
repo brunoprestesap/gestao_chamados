@@ -36,7 +36,7 @@ import {
   ROTULO_SITUACAO,
   textoDoMotivo,
 } from '@/shared/material/mensagens';
-import { valorDaLinhaCentavos } from '@/shared/material/valores';
+import { precoParaValor, valorDaLinhaCentavos } from '@/shared/material/valores';
 
 import {
   alterarAction,
@@ -50,9 +50,11 @@ import {
 import { SituacaoBadge } from './apoio';
 import { AtesteCotacao } from './AtesteCotacao';
 import { BotaoPdfCotacao } from './BotaoPdfCotacao';
+import { DialogEncaminhar } from './DialogEncaminhar';
 import { DialogExecucao } from './DialogExecucao';
 import { DialogMaterial } from './DialogMaterial';
 import { EditorContratada } from './EditorContratada';
+import { OrigemDoItem } from './OrigemDoItem';
 
 type ResultadoAcao = { ok: true } | { ok: false; error: string; impedimentos?: CodigoControle[] };
 
@@ -80,8 +82,14 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   const [aprovando, setAprovando] = useState(false);
   const [empenhoId, setEmpenhoId] = useState('');
   const [dialogo, setDialogo] = useState<'editar' | 'executar' | null>(null);
+  const [encaminhando, setEncaminhando] = useState(false);
   const [pendente, iniciar] = useTransition();
   const trf1 = c.visao === 'trf1';
+  const mostraOrigem = trf1 || c.visao === 'contratada';
+  // Itens `ambas` pedem a base, e os da lista de conferência, a conferência (AC-27, AC-29).
+  const itensAmbas = (c.itens ?? []).filter((i) => i.origem === 'ambas');
+  const itensNaLista = (c.itens ?? []).filter((i) => i.marcaAnomalia);
+  const precisaDeEscolhas = itensAmbas.length > 0 || itensNaLista.length > 0;
 
   const elegiveisComSaldo = (detalhe.empenhosElegiveis ?? []).filter(
     (e) => e.saldoCentavos >= (c.valorTotalCentavos ?? 0),
@@ -183,6 +191,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Descrição</TableHead>
+                    {mostraOrigem && <TableHead>Origem do preço</TableHead>}
                     <TableHead className="text-right">Quantidade</TableHead>
                     <TableHead className="text-right">Preço unitário</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
@@ -190,35 +199,48 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(c.itens ?? []).map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell>
-                        <p className="font-medium">{i.descricao}</p>
-                        <p className="text-xs text-muted-foreground">{i.motivo}</p>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatarQuantidade(i.quantidade)} {i.unidade}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {i.precoAplicadoCentavos != null
-                          ? formatarReais(i.precoAplicadoCentavos)
-                          : '—'}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {i.precoAplicadoCentavos != null
-                          ? formatarReais(
-                              valorDaLinhaCentavos(i.quantidade, i.precoAplicadoCentavos),
-                            )
-                          : '—'}
-                      </TableCell>
-                      {c.executadoEm && (
-                        <TableCell className="text-right tabular-nums">
-                          {formatarQuantidade(i.quantidadeExecutada ?? 0)} ·{' '}
-                          {formatarReais(i.valorExecutadoCentavos ?? 0)}
+                  {(c.itens ?? []).map((i) => {
+                    const preco = precoParaValor({
+                      quantidade: i.quantidade,
+                      precoAplicadoCentavos: i.precoAplicadoCentavos,
+                      origem: i.origem,
+                      anexoVPrecoCentavos: i.anexoVPrecoCentavos,
+                      sinapiPrecoCentavos: i.sinapiPrecoCentavos,
+                    });
+                    return (
+                      <TableRow key={i.id}>
+                        <TableCell>
+                          <p className="font-medium">{i.descricao}</p>
+                          <p className="text-xs text-muted-foreground">{i.motivo}</p>
                         </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
+                        {mostraOrigem && (
+                          <TableCell className="text-sm">
+                            <OrigemDoItem item={i} trf1={trf1} />
+                          </TableCell>
+                        )}
+                        <TableCell className="text-right tabular-nums">
+                          {formatarQuantidade(i.quantidade)} {i.unidade}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {preco != null ? formatarReais(preco) : '—'}
+                          {i.valorProvisorio && preco != null && (
+                            <span className="block text-xs text-muted-foreground">provisório</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {preco != null
+                            ? formatarReais(valorDaLinhaCentavos(i.quantidade, preco))
+                            : '—'}
+                        </TableCell>
+                        {c.executadoEm && (
+                          <TableCell className="text-right tabular-nums">
+                            {formatarQuantidade(i.quantidadeExecutada ?? 0)} ·{' '}
+                            {formatarReais(i.valorExecutadoCentavos ?? 0)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -359,7 +381,14 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
         {acoes.encaminhar && (
           <Button
             disabled={pendente}
-            onClick={() => agir(() => encaminharAction(base), 'Encaminhada para aprovação.')}
+            onClick={() =>
+              precisaDeEscolhas
+                ? setEncaminhando(true)
+                : agir(
+                    () => encaminharAction({ ...base, bases: [], conferencias: [] }),
+                    'Encaminhada para aprovação.',
+                  )
+            }
           >
             Encaminhar para aprovação
           </Button>
@@ -541,6 +570,24 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {encaminhando && (
+        <DialogEncaminhar
+          numero={c.numero}
+          ambas={itensAmbas}
+          naLista={itensNaLista}
+          open
+          pendente={pendente}
+          onOpenChange={setEncaminhando}
+          onConfirmar={(escolhas) =>
+            agir(
+              () => encaminharAction({ ...base, ...escolhas }),
+              'Encaminhada para aprovação.',
+              () => setEncaminhando(false),
+            )
+          }
+        />
+      )}
 
       {dialogo === 'editar' && c.itens && (
         <DialogMaterial

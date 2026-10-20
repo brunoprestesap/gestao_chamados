@@ -20,6 +20,14 @@ const MaterialConfigSchema = new Schema(
       default: MATERIAL_CONFIG_PADRAO.raizCnpjContratada,
       match: /^\d{8}$/,
     },
+    // Fatia 3: Anexo V acima do SINAPI além deste percentual (AC-28, AC-29).
+    percentualSinapi: {
+      type: Number,
+      required: true,
+      default: MATERIAL_CONFIG_PADRAO.percentualSinapi,
+      min: 0,
+      max: 1000,
+    },
     historico: {
       type: [
         new Schema(

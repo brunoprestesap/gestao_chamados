@@ -18,8 +18,8 @@ import {
 } from '@/shared/material/cotacao.schemas';
 import {
   type AcaoCotacao,
+  type BaseDeAmbas,
   estaEmTramite,
-  MIN_ORCAMENTOS_POR_ITEM,
   type PapelEvento,
   type SituacaoCotacao,
   SITUACOES_EDITAVEIS,
@@ -33,6 +33,7 @@ import {
   MSG_VERSAO_DESATUALIZADA,
 } from '@/shared/material/mensagens';
 import {
+  type ItemParaTotal,
   menorPrecoDoItem,
   valorDaLinhaCentavos,
   valorTotalCentavos,
@@ -45,7 +46,23 @@ import {
   registrarNoChamado,
   retomarPelaCotacao,
 } from './chamado';
+import {
+  advertenciasDePreco,
+  ehAdvertenciaDePreco,
+  impedimentosDeEnvio,
+  impedimentosDoEncaminhar,
+} from './controles';
 import { limiteDoAprovador, type Papeis, papeisDe } from './papeis';
+import {
+  carregarTabelas,
+  codigosDosItens,
+  copiaParaDocumento,
+  derivarOrigem,
+  escolhaGravada,
+  type MarcaAnomalia,
+  marcasDeConferencia,
+  SEM_TABELA,
+} from './precos';
 import {
   ajustar,
   conciliarReservas,
@@ -142,6 +159,15 @@ async function lerCotacao(id: string) {
       precoAplicadoCentavos: number | null;
       quantidadeExecutada: number | null;
       valorExecutadoCentavos: number | null;
+      anexoVItemId?: Types.ObjectId | null;
+      anexoVNumero?: number | null;
+      anexoVVersao?: number | null;
+      anexoVPrecoCentavos?: number | null;
+      sinapiCodigo?: string | null;
+      sinapiReferencia?: string | null;
+      sinapiPrecoCentavos?: number | null;
+      justificativaBase?: string | null;
+      conferencia?: { texto: string; porUserId: Types.ObjectId; em: Date } | null;
     }[];
     orcamentos: {
       _id: Types.ObjectId;
@@ -150,8 +176,10 @@ async function lerCotacao(id: string) {
       precos: { itemId: Types.ObjectId; valorUnitarioCentavos: number }[];
     }[];
     montadoPorUserId: Types.ObjectId | null;
+    fiscalUserId: Types.ObjectId | null;
     diagnosticadoPorUserId: Types.ObjectId;
     valorTotalCentavos: number;
+    advertencias: { codigo: string; itemId: Types.ObjectId | null; em: Date }[];
     valorAutorizadoCentavos: number | null;
     valorExecutadoCentavos: number | null;
     empenhoId: Types.ObjectId | null;
@@ -199,19 +227,7 @@ function papelDoAto(
   }
 }
 
-/** Impedimento do envio: cada item com preço em ao menos 3 orçamentos (AC-4). */
-export function impedimentosDeEnvio(c: {
-  itens: readonly { _id: unknown }[];
-  orcamentos: readonly { precos: readonly { itemId: unknown }[] }[];
-}): CodigoControle[] {
-  const faltando = c.itens.some((i) => {
-    const n = c.orcamentos.filter((o) =>
-      o.precos.some((p) => String(p.itemId) === String(i._id)),
-    ).length;
-    return n < MIN_ORCAMENTOS_POR_ITEM;
-  });
-  return faltando ? ['orcamentos_insuficientes'] : [];
-}
+export { impedimentosDeEnvio } from './controles';
 
 function orcamentosParaPreco(c: NonNullable<CotacaoLida>) {
   return c.orcamentos.map((o) => ({
@@ -246,7 +262,11 @@ async function localDoAtivo(ativoId: Types.ObjectId | null | undefined) {
   return (a?.localizacaoId as Types.ObjectId | null | undefined) ?? null;
 }
 
-function itensNoAto(itens: NonNullable<CotacaoLida>['itens']) {
+/** A cópia de cada item no evento: origem, as duas bases, a escolha, a conferência e a marca. */
+function itensNoAto(
+  itens: NonNullable<CotacaoLida>['itens'],
+  marcas: ReadonlyMap<string, MarcaAnomalia> = new Map(),
+) {
   return itens.map((i) => ({
     itemId: i._id,
     descricao: i.descricao,
@@ -255,7 +275,73 @@ function itensNoAto(itens: NonNullable<CotacaoLida>['itens']) {
     baseAplicada: i.baseAplicada,
     precoAplicadoCentavos: i.precoAplicadoCentavos,
     quantidadeExecutada: i.quantidadeExecutada,
+    anexoVNumero: i.anexoVNumero ?? null,
+    anexoVVersao: i.anexoVVersao ?? null,
+    anexoVPrecoCentavos: i.anexoVPrecoCentavos ?? null,
+    sinapiCodigo: i.sinapiCodigo ?? null,
+    sinapiReferencia: i.sinapiReferencia ?? null,
+    sinapiPrecoCentavos: i.sinapiPrecoCentavos ?? null,
+    justificativaBase: i.justificativaBase ?? null,
+    conferencia: i.conferencia?.texto ?? null,
+    marcaAnomalia: marcas.get(String(i._id)) ?? null,
   }));
+}
+
+/** Os campos de tabela que o item guarda entre a classificação e o envio. */
+const CAMPOS_DE_TABELA = [
+  'origem',
+  'anexoVItemId',
+  'anexoVNumero',
+  'anexoVVersao',
+  'anexoVPrecoCentavos',
+  'sinapiCodigo',
+  'sinapiReferencia',
+  'sinapiPrecoCentavos',
+  'baseAplicada',
+  'justificativaBase',
+  'precoAplicadoCentavos',
+] as const;
+
+/** Item `ambas` volta a ter valor provisório: base, justificativa e preço saem (AC-27). */
+function semBaseEscolhida<T extends { origem: string | null }>(i: T): T {
+  return i.origem === 'ambas'
+    ? { ...i, baseAplicada: null, justificativaBase: null, precoAplicadoCentavos: null }
+    : i;
+}
+
+/**
+ * Deriva de novo a origem de cada item no envio (AC-26): copia o Anexo V do
+ * item vigente de mesmo número e o SINAPI do mês mais recente; a partir daí
+ * as cópias congelam. O caminho 3 fica com o menor orçamento.
+ */
+async function itensDoEnvio(
+  cot: NonNullable<CotacaoLida>,
+  tipoServico: string,
+  agora: Date,
+): Promise<{ itens: NonNullable<CotacaoLida>['itens']; desatualizado: boolean }> {
+  const tabelas = await carregarTabelas(tipoServico, codigosDosItens(cot.itens), agora);
+  const paraPreco = orcamentosParaPreco(cot);
+  let desatualizado = false;
+  const itens = cot.itens.map((i) => {
+    const escolha = escolhaGravada(i);
+    const base = { ...i, conferencia: null };
+    if (!escolha) {
+      return {
+        ...base,
+        ...SEM_TABELA,
+        origem: 'orcamento',
+        baseAplicada: 'orcamento',
+        precoAplicadoCentavos: menorPrecoDoItem(String(i._id), paraPreco),
+      };
+    }
+    const d = derivarOrigem(escolha, tabelas);
+    if (!d.ok) {
+      desatualizado = true;
+      return base;
+    }
+    return { ...base, ...copiaParaDocumento(d.copia) };
+  });
+  return { itens: itens as NonNullable<CotacaoLida>['itens'], desatualizado };
 }
 
 // ---------------------------------------------------------------------------
@@ -428,23 +514,32 @@ export async function salvarRascunho(
       : orcamentos.map((o) => ({ cnpj: o.cnpj, precos: o.precos }));
     const itens = entrada.itens.map((i) => {
       const atual = atuais.get(i.id);
-      const preco = menorPrecoDoItem(i.id, paraPreco);
-      return {
+      const comum = {
         _id: new Types.ObjectId(i.id),
         descricao: i.descricao,
-        unidade: i.unidade,
         quantidade: i.quantidade,
         motivo: i.motivo,
         doDiagnostico: atual?.doDiagnostico ?? false,
-        // Fatia 1: só o caminho 3.
+      };
+      if (atual?.origem && atual.origem !== 'orcamento') {
+        // Classificado nos caminhos 1 e 2: preço e unidade são da tabela (AC-26), e
+        // só a classificação os muda.
+        const tabela = Object.fromEntries(
+          CAMPOS_DE_TABELA.map((c) => [c, (atual as Record<string, unknown>)[c] ?? null]),
+        );
+        return { ...comum, unidade: atual.unidade, ...tabela };
+      }
+      return {
+        ...comum,
+        unidade: i.unidade,
         origem: 'orcamento',
         baseAplicada: 'orcamento',
-        precoAplicadoCentavos: preco,
+        precoAplicadoCentavos: menorPrecoDoItem(i.id, paraPreco),
       };
     });
     set.itens = itens;
     if (!manterOrcamentos) set.orcamentos = orcamentosDoc;
-    set.valorTotalCentavos = valorTotalCentavos(itens);
+    set.valorTotalCentavos = valorTotalCentavos(itens as ItemParaTotal[]);
     if (!cot.montadoPorUserId) set.montadoPorUserId = new Types.ObjectId(ator.userId);
   } else if (ehTecnico) {
     if (cot.montadoPorUserId || cot.situacao !== 'rascunho') {
@@ -487,6 +582,10 @@ export type EntradaTransicao = {
   empenhoId?: string;
   quantidades?: { itemId: string; quantidadeExecutada: number }[];
   notaFiscal?: { numero: string; data: string; arquivoId: string };
+  /** Encaminhar (AC-27): a base de cada item `ambas`, com justificativa. */
+  bases?: { itemId: string; base: BaseDeAmbas; justificativa: string }[];
+  /** Encaminhar (AC-29): a conferência de cada item da lista obrigatória. */
+  conferencias?: { itemId: string; texto: string }[];
 };
 
 export async function transicionar(
@@ -510,7 +609,7 @@ export async function transicionar(
   const userId = e.ator.userId;
   const papeis = e.ator.tipo === 'usuario' ? await papeisDe(e.ator.userId, e.ator.role) : null;
   const chamado = await ChamadoModel.findById(cot.chamadoId)
-    .select('status assignedToUserId ativoId')
+    .select('status assignedToUserId ativoId tipoServico')
     .lean();
   if (!chamado) return { ok: false, error: 'Chamado da cotação não encontrado.' };
   const ehTecnicoAtribuido = !!userId && String(chamado.assignedToUserId ?? '') === userId;
@@ -530,6 +629,7 @@ export async function transicionar(
   const set: Record<string, unknown> = {};
   const unset: Record<string, 1> = {};
   const advertencias: CodigoControle[] = [];
+  let marcas: ReadonlyMap<string, MarcaAnomalia> = new Map();
   let faixaId: string | null = null;
   let limite: number | null = null;
   let valorEvento: number | null = null;
@@ -543,9 +643,20 @@ export async function transicionar(
           error: 'A cotação só é enviada com o chamado em atendimento ou aguardando terceiros.',
         };
       }
-      const imp = impedimentosDeEnvio(cot);
+      // A origem é derivada de novo com as tabelas de agora, e o preço congela (AC-26).
+      const envio = await itensDoEnvio(cot, chamado.tipoServico as string, agora);
+      const imp = [
+        ...(envio.desatualizado ? (['classificacao_desatualizada'] as CodigoControle[]) : []),
+        ...impedimentosDeEnvio({ itens: envio.itens, orcamentos: cot.orcamentos }),
+      ];
       if (imp.length) {
-        return { ok: false, error: 'Faltam orçamentos para enviar.', impedimentos: imp };
+        return {
+          ok: false,
+          error: envio.desatualizado
+            ? 'Um item precisa ser classificado de novo antes do envio.'
+            : 'Faltam orçamentos para enviar.',
+          impedimentos: imp,
+        };
       }
       // Cada orçamento com o próprio arquivo, ainda ativo no envio (AC-4).
       const arquivosDosOrcamentos = new Set(cot.orcamentos.map((o) => String(o.arquivoId)));
@@ -561,16 +672,8 @@ export async function transicionar(
       ) {
         return { ok: false, error: 'Cada orçamento precisa do próprio arquivo anexado.' };
       }
-      const paraPreco = orcamentosParaPreco(cot);
-      const itens = cot.itens.map((i) => ({
-        ...i,
-        origem: 'orcamento',
-        baseAplicada: 'orcamento',
-        precoAplicadoCentavos: menorPrecoDoItem(String(i._id), paraPreco),
-        conferencia: null,
-      }));
-      set.itens = itens;
-      set.valorTotalCentavos = valorTotalCentavos(itens);
+      set.itens = envio.itens;
+      set.valorTotalCentavos = valorTotalCentavos(envio.itens);
       set.ativoId = chamado.ativoId ?? null;
       set.localizacaoId = await localDoAtivo(chamado.ativoId as Types.ObjectId | null);
       break;
@@ -578,19 +681,76 @@ export async function transicionar(
     case 'assumir':
       set.fiscalUserId = new Types.ObjectId(userId!);
       break;
-    case 'devolver':
+    case 'devolver': {
+      // A devolução limpa conferências e a base escolhida dos itens `ambas` (AC-27).
+      const itens = cot.itens.map((i) => semBaseEscolhida({ ...i, conferencia: null }));
       set.fiscalUserId = null;
-      set.itens = cot.itens.map((i) => ({ ...i, conferencia: null }));
+      set.itens = itens;
+      set.valorTotalCentavos = valorTotalCentavos(itens);
       break;
-    case 'encaminhar':
-      if (!(await haSaldoElegivel(cot.valorTotalCentavos, agora))) {
+    }
+    case 'encaminhar': {
+      marcas = await marcasDeConferencia(cot.itens);
+      const bases = new Map((e.bases ?? []).map((b) => [b.itemId, b]));
+      const conferencias = new Map((e.conferencias ?? []).map((c) => [c.itemId, c.texto]));
+      const naLista = new Set(marcas.keys());
+      // A conferência é do fiscal que assumiu, o mesmo que encaminha (AC-29).
+      if (naLista.size > 0 && String(cot.fiscalUserId ?? '') !== userId) {
+        return {
+          ok: false,
+          error: 'Só o fiscal que assumiu a análise registra a conferência e encaminha.',
+        };
+      }
+      const impedimentosItens = impedimentosDoEncaminhar(
+        cot.itens,
+        {
+          bases: new Set([...bases.keys()]),
+          conferencias: new Set([...conferencias.keys()]),
+        },
+        naLista,
+      );
+      if (impedimentosItens.length) {
+        return {
+          ok: false,
+          error: 'Faltam a base de algum item ou uma conferência obrigatória.',
+          impedimentos: impedimentosItens,
+        };
+      }
+      const itens = cot.itens.map((i) => {
+        const id = String(i._id);
+        let item = { ...i };
+        const b = bases.get(id);
+        if (i.origem === 'ambas' && b) {
+          const preco = b.base === 'anexo_v' ? i.anexoVPrecoCentavos : i.sinapiPrecoCentavos;
+          item = {
+            ...item,
+            baseAplicada: b.base,
+            justificativaBase: b.justificativa,
+            precoAplicadoCentavos: preco ?? null,
+          };
+        }
+        const texto = conferencias.get(id);
+        if (naLista.has(id) && texto) {
+          item = {
+            ...item,
+            conferencia: { texto, porUserId: new Types.ObjectId(userId!), em: agora },
+          };
+        }
+        return item;
+      });
+      const total = valorTotalCentavos(itens);
+      // O saldo já usa o total com as bases escolhidas.
+      if (!(await haSaldoElegivel(total, agora))) {
         return {
           ok: false,
           error: 'Nenhum empenho elegível tem saldo para o valor desta cotação.',
           impedimentos: ['saldo_insuficiente'],
         };
       }
+      set.itens = itens;
+      set.valorTotalCentavos = total;
       break;
+    }
     case 'aprovar': {
       if (cot.montadoPorUserId && String(cot.montadoPorUserId) === userId) {
         return {
@@ -676,7 +836,6 @@ export async function transicionar(
       set.executadoEm = agora;
       set.executadoPorUserId = new Types.ObjectId(userId!);
       set.valorExecutadoCentavos = total;
-      set.advertencias = advertencias.map((codigo) => ({ codigo, em: agora }));
       break;
     }
     case 'receber_provisorio':
@@ -719,6 +878,27 @@ export async function transicionar(
     case 'reprovar':
       break;
   }
+
+  // Advertências: as de preço recalculadas a cada transição sobre os itens do ato
+  // (AC-28); as outras ficam, e a divergência da execução é refeita no `executar`.
+  const parametros = await lerMaterialConfig();
+  const itensDoAto = (set.itens as NonNullable<CotacaoLida>['itens'] | undefined) ?? cot.itens;
+  const mantidas = (cot.advertencias ?? []).filter(
+    (a) =>
+      !ehAdvertenciaDePreco(a.codigo) &&
+      !(e.acao === 'executar' && a.codigo === 'divergencia_execucao'),
+  );
+  const todasAdvertencias = [
+    ...mantidas,
+    ...advertencias.map((codigo) => ({ codigo, itemId: null, em: agora })),
+    ...advertenciasDePreco(itensDoAto, parametros.percentualSinapi).map((a) => ({
+      codigo: a.codigo,
+      itemId: new Types.ObjectId(a.itemId),
+      em: agora,
+    })),
+  ];
+  set.advertencias = todasAdvertencias;
+  const advertenciasNoAto = [...new Set(todasAdvertencias.map((a) => a.codigo))];
 
   set.situacao = para;
   set.emTramite = estaEmTramite(para);
@@ -776,9 +956,9 @@ export async function transicionar(
       papel,
       faixaId: faixaId ? new Types.ObjectId(faixaId) : null,
       limiteCentavosNoAto: limite,
-      parametrosNoAto: await lerMaterialConfig(),
-      itensNoAto: itensNoAto(gravada.itens),
-      advertenciasNoAto: advertencias,
+      parametrosNoAto: parametros,
+      itensNoAto: itensNoAto(gravada.itens, marcas),
+      advertenciasNoAto,
       motivo: e.acao === 'alterar' ? 'alteracao_pos_autorizacao' : (e.motivo?.trim() ?? null),
       empenhoId: empenhoEvento ? new Types.ObjectId(empenhoEvento) : null,
       valorCentavos: valorEvento,

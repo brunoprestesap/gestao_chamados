@@ -383,14 +383,14 @@ Fornecimento de material sob demanda do contrato 01/2022 (empenho específico, f
 
 O pedido de material sai do e-mail e da planilha: o técnico registra, a contratada cota (Anexo V, SINAPI ou três orçamentos), o fiscal analisa, o aprovador competente autoriza com saldo do empenho, o técnico aplica e o gestor atesta, com trilha que não se apaga.
 **Done when:** nenhum material é autorizado sem designação vigente, faixa suficiente e saldo reservado no empenho; a execução só ocorre depois da autorização; o lado TRF1 vê as bases de preço e as advertências, a contratada e o solicitante não; o custo do ativo inclui o material executado; o PDF da trilha é legível por terceiro.
-spec [0019](../specs/0019-cotacao-material/index.md) · code in `lib/material/`, `shared/material/`, `app/(dashboard)/cotacoes/`, `app/(dashboard)/configuracoes/material/`, `app/api/cotacoes/`
+spec [0019](../specs/0019-cotacao-material/index.md) · code in `lib/material/`, `shared/material/`, `app/(dashboard)/cotacoes/`, `app/(dashboard)/configuracoes/material/`, `app/api/cotacoes/`, `app/api/material/importacoes/`
 
 - [x] Design it (spec): `/architect cotação e fornecimento de material`
 - [ ] Build it: `/develop cotação e fornecimento de material`
   - [x] Fatia 1, o fio: rascunho do técnico, caminho 3, análise, aprovação por designação e faixa, reserva no empenho com conciliação, execução, trilha, avisos, custo e fechamento do envio antigo · AC-1 a AC-20
   - [x] Fatia 2: recebimento provisório e definitivo, nota fiscal e PDF da trilha · AC-21, AC-22, AC-23
   - [x] Ajustes da revisão de 19/10 (passo 13a): data e aviso da NF, NF pendente sempre visível à contratada, selo só no TRF1, papel na emissão do PDF · AC-15, AC-16, AC-21, AC-22, AC-23
-  - [ ] Fatia 3: importação do Anexo V e do SINAPI, caminhos 1 e 2, duas bases, lista de anomalia · AC-24 a AC-30
+  - [x] Fatia 3: importação do Anexo V e do SINAPI, caminhos 1 e 2, duas bases, lista de anomalia · AC-24 a AC-30
   - [ ] Fatia 4: controles de CNPJ, referência, variação e validade, e a urgência · AC-31 a AC-35
   - [ ] Fatia 5: fracionamento, reincidência, projeção, consumo, item parecido, parâmetros e relatório · AC-36 a AC-42
 - [ ] Verify it: `/check verify cotação e fornecimento de material`

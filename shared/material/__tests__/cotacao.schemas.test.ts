@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BuscarItensPrecoSchema,
+  ClassificarItemSchema,
+  CorrigirCodigoSinapiSchema,
   CriarCotacaoSchema,
   CriarDesignacaoSchema,
+  EncaminharSchema,
   ExecutarSchema,
+  ImportacaoMaterialIdSchema,
+  MarcarAnomaliaSchema,
   MovimentoEmpenhoSchema,
   NotaFiscalSchema,
   RecebimentoSchema,
+  referenciaSinapi,
   SalvarRascunhoSchema,
   TransicaoComMotivoSchema,
 } from '../cotacao.schemas';
@@ -270,5 +277,123 @@ describe('RecebimentoSchema (AC-21)', () => {
       true,
     );
     expect(RecebimentoSchema.safeParse({ id: ID, versao: 1, etapa: 'final' }).success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fatia 3: classificação, busca, encaminhar e as ações do Admin no Anexo V
+// covers: AC-24, AC-25, AC-26, AC-27, AC-29
+// ---------------------------------------------------------------------------
+
+describe('ClassificarItemSchema (AC-26: a origem e o preço nunca vêm da entrada)', () => {
+  const base = { id: ID, versao: 3, itemId: 'b'.repeat(24) };
+
+  it('aceita as três escolhas, com o código já normalizado', () => {
+    expect(
+      ClassificarItemSchema.safeParse({ ...base, escolha: { anexoVItemId: ID } }).success,
+    ).toBe(true);
+    expect(ClassificarItemSchema.safeParse({ ...base, escolha: { orcamento: true } }).success).toBe(
+      true,
+    );
+    expect(
+      ClassificarItemSchema.safeParse({ ...base, escolha: { sinapiCodigo: '00.123' } }),
+    ).toMatchObject({ success: true, data: { escolha: { sinapiCodigo: '123' } } });
+  });
+
+  it.each([
+    ['origem sozinha', { origem: 'anexo_v' }],
+    ['origem junto do código', { sinapiCodigo: '123', origem: 'ambas' }],
+    ['preço junto do item', { anexoVItemId: ID, precoCentavos: 1 }],
+    ['código com letra', { sinapiCodigo: '12A' }],
+    ['orcamento falso', { orcamento: false }],
+  ])('recusa %s', (_caso, escolha) => {
+    expect(ClassificarItemSchema.safeParse({ ...base, escolha }).success).toBe(false);
+  });
+});
+
+describe('BuscarItensPrecoSchema', () => {
+  it('pede ao menos 3 letras, sem contar espaços', () => {
+    expect(BuscarItensPrecoSchema.safeParse({ cotacaoId: ID, texto: 'cab' }).success).toBe(true);
+    const curto = BuscarItensPrecoSchema.safeParse({ cotacaoId: ID, texto: ' a b ' });
+    expect(curto.success).toBe(false);
+    if (!curto.success) expect(curto.error.issues[0]!.message).toBe('Digite ao menos 3 letras.');
+  });
+});
+
+describe('EncaminharSchema (AC-27, AC-29)', () => {
+  const base = { id: ID, versao: 2 };
+  const just = 'SINAPI é a referência pública.';
+
+  it('sem bases nem conferências, encaminha com listas vazias', () => {
+    expect(EncaminharSchema.safeParse(base)).toMatchObject({
+      success: true,
+      data: { bases: [], conferencias: [] },
+    });
+  });
+
+  it('aceita base com justificativa e conferência de 10 a 500 caracteres', () => {
+    const r = EncaminharSchema.safeParse({
+      ...base,
+      bases: [{ itemId: ID, base: 'sinapi', justificativa: just }],
+      conferencias: [{ itemId: ID, texto: 'Conferido no mercado.' }],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it.each([
+    [
+      'base orcamento, que não é base de ambas',
+      [{ itemId: ID, base: 'orcamento', justificativa: just }],
+    ],
+    ['justificativa curta', [{ itemId: ID, base: 'anexo_v', justificativa: 'curta' }]],
+    ['justificativa longa', [{ itemId: ID, base: 'anexo_v', justificativa: 'x'.repeat(501) }]],
+  ])('recusa %s', (_caso, bases) => {
+    expect(EncaminharSchema.safeParse({ ...base, bases }).success).toBe(false);
+  });
+
+  it('recusa item repetido nas bases ou nas conferências', () => {
+    const dupBase = { itemId: ID, base: 'sinapi', justificativa: just };
+    expect(EncaminharSchema.safeParse({ ...base, bases: [dupBase, dupBase] }).success).toBe(false);
+    const dupConf = { itemId: ID, texto: 'Conferido no mercado.' };
+    expect(EncaminharSchema.safeParse({ ...base, conferencias: [dupConf, dupConf] }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe('Anexo V e SINAPI do Admin (AC-24, AC-25, AC-29)', () => {
+  const motivo = 'Código certo da tabela.';
+
+  it('referenciaSinapi aceita AAAA-MM e recusa mês 13 ou outro formato', () => {
+    expect(referenciaSinapi.safeParse('2026-08').success).toBe(true);
+    for (const r of ['2026-13', '2026-8', '08/2026', '2026-08-01']) {
+      expect(referenciaSinapi.safeParse(r).success).toBe(false);
+    }
+  });
+
+  it('MarcarAnomaliaSchema pede motivo de 10 a 500 caracteres', () => {
+    expect(
+      MarcarAnomaliaSchema.safeParse({ anexoVItemId: ID, marcada: true, motivo }).success,
+    ).toBe(true);
+    expect(
+      MarcarAnomaliaSchema.safeParse({ anexoVItemId: ID, marcada: true, motivo: 'curto' }).success,
+    ).toBe(false);
+  });
+
+  it('CorrigirCodigoSinapiSchema normaliza o código, aceita null para limpar e recusa letra', () => {
+    expect(
+      CorrigirCodigoSinapiSchema.safeParse({ anexoVItemId: ID, codigo: '0.500', motivo }),
+    ).toMatchObject({ success: true, data: { codigo: '500' } });
+    expect(
+      CorrigirCodigoSinapiSchema.safeParse({ anexoVItemId: ID, codigo: null, motivo }).success,
+    ).toBe(true);
+    expect(
+      CorrigirCodigoSinapiSchema.safeParse({ anexoVItemId: ID, codigo: 'X1', motivo }).success,
+    ).toBe(false);
+  });
+
+  it('ImportacaoMaterialIdSchema pede um id válido', () => {
+    expect(ImportacaoMaterialIdSchema.safeParse({ importacaoId: ID }).success).toBe(true);
+    expect(ImportacaoMaterialIdSchema.safeParse({ importacaoId: 'x' }).success).toBe(false);
   });
 });

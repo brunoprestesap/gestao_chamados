@@ -120,3 +120,52 @@ _Pede uma cotação `executada` do fio da Fatia 1 e as mesmas designações da P
 ### Acceptance-criteria coverage
 
 - AC-15 · NF pendente sempre visível, paridade memória e Mongo · AC-16 · aviso da NF sem toast de "atestada" · AC-21 · datas sem nome, trilha sem autor do recebimento, abas da contratada · AC-22 · data entre a autorização e hoje, remoção da NF não ligada · AC-23 · Admin sem designação emite com `papel: admin`, 403 antes da busca, 404 no rascunho
+
+## Fatia 3: Anexo V e SINAPI · acrescentado em 2026-10-19
+
+_Passos derivados de AC-24 a AC-30 e das linhas da Value sourcing da fatia 3. Antes, tenha um contrato ativo, vigente hoje e com o tipo de serviço `Manutenção Predial` em `/configuracoes/contratos`._
+
+### Preparação
+
+- [x] Montar um CSV do SINAPI com uma linha de título, uma vazia e o cabeçalho na linha 3 (`Código;Descrição;Unidade;PRECO;SOBRA`), com uma descrição entre aspas que tenha `;` dentro, e salvar em Windows-1252 (ANSI) → é o arquivo dos passos do SINAPI → AC-25
+- [x] Montar um CSV do Anexo V com `ITEM;DESCRICAO;UNIDADE;QUANTIDADE;PRECO;CODIGO_SINAPI`: item 1 com código que existe no SINAPI e preço mais de 10% acima dele, item 2 com código e preço até 10% acima, item 3 sem código, itens 4 e 5 com o mesmo código → AC-24
+
+### UI / manual
+
+- [x] Em `/configuracoes/material`, aba `SINAPI`, enviar o CSV com o mês `08/2026` → aparece a revisão com o total de insumos; `Aplicar` → o mês aparece em "Meses importados" como mais recente, e a descrição com `;` foi lida inteira → AC-25
+- [x] Enviar o mesmo mês de novo → "Este mês já foi importado." e nada muda → AC-25
+- [x] Enviar um CSV sem a coluna `PRECO` → "Falta a coluna PRECO no cabeçalho."; enviar um com preço `1,234` → recusa com o número da linha, e nada é gravado → AC-24, AC-25
+- [x] Aba `Anexo V`: escolher o contrato e enviar o CSV → revisão com 5 novos; `Aplicar` → a tabela do contrato mostra a versão 1; o item 1 tem a marca "acima do SINAPI além do percentual", o item 2 não → AC-24, AC-29
+- [x] Com uma importação pendente, tentar enviar outra do mesmo tipo → o formulário diz que há uma aberta; `Descartar` libera o envio → AC-24
+- [x] No item 3, `Marcar` com motivo → marca "marcado pelo Admin"; reimportar o Anexo V com o `CODIGO_SINAPI` do item 1 vazio → a revisão não conta o item 1 como alterado; depois de aplicar, o item 1 mantém o código e o item 3 mantém a marca manual (versão 2) → AC-24, AC-29
+- [x] No item 3, `Código`, informar o código de um insumo mais barato que ele além de 10%, com motivo → a marca automática liga sozinha, e a manual continua → AC-24, AC-29
+- [x] O painel "O que falta" lista o item do Anexo V sem código SINAPI; com um contrato vigente sem Anexo V, ele aparece; sem nenhum mês SINAPI, aparece "Nenhum mês do SINAPI importado" → AC-28, AC-30
+- [x] Como responsável técnico, numa cotação em rascunho de um chamado `Manutenção Predial`, clicar `Buscar no Anexo V ou SINAPI` e buscar pela descrição do item 1 → aparece o item do Anexo V marcado "tem equivalente SINAPI" e o insumo na lista do SINAPI, com preço só para leitura → AC-26
+- [x] `Usar` o item 1 → o item mostra "o fiscal escolhe a base", sem campo de preço e com a unidade travada; `Usar` um insumo só do SINAPI em outro item → origem SINAPI com o preço do mês; `Usar` o insumo dos itens 4 e 5 → "Este insumo equivale aos itens 4 e 5 do Anexo V; escolha um deles." → AC-26
+- [x] Os orçamentos do editor só pedem preço para os itens que ficaram em "Três orçamentos"; uma cotação só com itens da tabela é enviada sem orçamento → AC-26
+- [x] Num chamado de tipo de serviço sem contrato vigente, a busca diz que não há Anexo V e só oferece o SINAPI → AC-30
+- [x] Classificar um item com o item do Anexo V e, antes de enviar, reimportar o Anexo V sem esse número → `Salvar e enviar` recusa com "classifique o item de novo" → AC-26
+- [x] Como fiscal, assumir a cotação enviada → a coluna "Origem do preço" mostra as duas bases lado a lado com os preços, a advertência "Preço do Anexo V acima do SINAPI" e "Conferência obrigatória" no item 1; o item sem código mostra "sem referência SINAPI" → AC-27, AC-28, AC-29
+- [x] `Encaminhar para aprovação` abre o diálogo pedindo a base e a justificativa do item 1 e a conferência dele; o botão só libera com os textos de 10 caracteres ou mais; depois de encaminhar, o preço do item vira o da base escolhida e a justificativa aparece → AC-27, AC-29
+- [x] Como aprovador, abrir a cotação → vê as duas bases, a base escolhida e a advertência de preço → AC-27, AC-28
+- [x] Devolver uma cotação com item `ambas` já escolhido → a base e a conferência somem, e o preço volta a "provisório" → AC-27
+- [x] Como responsável técnico, abrir a cotação enviada → vê a origem e a referência (item do Anexo V, código SINAPI), mas não os dois preços lado a lado nem as advertências de preço → AC-15
+
+### Value sourcing
+
+- [x] Anexo V oferecido: mudar o tipo de serviço do chamado para um que o contrato não cobre, ou a vigência do contrato para terminar ontem (dia de Belém) → a busca deixa de oferecer o caminho 1 → AC-30
+- [x] Origem nunca vem da entrada: chamar `classificarItemAction` com `escolha: { origem: 'anexo_v' }` ou com um preço junto → recusado pelo schema; com `{ sinapiCodigo }` de um insumo equivalente a um item vigente, a origem gravada é `ambas` → AC-26
+- [x] Mês, UF e regime do SINAPI: o mês gravado é o do formulário, mesmo que o nome do arquivo diga outro; todo insumo tem `uf: 'AP'` e `regime: 'nao_desonerado'` (conferir em `sinapiinsumos`) → AC-25
+- [x] Marca automática: importar um mês SINAPI mais novo em que o preço do item 1 sobe e fica dentro dos 10% → a marca automática desliga e a manual de outro item não muda; importar um mês mais antigo que o mais recente não mexe em marca nenhuma → AC-29
+- [x] Lista de conferência lida no ato: marcar à mão um item depois de a cotação ser enviada → o encaminhar passa a pedir a conferência dele; a marca usada vai para `itensNoAto[].marcaAnomalia` do evento → AC-29
+- [x] Preço do caminho 1: copiado do item vigente de mesmo número no envio; reimportar o Anexo V com outro preço depois do envio não muda a cotação → AC-26
+- [x] Preço do caminho 2: o do mês SINAPI mais recente no envio; importar um mês mais novo depois do envio não muda a cotação → AC-26
+- [x] Itens sem código no painel: só os da versão vigente com `sinapiCodigo` vazio; um item com código fora do mês mais recente não entra no painel, mas a cotação mostra "sem referência SINAPI" → AC-28
+
+### Commands
+
+- [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/material shared/material "app/(dashboard)/cotacoes" "app/(dashboard)/configuracoes/material"` → passa → AC-24 a AC-30 (os testes próprios da fatia 3 ainda são do `/test`)
+
+### Acceptance-criteria coverage
+
+- AC-24 · importação, revisão, versão, herança do código e da marca, correção do código · AC-25 · layout, cabeçalho procurado, Windows-1252, mês imutável · AC-26 · busca, classificação, origem derivada, preço congelado, `classificacao_desatualizada` · AC-27 · bases lado a lado, escolha com justificativa, devolução limpa · AC-28 · advertências de preço, painel de itens sem código · AC-29 · marca automática e manual, conferência no encaminhar · AC-30 · caminho 1 só com contrato e Anexo V, caminho 2 só com SINAPI, painel

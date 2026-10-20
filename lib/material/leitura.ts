@@ -24,6 +24,7 @@ import {
   pendenciaDaContratada,
 } from './pendencia';
 import { type PrazoAteste, prazoDoAteste } from './prazos';
+import { marcasDeConferencia } from './precos';
 import { type EmpenhoElegivel, empenhosElegiveis } from './saldo';
 import {
   type ArquivoBruto,
@@ -174,8 +175,13 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
   const ativo = chamado.ativoId
     ? await AtivoModel.findById(chamado.ativoId).select('codigo descricao').lean()
     : null;
+  // A lista de conferência obrigatória é lida agora, enquanto a análise pode encaminhar (AC-29).
+  const marcas =
+    visao === 'trf1' && (cot.situacao === 'enviada' || cot.situacao === 'em_analise')
+      ? await marcasDeConferencia(cot.itens)
+      : undefined;
   const detalhe: DetalheCotacao = {
-    cotacao: serializarCotacao(cot, visao, sessao, await extras(cot)),
+    cotacao: serializarCotacao(cot, visao, sessao, { ...(await extras(cot)), marcas }),
     acoes: acoesDisponiveis(cot, papeis, ehTecnicoAtribuido),
     chamado: {
       id: String(chamado._id),

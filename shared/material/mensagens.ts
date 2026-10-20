@@ -111,6 +111,11 @@ export const CODIGOS_CONTROLE = [
   'execucao_acima_autorizado',
   'evidencia_ausente',
   'divergencia_execucao',
+  'classificacao_desatualizada',
+  'base_nao_escolhida',
+  'conferencia_pendente',
+  'anexo_v_acima_sinapi',
+  'sem_referencia_sinapi',
 ] as const;
 export type CodigoControle = (typeof CODIGOS_CONTROLE)[number];
 
@@ -163,7 +168,97 @@ export const CONTROLES: Record<
     ve: 'trf1',
     texto: 'Divergência na execução: aplicado menos que o autorizado.',
   },
+  classificacao_desatualizada: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto:
+      'A tabela de preço mudou e um item não vale mais como foi classificado: classifique o item de novo.',
+  },
+  base_nao_escolhida: {
+    tipo: 'impedimento',
+    ve: 'trf1',
+    texto:
+      'Escolha a base de preço (Anexo V ou SINAPI) de cada item que está nas duas, com justificativa.',
+  },
+  conferencia_pendente: {
+    tipo: 'impedimento',
+    ve: 'trf1',
+    texto: 'Registre a conferência de cada item da lista de conferência obrigatória.',
+  },
+  anexo_v_acima_sinapi: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto: 'Preço do Anexo V acima do SINAPI além do percentual admitido.',
+  },
+  sem_referencia_sinapi: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto: 'Item do Anexo V sem referência SINAPI.',
+  },
 };
+
+/** Advertências de preço da fatia 3: recalculadas a cada transição (AC-28). */
+export const CODIGOS_ADVERTENCIA_PRECO: readonly CodigoControle[] = [
+  'anexo_v_acima_sinapi',
+  'sem_referencia_sinapi',
+];
+
+// ---------------------------------------------------------------------------
+// Fatia 3: classificação, busca e importação
+// ---------------------------------------------------------------------------
+
+/** Recusas da classificação de um item (AC-26, AC-30). */
+export const ERROS_CLASSIFICACAO = {
+  sem_contrato:
+    'Não há contrato vigente com Anexo V para o tipo de serviço deste chamado; use o SINAPI ou três orçamentos.',
+  item_fora_da_versao:
+    'Este item não está no Anexo V vigente do contrato do chamado. Busque de novo.',
+  sem_sinapi: 'Não há SINAPI importado; use o Anexo V ou três orçamentos.',
+  insumo_fora_do_mes: 'Este insumo não está no mês mais recente do SINAPI. Busque de novo.',
+  item_inexistente: 'Item não encontrado na cotação. Salve o rascunho e tente de novo.',
+} as const;
+
+/** O insumo SINAPI equivale a mais de um item vigente do Anexo V (_Derivação da origem_). */
+export function erroInsumoEquivaleAVarios(numeros: readonly number[]): string {
+  const lista = [...numeros].sort((a, b) => a - b);
+  const texto =
+    lista.length > 1
+      ? `${lista.slice(0, -1).join(', ')} e ${lista[lista.length - 1]}`
+      : String(lista[0] ?? '');
+  return `Este insumo equivale aos itens ${texto} do Anexo V; escolha um deles.`;
+}
+
+/** Recusas da importação do Anexo V e do SINAPI (AC-24, AC-25). */
+export const ERROS_IMPORTACAO_MATERIAL = {
+  arquivo_ausente: 'Envie o arquivo CSV.',
+  arquivo_grande: 'O arquivo passa de 10 MB.',
+  arquivo_vazio: 'O arquivo está vazio.',
+  linhas_demais: 'O arquivo passa de 20.000 linhas.',
+  sem_linhas: 'O arquivo não tem nenhuma linha depois do cabeçalho.',
+  contrato_ausente: 'Escolha o contrato do Anexo V.',
+  contrato_inexistente: 'Contrato não encontrado.',
+  referencia_invalida: 'Informe o mês de referência do SINAPI (mês e ano).',
+  mes_ja_importado: 'Este mês já foi importado.',
+  ja_pendente: 'Já há uma importação deste tipo aberta. Aplique ou descarte a que está em revisão.',
+  fechada: 'Esta importação já foi aplicada, descartada ou expirou.',
+  em_aplicacao: 'A importação já está sendo aplicada.',
+  anexo_v_mudou: 'O Anexo V mudou depois da revisão; envie o arquivo de novo.',
+} as const;
+
+/** Mensagem da recusa por colunas que faltaram no cabeçalho. */
+export function erroColunasFaltando(colunas: readonly string[]): string {
+  return colunas.length === 1
+    ? `Falta a coluna ${colunas[0]} no cabeçalho.`
+    : `Faltam as colunas ${colunas.join(', ')} no cabeçalho.`;
+}
+
+/** Rótulo da marca de conferência obrigatória de um item do Anexo V (AC-29). */
+export function textoMarcaAnomalia(m: { automatica: boolean; manual: boolean }): string | null {
+  if (m.automatica && m.manual) return 'acima do SINAPI e marcado pelo Admin';
+  if (m.automatica) return 'acima do SINAPI além do percentual';
+  if (m.manual) return 'marcado pelo Admin';
+  return null;
+}
 
 /** Avisos (Notification, e-mail): título por situação nova, sem valor (AC-16). */
 export function tituloAvisoCotacao(numero: string, situacao: SituacaoCotacao): string {

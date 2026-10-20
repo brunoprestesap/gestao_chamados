@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  acimaDoPercentual,
   menorPrecoDoItem,
+  normalizarCodigoSinapi,
+  normalizarTextoBusca,
+  precoParaValor,
   precosDoItem,
   reaisParaCentavos,
   valorDaLinhaCentavos,
+  valorProvisorio,
   valorTotalCentavos,
 } from '../valores';
 
@@ -104,4 +109,92 @@ describe('reaisParaCentavos', () => {
       expect(reaisParaCentavos(texto)).toBeNull();
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Fatia 3: valor provisório de `ambas`, percentual e textos normalizados
+// covers: AC-26, AC-27, AC-28
+// ---------------------------------------------------------------------------
+
+describe('precoParaValor e valorProvisorio (AC-27)', () => {
+  it('fora de ambas, vale o preço aplicado', () => {
+    expect(precoParaValor({ quantidade: 1, precoAplicadoCentavos: 300, origem: 'sinapi' })).toBe(
+      300,
+    );
+  });
+
+  it('em ambas sem base escolhida, vale o maior dos dois preços', () => {
+    const item = {
+      quantidade: 1,
+      precoAplicadoCentavos: null,
+      origem: 'ambas',
+      anexoVPrecoCentavos: 15000,
+      sinapiPrecoCentavos: 10000,
+    };
+    expect(precoParaValor(item)).toBe(15000);
+    expect(valorProvisorio(item)).toBe(true);
+  });
+
+  it('em ambas com base escolhida, vale a base e o valor deixa de ser provisório', () => {
+    const item = {
+      quantidade: 1,
+      precoAplicadoCentavos: 10000,
+      origem: 'ambas',
+      anexoVPrecoCentavos: 15000,
+      sinapiPrecoCentavos: 10000,
+    };
+    expect(precoParaValor(item)).toBe(10000);
+    expect(valorProvisorio(item)).toBe(false);
+  });
+
+  it('sem preço nenhum fora de ambas, não há valor', () => {
+    expect(
+      precoParaValor({ quantidade: 1, precoAplicadoCentavos: null, origem: 'orcamento' }),
+    ).toBeNull();
+  });
+
+  it('o total soma o provisório de ambas junto das outras linhas', () => {
+    expect(
+      valorTotalCentavos([
+        {
+          quantidade: 10,
+          precoAplicadoCentavos: null,
+          origem: 'ambas',
+          anexoVPrecoCentavos: 15000,
+          sinapiPrecoCentavos: 10000,
+        },
+        { quantidade: 4, precoAplicadoCentavos: 2000, origem: 'sinapi' },
+      ]),
+    ).toBe(150000 + 8000);
+  });
+});
+
+describe('acimaDoPercentual (RN-27, RN-52)', () => {
+  it('compara em inteiros, sem arredondar', () => {
+    expect(acimaDoPercentual(1100, 1000, 10)).toBe(false);
+    expect(acimaDoPercentual(1101, 1000, 10)).toBe(true);
+    expect(acimaDoPercentual(1, 1, 0)).toBe(false);
+    expect(acimaDoPercentual(2, 1, 0)).toBe(true);
+  });
+});
+
+describe('normalizarCodigoSinapi', () => {
+  it.each([
+    ['00.123', '123'],
+    [' 1 234 ', '1234'],
+    ['', ''],
+    ['   ', ''],
+  ])('%j vira %j', (entrada, saida) => {
+    expect(normalizarCodigoSinapi(entrada)).toBe(saida);
+  });
+
+  it.each(['12A', '1-2', '000'])('%j é recusado', (entrada) => {
+    expect(normalizarCodigoSinapi(entrada)).toBeNull();
+  });
+});
+
+describe('normalizarTextoBusca', () => {
+  it('tira acento, baixa a caixa e colapsa espaços', () => {
+    expect(normalizarTextoBusca('  Lâmpada   FLUORESCENTE ')).toBe('lampada fluorescente');
+  });
 });

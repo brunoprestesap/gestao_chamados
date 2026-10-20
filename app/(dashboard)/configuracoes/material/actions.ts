@@ -14,12 +14,18 @@ import {
   movimentarEmpenho,
   revogarDesignacao,
 } from '@/lib/material/cadastro';
+import { aplicarImportacao } from '@/lib/material/importacao/aplicar';
+import { descartarImportacao } from '@/lib/material/importacao/pendente';
+import { corrigirCodigoSinapi, marcarAnomalia } from '@/lib/material/tabelas';
 import { ERRO_SEM_PERMISSAO } from '@/shared/ativos/ativo.constants';
 import {
+  CorrigirCodigoSinapiSchema,
   CriarDesignacaoSchema,
   CriarEmpenhoSchema,
   CriarFaixaSchema,
   DesativarFaixaSchema,
+  ImportacaoMaterialIdSchema,
+  MarcarAnomaliaSchema,
   MovimentoEmpenhoSchema,
   RevogarDesignacaoSchema,
   SituacaoEmpenhoSchema,
@@ -96,6 +102,45 @@ export async function criarDesignacaoAction(raw: unknown): Promise<Resultado> {
   const p = CriarDesignacaoSchema.safeParse(raw);
   if (!p.success) return primeiroErro(p.error.issues);
   return executar('criar designação', () => criarDesignacao(sessao.userId, p.data));
+}
+
+/** Aplica a importação revisada do Anexo V ou do SINAPI (AC-24, AC-25). */
+export async function aplicarImportacaoAction(raw: unknown): Promise<Resultado> {
+  const sessao = await sessaoAdmin();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const p = ImportacaoMaterialIdSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return executar('aplicar importação', () =>
+    aplicarImportacao(p.data.importacaoId, sessao.userId),
+  );
+}
+
+export async function descartarImportacaoAction(raw: unknown): Promise<Resultado> {
+  const sessao = await sessaoAdmin();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const p = ImportacaoMaterialIdSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return executar('descartar importação', () =>
+    descartarImportacao(p.data.importacaoId, sessao.userId),
+  );
+}
+
+/** Marca ou desmarca à mão a conferência obrigatória de um item do Anexo V (AC-29). */
+export async function marcarAnomaliaAction(raw: unknown): Promise<Resultado> {
+  const sessao = await sessaoAdmin();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const p = MarcarAnomaliaSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return executar('marcar anomalia', () => marcarAnomalia(sessao.userId, p.data));
+}
+
+/** Corrige o código SINAPI de um item do Anexo V, com motivo (AC-24). */
+export async function corrigirCodigoSinapiAction(raw: unknown): Promise<Resultado> {
+  const sessao = await sessaoAdmin();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const p = CorrigirCodigoSinapiSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return executar('corrigir código SINAPI', () => corrigirCodigoSinapi(sessao.userId, p.data));
 }
 
 export async function revogarDesignacaoAction(raw: unknown): Promise<Resultado> {

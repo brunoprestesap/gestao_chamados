@@ -24,6 +24,23 @@ const ItemNoAtoSchema = new Schema(
     baseAplicada: { type: String, default: null },
     precoAplicadoCentavos: { type: Number, default: null },
     quantidadeExecutada: { type: Number, default: null },
+    // Fatia 3: as duas bases copiadas, a escolha do fiscal e a conferência.
+    anexoVNumero: { type: Number, default: null },
+    anexoVVersao: { type: Number, default: null },
+    anexoVPrecoCentavos: { type: Number, default: null },
+    sinapiCodigo: { type: String, default: null },
+    sinapiReferencia: { type: String, default: null },
+    sinapiPrecoCentavos: { type: Number, default: null },
+    justificativaBase: { type: String, default: null },
+    conferencia: { type: String, default: null },
+    // A marca que pôs o item na lista de conferência, lida no ato (AC-29).
+    marcaAnomalia: {
+      type: new Schema(
+        { automatica: { type: Boolean }, manual: { type: Boolean } },
+        { _id: false },
+      ),
+      default: null,
+    },
   },
   { _id: false },
 );

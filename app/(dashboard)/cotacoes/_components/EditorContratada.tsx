@@ -1,6 +1,6 @@
 'use client';
 
-import { FileUp, Loader2, Plus, Send, Trash2 } from 'lucide-react';
+import { FileUp, Loader2, Plus, Search, Send, Trash2 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
@@ -18,8 +18,9 @@ import {
 import type { CodigoControle } from '@/shared/material/mensagens';
 import { reaisParaCentavos, valorDaLinhaCentavos } from '@/shared/material/valores';
 
-import { enviarCotacaoAction, salvarRascunhoAction } from '../actions';
+import { classificarItemAction, enviarCotacaoAction, salvarRascunhoAction } from '../actions';
 import { centavosParaCampo, enviarArquivo, novoId, numeroBr } from './apoio';
+import { DialogClassificar, type EscolhaTabela } from './DialogClassificar';
 
 type Item = {
   id: string;
@@ -28,7 +29,27 @@ type Item = {
   quantidade: string;
   motivo: string;
   doDiagnostico: boolean;
+  /** Fatia 3: de onde vem o preço; `null` ou `orcamento` é o caminho 3. */
+  origem: string | null;
+  anexoVNumero: number | null;
+  sinapiCodigo: string | null;
+  sinapiReferencia: string | null;
+  precoTabelaCentavos: number | null;
+  valorProvisorio: boolean;
 };
+
+const daTabela = (i: Pick<Item, 'origem'>) => !!i.origem && i.origem !== 'orcamento';
+
+/** Como o responsável técnico lê a origem do preço de um item classificado. */
+function textoDaOrigem(i: Item): string {
+  const mes = i.sinapiReferencia ? i.sinapiReferencia.split('-').reverse().join('/') : '';
+  if (i.origem === 'anexo_v') return `Anexo V, item ${i.anexoVNumero}`;
+  if (i.origem === 'sinapi') return `SINAPI ${i.sinapiCodigo} (${mes})`;
+  if (i.origem === 'ambas') {
+    return `Anexo V, item ${i.anexoVNumero}, e SINAPI ${i.sinapiCodigo} (${mes}): o fiscal escolhe a base`;
+  }
+  return 'Três orçamentos';
+}
 
 type Orcamento = {
   id: string;
@@ -51,6 +72,12 @@ function doDto(c: CotacaoDTO): { itens: Item[]; orcamentos: Orcamento[] } {
       quantidade: formatarQuantidade(i.quantidade),
       motivo: i.motivo,
       doDiagnostico: i.doDiagnostico,
+      origem: i.origem ?? null,
+      anexoVNumero: i.anexoVNumero ?? null,
+      sinapiCodigo: i.sinapiCodigo ?? null,
+      sinapiReferencia: i.sinapiReferencia ?? null,
+      precoTabelaCentavos: daTabela({ origem: i.origem ?? null }) ? i.precoAplicadoCentavos : null,
+      valorProvisorio: !!i.valorProvisorio,
     })),
     orcamentos: (c.orcamentos ?? []).map((o) => ({
       id: o.id,
@@ -88,6 +115,7 @@ export function EditorContratada({
   const [versao, setVersao] = useState(cotacao.versao);
   const [erro, setErro] = useState<string | null>(null);
   const [enviandoArquivo, setEnviandoArquivo] = useState<string | null>(null);
+  const [classificando, setClassificando] = useState<Item | null>(null);
   const [pendente, iniciar] = useTransition();
 
   function mudarItem(id: string, campo: keyof Item, valor: string) {
@@ -119,7 +147,8 @@ export function EditorContratada({
   }
 
   function montarEntrada(v: number) {
-    const ids = new Set(itens.map((i) => i.id));
+    // Só os itens do caminho 3 recebem preço de orçamento.
+    const ids = new Set(itens.filter((i) => !daTabela(i)).map((i) => i.id));
     return {
       id: cotacao.id,
       versao: v,
@@ -144,6 +173,39 @@ export function EditorContratada({
     };
   }
 
+  /**
+   * Classificar grava o rascunho antes, para o item novo existir no servidor e
+   * nada digitado se perder; depois a tela recarrega com o preço da tabela.
+   */
+  function classificar(itemId: string, escolha: EscolhaTabela | { orcamento: true }) {
+    setErro(null);
+    if (orcamentos.some((o) => !o.arquivoId)) {
+      setErro('Anexe o arquivo de cada orçamento antes de salvar.');
+      return;
+    }
+    iniciar(async () => {
+      const r = await salvarRascunhoAction(montarEntrada(versao));
+      if (!r.ok) {
+        setErro(r.error);
+        return;
+      }
+      setVersao(r.versao);
+      const c = await classificarItemAction({ id: cotacao.id, versao: r.versao, itemId, escolha });
+      if (!c.ok) {
+        // O rascunho já foi salvo e a versão subiu: recarregar monta o editor de novo
+        // (a tela usa `key={versao}`), e um erro guardado aqui sumiria. O aviso fica.
+        toast.error(c.error);
+        onAlterado();
+        return;
+      }
+      setClassificando(null);
+      toast.success(
+        'orcamento' in escolha ? 'Item voltou para três orçamentos.' : 'Preço da tabela aplicado.',
+      );
+      onAlterado();
+    });
+  }
+
   function salvar(eDepois?: 'enviar') {
     setErro(null);
     onImpedimentos([]);
@@ -165,7 +227,8 @@ export function EditorContratada({
       }
       const e = await enviarCotacaoAction({ id: cotacao.id, versao: r.versao });
       if (!e.ok) {
-        setErro(e.error);
+        // Mesmo motivo da classificação: o editor é montado de novo ao recarregar.
+        toast.error(e.error);
         onImpedimentos(e.impedimentos ?? []);
         onAlterado();
         return;
@@ -220,7 +283,8 @@ export function EditorContratada({
                 <Input
                   id={`u-${i.id}`}
                   value={i.unidade}
-                  readOnly={i.doDiagnostico}
+                  // A unidade do item classificado é a da tabela (AC-26).
+                  readOnly={i.doDiagnostico || daTabela(i)}
                   onChange={(e) => mudarItem(i.id, 'unidade', e.target.value)}
                 />
               </div>
@@ -259,12 +323,50 @@ export function EditorContratada({
                   </Button>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground sm:col-span-3">
-                Preço em {cotacoesDoItem(i.id)} de {MIN_ORCAMENTOS_POR_ITEM} orçamentos
-                {menor != null && Number.isFinite(qtd)
-                  ? ` · menor preço ${formatarReais(menor)} · linha ${formatarReais(valorDaLinhaCentavos(qtd, menor))}`
-                  : ''}
-              </p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:col-span-3">
+                {daTabela(i) ? (
+                  <p className="flex-1">
+                    <span className="font-medium text-foreground">{textoDaOrigem(i)}</span>
+                    {i.precoTabelaCentavos != null
+                      ? ` · ${formatarReais(i.precoTabelaCentavos)} por ${i.unidade}` +
+                        (Number.isFinite(qtd)
+                          ? ` · linha ${formatarReais(valorDaLinhaCentavos(qtd, i.precoTabelaCentavos))}`
+                          : '')
+                      : i.valorProvisorio
+                        ? ' · valor provisório até o fiscal escolher a base'
+                        : ''}
+                  </p>
+                ) : (
+                  <p className="flex-1">
+                    Preço em {cotacoesDoItem(i.id)} de {MIN_ORCAMENTOS_POR_ITEM} orçamentos
+                    {menor != null && Number.isFinite(qtd)
+                      ? ` · menor preço ${formatarReais(menor)} · linha ${formatarReais(valorDaLinhaCentavos(qtd, menor))}`
+                      : ''}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  disabled={pendente}
+                  onClick={() => setClassificando(i)}
+                >
+                  <Search className="h-3.5 w-3.5" aria-hidden="true" />
+                  {daTabela(i) ? 'Trocar item da tabela' : 'Buscar no Anexo V ou SINAPI'}
+                </Button>
+                {daTabela(i) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={pendente}
+                    onClick={() => classificar(i.id, { orcamento: true })}
+                  >
+                    Usar três orçamentos
+                  </Button>
+                )}
+              </div>
             </fieldset>
           );
         })}
@@ -284,6 +386,12 @@ export function EditorContratada({
                   quantidade: '',
                   motivo: '',
                   doDiagnostico: false,
+                  origem: null,
+                  anexoVNumero: null,
+                  sinapiCodigo: null,
+                  sinapiReferencia: null,
+                  precoTabelaCentavos: null,
+                  valorProvisorio: false,
                 },
               ])
             }
@@ -299,8 +407,9 @@ export function EditorContratada({
           Orçamentos
         </h2>
         <p className="text-xs text-muted-foreground">
-          Cada item precisa de preço em ao menos {MIN_ORCAMENTOS_POR_ITEM} orçamentos. Um orçamento
-          pode cotar só parte dos itens; o preço do item é o menor entre os que o cotaram.
+          Cada item fora do Anexo V e do SINAPI precisa de preço em ao menos{' '}
+          {MIN_ORCAMENTOS_POR_ITEM} orçamentos. Um orçamento pode cotar só parte dos itens; o preço
+          do item é o menor entre os que o cotaram.
         </p>
         {orcamentos.map((o, n) => (
           <fieldset key={o.id} className="space-y-3 rounded-xl border border-border/60 p-3">
@@ -380,20 +489,22 @@ export function EditorContratada({
               <p className="text-xs font-medium text-muted-foreground">
                 Preço unitário por item (deixe vazio o que este orçamento não cotou)
               </p>
-              {itens.map((i, k) => (
-                <div key={i.id} className="grid items-center gap-2 sm:grid-cols-[1fr_10rem]">
-                  <Label htmlFor={`p-${o.id}-${i.id}`} className="text-sm font-normal">
-                    {k + 1}. {i.descricao || 'item sem descrição'} ({i.unidade})
-                  </Label>
-                  <Input
-                    id={`p-${o.id}-${i.id}`}
-                    inputMode="decimal"
-                    placeholder="R$"
-                    value={o.precos[i.id] ?? ''}
-                    onChange={(e) => mudarPreco(o.id, i.id, e.target.value)}
-                  />
-                </div>
-              ))}
+              {itens.map((i, k) =>
+                daTabela(i) ? null : (
+                  <div key={i.id} className="grid items-center gap-2 sm:grid-cols-[1fr_10rem]">
+                    <Label htmlFor={`p-${o.id}-${i.id}`} className="text-sm font-normal">
+                      {k + 1}. {i.descricao || 'item sem descrição'} ({i.unidade})
+                    </Label>
+                    <Input
+                      id={`p-${o.id}-${i.id}`}
+                      inputMode="decimal"
+                      placeholder="R$"
+                      value={o.precos[i.id] ?? ''}
+                      onChange={(e) => mudarPreco(o.id, i.id, e.target.value)}
+                    />
+                  </div>
+                ),
+              )}
             </div>
             <Button
               type="button"
@@ -451,6 +562,17 @@ export function EditorContratada({
           Salvar e enviar para análise
         </Button>
       </div>
+
+      {classificando && (
+        <DialogClassificar
+          cotacaoId={cotacao.id}
+          item={classificando}
+          open
+          escolhendo={pendente}
+          onOpenChange={(o) => !o && setClassificando(null)}
+          onEscolher={(escolha) => classificar(classificando.id, escolha)}
+        />
+      )}
     </div>
   );
 }
