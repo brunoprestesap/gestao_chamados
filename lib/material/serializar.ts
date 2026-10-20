@@ -5,6 +5,7 @@ import type { Types } from 'mongoose';
 import {
   type PapelEvento,
   type SituacaoCotacao,
+  type SituacaoProjecao,
   type TipoArquivoCotacao,
 } from '@/shared/material/material.constants';
 import { type CodigoControle, CONTROLES } from '@/shared/material/mensagens';
@@ -131,7 +132,17 @@ export type EventoBruto = {
   empenhoId: Types.ObjectId | null;
   valorCentavos: number | null;
   advertenciasNoAto: string[];
+  /** Fatia 5: a projeção mostrada ao aprovador (AC-38), só no `aprovar` com a parcela relevante. */
+  projecaoNoAto?: ProjecaoNoAto | null;
   em: Date;
+};
+
+export type ProjecaoNoAto = {
+  empenhoId: string;
+  saldoCentavos: number;
+  mediaDiariaCentavos: number | null;
+  dataEstimada: string | null;
+  situacao: SituacaoProjecao;
 };
 
 export type ArquivoBruto = {
@@ -230,6 +241,7 @@ export type EventoDTO = {
   limiteCentavosNoAto?: number | null;
   valorCentavos?: number | null;
   advertencias?: string[];
+  projecao?: ProjecaoNoAto | null;
 };
 
 export type ArquivoDTO = {
@@ -582,6 +594,7 @@ export function serializarCotacao(
     limiteCentavosNoAto: ev.limiteCentavosNoAto,
     valorCentavos: ev.valorCentavos,
     advertencias: ev.advertenciasNoAto,
+    projecao: ev.projecaoNoAto ?? null,
   }));
   return base;
 }

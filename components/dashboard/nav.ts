@@ -1,6 +1,7 @@
 // components/dashboard/nav.ts
 import type { LucideIcon } from 'lucide-react';
 import {
+  BarChart3,
   Building2,
   Calendar,
   CalendarClock,
@@ -147,6 +148,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Cadastro de material',
     href: '/configuracoes/material',
     icon: Landmark,
+    group: 'Material',
+    allowedRoles: ['Admin'],
+  },
+  {
+    label: 'Relatório de material',
+    href: '/relatorios/material',
+    icon: BarChart3,
     group: 'Material',
     allowedRoles: ['Admin'],
   },

@@ -16,6 +16,7 @@ import {
 } from '@/lib/material/cadastro';
 import { aplicarImportacao } from '@/lib/material/importacao/aplicar';
 import { descartarImportacao } from '@/lib/material/importacao/pendente';
+import { salvarParametros } from '@/lib/material/parametros';
 import { corrigirCodigoSinapi, marcarAnomalia } from '@/lib/material/tabelas';
 import { ERRO_SEM_PERMISSAO } from '@/shared/ativos/ativo.constants';
 import {
@@ -27,6 +28,7 @@ import {
   ImportacaoMaterialIdSchema,
   MarcarAnomaliaSchema,
   MovimentoEmpenhoSchema,
+  ParametrosSchema,
   RevogarDesignacaoSchema,
   SituacaoEmpenhoSchema,
 } from '@/shared/material/cotacao.schemas';
@@ -102,6 +104,28 @@ export async function criarDesignacaoAction(raw: unknown): Promise<Resultado> {
   const p = CriarDesignacaoSchema.safeParse(raw);
   if (!p.success) return primeiroErro(p.error.issues);
   return executar('criar designação', () => criarDesignacao(sessao.userId, p.data));
+}
+
+/**
+ * Grava os parâmetros (AC-42), condicional aos valores lidos ao abrir a tela.
+ * `aviso` quando a gravação passou e o recálculo da anomalia falhou.
+ */
+export async function salvarParametrosAction(
+  raw: unknown,
+): Promise<{ ok: true; aviso?: string } | { ok: false; error: string }> {
+  const sessao = await sessaoAdmin();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const p = ParametrosSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  try {
+    await dbConnect();
+    const r = await salvarParametros(sessao.userId, p.data);
+    if (r.ok) revalidatePath('/configuracoes/material');
+    return r;
+  } catch (e) {
+    console.error('[material] salvar parâmetros:', e);
+    return { ok: false, error: 'Não foi possível salvar agora. Tente de novo.' };
+  }
 }
 
 /** Aplica a importação revisada do Anexo V ou do SINAPI (AC-24, AC-25). */

@@ -7,10 +7,12 @@ import {
   BUSCA_PRECO_MIN_LETRAS,
   FONTE_REFERENCIA_MAX,
   FONTE_REFERENCIA_MIN,
+  LIMITES_PARAMETROS,
   MAX_ITENS_COTACAO,
   MAX_ORCAMENTOS_COTACAO,
   MAX_REFERENCIAS_POR_PAPEL,
   PAPEIS_DESIGNACAO,
+  RELATORIO_MATERIAL_MAX_DIAS,
   TEXTO_CURTO_MAX,
   TEXTO_CURTO_MIN,
   TIPOS_MOVIMENTO_EMPENHO,
@@ -398,3 +400,75 @@ export const CorrigirCodigoSinapiSchema = z.object({
   motivo: textoCurto('Escreva o motivo'),
 });
 export type CorrigirCodigoSinapiInput = z.infer<typeof CorrigirCodigoSinapiSchema>;
+
+// ---------------------------------------------------------------------------
+// Fatia 5: parâmetros e relatório
+// ---------------------------------------------------------------------------
+
+const inteiroEntre = (rotulo: string, min: number, max: number) =>
+  z
+    .number()
+    .int(`${rotulo}: use um número inteiro.`)
+    .min(min, `${rotulo}: de ${min} a ${max}.`)
+    .max(max, `${rotulo}: de ${min} a ${max}.`);
+
+/** Os quatro parâmetros (AC-42), com os limites de cada um. */
+export const ParametrosMaterialSchema = z.object({
+  percentualSinapi: inteiroEntre(
+    'Percentual sobre o SINAPI',
+    LIMITES_PARAMETROS.percentualSinapi.min,
+    LIMITES_PARAMETROS.percentualSinapi.max,
+  ),
+  janelaDias: inteiroEntre(
+    'Janela',
+    LIMITES_PARAMETROS.janelaDias.min,
+    LIMITES_PARAMETROS.janelaDias.max,
+  ),
+  parcelaRelevantePercentual: inteiroEntre(
+    'Parcela relevante',
+    LIMITES_PARAMETROS.parcelaRelevantePercentual.min,
+    LIMITES_PARAMETROS.parcelaRelevantePercentual.max,
+  ),
+  raizCnpjContratada: z
+    .string()
+    .trim()
+    .regex(/^\d{8}$/, 'A raiz do CNPJ da contratada tem 8 dígitos.'),
+});
+
+/**
+ * Os valores lidos só entram no filtro da escrita condicional, então não
+ * passam pelos limites: um documento gravado antes da fatia 5 pode ter o
+ * percentual acima de 100 (o limite antigo era 1000), e o Admin precisa
+ * conseguir corrigi-lo pela tela.
+ */
+const ParametrosLidosSchema = z.object({
+  percentualSinapi: z.number().int().min(0),
+  janelaDias: z.number().int().min(0),
+  parcelaRelevantePercentual: z.number().int().min(0),
+  raizCnpjContratada: z.string(),
+});
+
+/** A gravação leva os valores lidos ao abrir a tela, para a escrita ser condicional. */
+export const ParametrosSchema = z.object({
+  lidos: ParametrosLidosSchema,
+  novos: ParametrosMaterialSchema,
+});
+export type ParametrosInput = z.infer<typeof ParametrosSchema>;
+
+/** O período do relatório de material (AC-41): dias de Belém, fim incluído, até 366 dias. */
+export const PeriodoRelatorioMaterialSchema = z
+  .object({ inicio: ymd, fim: ymd })
+  .refine((p) => p.inicio <= p.fim, {
+    message: 'A data inicial vem antes da final.',
+    path: ['fim'],
+  })
+  .refine(
+    (p) =>
+      (new Date(`${p.fim}T00:00:00.000Z`).getTime() -
+        new Date(`${p.inicio}T00:00:00.000Z`).getTime()) /
+        86_400_000 +
+        1 <=
+      RELATORIO_MATERIAL_MAX_DIAS,
+    { message: `O período vai até ${RELATORIO_MATERIAL_MAX_DIAS} dias.`, path: ['fim'] },
+  );
+export type PeriodoRelatorioMaterial = z.infer<typeof PeriodoRelatorioMaterialSchema>;

@@ -10,40 +10,40 @@ _São recomendações para manter a construção organizada, não obrigações. 
 
 ## At a glance
 
-| #   | Feature                                            | Phase         | Status      |
-| --- | -------------------------------------------------- | ------------- | ----------- |
-| 1   | Autenticação LDAP e perfis                         | Contexto      | existing    |
-| 2   | Unidades e usuários                                | Contexto      | existing    |
-| 3   | Catálogo de serviços                               | Contexto      | existing    |
-| 4   | Abertura de chamado por formulário                 | Contexto      | existing    |
-| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto      | existing    |
-| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto      | existing    |
-| 7   | SLA, expediente e pausas                           | Contexto      | existing    |
-| 8   | Notificações em tempo real                         | Contexto      | existing    |
-| 9   | Integração com a IA local                          | Foundation    | done        |
-| 10  | Conversa e decisões da IA no banco                 | Foundation    | done        |
-| 11  | Tela de chat de chamados                           | Slice 1       | done        |
-| 12  | Abertura do chamado pela IA                        | Slice 1       | done        |
-| 13  | Andamento e conversa com o técnico                 | Slice 2       | done        |
-| 14  | Calibração da trava de confiança                   | Slice 3       | done        |
-| 15  | Prioridade e SLA automáticos                       | Slice 3       | done        |
-| 16  | Atribuição automática ao técnico                   | Slice 3       | done        |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done        |
-| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done        |
-| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done        |
-| 24  | Importador SICAM e vistoria em campo               | Ativos        | done        |
-| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done        |
-| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done        |
-| 27  | Candidatos à substituição                          | Ativos        | done        |
-| 28  | Relatório mensal por contrato com ativo            | Ativos        | done        |
-| 30  | Custo acumulado por ativo                          | Ativos        | done        |
-| 31  | Cotação e fornecimento de material                 | Material      | in-progress |
-| 32  | IMR do contrato: indicadores 3 e 4                 | Material      | planned     |
-| 29  | Correções de integridade do chamado                | Ciclo de vida | done        |
-| 20  | Aviso de chamado duplicado                         | Slice 4       | done        |
-| 18  | Painel de acurácia da IA                           | Slice 3       | planned     |
-| 19  | Fotos no chat                                      | Slice 4       | planned     |
-| 21  | Entrada por voz                                    | Slice 4       | planned     |
+| #   | Feature                                            | Phase         | Status   |
+| --- | -------------------------------------------------- | ------------- | -------- |
+| 1   | Autenticação LDAP e perfis                         | Contexto      | existing |
+| 2   | Unidades e usuários                                | Contexto      | existing |
+| 3   | Catálogo de serviços                               | Contexto      | existing |
+| 4   | Abertura de chamado por formulário                 | Contexto      | existing |
+| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto      | existing |
+| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto      | existing |
+| 7   | SLA, expediente e pausas                           | Contexto      | existing |
+| 8   | Notificações em tempo real                         | Contexto      | existing |
+| 9   | Integração com a IA local                          | Foundation    | done     |
+| 10  | Conversa e decisões da IA no banco                 | Foundation    | done     |
+| 11  | Tela de chat de chamados                           | Slice 1       | done     |
+| 12  | Abertura do chamado pela IA                        | Slice 1       | done     |
+| 13  | Andamento e conversa com o técnico                 | Slice 2       | done     |
+| 14  | Calibração da trava de confiança                   | Slice 3       | done     |
+| 15  | Prioridade e SLA automáticos                       | Slice 3       | done     |
+| 16  | Atribuição automática ao técnico                   | Slice 3       | done     |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done     |
+| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done     |
+| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done     |
+| 24  | Importador SICAM e vistoria em campo               | Ativos        | done     |
+| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done     |
+| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done     |
+| 27  | Candidatos à substituição                          | Ativos        | done     |
+| 28  | Relatório mensal por contrato com ativo            | Ativos        | done     |
+| 30  | Custo acumulado por ativo                          | Ativos        | done     |
+| 31  | Cotação e fornecimento de material                 | Material      | done     |
+| 32  | IMR do contrato: indicadores 3 e 4                 | Material      | planned  |
+| 29  | Correções de integridade do chamado                | Ciclo de vida | done     |
+| 20  | Aviso de chamado duplicado                         | Slice 4       | done     |
+| 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
+| 19  | Fotos no chat                                      | Slice 4       | planned  |
+| 21  | Entrada por voz                                    | Slice 4       | planned  |
 
 ## Existing (contexto)
 
@@ -379,22 +379,22 @@ spec [0018](../specs/0018-custo-acumulado-ativo/index.md) · code in `shared/cha
 
 Fornecimento de material sob demanda do contrato 01/2022 (empenho específico, fora do valor do contrato), que vence em 28/02/2027.
 
-### 31. Cotação e fornecimento de material · in-progress
+### 31. Cotação e fornecimento de material · done
 
 O pedido de material sai do e-mail e da planilha: o técnico registra, a contratada cota (Anexo V, SINAPI ou três orçamentos), o fiscal analisa, o aprovador competente autoriza com saldo do empenho, o técnico aplica e o gestor atesta, com trilha que não se apaga.
 **Done when:** nenhum material é autorizado sem designação vigente, faixa suficiente e saldo reservado no empenho; a execução só ocorre depois da autorização; o lado TRF1 vê as bases de preço e as advertências, a contratada e o solicitante não; o custo do ativo inclui o material executado; o PDF da trilha é legível por terceiro.
-spec [0019](../specs/0019-cotacao-material/index.md) · code in `lib/material/`, `shared/material/`, `app/(dashboard)/cotacoes/`, `app/(dashboard)/configuracoes/material/`, `app/api/cotacoes/`, `app/api/material/importacoes/`
+spec [0019](../specs/0019-cotacao-material/index.md) · code in `lib/material/`, `shared/material/`, `app/(dashboard)/cotacoes/`, `app/(dashboard)/configuracoes/material/`, `app/(dashboard)/relatorios/material/`, `app/api/cotacoes/`, `app/api/material/importacoes/`
 
 - [x] Design it (spec): `/architect cotação e fornecimento de material`
-- [ ] Build it: `/develop cotação e fornecimento de material`
+- [x] Build it: `/develop cotação e fornecimento de material`
   - [x] Fatia 1, o fio: rascunho do técnico, caminho 3, análise, aprovação por designação e faixa, reserva no empenho com conciliação, execução, trilha, avisos, custo e fechamento do envio antigo · AC-1 a AC-20
   - [x] Fatia 2: recebimento provisório e definitivo, nota fiscal e PDF da trilha · AC-21, AC-22, AC-23
   - [x] Ajustes da revisão de 19/10 (passo 13a): data e aviso da NF, NF pendente sempre visível à contratada, selo só no TRF1, papel na emissão do PDF · AC-15, AC-16, AC-21, AC-22, AC-23
   - [x] Fatia 3: importação do Anexo V e do SINAPI, caminhos 1 e 2, duas bases, lista de anomalia · AC-24 a AC-30
   - [x] Fatia 4: controles de CNPJ, referência (SINAPI ou livre, com a do fiscal), variação e validade, e a urgência com complemento da pesquisa (decisões e regras finas de 20/10) · AC-31 a AC-35
-  - [ ] Fatia 5: fracionamento, reincidência, projeção, consumo, item parecido, parâmetros e relatório · AC-36 a AC-42
-- [ ] Verify it: `/check verify cotação e fornecimento de material`
-- [ ] Test it: `/test cotação e fornecimento de material`
+  - [x] Fatia 5: fracionamento, reincidência, projeção, consumo, item parecido, parâmetros, tentativas barradas e relatório · AC-36 a AC-43
+- [x] Verify it: `/check verify cotação e fornecimento de material`
+- [x] Test it: `/test cotação e fornecimento de material`
 
 ### 32. IMR do contrato: indicadores 3 e 4 · needs a decision
 

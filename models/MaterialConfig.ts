@@ -1,6 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
-import { MATERIAL_CONFIG_PADRAO } from '@/shared/material/material.constants';
+import { LIMITES_PARAMETROS, MATERIAL_CONFIG_PADRAO } from '@/shared/material/material.constants';
 
 /**
  * Parâmetros do fluxo de material (spec 0019), documento único de chave
@@ -25,8 +25,24 @@ const MaterialConfigSchema = new Schema(
       type: Number,
       required: true,
       default: MATERIAL_CONFIG_PADRAO.percentualSinapi,
-      min: 0,
-      max: 1000,
+      min: LIMITES_PARAMETROS.percentualSinapi.min,
+      max: LIMITES_PARAMETROS.percentualSinapi.max,
+    },
+    // Fatia 5: janela do fracionamento e da reincidência (AC-36, AC-37) e a
+    // parcela do saldo que mostra a projeção na aprovação (AC-38).
+    janelaDias: {
+      type: Number,
+      required: true,
+      default: MATERIAL_CONFIG_PADRAO.janelaDias,
+      min: LIMITES_PARAMETROS.janelaDias.min,
+      max: LIMITES_PARAMETROS.janelaDias.max,
+    },
+    parcelaRelevantePercentual: {
+      type: Number,
+      required: true,
+      default: MATERIAL_CONFIG_PADRAO.parcelaRelevantePercentual,
+      min: LIMITES_PARAMETROS.parcelaRelevantePercentual.min,
+      max: LIMITES_PARAMETROS.parcelaRelevantePercentual.max,
     },
     historico: {
       type: [

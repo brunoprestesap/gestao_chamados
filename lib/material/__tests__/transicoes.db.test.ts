@@ -1121,7 +1121,8 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       });
       expect(r.ok).toBe(true);
       const cot = await M.Cotacao.findById(c.id).lean();
-      expect(cot?.advertencias).toEqual([]);
+      // A projeção da aprovação (fatia 5, AC-38) fica; a execução cheia não acrescenta nada.
+      expect(cot?.advertencias.map((a) => a.codigo)).not.toContain('divergencia_execucao');
       expect(cot?.valorExecutadoCentavos).toBe(2000);
       expect((await M.Empenho.findById(c.empenhoId).lean())?.comprometidoCentavos).toBe(2000);
     });

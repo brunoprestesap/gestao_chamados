@@ -37,6 +37,7 @@ import {
   ROTULO_PAPEL,
   ROTULO_SITUACAO,
   textoDoMotivo,
+  textoProjecao,
 } from '@/shared/material/mensagens';
 import { precoParaValor, valorDaLinhaCentavos } from '@/shared/material/valores';
 
@@ -603,6 +604,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
                     ` · ${ev.valorCentavos >= 0 ? 'reservado' : 'liberado'} ${formatarReais(Math.abs(ev.valorCentavos))}`}
                 </p>
                 {ev.motivo && <p className="text-xs">Motivo: {textoDoMotivo(ev.motivo)}</p>}
+                {ev.projecao && <p className="text-xs">{textoProjecao(ev.projecao)}</p>}
               </li>
             ))}
           </ol>
@@ -666,19 +668,31 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
             <legend className="text-sm font-medium">Empenho</legend>
             {(detalhe.empenhosElegiveis ?? []).map((e) => {
               const cabe = e.saldoCentavos >= (c.valorTotalCentavos ?? 0);
+              const projecao = detalhe.projecoes?.find((p) => p.empenhoId === e.id);
               return (
-                <label key={e.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="empenho"
-                    value={e.id}
-                    checked={empenhoId === e.id}
-                    disabled={!cabe}
-                    onChange={() => setEmpenhoId(e.id)}
-                  />
-                  {e.numero} · saldo {formatarReais(e.saldoCentavos)}
-                  {!cabe && ' (sem saldo)'}
-                </label>
+                <div key={e.id} className="space-y-1">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="empenho"
+                      value={e.id}
+                      checked={empenhoId === e.id}
+                      disabled={!cabe}
+                      onChange={() => setEmpenhoId(e.id)}
+                      aria-describedby={projecao ? `projecao-${e.id}` : undefined}
+                    />
+                    {e.numero} · saldo {formatarReais(e.saldoCentavos)}
+                    {!cabe && ' (sem saldo)'}
+                  </label>
+                  {projecao && (
+                    <p
+                      id={`projecao-${e.id}`}
+                      className="ml-6 rounded-lg border border-amber-300/60 bg-amber-50/70 px-2 py-1 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100"
+                    >
+                      {CONTROLES.projecao_esgotamento.texto} {textoProjecao(projecao)}
+                    </p>
+                  )}
+                </div>
               );
             })}
           </fieldset>
