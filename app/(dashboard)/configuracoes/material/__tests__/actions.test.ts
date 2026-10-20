@@ -36,6 +36,8 @@ vi.mock('@/lib/material/importacao/aplicar', () => ({
 vi.mock('@/lib/material/importacao/pendente', () => ({
   descartarImportacao: tabelas.descartarImportacao,
 }));
+const parametros = vi.hoisted(() => ({ salvarParametros: vi.fn() }));
+vi.mock('@/lib/material/parametros', () => parametros);
 vi.mock('@/lib/material/tabelas', () => ({
   marcarAnomalia: tabelas.marcarAnomalia,
   corrigirCodigoSinapi: tabelas.corrigirCodigoSinapi,
@@ -52,6 +54,7 @@ import {
   marcarAnomaliaAction,
   movimentarEmpenhoAction,
   revogarDesignacaoAction,
+  salvarParametrosAction,
 } from '../actions';
 
 const ID = 'a'.repeat(24);
@@ -203,5 +206,89 @@ describe('Anexo V e SINAPI (AC-24, AC-25, AC-29)', () => {
       ok: false,
       error: 'Não foi possível salvar agora. Tente de novo.',
     });
+  });
+});
+
+// ── parâmetros (fatia 5) ─────────────────────────────────────────
+
+describe('salvarParametrosAction (AC-42)', () => {
+  // covers: AC-42
+  const padrao = {
+    percentualSinapi: 10,
+    janelaDias: 90,
+    parcelaRelevantePercentual: 20,
+    raizCnpjContratada: '03543374',
+  };
+
+  beforeEach(() => {
+    parametros.salvarParametros.mockResolvedValue({ ok: true });
+  });
+
+  it('grava com o autor da sessão os valores lidos e os novos', async () => {
+    // Arrange
+    const entrada = { lidos: padrao, novos: { ...padrao, janelaDias: 30 } };
+
+    // Act
+    const r = await salvarParametrosAction(entrada);
+
+    // Assert
+    expect(r).toEqual({ ok: true });
+    expect(parametros.salvarParametros).toHaveBeenCalledWith(ADMIN, entrada);
+  });
+
+  it('repassa o aviso quando a gravação passou e o recálculo da anomalia falhou', async () => {
+    parametros.salvarParametros.mockResolvedValue({ ok: true, aviso: 'recalcule' });
+
+    const r = await salvarParametrosAction({
+      lidos: padrao,
+      novos: { ...padrao, percentualSinapi: 30 },
+    });
+
+    expect(r).toEqual({ ok: true, aviso: 'recalcule' });
+  });
+
+  it.each(['Preposto', 'Técnico', 'Solicitante'])(
+    '%s é recusado sem tocar no banco',
+    async (role) => {
+      sessao.atual = { userId: ADMIN, role };
+
+      const r = await salvarParametrosAction({ lidos: padrao, novos: padrao });
+
+      expect(r.ok).toBe(false);
+      expect(parametros.salvarParametros).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [{ percentualSinapi: 101 }, /de 0 a 100/],
+    [{ janelaDias: 0 }, /de 1 a 365/],
+    [{ parcelaRelevantePercentual: 0 }, /de 1 a 100/],
+    [{ raizCnpjContratada: '123' }, /8 dígitos/],
+  ])('recusa valor fora do limite (%o) com a mensagem do campo', async (errado, mensagem) => {
+    const r = await salvarParametrosAction({ lidos: padrao, novos: { ...padrao, ...errado } });
+
+    expect(r.ok).toBe(false);
+    expect(r.ok ? '' : r.error).toMatch(mensagem);
+    expect(parametros.salvarParametros).not.toHaveBeenCalled();
+  });
+
+  it('aceita corrigir um documento antigo com o percentual acima de 100', async () => {
+    // O limite antigo era 1000: o valor lido só vai para o filtro da escrita condicional.
+    const entrada = { lidos: { ...padrao, percentualSinapi: 500 }, novos: padrao };
+
+    const r = await salvarParametrosAction(entrada);
+
+    expect(r).toEqual({ ok: true });
+    expect(parametros.salvarParametros).toHaveBeenCalledWith(ADMIN, entrada);
+  });
+
+  it('erro inesperado vira "tente de novo", sem lançar', async () => {
+    parametros.salvarParametros.mockRejectedValue(new Error('queda'));
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const r = await salvarParametrosAction({ lidos: padrao, novos: { ...padrao, janelaDias: 30 } });
+
+    expect(r).toEqual({ ok: false, error: 'Não foi possível salvar agora. Tente de novo.' });
+    erro.mockRestore();
   });
 });

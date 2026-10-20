@@ -385,7 +385,11 @@ rodar('fio da cotação de material, contra o Mongo', () => {
     expect(cot.situacao).toBe('executada');
     expect(cot.emTramite).toBe(false);
     expect(cot.valorExecutadoCentavos).toBe(10_00);
-    expect(cot.advertencias.map((x) => x.codigo)).toEqual(['divergencia_execucao']);
+    // A projeção vem da aprovação (fatia 5, AC-38); a divergência, da execução a menos.
+    expect(cot.advertencias.map((x) => x.codigo).sort()).toEqual([
+      'divergencia_execucao',
+      'projecao_esgotamento',
+    ]);
     expect((await M.Empenho.findById(empenhoId).lean())?.comprometidoCentavos).toBe(10_00);
     expect(await chamadoLib.impedimentoDeConclusao(chamadoId)).toBeNull();
 

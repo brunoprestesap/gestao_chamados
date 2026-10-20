@@ -20,6 +20,7 @@ import {
   ROTULO_PAPEL_REFERENCIA,
   ROTULO_SITUACAO,
   textoDoMotivo,
+  textoProjecao,
 } from '@/shared/material/mensagens';
 import { valorDaLinhaCentavos } from '@/shared/material/valores';
 
@@ -434,6 +435,7 @@ export function CotacaoMaterialPdf({ detalhe, emissaoId, geradoEm, geradoPorNome
                   ...(ev.advertencias ?? []).map(
                     (a) => CONTROLES[a as keyof typeof CONTROLES]?.texto ?? a,
                   ),
+                  ev.projecao ? textoProjecao(ev.projecao) : null,
                 ]
                   .filter(Boolean)
                   .join('\n') || '—',

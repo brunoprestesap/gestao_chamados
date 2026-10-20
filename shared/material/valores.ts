@@ -1,3 +1,5 @@
+import { ITEM_PARECIDO_MIN_LETRAS } from './material.constants';
+
 /**
  * Contas da cotação de material (spec 0019), em centavos inteiros. A linha
  * segue a regra de `shared/chamados/custo.ts`: quantidade em milésimos vezes
@@ -150,4 +152,42 @@ export function reaisParaCentavos(texto: string): number | null {
   if (!/^\d{1,3}(\.?\d{3})*(,\d{1,2})?$/.test(limpo)) return null;
   const [inteiro, decimal = ''] = limpo.replace(/\./g, '').split(',');
   return Number(inteiro) * 100 + Number(decimal.padEnd(2, '0'));
+}
+
+/** Quantidade em milésimos inteiros, a mesma escala de `valorDaLinhaCentavos` (AC-39). */
+export function emMilesimos(quantidade: number): number {
+  return Math.round(quantidade * 1000);
+}
+
+/**
+ * A chave do "mesmo item" do fracionamento e do consumo (fatia 5), na
+ * primeira regra que se aplica: o número do Anexo V no contrato (qualquer
+ * versão), o código SINAPI ou a descrição normalizada. A unidade não conta, e
+ * um item do Anexo V nunca casa com uma descrição do caminho 3.
+ */
+export function chaveDoMesmoItem(
+  item: { anexoVItemId?: unknown; sinapiCodigo?: string | null; descricao: string },
+  anexoV: ReadonlyMap<string, { contratoId: string; numero: number }>,
+): string {
+  const doAnexo = item.anexoVItemId ? anexoV.get(String(item.anexoVItemId)) : undefined;
+  if (doAnexo) return `anexoV:${doAnexo.contratoId}:${doAnexo.numero}`;
+  if (item.sinapiCodigo) return `sinapi:${item.sinapiCodigo}`;
+  return `desc:${normalizarTextoBusca(item.descricao)}`;
+}
+
+/** As palavras de um texto para a semelhança (AC-40): normalizadas, sem as de até 2 letras. */
+export function palavrasDe(texto: string): Set<string> {
+  return new Set(
+    normalizarTextoBusca(texto)
+      .split(/[^a-z0-9]+/)
+      .filter((p) => p.length >= ITEM_PARECIDO_MIN_LETRAS),
+  );
+}
+
+/** Semelhança de Jaccard entre dois conjuntos de palavras; 0 quando os dois são vazios. */
+export function jaccard(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
+  if (a.size === 0 && b.size === 0) return 0;
+  let comum = 0;
+  for (const p of a) if (b.has(p)) comum++;
+  return comum / (a.size + b.size - comum);
 }

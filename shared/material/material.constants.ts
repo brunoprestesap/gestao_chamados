@@ -224,6 +224,58 @@ export const MIN_RAIZES_POR_ITEM = 3;
 /** Na urgência, basta 1 orçamento com preço por item até a pesquisa completar (AC-35). */
 export const MIN_ORCAMENTOS_URGENCIA = 1;
 
+// ---------------------------------------------------------------------------
+// Fatia 5: advertências, projeção, parâmetros e relatório
+// ---------------------------------------------------------------------------
+
+/** As ações que refazem fracionamento, reincidência, consumo e item parecido (AC-36 a AC-40). */
+export const ACOES_COM_ADVERTENCIAS_DO_ATO: readonly AcaoCotacao[] = [
+  'assumir',
+  'encaminhar',
+  'aprovar',
+];
+
+/** As situações das "outras cotações" do fracionamento, da reincidência e do consumo. */
+export const SITUACOES_JA_AUTORIZADAS: readonly SituacaoCotacao[] = [
+  'autorizada',
+  'executada',
+  'atestada',
+];
+
+/** Reincidência: duas outras cotações autorizadas no mesmo ativo dentro da janela (AC-37). */
+export const MIN_COTACOES_REINCIDENCIA = 2;
+/** Item parecido: Jaccard das palavras igual ou acima disto (AC-40). */
+export const JACCARD_ITEM_PARECIDO = 0.6;
+/** Item parecido: até 20 insumos do mês mais recente, pelo índice de texto. */
+export const ITEM_PARECIDO_MAX_SINAPI = 20;
+/** Palavras de até 2 letras não contam na semelhança. */
+export const ITEM_PARECIDO_MIN_LETRAS = 3;
+
+/** Projeção (AC-38): olha até 90 dias para trás e exige ao menos 30 de histórico. */
+export const PROJECAO_DIAS_MAX = 90;
+export const PROJECAO_DIAS_MIN = 30;
+export const SITUACOES_PROJECAO = ['estimada', 'historico_insuficiente', 'sem_consumo'] as const;
+export type SituacaoProjecao = (typeof SITUACOES_PROJECAO)[number];
+
+/** Os parâmetros editáveis pelo Admin (AC-42), com os limites de cada um. */
+export const CAMPOS_PARAMETROS = [
+  'percentualSinapi',
+  'janelaDias',
+  'parcelaRelevantePercentual',
+  'raizCnpjContratada',
+] as const;
+export type CampoParametro = (typeof CAMPOS_PARAMETROS)[number];
+export const LIMITES_PARAMETROS = {
+  percentualSinapi: { min: 0, max: 100 },
+  janelaDias: { min: 1, max: 365 },
+  parcelaRelevantePercentual: { min: 1, max: 100 },
+} as const;
+
+/** O período do relatório de material vai até 366 dias (AC-41). */
+export const RELATORIO_MATERIAL_MAX_DIAS = 366;
+/** Custo de material por equipamento: os 20 de maior valor. */
+export const RELATORIO_MATERIAL_MAX_ATIVOS = 20;
+
 /** Parâmetros padrão da `MaterialConfig` (fatia 1 só usa a raiz da contratada na trilha). */
 export const MATERIAL_CONFIG_PADRAO = {
   percentualSinapi: 10,

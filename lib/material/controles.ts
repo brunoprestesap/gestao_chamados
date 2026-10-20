@@ -2,6 +2,8 @@ import 'server-only';
 
 import { cnpjValido } from '@/shared/contratos/cnpj';
 import {
+  JACCARD_ITEM_PARECIDO,
+  MIN_COTACOES_REINCIDENCIA,
   MIN_ORCAMENTOS_POR_ITEM,
   MIN_ORCAMENTOS_URGENCIA,
   MIN_RAIZES_POR_ITEM,
@@ -9,7 +11,9 @@ import {
 import { type CodigoControle, CODIGOS_ADVERTENCIA_RECALCULADA } from '@/shared/material/mensagens';
 import {
   acimaDoPercentual,
+  jaccard,
   menorReferencia,
+  palavrasDe,
   raizCnpj,
   raizesDoItem,
 } from '@/shared/material/valores';
@@ -237,4 +241,78 @@ export function impedimentosDoEncaminhar(
   }
   if ([...naLista].some((id) => !escolhas.conferencias.has(id))) out.push('conferencia_pendente');
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Fatia 5: fracionamento, reincidência, consumo e item parecido (puros)
+// ---------------------------------------------------------------------------
+
+/** Um item já com a chave do "mesmo item" e o valor (ou a quantidade) que entra na conta. */
+export type ItemComChave = { itemId: string; chave: string; valorCentavos: number };
+
+/**
+ * Fracionamento (AC-36): uma parcela por cotação, que é a soma dos itens de
+ * mesma chave nela. Advertência em todo item da cotação atual cuja chave tem
+ * ao menos duas parcelas e, para alguma faixa, toda parcela fica abaixo do
+ * limite e a soma alcança o limite.
+ */
+export function itensComFracionamento(
+  atuais: readonly ItemComChave[],
+  outras: readonly (readonly Omit<ItemComChave, 'itemId'>[])[],
+  limitesCentavos: readonly number[],
+): string[] {
+  const somaPorChave = (itens: readonly Omit<ItemComChave, 'itemId'>[]) => {
+    const m = new Map<string, number>();
+    for (const i of itens) m.set(i.chave, (m.get(i.chave) ?? 0) + i.valorCentavos);
+    return m;
+  };
+  const daAtual = somaPorChave(atuais);
+  const dasOutras = outras.map(somaPorChave);
+  const fracionadas = new Set<string>();
+  for (const [chave, parcelaAtual] of daAtual) {
+    const parcelas = [parcelaAtual];
+    for (const m of dasOutras) {
+      const p = m.get(chave);
+      if (p != null) parcelas.push(p);
+    }
+    if (parcelas.length < 2) continue;
+    const soma = parcelas.reduce((a, b) => a + b, 0);
+    if (limitesCentavos.some((l) => parcelas.every((p) => p < l) && soma >= l)) {
+      fracionadas.add(chave);
+    }
+  }
+  return atuais.filter((i) => fracionadas.has(i.chave)).map((i) => i.itemId);
+}
+
+/** Reincidência (AC-37): duas ou mais outras cotações autorizadas no mesmo ativo, na janela. */
+export function haReincidencia(outrasNoAtivoNaJanela: number): boolean {
+  return outrasNoAtivoNaJanela >= MIN_COTACOES_REINCIDENCIA;
+}
+
+/**
+ * Consumo acima do estimado (AC-39), em milésimos de quantidade: o que as
+ * outras cotações já consumiram mais a soma desta cotação, por chave do Anexo
+ * V, passa da estimativa do item vigente. Chave sem estimativa não avisa.
+ */
+export function itensComConsumoAcima(
+  atuais: readonly { itemId: string; chave: string; milesimos: number }[],
+  consumoDasOutras: ReadonlyMap<string, number>,
+  estimadaEmMilesimos: ReadonlyMap<string, number>,
+): string[] {
+  const daAtual = new Map<string, number>();
+  for (const i of atuais) daAtual.set(i.chave, (daAtual.get(i.chave) ?? 0) + i.milesimos);
+  return atuais
+    .filter((i) => {
+      const limite = estimadaEmMilesimos.get(i.chave);
+      if (limite == null) return false;
+      return (consumoDasOutras.get(i.chave) ?? 0) + daAtual.get(i.chave)! > limite;
+    })
+    .map((i) => i.itemId);
+}
+
+/** Item parecido (AC-40): alguma descrição candidata com Jaccard igual ou acima do corte. */
+export function pareceComAlguma(descricao: string, candidatas: readonly string[]): boolean {
+  const palavras = palavrasDe(descricao);
+  if (palavras.size === 0) return false;
+  return candidatas.some((c) => jaccard(palavras, palavrasDe(c)) >= JACCARD_ITEM_PARECIDO);
 }

@@ -183,3 +183,20 @@ describe('hrefAtivo', () => {
     expect(hrefAtivo(null, hrefs)).toBeNull();
   });
 });
+
+// ── Relatório de material (spec 0019, fatia 5) ──────────────────
+
+describe('NAV_ITEMS · Relatório de material', () => {
+  // covers: AC-41 (só o Admin abre o relatório)
+  const item = () => NAV_ITEMS.find((i) => i.href === '/relatorios/material');
+
+  it('fica no grupo Material, só para o Admin', () => {
+    expect(item()).toMatchObject({ group: 'Material', allowedRoles: ['Admin'] });
+  });
+
+  it('vem depois das cotações e do cadastro de material', () => {
+    const ordem = NAV_ITEMS.filter((i) => i.group === 'Material').map((i) => i.href);
+
+    expect(ordem).toEqual(['/cotacoes', '/configuracoes/material', '/relatorios/material']);
+  });
+});

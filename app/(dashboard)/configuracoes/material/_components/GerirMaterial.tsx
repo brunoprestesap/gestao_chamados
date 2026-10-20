@@ -9,6 +9,7 @@ import {
   Plus,
   Power,
   Scale,
+  SlidersHorizontal,
   Table2,
   UserCheck,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { EmpenhoLinha, PainelMaterial } from '@/lib/material/cadastro';
+import type { ParametrosComHistorico } from '@/lib/material/parametros';
 import type { TabelasPreco } from '@/lib/material/tabelas';
 import { formatarReais } from '@/shared/chamados/custo';
 import {
@@ -58,6 +60,7 @@ import {
   movimentarEmpenhoAction,
   revogarDesignacaoAction,
 } from '../actions';
+import { AbaParametros } from './ParametrosMaterial';
 import { AbaAnexoV, AbaSinapi } from './TabelasPreco';
 
 type Resultado = { ok: true } | { ok: false; error: string };
@@ -75,9 +78,11 @@ function dataBr(ymd: string | null): string {
 export function GerirMaterial({
   painel,
   tabelas,
+  parametros,
 }: {
   painel: PainelMaterial;
   tabelas: TabelasPreco;
+  parametros: ParametrosComHistorico;
 }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
@@ -169,6 +174,10 @@ export function GerirMaterial({
             <Table2 className="h-4 w-4" aria-hidden="true" />
             SINAPI
           </TabsTrigger>
+          <TabsTrigger value="parametros" className="flex-1 gap-2 rounded-lg sm:flex-none">
+            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+            Parâmetros
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="empenhos" className="mt-6 focus-visible:outline-none">
@@ -185,6 +194,18 @@ export function GerirMaterial({
         </TabsContent>
         <TabsContent value="sinapi" className="mt-6 focus-visible:outline-none">
           <AbaSinapi tabelas={tabelas} />
+        </TabsContent>
+        <TabsContent value="parametros" className="mt-6 focus-visible:outline-none">
+          {/* A chave remonta o formulário quando os valores gravados mudam. */}
+          <AbaParametros
+            key={JSON.stringify([
+              parametros.percentualSinapi,
+              parametros.janelaDias,
+              parametros.parcelaRelevantePercentual,
+              parametros.raizCnpjContratada,
+            ])}
+            parametros={parametros}
+          />
         </TabsContent>
       </Tabs>
     </div>

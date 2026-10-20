@@ -10,6 +10,8 @@ import { ChamadoModel } from '@/models/Chamado';
 import { ContadorModel } from '@/models/Contador';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
+import { CotacaoMaterialTentativaModel } from '@/models/CotacaoMaterialTentativa';
+import { EmpenhoModel } from '@/models/Empenho';
 import { UserModel } from '@/models/user.model';
 import {
   type CriarCotacaoInput,
@@ -20,6 +22,7 @@ import {
 } from '@/shared/material/cotacao.schemas';
 import {
   type AcaoCotacao,
+  ACOES_COM_ADVERTENCIAS_DO_ATO,
   type BaseDeAmbas,
   estaEmTramite,
   MAX_ORCAMENTOS_COTACAO,
@@ -32,6 +35,7 @@ import {
 import {
   type CodigoControle,
   type CodigoErroNotaFiscal,
+  CODIGOS_ADVERTENCIA_DO_ATO,
   CONTROLES,
   erroCnpjDoOrcamento,
   ERROS_FATIA4,
@@ -46,6 +50,7 @@ import {
   valorTotalCentavos,
 } from '@/shared/material/valores';
 
+import { advertenciasDoAto } from './advertencias';
 import { avisarNotaFiscal, avisarPesquisaCompleta, avisarSituacao } from './avisos';
 import {
   desfazerPausa,
@@ -77,6 +82,7 @@ import {
   marcasDeConferencia,
   SEM_TABELA,
 } from './precos';
+import { calcularProjecaoDoEmpenho, consomeParcelaRelevante, type Projecao } from './projecao';
 import {
   copiaDaReferenciaSinapi,
   montarReferencias,
@@ -218,6 +224,7 @@ async function lerCotacao(id: string) {
     _id: Types.ObjectId;
     numero: string;
     chamadoId: Types.ObjectId;
+    ativoId?: Types.ObjectId | null;
     situacao: SituacaoCotacao;
     versao: number;
     itens: {
@@ -843,6 +850,7 @@ export async function transicionar(e: EntradaTransicao): Promise<
   let valorEvento: number | null = null;
   let empenhoEvento: string | null = null;
   let completouPesquisa = false;
+  let projecao: Projecao | null = null;
   const parametros = await lerMaterialConfig();
   const urgencia = cot.urgencia ?? null;
   const ehOFiscalQueAssumiu = !!userId && String(cot.fiscalUserId ?? '') === userId;
@@ -899,8 +907,8 @@ export async function transicionar(e: EntradaTransicao): Promise<
         }),
       ];
       if (imp.length) {
-        return {
-          ok: false,
+        const recusa = {
+          ok: false as const,
           error: envio.desatualizado
             ? 'Um item precisa ser classificado de novo antes do envio.'
             : imp.length === 1
@@ -908,6 +916,8 @@ export async function transicionar(e: EntradaTransicao): Promise<
               : 'Corrija os pontos listados antes de enviar.',
           impedimentos: imp,
         };
+        await registrarTentativa(cot._id, imp, userId, papel, agora);
+        return recusa;
       }
       // `pesquisaCompletaEm` só existe com urgência pedida, recalculado do zero a cada envio.
       if (urgenciaDoEnvio?.pedida) {
@@ -1196,6 +1206,17 @@ export async function transicionar(e: EntradaTransicao): Promise<
         };
       }
       if (!e.empenhoId) return { ok: false, error: 'Escolha o empenho.' };
+      // A projeção do empenho escolhido, pelo saldo de antes desta reserva (AC-38).
+      projecao = await projecaoNaAprovacao(
+        e.empenhoId,
+        cot.valorTotalCentavos,
+        parametros.parcelaRelevantePercentual,
+        agora,
+      );
+      if (projecao) {
+        advertencias.push('projecao_esgotamento');
+        noEvento.projecaoNoAto = projecao;
+      }
       faixaId = lim.faixaId;
       limite = lim.limiteCentavos;
       set.empenhoId = new Types.ObjectId(e.empenhoId);
@@ -1316,11 +1337,26 @@ export async function transicionar(e: EntradaTransicao): Promise<
   const orcamentosDoAto =
     (set.orcamentos as NonNullable<CotacaoLida>['orcamentos'] | undefined) ?? cot.orcamentos;
   const refazConfirmacoes = e.acao === 'encaminhar' || DEVOLVEM.includes(e.acao);
+  // Fatia 5: fracionamento, reincidência, consumo e item parecido saem e são
+  // refeitos no assumir, no encaminhar e no aprovar; a projeção, só no aprovar.
+  const refazDoAto = ACOES_COM_ADVERTENCIAS_DO_ATO.includes(e.acao);
+  const doAto = refazDoAto
+    ? await advertenciasDoAto({
+        cotacaoId: cot._id,
+        ativoId: cot.ativoId ?? null,
+        tipoServico: chamado.tipoServico as string,
+        itens: itensDoAto,
+        janelaDias: parametros.janelaDias,
+        agora,
+      })
+    : [];
   const mantidas = (cot.advertencias ?? []).filter(
     (a) =>
       !ehAdvertenciaRecalculada(a.codigo) &&
       !(e.acao === 'executar' && a.codigo === 'divergencia_execucao') &&
-      !(refazConfirmacoes && a.codigo === 'orcamento_vencido'),
+      !(refazConfirmacoes && a.codigo === 'orcamento_vencido') &&
+      !(refazDoAto && CODIGOS_ADVERTENCIA_DO_ATO.includes(a.codigo as CodigoControle)) &&
+      !(e.acao === 'aprovar' && a.codigo === 'projecao_esgotamento'),
   );
   const todasAdvertencias = [
     ...mantidas,
@@ -1340,6 +1376,11 @@ export async function transicionar(e: EntradaTransicao): Promise<
     ...itensComPesquisaDivergente(itensDoAto, orcamentosDoAto).map((itemId) => ({
       codigo: 'pesquisa_posterior_divergente',
       itemId: new Types.ObjectId(itemId),
+      em: agora,
+    })),
+    ...doAto.map((a) => ({
+      codigo: a.codigo,
+      itemId: a.itemId ? new Types.ObjectId(a.itemId) : null,
       em: agora,
     })),
   ];
@@ -1443,6 +1484,52 @@ export async function transicionar(e: EntradaTransicao): Promise<
     versao: gravada.versao,
     ...(e.acao === 'pesquisa_completada' ? { pesquisaCompleta: completouPesquisa } : {}),
   };
+}
+
+/**
+ * Grava o `enviar` recusado por impedimento (AC-43), para o indicador da
+ * primeira tentativa (AC-41). A falha fica no log e nunca muda a resposta.
+ */
+async function registrarTentativa(
+  cotacaoId: Types.ObjectId,
+  impedimentos: readonly CodigoControle[],
+  userId: string | null,
+  papel: PapelEvento,
+  agora: Date,
+) {
+  try {
+    await CotacaoMaterialTentativaModel.create({
+      cotacaoId,
+      acao: 'enviar',
+      impedimentos: [...impedimentos],
+      autorUserId: userId ? new Types.ObjectId(userId) : null,
+      papel,
+      em: agora,
+    });
+  } catch (err) {
+    console.error('[material] tentativa de envio não registrada:', err);
+  }
+}
+
+/**
+ * A projeção do empenho escolhido no aprovar (AC-38), só quando a cotação
+ * consome a parcela relevante do saldo de antes da reserva; `null` fora disso
+ * ou com o empenho sumido (a reserva recusa depois).
+ */
+async function projecaoNaAprovacao(
+  empenhoId: string,
+  valorCentavos: number,
+  parcelaRelevantePercentual: number,
+  agora: Date,
+): Promise<Projecao | null> {
+  if (!Types.ObjectId.isValid(empenhoId)) return null;
+  const emp = await EmpenhoModel.findById(empenhoId)
+    .select('valorLiquidoCentavos comprometidoCentavos')
+    .lean();
+  if (!emp) return null;
+  const saldo = emp.valorLiquidoCentavos - emp.comprometidoCentavos;
+  if (!consomeParcelaRelevante(valorCentavos, saldo, parcelaRelevantePercentual)) return null;
+  return calcularProjecaoDoEmpenho(empenhoId, saldo, agora);
 }
 
 /**

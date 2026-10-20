@@ -216,3 +216,46 @@ _Passos do AC-31 ao AC-35, com as decisões e as regras finas de 20/10. Os CNPJs
 ### Acceptance-criteria coverage
 
 - AC-31 · CNPJ inválido e da contratada no salvar e no envio, 3 raízes distintas por item, mesma raiz conta uma vez · AC-32 · referência SINAPI pela tabela ou livre, do fiscal na análise, retirada só pelo próprio fiscal, salvar que não apaga a do fiscal, `referencia_desatualizada` · AC-33 · variação contra a menor referência ativa, também na urgência · AC-34 · validade obrigatória, vencido com marca por orçamento, devolução limpa · AC-35 · pedido, aceite no encaminhar, recusa que devolve, complemento sem mudar preço nem reserva, `pesquisa_pendente`, divergência posterior, pendência da contratada, avisos e marca · AC-15, AC-16, AC-23 · visibilidade dos campos novos, títulos de aviso, PDF
+
+## Fatia 5: advertências, projeção, parâmetros e relatório · acrescentado em 2026-10-20
+
+### Preparação
+
+- [x] Como Admin, em `/configuracoes/material`, ter uma faixa ativa de R$ 1.000,00, um empenho com saldo de R$ 1.000,00 e um equipamento (ativo) usado em dois chamados → AC-36, AC-38
+
+### UI / manual
+
+- [x] Autorizar uma cotação de "Disjuntor 40A" de R$ 600,00 no equipamento; enviar outra de R$ 500,00 do mesmo item no mesmo equipamento; como fiscal, `Assumir` → o item mostra "Possível fracionamento" e a cotação segue para análise (não trava) → AC-36
+- [x] Repetir com a cotação anterior autorizada há mais dias que a janela, ou num chamado sem equipamento → sem a advertência → AC-36
+- [ ] Com duas outras cotações autorizadas no mesmo equipamento dentro da janela, assumir a terceira → "Reincidência" na cotação; com uma só, não aparece → AC-37
+- [x] Item do Anexo V cujo consumo (executado mais autorizado mais esta cotação) passa da quantidade estimada → "consumo acumulado passa da quantidade estimada" já no assumir, antes de autorizar → AC-39
+- [x] Item com três orçamentos e descrição quase igual a um insumo do SINAPI do mês mais recente (ou a um item do Anexo V do contrato) → "Item com três orçamentos cuja descrição se parece"; o item do caminho 1 com a mesma descrição não avisa → AC-40
+- [ ] Devolver a cotação depois de assumir → as advertências da fatia 5 continuam no detalhe; um novo `Assumir` as refaz → AC-36 a AC-40
+- [x] Abrir a mesma cotação como responsável técnico e como técnico atribuído → nenhuma das cinco advertências da fatia 5 aparece → AC-15
+- [x] Como aprovador, abrir `Aprovar` numa cotação que vale 20% ou mais do saldo do empenho → aviso âmbar com saldo, consumo médio por dia e data estimada (ou "histórico insuficiente" num empenho com menos de 30 dias de movimento); abaixo de 20% o aviso não aparece → AC-38
+- [x] Aprovar essa cotação → a trilha e o PDF (`Gerar PDF`) mostram a projeção gravada no ato → AC-38
+- [ ] Como responsável técnico, tentar `Enviar` uma cotação sem orçamentos → recusa com os impedimentos; depois enviar corrigida → em `/relatorios/material` do dia, "Impedimento na primeira tentativa" conta 1 de 1 → AC-43, AC-41
+- [x] Como Admin, aba `Parâmetros`: gravar janela 30 e parcela 50 → uma linha de histórico por campo, com autor e data; abrir a tela em duas abas, gravar nas duas → a segunda recebe "Os parâmetros mudaram… Recarregue" → AC-42
+- [x] Gravar percentual 101 ou janela 0 → recusado com a mensagem do limite → AC-42
+- [x] Mudar o percentual sobre o SINAPI → um item do Anexo V perto do limite entra ou sai da lista de anomalia automática sem nova importação → AC-42
+- [x] Assumir uma cotação depois de mudar os parâmetros → a trilha (PDF) copia os quatro valores vigentes → AC-42
+- [x] Como Admin, menu Material › `Relatório de material` → abre no mês corrente; período sem cotações mostra "sem cotações no período", nunca 0%; como Preposto, a rota redireciona → AC-41
+- [ ] Cotação autorizada num mês e executada no outro → a diferença Anexo V e SINAPI aparece no mês da autorização (inclusive item `ambas` com base SINAPI) e a divergência e o custo por equipamento no mês da execução → AC-41
+- [x] Período de 367 dias → recusado e a tela volta ao mês corrente com o aviso → AC-41
+
+### Value sourcing
+
+- [ ] Faixas do fracionamento: desativar a faixa de R$ 1.000,00 e assumir de novo → a advertência some (só faixas ativas no ato)
+- [x] Janela: com `janelaDias` 30, uma cotação autorizada há 40 dias não conta; com 90, conta (dia contado em Belém)
+- [ ] Consumo: item do Anexo V reimportado em versão nova → o consumo da versão antiga soma no mesmo número; o de outro contrato com o mesmo número não
+- [ ] Item parecido: sem mês SINAPI importado, só o Anexo V do contrato do chamado é comparado
+- [ ] Projeção: um reforço ou uma anulação do empenho não muda o consumo médio; o saldo usado é o de antes da reserva
+- [ ] Tentativa: a recusa por versão desatualizada não grava tentativa
+
+### Commands
+
+- [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/material/__tests__/fatia5` → 38 testes passam → AC-36 a AC-43
+
+### Acceptance-criteria coverage
+
+- AC-36 fracionamento · AC-37 reincidência · AC-38 projeção · AC-39 consumo · AC-40 item parecido · AC-41 relatório · AC-42 parâmetros · AC-43 tentativa · AC-15 visibilidade dos códigos novos

@@ -71,6 +71,9 @@ const CotacaoMaterialEventoSchema = new Schema({
   orcamentosNoAto: { type: [Schema.Types.Mixed], default: undefined },
   urgenciaNoAto: { type: Schema.Types.Mixed, default: null },
   confirmacoesNoAto: { type: [Schema.Types.ObjectId], default: undefined },
+  // Fatia 5: a projeção de esgotamento mostrada ao aprovador, só no `aprovar` em que
+  // a cotação consome a parcela relevante do saldo (AC-38).
+  projecaoNoAto: { type: Schema.Types.Mixed, default: null },
   em: { type: Date, required: true },
 });
 

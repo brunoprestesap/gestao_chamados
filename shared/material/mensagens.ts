@@ -1,3 +1,5 @@
+import { formatarReais } from '@/shared/chamados/custo';
+
 import type {
   AcaoCotacao,
   FaseOrcamento,
@@ -6,6 +8,7 @@ import type {
   PapelEvento,
   PapelReferencia,
   SituacaoCotacao,
+  SituacaoProjecao,
 } from './material.constants';
 
 /**
@@ -145,6 +148,12 @@ export const CODIGOS_CONTROLE = [
   'urgencia_sem_decisao',
   'pesquisa_pendente',
   'pesquisa_posterior_divergente',
+  // Fatia 5
+  'fracionamento',
+  'reincidencia',
+  'consumo_acima_estimado',
+  'item_parecido',
+  'projecao_esgotamento',
 ] as const;
 export type CodigoControle = (typeof CODIGOS_CONTROLE)[number];
 
@@ -283,7 +292,94 @@ export const CONTROLES: Record<
     texto:
       'Um orçamento acrescentado depois da compra tem preço menor que o aplicado; avalie fora do Sigma.',
   },
+  fracionamento: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto:
+      'Possível fracionamento: somado ao mesmo item de outras cotações recentes deste equipamento, o valor alcança uma faixa de competência que cada parte sozinha não alcança.',
+  },
+  reincidencia: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto: 'Reincidência: este equipamento já teve duas ou mais cotações autorizadas na janela.',
+  },
+  consumo_acima_estimado: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto: 'Com esta cotação, o consumo acumulado do item passa da quantidade estimada no Anexo V.',
+  },
+  item_parecido: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto:
+      'Item com três orçamentos cuja descrição se parece com a de um item do Anexo V ou do SINAPI: confira se ele não tem preço de tabela.',
+  },
+  projecao_esgotamento: {
+    tipo: 'advertencia',
+    ve: 'trf1',
+    texto:
+      'Esta aprovação consome parcela relevante do saldo do empenho; veja a projeção de esgotamento.',
+  },
 };
+
+/**
+ * Advertências da fatia 5 (AC-36, AC-37, AC-39, AC-40): refeitas só no
+ * `assumir`, no `encaminhar` e no `aprovar`, sobre o estado do ato; nas
+ * outras ações ficam como estão.
+ */
+export const CODIGOS_ADVERTENCIA_DO_ATO: readonly CodigoControle[] = [
+  'fracionamento',
+  'reincidencia',
+  'consumo_acima_estimado',
+  'item_parecido',
+];
+
+/** Textos da projeção de esgotamento (AC-38). */
+export const TEXTO_SITUACAO_PROJECAO = {
+  estimada: 'Data estimada de esgotamento',
+  historico_insuficiente: 'Histórico insuficiente (menos de 30 dias de movimento no empenho)',
+  sem_consumo: 'Sem consumo no período',
+} as const;
+
+/** A projeção de esgotamento em uma frase, para o diálogo de aprovar, a trilha e o PDF (AC-38). */
+export function textoProjecao(p: {
+  saldoCentavos: number;
+  mediaDiariaCentavos: number | null;
+  dataEstimada: string | null;
+  situacao: SituacaoProjecao;
+}): string {
+  const saldo = `saldo ${formatarReais(p.saldoCentavos)}`;
+  if (p.situacao === 'estimada' && p.dataEstimada) {
+    const data = p.dataEstimada.split('-').reverse().join('/');
+    return `Projeção: ${saldo}, consumo médio de ${formatarReais(p.mediaDiariaCentavos ?? 0)} por dia, esgota por volta de ${data}.`;
+  }
+  return `Projeção: ${saldo}; ${TEXTO_SITUACAO_PROJECAO[p.situacao].toLowerCase()}.`;
+}
+
+/** Recusas dos parâmetros (AC-42). */
+export const ERROS_PARAMETROS = {
+  mudou: 'Os parâmetros mudaram desde que você abriu. Recarregue a página.',
+  nada_mudou: 'Nenhum parâmetro mudou.',
+  recalculo_falhou:
+    'Parâmetros gravados, mas a marca automática de anomalia do Anexo V não foi recalculada agora; ela será refeita na próxima importação.',
+} as const;
+
+export const ROTULO_PARAMETRO = {
+  percentualSinapi: 'Percentual admitido sobre o SINAPI',
+  janelaDias: 'Janela do fracionamento e da reincidência (dias)',
+  parcelaRelevantePercentual: 'Parcela relevante do saldo (%)',
+  raizCnpjContratada: 'Raiz do CNPJ da contratada',
+} as const;
+
+/** Divisão por zero no relatório (AC-41): nunca 0%. */
+export const TEXTO_SEM_COTACOES_NO_PERIODO = 'sem cotações no período';
+
+/** O quadro da diferença para o SINAPI sem nenhum item do Anexo V com equivalente no período. */
+export const TEXTO_SEM_ITENS_COM_EQUIVALENTE = 'nenhum item do Anexo V com equivalente no período';
+
+/** O indicador de impedimento só existe a partir da fatia 5 (AC-41, AC-43). */
+export const TEXTO_TENTATIVAS_DESDE_A_FATIA_5 =
+  'Conta só as tentativas de envio registradas a partir da entrada deste relatório; períodos anteriores ficam subestimados.';
 
 /** Advertências de preço da fatia 3: recalculadas a cada transição (AC-28). */
 export const CODIGOS_ADVERTENCIA_PRECO: readonly CodigoControle[] = [

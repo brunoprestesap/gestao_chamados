@@ -30,6 +30,7 @@ import {
 } from './pendencia';
 import { type PrazoAteste, prazoDoAteste } from './prazos';
 import { marcasDeConferencia } from './precos';
+import { consomeParcelaRelevante, type Projecao, projecoesDosEmpenhos } from './projecao';
 import { type EmpenhoElegivel, empenhosElegiveis } from './saldo';
 import {
   type ArquivoBruto,
@@ -173,6 +174,11 @@ export type DetalheCotacao = {
   chamado: { id: string; numero: string; titulo: string; status: string; ativo: string | null };
   /** Só TRF1. */
   empenhosElegiveis?: EmpenhoElegivel[];
+  /**
+   * Só TRF1, em aprovação: a projeção de cada empenho elegível em que a
+   * cotação consome a parcela relevante do saldo (AC-38).
+   */
+  projecoes?: Projecao[];
   empenhoNumero?: string | null;
   aprovadoresQueCobrem?: Designado[];
   /**
@@ -251,6 +257,18 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
       }
     }
     detalhe.empenhosElegiveis = await empenhosElegiveis();
+    if (cot.situacao === 'em_aprovacao') {
+      const { parcelaRelevantePercentual } = await lerMaterialConfig();
+      detalhe.projecoes = await projecoesDosEmpenhos(
+        detalhe.empenhosElegiveis.filter((e) =>
+          consomeParcelaRelevante(
+            cot.valorTotalCentavos,
+            e.saldoCentavos,
+            parcelaRelevantePercentual,
+          ),
+        ),
+      );
+    }
     detalhe.aprovadoresQueCobrem = await aprovadoresQueCobrem(cot.valorTotalCentavos);
     if (cot.empenhoId) {
       const emp = await EmpenhoModel.findById(cot.empenhoId).select('numero').lean();
