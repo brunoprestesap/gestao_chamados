@@ -15,7 +15,7 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - [x] Busque `.*(` → a tela mostra "Nenhuma cotação com esses filtros.", sem erro → AC-3
 - [x] Com mais de 25 cotações numa aba, abra `?pagina=99` → cai na última página, e o rodapé diz "Mostrando X–Y de N" → AC-3
 - [x] Nas abas Minhas ações, Análise, Aprovação e Ateste, a ordem indicada é "Mais tempo na etapa" (quem está há mais dias vem primeiro); em Todas, "Mais recentes" → AC-3
-- [ ] Cada linha mostra número e quantidade de itens, chamado (número e título, com link), ativo e local quando houver, selo com a jornada em miniatura, sinais, valor (só TRF1) e "na etapa há"; acima de 5 dias o "na etapa há" fica em destaque → AC-4
+- [x] Cada linha mostra número e quantidade de itens, chamado (número e título, com link), ativo e local quando houver, selo com a jornada em miniatura, sinais, valor (só TRF1) e "na etapa há"; acima de 5 dias o "na etapa há" fica em destaque → AC-4
 - [x] Uma cotação devolvida mostra a jornada em miniatura com a barra laranja na etapa de onde voltou → AC-4, AC-5
 - [x] Aba sem nada → uma frase (ex.: "Nada esperando por você agora."), nunca uma tabela vazia → AC-4
 - [x] A 390 px de largura → cada linha vira um cartão com número, selo, título do chamado, sinais e "na etapa há", sem rolagem horizontal da página → AC-4, AC-25
