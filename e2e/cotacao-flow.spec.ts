@@ -101,6 +101,19 @@ async function abrirChamadoDoTecnico(page: Page, titulo: string): Promise<string
   return new URL(page.url()).pathname;
 }
 
+/**
+ * O selo da situação no cabeçalho do detalhe (spec 0021). Não use `getByText`
+ * com o nome da situação: a jornada mostra os nomes de todas as etapas desde o
+ * rascunho, e a espera passaria antes da ação terminar.
+ */
+function seloDoDetalhe(page: Page) {
+  return page
+    .locator('header')
+    .filter({ has: page.getByRole('heading', { level: 1 }) })
+    .locator('[data-situacao]')
+    .first();
+}
+
 /** O cartão "Material" da tela do chamado. */
 function cartaoMaterial(page: Page) {
   return page.locator('section').filter({ has: page.getByRole('heading', { name: 'Material' }) });
@@ -235,7 +248,9 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await expect(page.getByText(/linha R\$\s*20,00/)).toBeVisible();
 
     await page.getByRole('button', { name: 'Salvar e enviar para análise' }).click();
-    await expect(page.getByText('Enviada').first()).toBeVisible({ timeout: 15000 });
+    await expect(seloDoDetalhe(page)).toHaveAttribute('data-situacao', 'enviada', {
+      timeout: 15000,
+    });
 
     await login(page, 'tecnico');
     await page.goto(caminhoDoChamado);
@@ -253,7 +268,9 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
       timeout: 15000,
     });
     await page.getByRole('button', { name: 'Encaminhar para aprovação' }).click();
-    await expect(page.getByText('Em aprovação').first()).toBeVisible({ timeout: 15000 });
+    await expect(seloDoDetalhe(page)).toHaveAttribute('data-situacao', 'em_aprovacao', {
+      timeout: 15000,
+    });
   });
 
   test('aprovador aprova no empenho E2E, reservando o saldo; o chamado retoma (AC-7, AC-8)', async ({
@@ -270,7 +287,9 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await dialog.getByRole('button', { name: 'Aprovar e reservar' }).click();
     await expect(dialog).not.toBeVisible({ timeout: 15000 });
 
-    await expect(page.getByText('Autorizada').first()).toBeVisible({ timeout: 15000 });
+    await expect(seloDoDetalhe(page)).toHaveAttribute('data-situacao', 'autorizada', {
+      timeout: 15000,
+    });
     // Spec 0021, AC-8: depois da reserva, o bloco mostra só o empenho da cotação.
     const empenho = page.getByRole('region', { name: 'Empenho' });
     await expect(empenho.getByText(EMPENHO_E2E)).toBeVisible();
