@@ -93,6 +93,87 @@ export function textoSeloPrazoAteste(prazo: {
   return prazo.atrasado ? `${etapa} atrasado (prazo ${data})` : `${etapa} até ${data}`;
 }
 
+/** A fila de `/cotacoes` (spec 0021): abas, filtros, resumo e estados vazios. */
+export const ROTULO_ABA_FILA = {
+  minhas: 'Minhas ações',
+  analise: 'Análise',
+  aprovacao: 'Aprovação',
+  ateste: 'Ateste',
+  todas: 'Todas',
+} as const;
+
+export const TEXTO_FILA = {
+  titulo: 'Cotações de material',
+  subtitulo: 'Cada pedido de material, do registro do técnico ao ateste.',
+  voceAtuaComo: 'Você atua como',
+  somenteLeitura: 'Leitura (sem designação)',
+  buscaRotulo: 'Buscar cotação',
+  buscaPlaceholder: 'Número, chamado ou ativo',
+  buscar: 'Buscar',
+  limparBusca: 'Limpar busca',
+  soUrgentes: 'Só urgentes',
+  ordemTramite: 'Mais tempo na etapa',
+  ordemTodas: 'Mais recentes',
+  anterior: 'Anterior',
+  proxima: 'Próxima',
+  colunaCotacao: 'Cotação',
+  colunaChamado: 'Chamado e ativo',
+  colunaSituacao: 'Situação',
+  colunaSinais: 'Sinais',
+  colunaValor: 'Valor',
+  colunaNaEtapa: 'Na etapa há',
+  abrir: 'Abrir',
+  semSinal: 'Nenhum sinal',
+  vazioComFiltro: 'Nenhuma cotação com esses filtros.',
+  vazio: {
+    minhas: 'Nada esperando por você agora.',
+    analise: 'Nenhuma cotação para analisar.',
+    aprovacao: 'Nenhuma cotação esperando aprovação.',
+    ateste: 'Nenhuma cotação no ateste.',
+    todas: 'Nenhuma cotação ainda.',
+  },
+} as const;
+
+export const ROTULO_SINAL = {
+  urgente: 'Urgente',
+  notaFiscalPendente: 'NF pendente',
+  pesquisaPendente: 'Pesquisa pendente',
+} as const;
+
+export const TEXTO_RESUMO_FILA = {
+  rotulo: 'Resumo',
+  esperandoVoce: 'Esperando você',
+  emAprovacao: 'Em aprovação',
+  aReservar: (valor: string) => `${valor} a reservar`,
+  atesteAtrasado: 'Ateste fora do prazo',
+  prazoPorEtapa: 'prazo de 5 dias por etapa',
+  saldoElegivel: 'Saldo dos empenhos elegíveis',
+  semEmpenhoElegivel: 'nenhum empenho elegível',
+  devolvidas: 'Devolvidas',
+  devolvidasAjuda: 'voltaram para você corrigir',
+  nfPendente: 'NF pendente',
+  nfPendenteAjuda: 'atestadas sem nota fiscal',
+  esperandoVoceAjuda: 'cotações com a sua vez',
+} as const;
+
+/** "Na etapa há" da fila: dias corridos desde o último evento que mudou a situação. */
+export function textoNaEtapaHa(dias: number): string {
+  if (dias <= 0) return 'hoje';
+  return dias === 1 ? '1 dia' : `${dias} dias`;
+}
+
+export function textoQuantidadeItens(n: number): string {
+  return n === 1 ? '1 item' : `${n} itens`;
+}
+
+/** O rodapé da fila: "Mostrando 26–50 de 73". */
+export function textoPaginaFila(p: { pagina: number; porPagina: number; total: number }): string {
+  if (p.total === 0) return 'Nenhuma cotação';
+  const inicio = (p.pagina - 1) * p.porPagina + 1;
+  const fim = Math.min(p.pagina * p.porPagina, p.total);
+  return `Mostrando ${inicio}–${fim} de ${p.total}`;
+}
+
 export const ROTULO_PAPEL: Record<PapelEvento, string> = {
   responsavel_tecnico: 'Responsável técnico',
   fiscal: 'Fiscal',

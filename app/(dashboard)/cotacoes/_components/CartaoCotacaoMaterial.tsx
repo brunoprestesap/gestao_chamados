@@ -9,7 +9,8 @@ import type { CartaoCotacao } from '@/lib/material/leitura';
 import { formatarReais } from '@/shared/chamados/custo';
 import { ROTULO_SITUACAO, textoDoMotivo } from '@/shared/material/mensagens';
 
-import { SeloUrgencia, SituacaoBadge } from './apoio';
+import { SeloUrgencia } from './apoio';
+import { SituacaoPill } from './compartilhado/SituacaoPill';
 import { DialogExecucao } from './DialogExecucao';
 import { DialogMaterial } from './DialogMaterial';
 
@@ -53,7 +54,7 @@ export function CartaoCotacaoMaterial({
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Package className="h-4 w-4" aria-hidden="true" />
-        Material do chamado: <SituacaoBadge situacao={cot.situacao} />
+        Material do chamado: <SituacaoPill situacao={cot.situacao} />
       </p>
     );
   }
@@ -80,7 +81,7 @@ export function CartaoCotacaoMaterial({
         {cot && (
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium tabular-nums">{cot.numero}</span>
-            <SituacaoBadge situacao={cot.situacao} />
+            <SituacaoPill situacao={cot.situacao} />
             {cot.urgencia?.pedida && <SeloUrgencia />}
           </div>
         )}
