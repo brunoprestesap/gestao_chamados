@@ -3,12 +3,14 @@ import 'server-only';
 import { Types } from 'mongoose';
 
 import { hojeEmBelem } from '@/lib/ativos/documentos/situacao';
+import { escapeRegex } from '@/lib/regex';
 import { ArquivoCotacaoModel } from '@/models/ArquivoCotacao';
 import { AtivoModel } from '@/models/Ativo';
 import { ChamadoModel } from '@/models/Chamado';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { EmpenhoModel } from '@/models/Empenho';
+import { LocalizacaoModel } from '@/models/Localizacao';
 import { UserModel } from '@/models/user.model';
 import { type SituacaoCotacao, SITUACOES_EDITAVEIS } from '@/shared/material/material.constants';
 
@@ -334,17 +336,36 @@ export function abasDaFila(trf1: boolean): readonly AbaFila[] {
   return trf1 ? ABAS_FILA : ABAS_FILA_CONTRATADA;
 }
 
+/** Spec 0021, AC-3: páginas de 25. */
+export const POR_PAGINA_FILA = 25;
+
+/** Nas abas de trâmite a ordem é "Mais tempo na etapa"; em `todas`, "Mais recentes". */
+export const ABAS_DE_TRAMITE: readonly AbaFila[] = ['minhas', 'analise', 'aprovacao', 'ateste'];
+
+/** A busca vai até aqui; o resto é cortado. */
+const MAX_BUSCA = 100;
+
+const DIA_MS = 86_400_000;
+
 export type LinhaFila = {
   id: string;
   numero: string;
+  quantidadeItens: number;
   chamadoId: string;
   chamadoNumero: string;
+  chamadoTitulo: string;
+  ativoId: string | null;
   ativo: string | null;
+  /** Caminho do local da cotação; `null` sem local. */
+  local: string | null;
   situacao: SituacaoCotacao;
+  /** De onde veio a última mudança de situação, para marcar o desvio na jornada. */
+  situacaoAnterior: SituacaoCotacao | null;
   /** Só TRF1. */
   valorCentavos: number | null;
-  atualizadaEm: string;
-  criadaEm: string;
+  /** Desde quando está na situação atual: o último evento da trilha com `de` diferente de `para`. */
+  naEtapaDesde: string;
+  naEtapaDias: number;
   urgente: boolean;
   /** Selo de atraso do ateste, só em `executada` e só no lado TRF1 (AC-21). */
   prazoAteste: PrazoAteste | null;
@@ -355,6 +376,23 @@ export type LinhaFila = {
   notaFiscalPendente: boolean;
   /** A urgência aceita ainda sem os 3 orçamentos por item (AC-35). */
   pesquisaPendente: boolean;
+};
+
+export type PedidoFila = { aba?: string; q?: string; urgente?: boolean; pagina?: number };
+
+export type Fila = {
+  linhas: LinhaFila[];
+  trf1: boolean;
+  papeis: string[];
+  aba: AbaFila;
+  abas: readonly AbaFila[];
+  q: string;
+  urgente: boolean;
+  total: number;
+  pagina: number;
+  porPagina: number;
+  /** Respeitam `q` e `urgente` (AC-3). */
+  contagens: Partial<Record<AbaFila, number>>;
 };
 
 /** O que espera cada papel, para a aba "Minhas ações". */
@@ -376,94 +414,317 @@ function filtroDoQueEspera(papeis: Papeis): Record<string, unknown> {
   return { $or: ou };
 }
 
-/** A fila de `/cotacoes`. `null` quando a pessoa não tem acesso. */
-export async function listarFila(
-  sessao: Sessao,
-  abaPedida: AbaFila,
-): Promise<{
-  linhas: LinhaFila[];
-  trf1: boolean;
-  papeis: string[];
-  aba: AbaFila;
-  abas: readonly AbaFila[];
-} | null> {
-  const papeis = await papeisDe(sessao.userId, sessao.role);
-  const trf1 = papeis.ladoTrf1 || papeis.leitorAdmin;
-  if (!trf1 && !papeis.contratada) return null;
-  const abas = abasDaFila(trf1);
-  const aba: AbaFila = abas.includes(abaPedida) ? abaPedida : 'minhas';
-
-  const filtro: Record<string, unknown> = {};
+/** As condições de uma aba, já com a visibilidade de cada lado. */
+function condicoesDaAba(
+  aba: AbaFila,
+  papeis: Papeis,
+  trf1: boolean,
+  agora: Date,
+): Record<string, unknown>[] {
   const e: Record<string, unknown>[] = [];
   if (aba === 'minhas') e.push(filtroDoQueEspera(papeis));
-  if (aba === 'analise') filtro.situacao = { $in: ['enviada', 'em_analise'] };
-  if (aba === 'aprovacao') filtro.situacao = 'em_aprovacao';
+  if (aba === 'analise') e.push({ situacao: { $in: ['enviada', 'em_analise'] } });
+  if (aba === 'aprovacao') e.push({ situacao: 'em_aprovacao' });
   if (aba === 'ateste') {
     // A contratada acompanha o recebimento e a nota fiscal que ela ainda deve (AC-21, AC-22).
-    if (trf1) filtro.situacao = 'executada';
+    if (trf1) e.push({ situacao: 'executada' });
     else e.push({ $or: [{ situacao: 'executada' }, { ...FILTRO_NOTA_FISCAL_PENDENTE }] });
   }
-  if (trf1 && !papeis.contratada && filtro.situacao === undefined) {
+  if (trf1 && !papeis.contratada && (aba === 'minhas' || aba === 'todas')) {
     // O rascunho não aparece para fiscal, aprovador nem gestor (AC-1).
-    filtro.situacao = { $ne: 'rascunho' };
+    e.push({ situacao: { $ne: 'rascunho' } });
   }
   if (!trf1) {
     // Contratada: em trâmite, encerradas nos últimos 90 dias (AC-15) e a atestada
     // que ainda deve a nota fiscal, por mais velha que seja (AC-22). Mesma regra de `visaoDe`.
-    e.push(filtroVisivelParaContratada(new Date()));
+    e.push(filtroVisivelParaContratada(agora));
   }
-  if (e.length) filtro.$and = e;
-  const docs = await CotacaoMaterialModel.find(filtro)
-    .sort({ updatedAt: -1 })
-    .limit(200)
-    .select(
-      'numero chamadoId ativoId situacao valorTotalCentavos executadoEm recebimentoProvisorio recebimentoDefinitivo notaFiscal urgencia updatedAt createdAt',
-    )
-    .lean();
-  const chamados = await ChamadoModel.find({ _id: { $in: docs.map((d) => d.chamadoId) } })
-    .select('ticket_number')
-    .lean();
-  const numero = new Map(chamados.map((c) => [String(c._id), c.ticket_number as string]));
+  return e;
+}
+
+/**
+ * A busca da fila (spec 0021, AC-3): o número da cotação por prefixo, sem
+ * caixa, o número exato do chamado ou o código exato do ativo. As duas
+ * consultas prévias rodam antes do filtro principal. `null` sem busca.
+ */
+async function condicaoDaBusca(q: string): Promise<Record<string, unknown> | null> {
+  if (!q) return null;
+  const [chamados, ativos] = await Promise.all([
+    ChamadoModel.find({ ticket_number: q.replace(/^#/, '') })
+      .select('_id')
+      .lean(),
+    AtivoModel.find({ codigo: { $in: [q, q.toUpperCase()] } })
+      .select('_id')
+      .lean(),
+  ]);
+  const ou: Record<string, unknown>[] = [
+    { numero: { $regex: `^${escapeRegex(q)}`, $options: 'i' } },
+  ];
+  if (chamados.length) ou.push({ chamadoId: { $in: chamados.map((c) => c._id) } });
+  if (ativos.length) ou.push({ ativoId: { $in: ativos.map((a) => a._id) } });
+  return { $or: ou };
+}
+
+function juntar(condicoes: (Record<string, unknown> | null)[]): Record<string, unknown> {
+  const e = condicoes.filter((c): c is Record<string, unknown> => !!c);
+  return e.length ? { $and: e } : {};
+}
+
+type DesdeDaEtapa = { desde: Date; de: SituacaoCotacao | null };
+
+/**
+ * Desde quando cada cotação está na situação atual: o `em` do último evento
+ * com `de` diferente de `para` (a criação conta; a conciliação, que grava
+ * `para` igual a `de`, não). Uma agregação só para todos os ids.
+ */
+async function desdeDaEtapa(ids: Types.ObjectId[]): Promise<Map<string, DesdeDaEtapa>> {
+  if (!ids.length) return new Map();
+  const grupos = await CotacaoMaterialEventoModel.aggregate<{
+    _id: Types.ObjectId;
+    desde: Date;
+    de: SituacaoCotacao | null;
+  }>([
+    { $match: { cotacaoId: { $in: ids }, $expr: { $ne: ['$de', '$para'] } } },
+    { $sort: { cotacaoId: 1, em: 1, _id: 1 } },
+    { $group: { _id: '$cotacaoId', desde: { $last: '$em' }, de: { $last: '$de' } } },
+  ]);
+  return new Map(grupos.map((g) => [String(g._id), { desde: g.desde, de: g.de ?? null }]));
+}
+
+const CAMPOS_DA_LINHA =
+  'numero itens chamadoId ativoId localizacaoId situacao valorTotalCentavos executadoEm recebimentoProvisorio recebimentoDefinitivo notaFiscal urgencia createdAt';
+
+type DocDaLinha = Pick<
+  CotacaoBruta,
+  | '_id'
+  | 'itens'
+  | 'chamadoId'
+  | 'situacao'
+  | 'valorTotalCentavos'
+  | 'recebimentoProvisorio'
+  | 'notaFiscal'
+  | 'urgencia'
+> & {
+  numero: string;
+  ativoId?: Types.ObjectId | null;
+  localizacaoId?: Types.ObjectId | null;
+  executadoEm?: Date | null;
+  recebimentoDefinitivo?: { em: Date } | null;
+  createdAt: Date;
+};
+
+/** Chamado, ativo e local das linhas da página, cada um numa consulta em lote. */
+async function montarLinhas(
+  docs: DocDaLinha[],
+  desde: Map<string, DesdeDaEtapa>,
+  trf1: boolean,
+  agora: Date,
+): Promise<LinhaFila[]> {
   const ativoIds = docs.map((d) => d.ativoId).filter((a): a is Types.ObjectId => !!a);
-  const ativos = ativoIds.length
-    ? await AtivoModel.find({ _id: { $in: ativoIds } })
-        .select('codigo')
-        .lean()
-    : [];
+  const localIds = docs.map((d) => d.localizacaoId).filter((l): l is Types.ObjectId => !!l);
+  const [chamados, ativos, locais] = await Promise.all([
+    ChamadoModel.find({ _id: { $in: docs.map((d) => d.chamadoId) } })
+      .select('ticket_number titulo')
+      .lean(),
+    ativoIds.length
+      ? AtivoModel.find({ _id: { $in: ativoIds } })
+          .select('codigo')
+          .lean()
+      : [],
+    localIds.length
+      ? LocalizacaoModel.find({ _id: { $in: localIds } })
+          .select('caminho')
+          .lean()
+      : [],
+  ]);
+  const chamado = new Map(chamados.map((c) => [String(c._id), c]));
   const codigo = new Map(ativos.map((a) => [String(a._id), a.codigo as string]));
+  const caminho = new Map(locais.map((l) => [String(l._id), l.caminho as string]));
+  return docs.map((d) => {
+    const etapa = desde.get(String(d._id));
+    const naEtapaDesde = etapa?.desde ?? d.createdAt;
+    const ch = chamado.get(String(d.chamadoId));
+    return {
+      id: String(d._id),
+      numero: d.numero,
+      quantidadeItens: d.itens?.length ?? 0,
+      chamadoId: String(d.chamadoId),
+      chamadoNumero: ch?.ticket_number ?? '',
+      chamadoTitulo: ch?.titulo ?? '',
+      ativoId: d.ativoId ? String(d.ativoId) : null,
+      ativo: d.ativoId ? (codigo.get(String(d.ativoId)) ?? null) : null,
+      local: d.localizacaoId ? (caminho.get(String(d.localizacaoId)) ?? null) : null,
+      situacao: d.situacao,
+      situacaoAnterior: etapa?.de ?? null,
+      valorCentavos: trf1 ? d.valorTotalCentavos : null,
+      naEtapaDesde: naEtapaDesde.toISOString(),
+      naEtapaDias: Math.max(0, Math.floor((agora.getTime() - naEtapaDesde.getTime()) / DIA_MS)),
+      urgente: !!d.urgencia?.pedida,
+      prazoAteste: !trf1
+        ? null
+        : prazoDoAteste(
+            {
+              situacao: d.situacao,
+              executadoEm: d.executadoEm,
+              recebimentoProvisorio: d.recebimentoProvisorio,
+            },
+            agora,
+          ),
+      recebimentoProvisorioEm: d.recebimentoProvisorio?.em?.toISOString() ?? null,
+      recebimentoDefinitivoEm: d.recebimentoDefinitivo?.em?.toISOString() ?? null,
+      notaFiscalPendente: notaFiscalPendente({ situacao: d.situacao, notaFiscal: d.notaFiscal }),
+      pesquisaPendente: pesquisaDaUrgenciaPendente({
+        situacao: d.situacao,
+        urgencia: d.urgencia,
+      }),
+    };
+  });
+}
+
+function normalizarPedido(pedido: AbaFila | PedidoFila): Required<PedidoFila> {
+  const p = typeof pedido === 'string' ? { aba: pedido } : pedido;
+  const pagina = p.pagina !== undefined && Number.isFinite(p.pagina) ? Math.floor(p.pagina) : 1;
+  return {
+    aba: p.aba ?? 'minhas',
+    q: (p.q ?? '').trim().slice(0, MAX_BUSCA),
+    urgente: !!p.urgente,
+    pagina: Math.max(1, pagina),
+  };
+}
+
+/**
+ * A fila de `/cotacoes` (spec 0021): busca, "Só urgentes", páginas de 25 e a
+ * contagem de cada aba. Nas abas de trâmite a ordem é "Mais tempo na etapa"
+ * (o conjunto é pequeno: busca os ids, agrega o "desde" e pagina depois de
+ * ordenar); em `todas`, `updatedAt` decrescente no banco. Página além do
+ * total vai para a última. `null` quando a pessoa não tem acesso.
+ */
+export async function listarFila(
+  sessao: Sessao,
+  pedido: AbaFila | PedidoFila,
+  agora: Date = new Date(),
+): Promise<Fila | null> {
+  const papeis = await papeisDe(sessao.userId, sessao.role);
+  const trf1 = papeis.ladoTrf1 || papeis.leitorAdmin;
+  if (!trf1 && !papeis.contratada) return null;
+  const p = normalizarPedido(pedido);
+  const abas = abasDaFila(trf1);
+  const aba: AbaFila = (abas as readonly string[]).includes(p.aba) ? (p.aba as AbaFila) : 'minhas';
+
+  const busca = await condicaoDaBusca(p.q);
+  const urgente = p.urgente ? { 'urgencia.pedida': true } : null;
+  const filtroDe = (a: AbaFila) =>
+    juntar([...condicoesDaAba(a, papeis, trf1, agora), busca, urgente]);
+
+  const contagens: Partial<Record<AbaFila, number>> = Object.fromEntries(
+    await Promise.all(
+      abas.map(async (a) => [a, await CotacaoMaterialModel.countDocuments(filtroDe(a))] as const),
+    ),
+  );
+  const total = contagens[aba] ?? 0;
+  const ultima = Math.max(1, Math.ceil(total / POR_PAGINA_FILA));
+  const pagina = Math.min(p.pagina, ultima);
+  const inicio = (pagina - 1) * POR_PAGINA_FILA;
+  const filtro = filtroDe(aba);
+
+  let docs: DocDaLinha[];
+  let desde: Map<string, DesdeDaEtapa>;
+  if (ABAS_DE_TRAMITE.includes(aba)) {
+    const todos = await CotacaoMaterialModel.find(filtro)
+      .select('_id createdAt')
+      .lean<{ _id: Types.ObjectId; createdAt: Date }[]>();
+    desde = await desdeDaEtapa(todos.map((d) => d._id));
+    const chave = (d: { _id: Types.ObjectId; createdAt: Date }) =>
+      (desde.get(String(d._id))?.desde ?? d.createdAt).getTime();
+    const daPagina = todos
+      .sort((a, b) => chave(a) - chave(b) || String(a._id).localeCompare(String(b._id)))
+      .slice(inicio, inicio + POR_PAGINA_FILA)
+      .map((d) => d._id);
+    const lidos = await CotacaoMaterialModel.find({ _id: { $in: daPagina } })
+      .select(CAMPOS_DA_LINHA)
+      .lean<DocDaLinha[]>();
+    const porId = new Map(lidos.map((d) => [String(d._id), d]));
+    docs = daPagina.map((id) => porId.get(String(id))).filter((d): d is DocDaLinha => !!d);
+  } else {
+    docs = await CotacaoMaterialModel.find(filtro)
+      .sort({ updatedAt: -1, _id: -1 })
+      .skip(inicio)
+      .limit(POR_PAGINA_FILA)
+      .select(CAMPOS_DA_LINHA)
+      .lean<DocDaLinha[]>();
+    desde = await desdeDaEtapa(docs.map((d) => d._id));
+  }
+
   return {
     trf1,
     aba,
     abas,
+    q: p.q,
+    urgente: p.urgente,
+    total,
+    pagina,
+    porPagina: POR_PAGINA_FILA,
+    contagens,
     papeis: papeis.designacoes.map((d) => d.papel),
-    linhas: docs.map((d) => ({
-      id: String(d._id),
-      numero: d.numero,
-      chamadoId: String(d.chamadoId),
-      chamadoNumero: numero.get(String(d.chamadoId)) ?? '',
-      ativo: d.ativoId ? (codigo.get(String(d.ativoId)) ?? null) : null,
-      situacao: d.situacao as SituacaoCotacao,
-      valorCentavos: trf1 ? d.valorTotalCentavos : null,
-      atualizadaEm: d.updatedAt.toISOString(),
-      criadaEm: d.createdAt.toISOString(),
-      urgente: !!d.urgencia?.pedida,
-      prazoAteste: !trf1
-        ? null
-        : prazoDoAteste({
-            situacao: d.situacao as SituacaoCotacao,
-            executadoEm: d.executadoEm,
-            recebimentoProvisorio: d.recebimentoProvisorio,
-          }),
-      recebimentoProvisorioEm: d.recebimentoProvisorio?.em?.toISOString() ?? null,
-      recebimentoDefinitivoEm: d.recebimentoDefinitivo?.em?.toISOString() ?? null,
-      notaFiscalPendente: notaFiscalPendente({
-        situacao: d.situacao as SituacaoCotacao,
-        notaFiscal: d.notaFiscal,
-      }),
-      pesquisaPendente: pesquisaDaUrgenciaPendente({
-        situacao: d.situacao as SituacaoCotacao,
-        urgencia: d.urgencia,
-      }),
-    })),
+    linhas: await montarLinhas(docs, desde, trf1, agora),
+  };
+}
+
+export type ResumoFila =
+  | {
+      lado: 'trf1';
+      esperandoVoce: number;
+      emAprovacao: { qtd: number; valorCentavos: number };
+      atesteAtrasado: number;
+      /** `null` sem empenho elegível: a tela não mostra zero no lugar. */
+      saldoElegivelCentavos: number | null;
+    }
+  | { lado: 'contratada'; esperandoVoce: number; devolvidas: number; nfPendente: number };
+
+/**
+ * O resumo do topo da fila (spec 0021, AC-2), global por papel: ignora a
+ * busca e o "Só urgentes". O lado TRF1 (inclusive o Admin leitor sem
+ * designação) vê valor e saldo; a contratada só contagens, nunca valor. Sem
+ * papel nenhum, zeros.
+ */
+export async function resumoDaFila(sessao: Sessao, agora: Date = new Date()): Promise<ResumoFila> {
+  const papeis = await papeisDe(sessao.userId, sessao.role);
+  const trf1 = papeis.ladoTrf1 || papeis.leitorAdmin;
+  if (!trf1 && !papeis.contratada) {
+    return { lado: 'contratada', esperandoVoce: 0, devolvidas: 0, nfPendente: 0 };
+  }
+  const visivel = (extra: Record<string, unknown>) =>
+    juntar([...condicoesDaAba('todas', papeis, trf1, agora), extra]);
+  const esperandoVoce = CotacaoMaterialModel.countDocuments(
+    juntar(condicoesDaAba('minhas', papeis, trf1, agora)),
+  );
+  if (!trf1) {
+    const [esperando, devolvidas, nfPendente] = await Promise.all([
+      esperandoVoce,
+      CotacaoMaterialModel.countDocuments(visivel({ situacao: 'devolvida' })),
+      CotacaoMaterialModel.countDocuments(visivel({ ...FILTRO_NOTA_FISCAL_PENDENTE })),
+    ]);
+    return { lado: 'contratada', esperandoVoce: esperando, devolvidas, nfPendente };
+  }
+  const [esperando, emAprovacao, executadas, elegiveis] = await Promise.all([
+    esperandoVoce,
+    CotacaoMaterialModel.aggregate<{ qtd: number; valor: number }>([
+      { $match: { situacao: 'em_aprovacao' } },
+      { $group: { _id: null, qtd: { $sum: 1 }, valor: { $sum: '$valorTotalCentavos' } } },
+    ]),
+    CotacaoMaterialModel.find({ situacao: 'executada' })
+      .select('situacao executadoEm recebimentoProvisorio')
+      .lean<Pick<DocDaLinha, 'situacao' | 'executadoEm' | 'recebimentoProvisorio'>[]>(),
+    empenhosElegiveis(agora),
+  ]);
+  return {
+    lado: 'trf1',
+    esperandoVoce: esperando,
+    emAprovacao: { qtd: emAprovacao[0]?.qtd ?? 0, valorCentavos: emAprovacao[0]?.valor ?? 0 },
+    // O mesmo `prazoDoAteste` que gera o selo da linha.
+    atesteAtrasado: executadas.filter((d) => prazoDoAteste(d, agora)?.atrasado).length,
+    saldoElegivelCentavos: elegiveis.length
+      ? elegiveis.reduce((s, e) => s + e.saldoCentavos, 0)
+      : null,
   };
 }

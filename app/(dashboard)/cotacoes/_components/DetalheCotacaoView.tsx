@@ -53,9 +53,10 @@ import {
   reprovarAction,
   retirarReferenciaAction,
 } from '../actions';
-import { SeloUrgencia, SituacaoBadge } from './apoio';
+import { SeloUrgencia } from './apoio';
 import { AtesteCotacao } from './AtesteCotacao';
 import { BotaoPdfCotacao } from './BotaoPdfCotacao';
+import { SituacaoPill } from './compartilhado/SituacaoPill';
 import { CompletarPesquisa } from './CompletarPesquisa';
 import { DialogEncaminhar } from './DialogEncaminhar';
 import { DialogExecucao } from './DialogExecucao';
@@ -147,7 +148,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-        <SituacaoBadge situacao={c.situacao} className="text-sm" />
+        <SituacaoPill situacao={c.situacao} className="text-sm" />
         <span>
           Chamado{' '}
           <Link href={linkChamado} className="text-primary hover:underline">

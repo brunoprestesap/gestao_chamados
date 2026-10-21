@@ -27,6 +27,7 @@
  * atribuições dos técnicos E2E.
  */
 
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 
 import { selectFirstEligibleTechnicianAndAtribuir } from './fixtures/atribuir-dialog';
@@ -314,4 +315,48 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await expect(page.getByText('Executada').first()).toBeVisible();
     await expect(page.getByText(/R\$\s*10,00|R\$\s*20,00/)).toHaveCount(0);
   });
+
+  test('a fila busca pelo número e guarda o filtro no endereço, sem violação no axe (spec 0021, AC-3, AC-26)', async ({
+    page,
+  }) => {
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'admin');
+    await page.goto('/cotacoes?aba=todas');
+    const busca = page.getByLabel('Buscar cotação');
+    await busca.fill(numero);
+    await busca.press('Enter');
+    await page.waitForURL(/[?&]q=COT-/);
+    await expect(page.getByRole('link', { name: numero })).toBeVisible({ timeout: 15000 });
+
+    await page.reload();
+    await expect(page.getByLabel('Buscar cotação')).toHaveValue(numero);
+    await expect(page.getByRole('tab', { name: /Todas/, selected: true })).toBeVisible();
+    await semViolacaoNoAxe(page);
+  });
+
+  test('a fila vira cartões a 390 px, sem rolagem horizontal (spec 0021, AC-4, AC-25)', async ({
+    page,
+  }) => {
+    test.skip(!numero, 'material não registrado');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, 'admin');
+    await page.goto('/cotacoes?aba=todas');
+    await expect(page.getByRole('link', { name: numero })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('table')).toBeHidden();
+    const largura = await page.evaluate(() => ({
+      conteudo: document.documentElement.scrollWidth,
+      janela: document.documentElement.clientWidth,
+    }));
+    expect(largura.conteudo).toBeLessThanOrEqual(largura.janela);
+    await semViolacaoNoAxe(page);
+  });
 });
+
+/** As telas do módulo passam no axe (AC-26): contraste e controles, só dentro do `main`. */
+async function semViolacaoNoAxe(page: Page) {
+  const resultado = await new AxeBuilder({ page })
+    .include('main')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(resultado.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+}
