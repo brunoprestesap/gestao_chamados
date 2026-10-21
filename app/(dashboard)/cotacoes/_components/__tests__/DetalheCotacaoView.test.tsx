@@ -185,13 +185,31 @@ describe('DetalheCotacaoView', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Cotação COT-2026-0145' })).toBeVisible();
     expect(screen.getByRole('link', { name: '#2274 · Troca do disjuntor' })).toHaveAttribute(
       'href',
-      '/gestao?chamado=ch1',
+      '/conversas/ch1',
     );
     expect(screen.getByText('Carlos RT')).toBeVisible();
     const jornada = screen.getByRole('list', { name: 'Jornada da cotação' });
     expect(within(jornada).getByText('15/10')).toBeVisible();
     expect(within(jornada).getByRole('listitem', { current: 'step' })).toHaveTextContent(
       'Em análise',
+    );
+  });
+
+  it('o link do chamado leva a gestão a /conversas e o técnico à tela dele', () => {
+    const { unmount } = render(<DetalheCotacaoView detalhe={detalhe()} />);
+    expect(screen.getByRole('link', { name: /#2274/ })).toHaveAttribute('href', '/conversas/ch1');
+    unmount();
+    render(
+      <DetalheCotacaoView
+        detalhe={detalhe({
+          cotacao: { ...cotacao, visao: 'tecnico', empenho: undefined },
+          papeis: ['tecnico'],
+        })}
+      />,
+    );
+    expect(screen.getByRole('link', { name: /#2274/ })).toHaveAttribute(
+      'href',
+      '/chamados-atribuidos/ch1',
     );
   });
 

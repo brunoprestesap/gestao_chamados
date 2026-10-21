@@ -161,8 +161,9 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   }
 
   const base = { id: c.id, versao: c.versao };
+  // O técnico vai para a tela dele (execução); os outros acompanham o chamado em /conversas/[id].
   const linkChamado =
-    c.visao === 'tecnico' ? `/chamados-atribuidos/${chamado.id}` : `/gestao?chamado=${chamado.id}`;
+    c.visao === 'tecnico' ? `/chamados-atribuidos/${chamado.id}` : `/conversas/${chamado.id}`;
 
   // O painel "Sua vez" (AC-6): a ação principal, as secundárias e os pontos, todos de `acoes`.
   const principal = acaoPrincipal(acoes);

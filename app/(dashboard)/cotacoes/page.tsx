@@ -68,10 +68,10 @@ export default async function CotacoesPage({
   ]);
   if (!fila) redirect('/dashboard');
 
-  // A gestão abre o chamado no sheet; o técnico responsável técnico não tem essa tela.
+  // A gestão acompanha o chamado em /conversas/[id] (spec 0005); a /gestao não abre chamado pelo endereço.
   const hrefChamado =
     sessao.role === 'Admin' || sessao.role === 'Preposto'
-      ? (id: string) => `/gestao?chamado=${id}`
+      ? (id: string) => `/conversas/${id}`
       : null;
   const papeis = fila.papeis.map((p) => ROTULO_PAPEL[p as PapelEvento] ?? p);
   const comFiltro = !!fila.q || fila.urgente;
