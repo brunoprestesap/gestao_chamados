@@ -39,6 +39,9 @@ export type EmpenhoElegivel = {
   id: string;
   numero: string;
   saldoCentavos: number;
+  /** Spec 0021: a barra de saldo do detalhe mostra o líquido e o comprometido. */
+  liquidoCentavos: number;
+  comprometidoCentavos: number;
 };
 
 /** Empenhos elegíveis, com o saldo livre (`líquido − comprometido`). */
@@ -51,6 +54,8 @@ export async function empenhosElegiveis(agora: Date = new Date()): Promise<Empen
     id: String(d._id),
     numero: d.numero,
     saldoCentavos: d.valorLiquidoCentavos - d.comprometidoCentavos,
+    liquidoCentavos: d.valorLiquidoCentavos,
+    comprometidoCentavos: d.comprometidoCentavos,
   }));
 }
 

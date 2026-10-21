@@ -12,7 +12,12 @@ import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { EmpenhoModel } from '@/models/Empenho';
 import { LocalizacaoModel } from '@/models/Localizacao';
 import { UserModel } from '@/models/user.model';
-import { type SituacaoCotacao, SITUACOES_EDITAVEIS } from '@/shared/material/material.constants';
+import {
+  type PapelEvento,
+  type SituacaoCotacao,
+  SITUACOES_COM_RESERVA,
+  SITUACOES_EDITAVEIS,
+} from '@/shared/material/material.constants';
 
 import { lerMaterialConfig } from './config';
 import { itensComVariacaoAcima, orcamentosVencidos, pesquisaCompleta } from './controles';
@@ -38,6 +43,7 @@ import {
   type ArquivoBruto,
   type CotacaoBruta,
   type CotacaoDTO,
+  type EmpenhoDoDetalheDTO,
   type EventoBruto,
   serializarCotacao,
   visaoDe,
@@ -152,6 +158,9 @@ async function nomesDe(cot: CotacaoBruta): Promise<Map<string, string>> {
     ...cot.itens.flatMap((i) => (i.referencias ?? []).map((r) => r.incluidaPorUserId)),
     cot.urgencia?.decididaPorUserId,
     ...cot.advertencias.map((a) => a.confirmadaPorUserId),
+    // Spec 0021: quem montou (cabeçalho do detalhe) e o fiscal que assumiu (quem age agora).
+    cot.montadoPorUserId,
+    cot.fiscalUserId,
   ].filter((id): id is Types.ObjectId => !!id);
   if (!ids.length) return new Map();
   const usuarios = await UserModel.find({ _id: { $in: ids } })
@@ -176,6 +185,8 @@ export type DetalheCotacao = {
   cotacao: CotacaoDTO;
   acoes: Acoes;
   chamado: { id: string; numero: string; titulo: string; status: string; ativo: string | null };
+  /** Os papéis de quem lê nesta cotação (designações e o técnico atribuído), para o painel "Sua vez". */
+  papeis: PapelEvento[];
   /** Só TRF1. */
   empenhosElegiveis?: EmpenhoElegivel[];
   /**
@@ -183,8 +194,9 @@ export type DetalheCotacao = {
    * cotação consome a parcela relevante do saldo (AC-38).
    */
   projecoes?: Projecao[];
-  empenhoNumero?: string | null;
   aprovadoresQueCobrem?: Designado[];
+  /** Só TRF1: o número do empenho da cotação, para o PDF. */
+  empenhoNumero?: string | null;
   /**
    * Só TRF1, na análise: o que o encaminhar vai pedir (fatia 4). Os orçamentos
    * vencidos hoje em Belém (AC-34), se a urgência precisa do aceite (AC-35) e
@@ -227,8 +239,8 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
     visao === 'trf1' && (cot.situacao === 'enviada' || cot.situacao === 'em_analise')
       ? await marcasDeConferencia(cot.itens)
       : undefined;
-  const detalhe: DetalheCotacao = {
-    cotacao: serializarCotacao(cot, visao, sessao, { ...(await extras(cot)), marcas }),
+  // A cotação serializada entra no fim, depois do bloco Empenho do TRF1 (spec 0021).
+  const detalhe: Omit<DetalheCotacao, 'cotacao'> = {
     acoes: acoesDisponiveis(cot, papeis, ehTecnicoAtribuido),
     chamado: {
       id: String(chamado._id),
@@ -237,7 +249,12 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
       status: chamado.status,
       ativo: ativo ? `${ativo.codigo} · ${ativo.descricao}` : null,
     },
+    papeis: [
+      ...papeis.designacoes.map((d) => d.papel),
+      ...(ehTecnicoAtribuido ? (['tecnico'] as const) : []),
+    ],
   };
+  let empenho: EmpenhoDoDetalheDTO | undefined;
   if (visao === 'trf1') {
     if (cot.situacao === 'em_analise') {
       const { percentualSinapi } = await lerMaterialConfig();
@@ -261,25 +278,119 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
       }
     }
     detalhe.empenhosElegiveis = await empenhosElegiveis();
+    detalhe.aprovadoresQueCobrem = await aprovadoresQueCobrem(cot.valorTotalCentavos);
+    const naBarra = await empenhosDaBarra(cot, detalhe.empenhosElegiveis);
+    // Uma leitura da projeção serve à barra e ao diálogo de aprovar (o saldo é o de agora).
+    const projecoes = await projecoesDosEmpenhos(naBarra.empenhos);
     if (cot.situacao === 'em_aprovacao') {
       const { parcelaRelevantePercentual } = await lerMaterialConfig();
-      detalhe.projecoes = await projecoesDosEmpenhos(
-        detalhe.empenhosElegiveis.filter((e) =>
-          consomeParcelaRelevante(
-            cot.valorTotalCentavos,
-            e.saldoCentavos,
-            parcelaRelevantePercentual,
-          ),
+      detalhe.projecoes = projecoes.filter((p) =>
+        consomeParcelaRelevante(
+          cot.valorTotalCentavos,
+          p.saldoCentavos,
+          parcelaRelevantePercentual,
         ),
       );
     }
-    detalhe.aprovadoresQueCobrem = await aprovadoresQueCobrem(cot.valorTotalCentavos);
+    empenho = barrasDoEmpenho(cot, naBarra, projecoes, detalhe.aprovadoresQueCobrem);
     if (cot.empenhoId) {
-      const emp = await EmpenhoModel.findById(cot.empenhoId).select('numero').lean();
-      detalhe.empenhoNumero = emp?.numero ?? null;
+      const daBarra = naBarra.modo === 'da_cotacao' ? naBarra.empenhos[0] : undefined;
+      detalhe.empenhoNumero =
+        daBarra?.numero ??
+        (await EmpenhoModel.findById(cot.empenhoId).select('numero').lean())?.numero ??
+        null;
     }
   }
-  return detalhe;
+  return {
+    ...detalhe,
+    cotacao: serializarCotacao(cot, visao, sessao, { ...(await extras(cot)), marcas, empenho }),
+  };
+}
+
+/**
+ * Os empenhos do bloco Empenho (AC-8): o da cotação quando a reserva existe
+ * (de `autorizada` em diante), senão os elegíveis. O da cotação é lido mesmo
+ * fora da elegibilidade de hoje; sem ele no banco, o bloco fica sem barra.
+ */
+async function empenhosDaBarra(
+  cot: CotacaoBruta,
+  elegiveis: EmpenhoElegivel[],
+): Promise<{ modo: EmpenhoDoDetalheDTO['modo']; empenhos: EmpenhoElegivel[] }> {
+  if (cot.empenhoId && SITUACOES_COM_RESERVA.includes(cot.situacao)) {
+    const d = await EmpenhoModel.findById(cot.empenhoId)
+      .select('numero valorLiquidoCentavos comprometidoCentavos')
+      .lean();
+    return {
+      modo: 'da_cotacao',
+      empenhos: d
+        ? [
+            {
+              id: String(d._id),
+              numero: d.numero,
+              saldoCentavos: d.valorLiquidoCentavos - d.comprometidoCentavos,
+              liquidoCentavos: d.valorLiquidoCentavos,
+              comprometidoCentavos: d.comprometidoCentavos,
+            },
+          ]
+        : [],
+    };
+  }
+  return { modo: cot.situacao === 'em_aprovacao' ? 'aprovacao' : 'elegiveis', empenhos: elegiveis };
+}
+
+/**
+ * As barras do bloco Empenho (AC-8). Em aprovação, o saldo depois é o saldo
+ * menos o valor da cotação. Com a reserva feita, ela já está no comprometido:
+ * a barra a separa como "esta cotação" e o saldo depois é o saldo de agora,
+ * sem descontar de novo. Antes da aprovação, nada é descontado.
+ */
+export function barrasDoEmpenho(
+  cot: Pick<
+    CotacaoBruta,
+    'valorTotalCentavos' | 'valorAutorizadoCentavos' | 'valorExecutadoCentavos' | 'executadoEm'
+  >,
+  naBarra: { modo: EmpenhoDoDetalheDTO['modo']; empenhos: EmpenhoElegivel[] },
+  projecoes: readonly Projecao[],
+  aprovadores: readonly Designado[],
+): EmpenhoDoDetalheDTO {
+  // Depois da execução, a reserva é ajustada ao executado (spec 0019, AC-10).
+  const reserva = (cot.executadoEm ? cot.valorExecutadoCentavos : cot.valorAutorizadoCentavos) ?? 0;
+  const barras = naBarra.empenhos.map((e) => {
+    const projecao = projecoes.find((p) => p.empenhoId === e.id) ?? null;
+    const comum = {
+      empenhoId: e.id,
+      numero: e.numero,
+      liquidoCentavos: e.liquidoCentavos,
+      projecao,
+    };
+    if (naBarra.modo === 'da_cotacao') {
+      return {
+        ...comum,
+        comprometidoCentavos: Math.max(0, e.comprometidoCentavos - reserva),
+        estaCotacaoCentavos: reserva,
+        saldoDepoisCentavos: e.saldoCentavos,
+      };
+    }
+    if (naBarra.modo === 'aprovacao') {
+      return {
+        ...comum,
+        comprometidoCentavos: e.comprometidoCentavos,
+        estaCotacaoCentavos: cot.valorTotalCentavos,
+        saldoDepoisCentavos: e.saldoCentavos - cot.valorTotalCentavos,
+      };
+    }
+    return {
+      ...comum,
+      comprometidoCentavos: e.comprometidoCentavos,
+      estaCotacaoCentavos: null,
+      saldoDepoisCentavos: e.saldoCentavos,
+    };
+  });
+  return {
+    modo: naBarra.modo,
+    barras,
+    podemAprovar: naBarra.modo === 'aprovacao' ? aprovadores.map((a) => a.nome) : null,
+  };
 }
 
 export type CartaoCotacao = {

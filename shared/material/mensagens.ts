@@ -30,7 +30,9 @@ export const ROTULO_SITUACAO: Record<SituacaoCotacao, string> = {
   cancelada: 'Cancelada',
 };
 
-export const ROTULO_ACAO: Record<AcaoCotacao, string> = {
+/** O `conciliar` é ação só da trilha (o job do saldo), fora de `ACOES_COTACAO`. */
+export const ROTULO_ACAO: Record<AcaoCotacao | 'conciliar', string> = {
+  conciliar: 'Conciliação do saldo',
   criar: 'Material registrado',
   salvar: 'Rascunho salvo',
   enviar: 'Cotação enviada',
@@ -652,3 +654,171 @@ export const MSG_VERSAO_DESATUALIZADA =
 export function textoJaCotado(numero: string): string {
   return `A cotação de material ${numero} deste chamado já tem um item com esta descrição. Confira se não é o mesmo material.`;
 }
+
+// ---------------------------------------------------------------------------
+// Spec 0021, fatia 2: o detalhe da cotação
+// ---------------------------------------------------------------------------
+
+/** O título curto de cada controle, para o painel "Sua vez" (AC-6, AC-27). */
+export const TITULO_CONTROLE: Record<CodigoControle, string> = {
+  orcamentos_insuficientes: 'Orçamentos insuficientes',
+  saldo_insuficiente: 'Sem saldo no empenho',
+  competencia_insuficiente: 'Faixa sem competência',
+  designacao_vencida: 'Designação vencida',
+  autor_nao_aprova: 'Quem montou não aprova',
+  execucao_acima_autorizado: 'Execução acima do autorizado',
+  evidencia_ausente: 'Sem evidência',
+  divergencia_execucao: 'Execução diferente do autorizado',
+  classificacao_desatualizada: 'Classificação desatualizada',
+  base_nao_escolhida: 'Base de preço a escolher',
+  conferencia_pendente: 'Conferência obrigatória',
+  anexo_v_acima_sinapi: 'Anexo V acima do SINAPI',
+  sem_referencia_sinapi: 'Sem referência no SINAPI',
+  cnpj_invalido: 'CNPJ inválido',
+  cnpj_contratada: 'Orçamento da própria contratada',
+  cnpj_mesma_raiz: 'Empresas da mesma raiz',
+  sem_referencia: 'Sem referência de preço',
+  referencia_desatualizada: 'Referência desatualizada',
+  validade_ausente: 'Orçamento sem validade',
+  variacao_acima: 'Preço acima da referência',
+  orcamento_vencido: 'Orçamento vencido',
+  urgencia_sem_decisao: 'Urgência a decidir',
+  pesquisa_pendente: 'Pesquisa de preços pendente',
+  pesquisa_posterior_divergente: 'Pesquisa posterior com preço menor',
+  fracionamento: 'Possível fracionamento',
+  reincidencia: 'Reincidência',
+  consumo_acima_estimado: 'Consumo acima do estimado',
+  item_parecido: 'Item parecido com tabela',
+  projecao_esgotamento: 'Saldo perto de acabar',
+};
+
+/**
+ * As ações que fazem a vez de quem lê, na ordem em que viram a ação principal
+ * do painel "Sua vez" (AC-6). As do ateste, da pesquisa e da montagem moram
+ * numa seção da própria página, e o botão do painel leva até ela.
+ */
+export const ACOES_DA_VEZ = [
+  'aprovar',
+  'encaminhar',
+  'assumir',
+  'executar',
+  'receberProvisorio',
+  'receberDefinitivo',
+  'registrarNotaFiscal',
+  'completarPesquisa',
+  'montar',
+  'editarDiagnostico',
+] as const;
+export type AcaoDaVez = (typeof ACOES_DA_VEZ)[number];
+
+export const TEXTO_ACAO_DA_VEZ: Record<AcaoDaVez, { titulo: string; botao: string }> = {
+  aprovar: { titulo: 'Aprovar e reservar o saldo', botao: 'Aprovar' },
+  encaminhar: { titulo: 'Analisar e encaminhar', botao: 'Encaminhar para aprovação' },
+  assumir: { titulo: 'Assumir a análise', botao: 'Assumir análise' },
+  executar: { titulo: 'Aplicar o material', botao: 'Registrar execução' },
+  receberProvisorio: { titulo: 'Receber o material', botao: 'Ir para o ateste' },
+  receberDefinitivo: { titulo: 'Atestar o recebimento', botao: 'Ir para o ateste' },
+  registrarNotaFiscal: { titulo: 'Registrar a nota fiscal', botao: 'Ir para o ateste' },
+  completarPesquisa: { titulo: 'Completar a pesquisa de preços', botao: 'Ir para a pesquisa' },
+  montar: { titulo: 'Montar e enviar a cotação', botao: 'Ir para a montagem' },
+  editarDiagnostico: { titulo: 'Revisar o material registrado', botao: 'Editar material' },
+};
+
+/** As ações secundárias do painel, com o rótulo do botão. */
+export const ROTULO_ACAO_SECUNDARIA = {
+  devolver: 'Devolver',
+  reprovar: 'Reprovar',
+  recusarUrgencia: 'Recusar a urgência',
+  alterar: 'Pedir alteração',
+  cancelar: 'Cancelar cotação',
+  descartar: 'Descartar rascunho',
+} as const;
+
+export const TEXTO_SUA_VEZ = {
+  rotulo: 'Sua vez',
+  rotuloOutros: 'Próximo passo',
+  voceAtuaComo: (papel: string) => `Você atua como ${papel}.`,
+  semImpedimento: 'Nenhum impedimento',
+  impedimentos: 'Impedimentos',
+  pontosAResolver: 'Para encaminhar',
+  advertencias: 'Advertências',
+  outrasAcoes: 'Outras ações',
+  ninguem: 'Nenhuma ação pendente nesta cotação.',
+  vezDe: (papel: string, nome: string | null) =>
+    `Agora é a vez de: ${papel}${nome ? ` (${nome})` : ''}.`,
+  orcamentosVencidos: (fornecedores: string) => `De ${fornecedores}: confirme ao encaminhar.`,
+  itensComVariacao: (itens: string) => `${itens}. Acrescente referência, devolva ou reprove.`,
+  itensSemBase: (n: number) =>
+    n === 1
+      ? '1 item com as duas tabelas: escolha a base.'
+      : `${n} itens com as duas tabelas: escolha a base.`,
+  itensNaLista: (n: number) =>
+    n === 1
+      ? '1 item na lista de conferência obrigatória.'
+      : `${n} itens na lista de conferência obrigatória.`,
+  urgenciaParaAceite: 'A urgência pedida precisa do seu aceite ao encaminhar.',
+} as const;
+
+export const TEXTO_DETALHE = {
+  trilhaNavegacao: 'Trilha de navegação',
+  chamado: 'Chamado',
+  ativo: 'Ativo',
+  montadaPor: 'Montada por',
+  daContratada: '(contratada)',
+  total: 'Total da cotação',
+  executado: 'Executado',
+  abaItens: 'Itens e preços',
+  abaOrcamentos: (n: number) => `Orçamentos (${n})`,
+  abaTrilha: 'Trilha',
+  conteudo: 'Conteúdo da cotação',
+  colunaItem: 'Item',
+  colunaOrigem: 'Origem do preço',
+  colunaQuantidade: 'Qtd.',
+  colunaUnitario: 'Unitário',
+  colunaValor: 'Valor',
+  colunaAplicado: 'Aplicado',
+  provisorio: 'provisório',
+  acrescentarReferencia: 'Acrescentar referência do fiscal',
+  semOrcamentos: 'Nenhum orçamento nesta cotação.',
+  orcamentosAjuda: 'Preço unitário de cada fornecedor por item. O menor preço vira a base.',
+  naoCotou: 'não cotou',
+  menorPreco: 'menor preço',
+  validade: (data: string) => `validade ${data}`,
+  semValidade: 'validade não informada',
+  validadeVencida: 'validade vencida',
+  vencidaConfirmada: (nome: string | null, quando: string) =>
+    `vencida, confirmada pelo fiscal${nome ? ` (${nome})` : ''} em ${quando}`,
+  arquivoDoOrcamento: (fornecedor: string) => `Orçamento de ${fornecedor}`,
+  semTrilha: 'Nenhum ato registrado ainda.',
+  motivo: 'Motivo',
+  limiteNoAto: (v: string) => `limite no ato ${v}`,
+  reservado: (v: string) => `reservado ${v}`,
+  liberado: (v: string) => `liberado ${v}`,
+  evidencias: 'Evidências da aplicação',
+  documento: 'Documento',
+  urgenciaAceita: (nome: string | null) => `Urgência aceita${nome ? ` por ${nome}` : ''}`,
+  urgenciaRecusada: 'Urgência recusada',
+  urgenciaPedida: 'Urgência pedida, aguardando a decisão do fiscal',
+  justificativa: 'Justificativa',
+  motivoDaRecusa: 'Motivo da recusa',
+  pesquisaPendente:
+    'A pesquisa de preços ainda não tem orçamentos de 3 empresas para cada item. O recebimento definitivo espera por ela.',
+  pesquisaCompletaEm: (quando: string) => `Pesquisa de preços completa em ${quando}.`,
+} as const;
+
+export const TEXTO_EMPENHO_DETALHE = {
+  titulo: 'Empenho',
+  comprometido: 'Comprometido',
+  estaCotacao: 'Esta cotação',
+  saldoDepois: 'Saldo depois',
+  saldo: 'Saldo',
+  liquido: (v: string) => `Líquido ${v}`,
+  semSaldo: 'sem saldo para esta cotação',
+  semElegivel:
+    'Nenhum empenho elegível cadastrado. A cotação não pode ser encaminhada nem aprovada.',
+  semEmpenhoDaCotacao: 'O empenho desta cotação não foi encontrado.',
+  podemAprovar: (nomes: string) => `Podem aprovar este valor: ${nomes}.`,
+  ninguemAprova: 'Nenhum aprovador vigente com faixa suficiente para este valor.',
+  rotuloBarra: (p: { numero: string; comprometido: string; esta: string | null; depois: string }) =>
+    `Empenho ${p.numero}: comprometido ${p.comprometido}${p.esta ? `, esta cotação ${p.esta}` : ''}, saldo depois ${p.depois}.`,
+} as const;

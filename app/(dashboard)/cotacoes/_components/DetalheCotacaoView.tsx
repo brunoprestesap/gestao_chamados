@@ -1,7 +1,6 @@
 'use client';
 
-import { AlertTriangle, History, Landmark, Loader2, Paperclip } from 'lucide-react';
-import Link from 'next/link';
+import { History, Paperclip, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -16,30 +15,23 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import type { DetalheCotacao } from '@/lib/material/leitura';
-import { formatarQuantidade, formatarReais } from '@/shared/chamados/custo';
-import { formatarCnpj } from '@/shared/contratos/cnpj';
+import { formatarReais } from '@/shared/chamados/custo';
 import { TEXTO_CURTO_MAX, TEXTO_CURTO_MIN } from '@/shared/material/material.constants';
 import {
   type CodigoControle,
   CONTROLES,
-  ROTULO_ACAO,
-  ROTULO_FASE_ORCAMENTO,
+  ROTULO_ACAO_SECUNDARIA,
   ROTULO_PAPEL,
   ROTULO_SITUACAO,
+  TEXTO_ACAO_DA_VEZ,
+  TEXTO_DETALHE as T,
+  TEXTO_SUA_VEZ,
   textoDoMotivo,
   textoProjecao,
 } from '@/shared/material/mensagens';
-import { precoParaValor, valorDaLinhaCentavos } from '@/shared/material/valores';
 
 import {
   acrescentarReferenciaAction,
@@ -53,17 +45,25 @@ import {
   reprovarAction,
   retirarReferenciaAction,
 } from '../actions';
-import { SeloUrgencia } from './apoio';
 import { AtesteCotacao } from './AtesteCotacao';
 import { BotaoPdfCotacao } from './BotaoPdfCotacao';
-import { SituacaoPill } from './compartilhado/SituacaoPill';
+import {
+  type AcaoDoPainel,
+  acaoPrincipal,
+  PainelSuaVez,
+  type PontoDoPainel,
+} from './compartilhado/PainelSuaVez';
 import { CompletarPesquisa } from './CompletarPesquisa';
+import { AbaItens } from './detalhe/AbaItens';
+import { AbaOrcamentos } from './detalhe/AbaOrcamentos';
+import { AbaTrilha } from './detalhe/AbaTrilha';
+import { BlocoEmpenho } from './detalhe/BlocoEmpenho';
+import { CabecalhoCotacao } from './detalhe/CabecalhoCotacao';
 import { DialogEncaminhar } from './DialogEncaminhar';
 import { DialogExecucao } from './DialogExecucao';
 import { DialogMaterial } from './DialogMaterial';
 import { EditorContratada } from './EditorContratada';
-import { OrigemDoItem } from './OrigemDoItem';
-import { FormReferencia, ListaReferencias } from './ReferenciasPreco';
+import { FormReferencia } from './ReferenciasPreco';
 
 type ResultadoAcao = { ok: true } | { ok: false; error: string; impedimentos?: CodigoControle[] };
 
@@ -83,7 +83,17 @@ const dataHora = (iso: string) =>
     timeStyle: 'short',
   });
 
-/** O detalhe da cotação de material (spec 0019), com as ações do papel de quem vê. */
+const AVISO = {
+  ambar:
+    'rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100',
+  rosa: 'rounded-2xl border border-rose-300/60 bg-rose-50/60 p-4 text-sm text-rose-950 dark:border-rose-700/50 dark:bg-rose-950/30 dark:text-rose-100',
+};
+
+/**
+ * O detalhe da cotação de material (spec 0019), repaginado pela spec 0021:
+ * cabeçalho com a jornada, o conteúdo em abas à esquerda e o painel "Sua
+ * vez", o empenho e o documento à direita (embaixo, no celular).
+ */
 export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   const router = useRouter();
   const { cotacao: c, acoes, chamado } = detalhe;
@@ -96,7 +106,6 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   const [referenciaPara, setReferenciaPara] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
   const trf1 = c.visao === 'trf1';
-  const mostraOrigem = trf1 || c.visao === 'contratada';
   // Itens `ambas` pedem a base, e os da lista de conferência, a conferência (AC-27, AC-29).
   const itensAmbas = (c.itens ?? []).filter((i) => i.origem === 'ambas');
   const itensNaLista = (c.itens ?? []).filter((i) => i.marcaAnomalia);
@@ -114,7 +123,6 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
     itensNaLista.length > 0 ||
     orcamentosVencidos.length > 0 ||
     !!urgenciaParaAceite;
-  const confirmacao = new Map((c.confirmacoesVencido ?? []).map((x) => [x.orcamentoId, x]));
 
   const elegiveisComSaldo = (detalhe.empenhosElegiveis ?? []).filter(
     (e) => e.saldoCentavos >= (c.valorTotalCentavos ?? 0),
@@ -141,476 +149,299 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
     setAprovando(true);
   }
 
+  function encaminhar() {
+    if (precisaDeEscolhas) {
+      setEncaminhando(true);
+      return;
+    }
+    agir(
+      () => encaminharAction({ ...base, bases: [], conferencias: [] }),
+      'Encaminhada para aprovação.',
+    );
+  }
+
   const base = { id: c.id, versao: c.versao };
   const linkChamado =
     c.visao === 'tecnico' ? `/chamados-atribuidos/${chamado.id}` : `/gestao?chamado=${chamado.id}`;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-        <SituacaoPill situacao={c.situacao} className="text-sm" />
-        <span>
-          Chamado{' '}
-          <Link href={linkChamado} className="text-primary hover:underline">
-            {chamado.numero}
-          </Link>{' '}
-          · {chamado.titulo}
-        </span>
-        {chamado.ativo && <span>· Ativo {chamado.ativo}</span>}
-        {acoes.gerarPdf && (
-          <span className="ml-auto">
-            <BotaoPdfCotacao cotacaoId={c.id} numero={c.numero} />
-          </span>
-        )}
+  // O painel "Sua vez" (AC-6): a ação principal, as secundárias e os pontos, todos de `acoes`.
+  const principal = acaoPrincipal(acoes);
+  const cliquePrincipal: Partial<Record<NonNullable<typeof principal>, () => void>> = {
+    aprovar: abrirAprovar,
+    encaminhar,
+    assumir: () => agir(() => assumirAction(base), 'Análise assumida.'),
+    executar: () => setDialogo('executar'),
+    editarDiagnostico: () => setDialogo('editar'),
+  };
+  const ancoraPrincipal: Partial<Record<NonNullable<typeof principal>, string>> = {
+    receberProvisorio: '#ateste',
+    receberDefinitivo: '#ateste',
+    registrarNotaFiscal: '#ateste',
+    completarPesquisa: '#pesquisa',
+    montar: '#montagem',
+  };
+  const secundarias = (
+    [
+      acoes.devolver && {
+        chave: 'devolver',
+        rotulo: ROTULO_ACAO_SECUNDARIA.devolver,
+        onClick: () => setMotivo({ acao: 'devolver', texto: '' }),
+      },
+      acoes.reprovar && {
+        chave: 'reprovar',
+        rotulo: ROTULO_ACAO_SECUNDARIA.reprovar,
+        destrutiva: true,
+        onClick: () => setMotivo({ acao: 'reprovar', texto: '' }),
+      },
+      acoes.recusarUrgencia && {
+        chave: 'recusarUrgencia',
+        rotulo: ROTULO_ACAO_SECUNDARIA.recusarUrgencia,
+        onClick: () => setMotivo({ acao: 'recusar_urgencia', texto: '' }),
+      },
+      acoes.alterar && {
+        chave: 'alterar',
+        rotulo: ROTULO_ACAO_SECUNDARIA.alterar,
+        onClick: () =>
+          agir(() => alterarAction(base), 'Cotação reaberta para alteração. O saldo foi liberado.'),
+      },
+      acoes.editarDiagnostico &&
+        principal !== 'editarDiagnostico' && {
+          chave: 'editarDiagnostico',
+          rotulo: TEXTO_ACAO_DA_VEZ.editarDiagnostico.botao,
+          onClick: () => setDialogo('editar'),
+        },
+      acoes.cancelar && {
+        chave: 'cancelar',
+        rotulo:
+          c.situacao === 'rascunho'
+            ? ROTULO_ACAO_SECUNDARIA.descartar
+            : ROTULO_ACAO_SECUNDARIA.cancelar,
+        destrutiva: true,
+        onClick: () => setMotivo({ acao: 'cancelar', texto: '' }),
+      },
+    ] as (AcaoDoPainel | false)[]
+  ).filter((a): a is AcaoDoPainel => !!a);
+
+  const nomes = (lista: { descricao?: string; fornecedor?: string }[]) =>
+    lista.map((x) => x.descricao ?? x.fornecedor).join(', ');
+  const pontos: PontoDoPainel[] = analise
+    ? (
+        [
+          orcamentosVencidos.length > 0 && {
+            codigo: 'orcamento_vencido',
+            detalhe: TEXTO_SUA_VEZ.orcamentosVencidos(nomes(orcamentosVencidos)),
+          },
+          comVariacao.size > 0 && {
+            codigo: 'variacao_acima',
+            detalhe: TEXTO_SUA_VEZ.itensComVariacao(
+              nomes((c.itens ?? []).filter((i) => comVariacao.has(i.id))),
+            ),
+          },
+          itensAmbas.length > 0 && {
+            codigo: 'base_nao_escolhida',
+            detalhe: TEXTO_SUA_VEZ.itensSemBase(itensAmbas.length),
+          },
+          itensNaLista.length > 0 && {
+            codigo: 'conferencia_pendente',
+            detalhe: TEXTO_SUA_VEZ.itensNaLista(itensNaLista.length),
+          },
+          !!urgenciaParaAceite && {
+            codigo: 'urgencia_sem_decisao',
+            detalhe: TEXTO_SUA_VEZ.urgenciaParaAceite,
+          },
+        ] as (PontoDoPainel | false)[]
+      ).filter((p): p is PontoDoPainel => !!p)
+    : [];
+  const jaNosPontos = new Set(pontos.map((p) => p.codigo));
+  const advertencias = (c.advertencias ?? [])
+    .filter((a) => !jaNosPontos.has(a) && !impedimentos.includes(a))
+    .map((codigo) => ({ codigo }));
+  // O papel de quem lê: o de quem age agora, se for o dele; senão o primeiro que tem.
+  const papel =
+    detalhe.papeis.find((p) => p === c.quemAgeAgora?.papel) ?? detalhe.papeis[0] ?? null;
+
+  const conteudo = acoes.montar ? (
+    <div id="montagem" className="scroll-mt-24">
+      <EditorContratada
+        key={c.versao}
+        cotacao={c}
+        onAlterado={() => router.refresh()}
+        onImpedimentos={setImpedimentos}
+      />
+    </div>
+  ) : (
+    <Tabs
+      defaultValue="itens"
+      className="gap-0 overflow-hidden rounded-2xl border border-border/50 bg-card"
+    >
+      <div className="overflow-x-auto border-b border-border/60 px-3 pt-3">
+        <TabsList aria-label={T.conteudo} className="h-auto">
+          <TabsTrigger value="itens" className="h-8 px-3">
+            {T.abaItens}
+          </TabsTrigger>
+          <TabsTrigger value="orcamentos" className="h-8 px-3">
+            {T.abaOrcamentos((c.orcamentos ?? []).length)}
+          </TabsTrigger>
+          <TabsTrigger value="trilha" className="h-8 px-3">
+            {T.abaTrilha}
+          </TabsTrigger>
+        </TabsList>
       </div>
-
-      {c.ultimoMotivo && ['devolvida', 'reprovada', 'cancelada'].includes(c.situacao) && (
-        <p className="rounded-xl border border-amber-300/60 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100">
-          {ROTULO_SITUACAO[c.situacao]}: {textoDoMotivo(c.ultimoMotivo)}
-        </p>
-      )}
-
-      {c.urgencia?.pedida && (
-        <div className="space-y-1 rounded-xl border border-rose-300/60 bg-rose-50/60 p-3 text-sm text-rose-950 dark:border-rose-700/50 dark:bg-rose-950/30 dark:text-rose-100">
-          <p className="flex flex-wrap items-center gap-2 font-medium">
-            <SeloUrgencia />
-            {c.urgencia.decisao === 'aceita'
-              ? `Urgência aceita${c.urgencia.decididaPorNome ? ` por ${c.urgencia.decididaPorNome}` : ''}`
-              : c.urgencia.decisao === 'recusada'
-                ? 'Urgência recusada'
-                : 'Urgência pedida, aguardando a decisão do fiscal'}
-          </p>
-          {c.urgencia.justificativa && <p>Justificativa: {c.urgencia.justificativa}</p>}
-          {c.urgencia.motivoRecusa && <p>Motivo da recusa: {c.urgencia.motivoRecusa}</p>}
-          {c.pesquisaPendente && (
-            <p>
-              A pesquisa de preços ainda não tem orçamentos de 3 empresas para cada item. O
-              recebimento definitivo espera por ela.
-            </p>
-          )}
-          {c.urgencia.pesquisaCompletaEm && (
-            <p>Pesquisa de preços completa em {dataHora(c.urgencia.pesquisaCompletaEm)}.</p>
-          )}
-        </div>
-      )}
-
-      {trf1 && comVariacao.size > 0 && (
-        <p className="rounded-xl border border-rose-300/60 p-3 text-sm text-rose-900 dark:text-rose-100">
-          {CONTROLES.variacao_acima.texto} Itens:{' '}
-          {(c.itens ?? [])
-            .filter((i) => comVariacao.has(i.id))
-            .map((i) => i.descricao)
-            .join(', ')}
-          . Acrescente referência, devolva ou reprove.
-        </p>
-      )}
-
-      {impedimentos.length > 0 && (
-        <div
-          role="alert"
-          className="rounded-xl border border-rose-300/60 bg-rose-50/70 p-3 text-sm text-rose-900 dark:border-rose-700/50 dark:bg-rose-950/30 dark:text-rose-100"
-        >
-          <p className="flex items-center gap-2 font-medium">
-            <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-            Impedimentos
-          </p>
-          <ul className="mt-1 list-disc pl-6">
-            {impedimentos.map((i) => (
-              <li key={i}>{CONTROLES[i]?.texto ?? i}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {(c.advertencias ?? []).length > 0 && (
-        <ul className="space-y-1 text-sm text-amber-800 dark:text-amber-200">
-          {(c.advertencias ?? []).map((a) => (
-            <li key={a} className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-              {CONTROLES[a]?.texto ?? a}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {acoes.montar ? (
-        <EditorContratada
-          key={c.versao}
+      <TabsContent value="itens" className="mt-0">
+        <AbaItens
           cotacao={c}
-          onAlterado={() => router.refresh()}
-          onImpedimentos={setImpedimentos}
+          desabilitado={pendente}
+          onRetirarReferencia={
+            acoes.referenciasDoFiscal
+              ? (itemId, referenciaId) =>
+                  agir(
+                    () => retirarReferenciaAction({ ...base, itemId, referenciaId }),
+                    'Referência retirada.',
+                  )
+              : undefined
+          }
+          onAcrescentarReferencia={acoes.referenciasDoFiscal ? setReferenciaPara : undefined}
         />
-      ) : (
-        <>
-          <section aria-labelledby="itens-titulo" className="space-y-2">
-            <h2 id="itens-titulo" className="text-base font-semibold">
-              Itens
-            </h2>
-            <div className="overflow-x-auto rounded-2xl border border-border/50">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    {mostraOrigem && <TableHead>Origem do preço</TableHead>}
-                    <TableHead className="text-right">Quantidade</TableHead>
-                    <TableHead className="text-right">Preço unitário</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    {c.executadoEm && <TableHead className="text-right">Aplicado</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(c.itens ?? []).map((i) => {
-                    const preco = precoParaValor({
-                      quantidade: i.quantidade,
-                      precoAplicadoCentavos: i.precoAplicadoCentavos,
-                      origem: i.origem,
-                      anexoVPrecoCentavos: i.anexoVPrecoCentavos,
-                      sinapiPrecoCentavos: i.sinapiPrecoCentavos,
-                    });
-                    return (
-                      <TableRow key={i.id}>
-                        <TableCell>
-                          <p className="font-medium">{i.descricao}</p>
-                          <p className="text-xs text-muted-foreground">{i.motivo}</p>
-                          {mostraOrigem && i.origem === 'orcamento' && i.referencias && (
-                            <div className="mt-1 space-y-1">
-                              <ListaReferencias
-                                referencias={i.referencias}
-                                desabilitado={pendente}
-                                onRetirar={
-                                  acoes.referenciasDoFiscal
-                                    ? (referenciaId) =>
-                                        agir(
-                                          () =>
-                                            retirarReferenciaAction({
-                                              ...base,
-                                              itemId: i.id,
-                                              referenciaId,
-                                            }),
-                                          'Referência retirada.',
-                                        )
-                                    : undefined
-                                }
-                              />
-                              {acoes.referenciasDoFiscal && (
-                                <Button
-                                  type="button"
-                                  variant="link"
-                                  size="sm"
-                                  className="h-auto p-0 text-xs"
-                                  onClick={() => setReferenciaPara(i.id)}
-                                >
-                                  Acrescentar referência do fiscal
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                        {mostraOrigem && (
-                          <TableCell className="text-sm">
-                            <OrigemDoItem item={i} trf1={trf1} />
-                          </TableCell>
-                        )}
-                        <TableCell className="text-right tabular-nums">
-                          {formatarQuantidade(i.quantidade)} {i.unidade}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {preco != null ? formatarReais(preco) : '—'}
-                          {i.valorProvisorio && preco != null && (
-                            <span className="block text-xs text-muted-foreground">provisório</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {preco != null
-                            ? formatarReais(valorDaLinhaCentavos(i.quantidade, preco))
-                            : '—'}
-                        </TableCell>
-                        {c.executadoEm && (
-                          <TableCell className="text-right tabular-nums">
-                            {formatarQuantidade(i.quantidadeExecutada ?? 0)} ·{' '}
-                            {formatarReais(i.valorExecutadoCentavos ?? 0)}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            <p className="text-right text-sm">
-              Total:{' '}
-              <span className="font-semibold">{formatarReais(c.valorTotalCentavos ?? 0)}</span>
-              {c.valorExecutadoCentavos != null && (
-                <>
-                  {' '}
-                  · Executado:{' '}
-                  <span className="font-semibold">{formatarReais(c.valorExecutadoCentavos)}</span>
-                </>
-              )}
-            </p>
-          </section>
+      </TabsContent>
+      <TabsContent value="orcamentos" className="mt-0">
+        <AbaOrcamentos cotacao={c} vencidos={vencidos} />
+      </TabsContent>
+      <TabsContent value="trilha" className="mt-0">
+        <AbaTrilha trilha={c.trilha ?? []} />
+      </TabsContent>
+    </Tabs>
+  );
 
-          {(c.orcamentos ?? []).length > 0 && (
-            <section aria-labelledby="orc-titulo" className="space-y-2">
-              <h2 id="orc-titulo" className="text-base font-semibold">
-                Orçamentos
+  return (
+    <div className="space-y-5">
+      <CabecalhoCotacao detalhe={detalhe} linkChamado={linkChamado} />
+
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-5">
+          {c.ultimoMotivo && ['devolvida', 'reprovada', 'cancelada'].includes(c.situacao) && (
+            <p className={AVISO.ambar}>
+              <strong className="font-semibold">{ROTULO_SITUACAO[c.situacao]}:</strong>{' '}
+              {textoDoMotivo(c.ultimoMotivo)}
+            </p>
+          )}
+
+          {c.urgencia?.pedida && (
+            <section className={`${AVISO.rosa} flex items-start gap-3`}>
+              <Zap className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+              <div className="space-y-1.5">
+                <p className="font-semibold">
+                  {c.urgencia.decisao === 'aceita'
+                    ? T.urgenciaAceita(c.urgencia.decididaPorNome ?? null)
+                    : c.urgencia.decisao === 'recusada'
+                      ? T.urgenciaRecusada
+                      : T.urgenciaPedida}
+                </p>
+                {c.urgencia.justificativa && (
+                  <p>
+                    {T.justificativa}: {c.urgencia.justificativa}
+                  </p>
+                )}
+                {c.urgencia.motivoRecusa && (
+                  <p>
+                    {T.motivoDaRecusa}: {c.urgencia.motivoRecusa}
+                  </p>
+                )}
+                {c.pesquisaPendente && <p>{T.pesquisaPendente}</p>}
+                {c.urgencia.pesquisaCompletaEm && (
+                  <p>{T.pesquisaCompletaEm(dataHora(c.urgencia.pesquisaCompletaEm))}</p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {conteudo}
+
+          {acoes.montar && (c.trilha ?? []).length > 0 && (
+            <section
+              aria-labelledby="trilha-titulo"
+              className="rounded-2xl border border-border/50 bg-card"
+            >
+              <h2
+                id="trilha-titulo"
+                className="flex items-center gap-2 px-5 pt-5 text-base font-semibold"
+              >
+                <History className="size-4 text-muted-foreground" aria-hidden="true" />
+                {T.abaTrilha}
               </h2>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {(c.orcamentos ?? []).map((o) => (
-                  <li key={o.id} className="rounded-xl border border-border/60 p-3 text-sm">
-                    <p className="flex flex-wrap items-center gap-2 font-medium">
-                      {o.fornecedor}
-                      {o.fase === 'complemento' && (
-                        <span className="text-xs font-normal text-muted-foreground">
-                          ({ROTULO_FASE_ORCAMENTO.complemento})
-                        </span>
-                      )}
-                      {vencidos.has(o.id) && (
-                        <span className="text-xs font-normal text-rose-700 dark:text-rose-300">
-                          validade vencida
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      CNPJ {formatarCnpj(o.cnpj)} · {o.data.split('-').reverse().join('/')} ·
-                      validade{' '}
-                      {o.validade ? o.validade.split('-').reverse().join('/') : 'não informada'}
-                    </p>
-                    {confirmacao.has(o.id) && (
-                      <p className="text-xs text-muted-foreground">
-                        Validade vencida confirmada pelo fiscal
-                        {confirmacao.get(o.id)!.porNome
-                          ? ` (${confirmacao.get(o.id)!.porNome})`
-                          : ''}{' '}
-                        em {dataHora(confirmacao.get(o.id)!.em)}
-                      </p>
-                    )}
-                    <ul className="mt-1 text-xs text-muted-foreground">
-                      {o.precos.map((p) => {
-                        const item = c.itens?.find((i) => i.id === p.itemId);
-                        return (
-                          <li key={p.itemId}>
-                            {item?.descricao ?? 'item'}: {formatarReais(p.valorUnitarioCentavos)}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    <a
-                      href={`/api/cotacoes/arquivos/${o.arquivoId}`}
-                      className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    >
-                      <Paperclip className="h-3 w-3" aria-hidden="true" />
-                      Arquivo do orçamento
-                    </a>
-                  </li>
-                ))}
+              <AbaTrilha trilha={c.trilha ?? []} />
+            </section>
+          )}
+
+          {acoes.completarPesquisa && (
+            <div id="pesquisa" className="scroll-mt-24">
+              <CompletarPesquisa key={c.versao} cotacao={c} onAlterado={() => router.refresh()} />
+            </div>
+          )}
+
+          {(c.arquivos ?? []).some((a) => a.tipo === 'evidencia') && (
+            <section
+              aria-labelledby="evid-titulo"
+              className="space-y-2 rounded-2xl border border-border/50 bg-card p-5 text-sm"
+            >
+              <h2 id="evid-titulo" className="text-base font-semibold">
+                {T.evidencias}
+              </h2>
+              <ul className="space-y-1">
+                {(c.arquivos ?? [])
+                  .filter((a) => a.tipo === 'evidencia')
+                  .map((a) => (
+                    <li key={a.id}>
+                      <a
+                        href={`/api/cotacoes/arquivos/${a.id}`}
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <Paperclip className="size-3.5" aria-hidden="true" />
+                        {a.nomeOriginal}
+                      </a>
+                    </li>
+                  ))}
               </ul>
             </section>
           )}
-        </>
-      )}
 
-      {(c.arquivos ?? []).some((a) => a.tipo === 'evidencia') && (
-        <section aria-labelledby="evid-titulo" className="space-y-1 text-sm">
-          <h2 id="evid-titulo" className="text-base font-semibold">
-            Evidências da aplicação
-          </h2>
-          <ul>
-            {(c.arquivos ?? [])
-              .filter((a) => a.tipo === 'evidencia')
-              .map((a) => (
-                <li key={a.id}>
-                  <a
-                    href={`/api/cotacoes/arquivos/${a.id}`}
-                    className="text-primary hover:underline"
-                  >
-                    {a.nomeOriginal}
-                  </a>
-                </li>
-              ))}
-          </ul>
-        </section>
-      )}
+          <div id="ateste" className="scroll-mt-24">
+            <AtesteCotacao cotacao={c} acoes={acoes} onAlterado={() => router.refresh()} />
+          </div>
+        </div>
 
-      {acoes.completarPesquisa && (
-        <CompletarPesquisa key={c.versao} cotacao={c} onAlterado={() => router.refresh()} />
-      )}
-
-      <AtesteCotacao cotacao={c} acoes={acoes} onAlterado={() => router.refresh()} />
-
-      {trf1 && (
-        <section
-          aria-labelledby="saldo-titulo"
-          className="space-y-2 rounded-2xl border border-border/50 p-4 text-sm"
-        >
-          <h2 id="saldo-titulo" className="flex items-center gap-2 text-base font-semibold">
-            <Landmark className="h-4 w-4" aria-hidden="true" />
-            Empenho
-          </h2>
-          {detalhe.empenhoNumero ? (
-            <p>
-              Reservado no empenho <span className="font-medium">{detalhe.empenhoNumero}</span>:{' '}
-              {/* Depois da execução, a reserva é ajustada ao executado (AC-10). */}
-              {formatarReais(
-                (c.executadoEm ? c.valorExecutadoCentavos : c.valorAutorizadoCentavos) ?? 0,
-              )}
-              {c.executadoEm && ` (autorizado ${formatarReais(c.valorAutorizadoCentavos ?? 0)})`}
-            </p>
-          ) : (detalhe.empenhosElegiveis ?? []).length === 0 ? (
-            <p className="text-muted-foreground">
-              Nenhum empenho elegível cadastrado. A cotação não pode ser encaminhada nem aprovada.
-            </p>
-          ) : (
-            <ul className="space-y-0.5">
-              {(detalhe.empenhosElegiveis ?? []).map((e) => (
-                <li key={e.id}>
-                  {e.numero}: saldo {formatarReais(e.saldoCentavos)}
-                </li>
-              ))}
-            </ul>
-          )}
-          {c.situacao === 'em_aprovacao' && !acoes.aprovar && (
-            <p className="text-muted-foreground">
-              Podem aprovar este valor:{' '}
-              {(detalhe.aprovadoresQueCobrem ?? []).length
-                ? (detalhe.aprovadoresQueCobrem ?? []).map((a) => a.nome).join(', ')
-                : 'nenhum aprovador vigente com faixa suficiente'}
-              .
-            </p>
-          )}
-        </section>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {acoes.editarDiagnostico && (
-          <Button variant="outline" onClick={() => setDialogo('editar')}>
-            Editar material
-          </Button>
-        )}
-        {acoes.executar && (
-          <Button onClick={() => setDialogo('executar')}>Registrar execução</Button>
-        )}
-        {acoes.assumir && (
-          <Button
-            disabled={pendente}
-            onClick={() => agir(() => assumirAction(base), 'Análise assumida.')}
-          >
-            Assumir análise
-          </Button>
-        )}
-        {acoes.encaminhar && (
-          <Button
-            disabled={pendente}
-            onClick={() =>
-              precisaDeEscolhas
-                ? setEncaminhando(true)
-                : agir(
-                    () => encaminharAction({ ...base, bases: [], conferencias: [] }),
-                    'Encaminhada para aprovação.',
-                  )
+        <aside aria-label={TEXTO_SUA_VEZ.rotuloOutros} className="min-w-0 space-y-5">
+          <PainelSuaVez
+            papel={papel ? ROTULO_PAPEL[papel] : null}
+            principal={
+              principal
+                ? {
+                    acao: principal,
+                    onClick: cliquePrincipal[principal],
+                    href: ancoraPrincipal[principal],
+                  }
+                : null
             }
-          >
-            Encaminhar para aprovação
-          </Button>
-        )}
-        {acoes.aprovar && (
-          <Button disabled={pendente} onClick={abrirAprovar}>
-            Aprovar
-          </Button>
-        )}
-        {acoes.recusarUrgencia && (
-          <Button
-            variant="outline"
-            disabled={pendente}
-            onClick={() => setMotivo({ acao: 'recusar_urgencia', texto: '' })}
-          >
-            Recusar urgência
-          </Button>
-        )}
-        {acoes.devolver && (
-          <Button
-            variant="outline"
-            disabled={pendente}
-            onClick={() => setMotivo({ acao: 'devolver', texto: '' })}
-          >
-            Devolver
-          </Button>
-        )}
-        {acoes.reprovar && (
-          <Button
-            variant="outline"
-            disabled={pendente}
-            onClick={() => setMotivo({ acao: 'reprovar', texto: '' })}
-          >
-            Reprovar
-          </Button>
-        )}
-        {acoes.alterar && (
-          <Button
-            variant="outline"
-            disabled={pendente}
-            onClick={() =>
-              agir(
-                () => alterarAction(base),
-                'Cotação reaberta para alteração. O saldo foi liberado.',
-              )
-            }
-          >
-            Pedir alteração
-          </Button>
-        )}
-        {acoes.cancelar && (
-          <Button
-            variant="ghost"
-            className="text-destructive"
-            disabled={pendente}
-            onClick={() => setMotivo({ acao: 'cancelar', texto: '' })}
-          >
-            {c.situacao === 'rascunho' ? 'Descartar rascunho' : 'Cancelar cotação'}
-          </Button>
-        )}
-        {pendente && (
-          <Loader2
-            className="h-5 w-5 animate-spin text-muted-foreground"
-            aria-label="Processando"
+            secundarias={secundarias}
+            impedimentos={impedimentos.map((codigo) => ({ codigo }))}
+            pontos={pontos}
+            advertencias={advertencias}
+            quemAge={c.quemAgeAgora}
+            pendente={pendente}
           />
-        )}
+          {trf1 && c.empenho && <BlocoEmpenho empenho={c.empenho} />}
+          {acoes.gerarPdf && (
+            <section
+              aria-labelledby="documento-titulo"
+              className="space-y-3 rounded-2xl border border-border/50 bg-card p-5"
+            >
+              <h2 id="documento-titulo" className="text-base font-semibold">
+                {T.documento}
+              </h2>
+              <BotaoPdfCotacao cotacaoId={c.id} numero={c.numero} />
+            </section>
+          )}
+        </aside>
       </div>
-
-      {(c.trilha ?? []).length > 0 && (
-        <section aria-labelledby="trilha-titulo" className="space-y-2">
-          <h2 id="trilha-titulo" className="flex items-center gap-2 text-base font-semibold">
-            <History className="h-4 w-4" aria-hidden="true" />
-            Trilha
-          </h2>
-          <ol className="space-y-2 border-l border-border pl-4 text-sm">
-            {(c.trilha ?? []).map((ev) => (
-              <li key={ev.id}>
-                <p>
-                  <span className="font-medium">
-                    {ev.acao === 'conciliar'
-                      ? 'Conciliação do saldo'
-                      : (ROTULO_ACAO[ev.acao as keyof typeof ROTULO_ACAO] ?? ev.acao)}
-                  </span>
-                  {ev.de !== ev.para && ` · ${ROTULO_SITUACAO[ev.para]}`}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {dataHora(ev.em)} ·{' '}
-                  {ev.autorNome
-                    ? `${ev.autorNome} (${ROTULO_PAPEL[ev.papel]})`
-                    : ROTULO_PAPEL[ev.papel]}
-                  {ev.limiteCentavosNoAto != null &&
-                    ` · limite no ato ${formatarReais(ev.limiteCentavosNoAto)}`}
-                  {ev.valorCentavos != null &&
-                    ` · ${ev.valorCentavos >= 0 ? 'reservado' : 'liberado'} ${formatarReais(Math.abs(ev.valorCentavos))}`}
-                </p>
-                {ev.motivo && <p className="text-xs">Motivo: {textoDoMotivo(ev.motivo)}</p>}
-                {ev.projecao && <p className="text-xs">{textoProjecao(ev.projecao)}</p>}
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
 
       <Dialog open={!!motivo} onOpenChange={(o) => !o && setMotivo(null)}>
         <DialogContent className="sm:rounded-2xl">

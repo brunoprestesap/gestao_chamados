@@ -271,7 +271,11 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await expect(dialog).not.toBeVisible({ timeout: 15000 });
 
     await expect(page.getByText('Autorizada').first()).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(new RegExp(`Reservado no empenho ${EMPENHO_E2E}`))).toBeVisible();
+    // Spec 0021, AC-8: depois da reserva, o bloco mostra só o empenho da cotação.
+    const empenho = page.getByRole('region', { name: 'Empenho' });
+    await expect(empenho.getByText(EMPENHO_E2E)).toBeVisible();
+    await expect(empenho.getByText('Esta cotação')).toBeVisible();
+    await page.getByRole('tab', { name: 'Trilha' }).click();
     await expect(page.getByText(/limite no ato/)).toBeVisible();
 
     await login(page, 'tecnico');
@@ -343,6 +347,29 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await page.goto('/cotacoes?aba=todas');
     await expect(page.getByRole('link', { name: numero })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('table')).toBeHidden();
+    const largura = await page.evaluate(() => ({
+      conteudo: document.documentElement.scrollWidth,
+      janela: document.documentElement.clientWidth,
+    }));
+    expect(largura.conteudo).toBeLessThanOrEqual(largura.janela);
+    await semViolacaoNoAxe(page);
+  });
+
+  test('o detalhe abre com a jornada e o painel, sem violação no axe, no desktop e a 390 px (spec 0021, AC-5, AC-6, AC-25, AC-26)', async ({
+    page,
+  }) => {
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'admin');
+    await abrirCotacaoNaFila(page, numero);
+    await expect(page.getByRole('list', { name: 'Jornada da cotação' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Itens e preços', selected: true })).toBeVisible();
+    await semViolacaoNoAxe(page);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Jornada da cotação' })).toBeVisible({
+      timeout: 15000,
+    });
     const largura = await page.evaluate(() => ({
       conteudo: document.documentElement.scrollWidth,
       janela: document.documentElement.clientWidth,

@@ -1,4 +1,4 @@
-# Verify: Repaginação das telas da cotação de material · spec 0021 · updated 2026-10-21
+# Verify: Repaginação das telas da cotação de material · spec 0021 · updated 2026-10-21 (fatias 1 e 2)
 
 _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
@@ -37,6 +37,38 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - [ ] `npx tsc --noEmit` e `npm run lint` → sem erro → AC-29
 - [ ] `npm run test:e2e -- cotacao-flow` num banco próprio (nunca o `manutencao`) → os testes da fila passam, inclusive o axe sem violação a 1280 px e a 390 px → AC-25, AC-26
 
+## Fatia 2: detalhe
+
+### UI / manual
+
+- [ ] Como fiscal, abra `/cotacoes/[id]` de uma cotação em análise → o topo mostra a trilha de navegação "Cotações / COT-…", o número, o selo, Urgente quando houver, o chamado (número e título, com link), o ativo, "Montada por <nome> (contratada)" e o total à direita → AC-5
+- [ ] Logo abaixo, a jornada de 7 etapas com a data de cada etapa vencida; a etapa atual fica marcada → AC-5
+- [ ] Abra uma cotação devolvida e depois reenviada → a jornada mostra as datas do reenvio, não as da primeira passada; uma reprovada mostra o desvio na etapa em que foi reprovada → AC-5
+- [ ] Como o fiscal que assumiu, com um orçamento vencido → o painel "Sua vez" à direita diz "Analisar e encaminhar", "Você atua como Fiscal.", lista "Orçamento vencido" com o nome do fornecedor em "Para encaminhar", as advertências com título e os botões Encaminhar para aprovação (gradiente), Devolver e Reprovar → AC-6
+- [ ] Como responsável técnico, abra a mesma cotação → o painel diz "Agora é a vez de: Fiscal.", sem o nome do fiscal, sem botões e sem o bloco Empenho → AC-6, AC-24
+- [ ] Como técnico atribuído, abra uma cotação autorizada → o painel diz "Aplicar o material" com o botão Registrar execução; a jornada aparece sem datas → AC-6, AC-24
+- [ ] Na aba Itens e preços, cada item mostra a etiqueta colorida da origem e a referência na tabela, e o total no rodapé → AC-7
+- [ ] Na aba Orçamentos, a grade tem um item por linha e um fornecedor por coluna, o menor preço do envio em verde, "não cotou" nas células vazias, a validade (e "validade vencida" ou a confirmação) e "Complemento da urgência" no cabeçalho, e o link de cada arquivo embaixo → AC-7
+- [ ] Na aba Trilha, como TRF1 → ato, autor e papel, data, motivo, limite no ato, valor reservado ou liberado e projeção; "Conciliação do saldo" aparece pelo rótulo. Como contratada → sem autor no recebimento e sem a conciliação → AC-7
+- [ ] Em aprovação, o bloco Empenho mostra uma barra por empenho elegível com Comprometido, Esta cotação e Saldo depois (saldo menos o valor), a projeção e "Podem aprovar este valor: …" → AC-8
+- [ ] Autorizada → o bloco mostra só o empenho da cotação, com a reserva separada como "Esta cotação" e o saldo depois igual ao saldo de agora → AC-8
+- [ ] Sem empenho elegível → o bloco diz que não há empenho elegível, sem nenhum R$ 0,00 → AC-8
+- [ ] A 390 px → o painel "Sua vez", o Empenho e o Documento descem para depois do conteúdo; as tabelas e as abas rolam dentro da caixa, sem rolagem horizontal da página → AC-25
+- [ ] Navegue o detalhe só pelo teclado → as abas têm foco visível e trocam com as setas; os botões do painel são `button` de verdade → AC-26
+
+### Value sourcing
+
+- [ ] Data de cada etapa: uma cotação devolvida em 14/10 e reenviada em 16/10 mostra "Enviada 16/10", e o rascunho continua com a data da criação → AC-5
+- [ ] Quem montou: troque o nome do responsável técnico no cadastro de usuários e recarregue → o cabeçalho mostra o nome novo → AC-5
+- [ ] Saldo depois em aprovação: empenho de R$ 1.000 com R$ 200 comprometidos e cotação de R$ 300 → Saldo depois R$ 500 → AC-8
+- [ ] Saldo depois autorizada: o mesmo empenho, agora com R$ 500 comprometidos (a reserva de R$ 300 dentro) → Comprometido R$ 200, Esta cotação R$ 300, Saldo depois R$ 500 (sem descontar duas vezes) → AC-8
+- [ ] Quem age: em análise com fiscal que assumiu, o TRF1 vê o nome dele e a contratada só "Fiscal" → AC-6, AC-24
+
+### Commands
+
+- [ ] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/material shared/material "app/(dashboard)/cotacoes"` → tudo passa, inclusive `detalhe.db.test.ts`, `detalhe-pecas.test.ts` e `DetalheCotacaoView.test.tsx`, sem mudar expectativa dos testes antigos → AC-29
+- [ ] `npm run test:e2e -- cotacao-flow` num banco próprio → o passo da aprovação acha o empenho no bloco Empenho e o "limite no ato" na aba Trilha; o detalhe passa no axe a 1280 e a 390 px → AC-25, AC-26
+
 ## Acceptance-criteria coverage
 
 - AC-1: selo nos três lugares, teste `compartilhado.test.tsx`
@@ -47,4 +79,9 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - AC-25, AC-26: E2E com axe a 390 px e no desktop
 - AC-27, AC-28: textos em `mensagens.ts` e a variante `gradiente` do `Button` (ainda sem uso na fila, que não tem botão primário)
 - AC-29: suíte de `lib/material` sem mudança de expectativa
-- Fatias 2 a 8 (AC-5 a AC-23): passos entram quando cada fatia for construída
+- AC-5: cabeçalho e jornada datada, `detalhe.db.test.ts`, `detalhe-pecas.test.ts` e `DetalheCotacaoView.test.tsx`
+- AC-6: painel "Sua vez" (ação principal, pontos, secundárias, quem age), `DetalheCotacaoView.test.tsx`
+- AC-7: abas Itens, Orçamentos (grade e menor preço) e Trilha (com a conciliação), `DetalheCotacaoView.test.tsx`
+- AC-8: bloco Empenho por situação, sem desconto em dobro, `detalhe.db.test.ts`
+- AC-24 (fatia 2): `etapas`, `montadoPorNome`, `quemAgeAgora` e `empenho` por visão, `detalhe.db.test.ts`
+- Fatias 3 a 8 (AC-9 a AC-23): passos entram quando cada fatia for construída

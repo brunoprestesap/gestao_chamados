@@ -3,6 +3,7 @@
 import { AlertTriangle, ClipboardCheck } from 'lucide-react';
 
 import type { ItemDTO } from '@/lib/material/serializar';
+import { cn } from '@/lib/utils';
 import { formatarReais } from '@/shared/chamados/custo';
 import {
   CONTROLES,
@@ -12,6 +13,14 @@ import {
 } from '@/shared/material/mensagens';
 
 const mesBr = (ref: string | null | undefined) => (ref ? ref.split('-').reverse().join('/') : '');
+
+/** Spec 0021: a etiqueta da origem, uma cor por caminho. */
+const COR_ORIGEM: Record<string, string> = {
+  anexo_v: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-200',
+  sinapi: 'bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-200',
+  ambas: 'bg-violet-100 text-violet-900 dark:bg-violet-500/15 dark:text-violet-200',
+  orcamento: 'bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-200',
+};
 
 /**
  * A origem do preço de um item (spec 0019, fatia 3). O lado TRF1 vê as duas
@@ -24,7 +33,14 @@ export function OrigemDoItem({ item: i, trf1 }: { item: ItemDTO; trf1: boolean }
   const marca = i.marcaAnomalia ? textoMarcaAnomalia(i.marcaAnomalia) : null;
   return (
     <div className="space-y-1">
-      <p className="font-medium">{ROTULO_ORIGEM[origem] ?? origem}</p>
+      <span
+        className={cn(
+          'inline-flex h-[22px] items-center rounded-md px-2 text-xs font-semibold whitespace-nowrap',
+          COR_ORIGEM[origem] ?? COR_ORIGEM.orcamento,
+        )}
+      >
+        {ROTULO_ORIGEM[origem] ?? origem}
+      </span>
       {i.anexoVNumero != null && (
         <p className="text-xs text-muted-foreground">
           Anexo V, item {i.anexoVNumero}
