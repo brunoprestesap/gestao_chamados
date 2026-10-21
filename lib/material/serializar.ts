@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { Types } from 'mongoose';
 
+import { type EtapaJornada, etapasDaTrilha } from '@/shared/material/jornada';
 import {
   type PapelEvento,
   type SituacaoCotacao,
@@ -9,10 +10,11 @@ import {
   type TipoArquivoCotacao,
 } from '@/shared/material/material.constants';
 import { type CodigoControle, CONTROLES } from '@/shared/material/mensagens';
+import { quemAgeAgora } from '@/shared/material/quem-age';
 import { valorProvisorio } from '@/shared/material/valores';
 
 import type { Papeis } from './papeis';
-import { pesquisaDaUrgenciaPendente, visivelParaContratada } from './pendencia';
+import { notaFiscalPendente, pesquisaDaUrgenciaPendente, visivelParaContratada } from './pendencia';
 import { type PrazoAteste, prazoDoAteste } from './prazos';
 import type { MarcaAnomalia } from './precos';
 
@@ -258,6 +260,34 @@ export type AtoDTO = { porNome: string | null; em: string };
 
 export type NotaFiscalDTO = AtoDTO & { numero: string; data: string; arquivoId: string };
 
+/** Uma barra do bloco Empenho do detalhe (spec 0021, AC-8). */
+export type BarraEmpenhoDTO = {
+  empenhoId: string;
+  numero: string;
+  liquidoCentavos: number;
+  /** O comprometido pelas outras cotações, sem esta. */
+  comprometidoCentavos: number;
+  /** O valor desta cotação na barra; `null` antes da aprovação. */
+  estaCotacaoCentavos: number | null;
+  saldoDepoisCentavos: number;
+  projecao: ProjecaoNoAto | null;
+};
+
+/**
+ * O bloco Empenho, só TRF1 (AC-8). `elegiveis`: os elegíveis com o saldo de
+ * agora; `aprovacao`: cada elegível com o saldo menos o valor; `da_cotacao`: o
+ * empenho da cotação, com a reserva já dentro do comprometido.
+ */
+export type EmpenhoDoDetalheDTO = {
+  modo: 'elegiveis' | 'aprovacao' | 'da_cotacao';
+  barras: BarraEmpenhoDTO[];
+  /** Em aprovação: quem pode aprovar o valor. */
+  podemAprovar: string[] | null;
+};
+
+/** Quem age agora (spec 0021). O nome do fiscal que assumiu só sai na visão TRF1. */
+export type QuemAgeDTO = { papel: PapelEvento; nome: string | null };
+
 export type CotacaoDTO = {
   id: string;
   numero: string;
@@ -294,6 +324,14 @@ export type CotacaoDTO = {
   advertencias?: CodigoControle[];
   /** Só TRF1: as confirmações do orçamento vencido no encaminhar (AC-34). */
   confirmacoesVencido?: { orcamentoId: string; porNome: string | null; em: string }[];
+  /** Spec 0021, TRF1 e contratada: quando cada etapa da jornada foi alcançada. */
+  etapas?: { situacao: EtapaJornada; em: string }[];
+  /** Spec 0021, TRF1 e contratada: o responsável técnico que montou. */
+  montadoPorNome?: string | null;
+  /** Spec 0021: todos menos o solicitante. */
+  quemAgeAgora?: QuemAgeDTO | null;
+  /** Spec 0021, só TRF1 (AC-8, AC-24). */
+  empenho?: EmpenhoDoDetalheDTO;
 };
 
 export type ContextoLeitura = {
@@ -372,6 +410,8 @@ export function serializarCotacao(
     nomes?: ReadonlyMap<string, string>;
     /** Só TRF1: a marca de conferência obrigatória de cada item, lida agora. */
     marcas?: ReadonlyMap<string, MarcaAnomalia>;
+    /** Só TRF1: o bloco Empenho montado pela leitura (spec 0021, AC-8). */
+    empenho?: EmpenhoDoDetalheDTO;
   } = {},
 ): CotacaoDTO {
   const eventos = extra.eventos ?? [];
@@ -427,6 +467,18 @@ export function serializarCotacao(
 
   // A marca de urgência aparece para todos do fluxo e para o técnico (AC-35).
   base.urgencia = cot.urgencia?.pedida ? { pedida: true } : null;
+
+  // Spec 0021: o papel de quem age vai a todos; o nome do fiscal, só ao TRF1.
+  const quem = quemAgeAgora(cot.situacao, {
+    fiscalAssumiu: !!cot.fiscalUserId,
+    notaFiscalPendente: notaFiscalPendente(cot),
+  });
+  base.quemAgeAgora = quem
+    ? {
+        papel: quem.papel,
+        nome: visao === 'trf1' && quem.doFiscalQueAssumiu ? nome(cot.fiscalUserId) : null,
+      }
+    : null;
 
   if (visao === 'tecnico') {
     // O técnico vê só a marca da urgência (fatia 4): a pesquisa de preços some da
@@ -527,6 +579,7 @@ export function serializarCotacao(
     };
   }
   base.pesquisaPendente = pesquisaDaUrgenciaPendente(cot);
+  base.montadoPorNome = nome(cot.montadoPorUserId);
 
   if (visao === 'contratada') {
     // Sem empenho, saldo, limites, advertências do lado TRF1 nem as duas bases lado a lado.
@@ -542,6 +595,7 @@ export function serializarCotacao(
         motivo: ev.motivo,
         em: ev.em.toISOString(),
       }));
+    base.etapas = etapasDaTrilha(base.trilha);
     base.advertencias = cot.advertencias
       .map((a) => a.codigo as CodigoControle)
       .filter((c) => CONTROLES[c]?.ve === 'todos');
@@ -596,5 +650,7 @@ export function serializarCotacao(
     advertencias: ev.advertenciasNoAto,
     projecao: ev.projecaoNoAto ?? null,
   }));
+  base.etapas = etapasDaTrilha(base.trilha);
+  if (extra.empenho) base.empenho = extra.empenho;
   return base;
 }
