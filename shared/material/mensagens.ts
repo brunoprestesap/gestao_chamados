@@ -771,6 +771,8 @@ export const TEXTO_DETALHE = {
   abaOrcamentos: (n: number) => `Orçamentos (${n})`,
   abaTrilha: 'Trilha',
   conteudo: 'Conteúdo da cotação',
+  tabelaItens: 'Tabela de itens e preços',
+  gradeOrcamentos: 'Grade de preços por fornecedor',
   colunaItem: 'Item',
   colunaOrigem: 'Origem do preço',
   colunaQuantidade: 'Qtd.',

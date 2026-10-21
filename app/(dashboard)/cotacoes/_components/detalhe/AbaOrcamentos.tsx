@@ -14,6 +14,8 @@ import { formatarReais } from '@/shared/chamados/custo';
 import { formatarCnpj } from '@/shared/contratos/cnpj';
 import { ROTULO_FASE_ORCAMENTO, TEXTO_DETALHE as T } from '@/shared/material/mensagens';
 
+import { CaixaRolavel } from './CaixaRolavel';
+
 /**
  * A aba Orçamentos do detalhe (spec 0021, AC-7): a grade de itens por
  * fornecedor, com o menor preço de cada item destacado. Só os orçamentos do
@@ -62,8 +64,8 @@ export function AbaOrcamentos({
   return (
     <div className="space-y-3 pt-4">
       <p className="px-5 text-[13px] text-muted-foreground">{T.orcamentosAjuda}</p>
-      <div className="overflow-x-auto">
-        <Table className="min-w-[680px]">
+      <CaixaRolavel rotulo={T.gradeOrcamentos}>
+        <Table className="min-w-[480px]">
           <TableHeader>
             <TableRow>
               <TableHead className="pl-5 align-bottom">{T.colunaItem}</TableHead>
@@ -132,7 +134,7 @@ export function AbaOrcamentos({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </CaixaRolavel>
       <ul className="flex flex-wrap gap-x-4 gap-y-1.5 px-5 pb-4 text-[13px]">
         {orcamentos.map((o) => (
           <li key={o.id}>

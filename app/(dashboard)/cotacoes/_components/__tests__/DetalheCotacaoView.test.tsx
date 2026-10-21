@@ -263,6 +263,18 @@ describe('DetalheCotacaoView', () => {
     ).toBeVisible();
   });
 
+  it('a tabela que rola de lado fica numa caixa rotulada que recebe foco pelo teclado (AC-25, AC-26)', async () => {
+    render(<DetalheCotacaoView detalhe={detalhe()} />);
+    const itens = screen.getByRole('region', { name: 'Tabela de itens e preços' });
+    expect(itens).toHaveAttribute('tabindex', '0');
+    expect(within(itens).getByRole('table')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Orçamentos (2)' }));
+    const grade = screen.getByRole('region', { name: 'Grade de preços por fornecedor' });
+    expect(grade).toHaveAttribute('tabindex', '0');
+    expect(within(grade).getByRole('table')).toBeInTheDocument();
+  });
+
   it('as abas trazem os orçamentos em grade, com o menor preço, e a trilha com a conciliação (AC-7)', async () => {
     render(<DetalheCotacaoView detalhe={detalhe()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Orçamentos (2)' }));

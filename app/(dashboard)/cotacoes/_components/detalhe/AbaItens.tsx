@@ -17,6 +17,7 @@ import { precoParaValor, valorDaLinhaCentavos } from '@/shared/material/valores'
 
 import { OrigemDoItem } from '../OrigemDoItem';
 import { ListaReferencias } from '../ReferenciasPreco';
+import { CaixaRolavel } from './CaixaRolavel';
 
 /**
  * A aba Itens e preços do detalhe (spec 0021, AC-7): origem e referência por
@@ -39,8 +40,8 @@ export function AbaItens({
   const colunas = 4 + (mostraOrigem ? 1 : 0);
 
   return (
-    <div className="overflow-x-auto">
-      <Table className="min-w-[680px]">
+    <CaixaRolavel rotulo={T.tabelaItens}>
+      <Table className="min-w-[520px]">
         <TableHeader>
           <TableRow>
             <TableHead className="pl-5">{T.colunaItem}</TableHead>
@@ -81,7 +82,7 @@ export function AbaItens({
                           type="button"
                           variant="link"
                           size="sm"
-                          className="h-auto p-0 text-xs"
+                          className="h-auto p-0 text-left text-xs whitespace-normal"
                           onClick={() => onAcrescentarReferencia(i.id)}
                         >
                           {T.acrescentarReferencia}
@@ -133,6 +134,6 @@ export function AbaItens({
           </TableRow>
         </TableFooter>
       </Table>
-    </div>
+    </CaixaRolavel>
   );
 }
