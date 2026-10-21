@@ -236,6 +236,38 @@ describe('DetalheCotacaoView', () => {
     expect(within(painel).getByRole('button', { name: 'Reprovar' })).toBeVisible();
   });
 
+  it('quem tem a ação principal não lê "a vez é de" com o próprio nome (revisão do #80)', () => {
+    render(
+      <DetalheCotacaoView
+        detalhe={detalhe({ acoes: { ...semAcao, encaminhar: true, devolver: true } })}
+      />,
+    );
+    const painel = screen.getByRole('region', { name: 'Analisar e encaminhar' });
+    expect(within(painel).queryByText(/Agora é a vez de/)).toBeNull();
+  });
+
+  it('a advertência não repete o título que o texto já traz (revisão do #80)', () => {
+    render(<DetalheCotacaoView detalhe={detalhe({ acoes: { ...semAcao, encaminhar: true } })} />);
+    const painel = screen.getByRole('region', { name: 'Analisar e encaminhar' });
+    const linha = within(painel).getByText('Reincidência').closest('li');
+    expect(linha?.textContent).not.toMatch(/Reincidência\s+Reincidência/);
+    expect(linha?.textContent).toMatch(/^Reincidência\s+Este equipamento já teve/);
+  });
+
+  it('o técnico, que não recebe orçamentos, não vê a aba Orçamentos (revisão do #80)', () => {
+    render(
+      <DetalheCotacaoView
+        detalhe={detalhe({
+          cotacao: { ...cotacao, visao: 'tecnico', orcamentos: undefined, empenho: undefined },
+          papeis: ['tecnico'],
+        })}
+      />,
+    );
+    expect(screen.queryByRole('tab', { name: /Orçamentos/ })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Itens e preços' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Trilha' })).toBeVisible();
+  });
+
   it('a ação principal dispara a action do servidor', async () => {
     m.assumirAction.mockResolvedValue({ ok: true });
     render(

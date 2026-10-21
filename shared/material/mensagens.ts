@@ -693,6 +693,17 @@ export const TITULO_CONTROLE: Record<CodigoControle, string> = {
 };
 
 /**
+ * O texto do controle para vir depois do título curto: alguns textos trazem o
+ * próprio rótulo antes dos dois pontos ("Reincidência: …"), escritos para
+ * aparecer sozinhos no PDF e nos avisos, e aqui o rótulo sairia repetido.
+ */
+export function textoDoControleSemRotulo(codigo: CodigoControle): string {
+  const texto = CONTROLES[codigo]?.texto ?? codigo;
+  const resto = texto.match(/^[^:.]{1,45}:\s+([\s\S]+)$/)?.[1];
+  return resto ? resto.charAt(0).toUpperCase() + resto.slice(1) : texto;
+}
+
+/**
  * As ações que fazem a vez de quem lê, na ordem em que viram a ação principal
  * do painel "Sua vez" (AC-6). As do ateste, da pesquisa e da montagem moram
  * numa seção da própria página, e o botão do painel leva até ela.

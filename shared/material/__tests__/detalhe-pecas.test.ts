@@ -4,8 +4,10 @@ import { etapasDaTrilha, situacaoAnteriorDaTrilha } from '../jornada';
 import {
   ACOES_DA_VEZ,
   CODIGOS_CONTROLE,
+  CONTROLES,
   ROTULO_ACAO,
   TEXTO_ACAO_DA_VEZ,
+  textoDoControleSemRotulo,
   TITULO_CONTROLE,
 } from '../mensagens';
 
@@ -85,6 +87,19 @@ describe('situacaoAnteriorDaTrilha', () => {
 describe('textos do detalhe', () => {
   it('todo controle tem título curto para o painel', () => {
     for (const c of CODIGOS_CONTROLE) expect(TITULO_CONTROLE[c]).toBeTruthy();
+  });
+
+  it('o texto que vem depois do título não repete o rótulo que já traz', () => {
+    expect(textoDoControleSemRotulo('reincidencia')).toMatch(/^Este equipamento já teve/);
+    expect(textoDoControleSemRotulo('fracionamento')).toMatch(/^Somado ao mesmo item/);
+    expect(textoDoControleSemRotulo('orcamento_vencido')).toBe('Confirme cada um para encaminhar.');
+    // Sem rótulo antes dos dois pontos, o texto fica como está.
+    expect(textoDoControleSemRotulo('cnpj_invalido')).toBe(CONTROLES.cnpj_invalido.texto);
+    for (const c of CODIGOS_CONTROLE) {
+      expect(textoDoControleSemRotulo(c).toLowerCase()).not.toMatch(
+        new RegExp(`^${TITULO_CONTROLE[c].toLowerCase()}`),
+      );
+    }
   });
 
   it('toda ação da vez tem título e botão, e a conciliação tem rótulo na trilha', () => {

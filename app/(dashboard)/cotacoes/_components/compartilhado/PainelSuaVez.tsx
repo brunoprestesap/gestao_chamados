@@ -8,10 +8,10 @@ import {
   type AcaoDaVez,
   ACOES_DA_VEZ,
   type CodigoControle,
-  CONTROLES,
   ROTULO_PAPEL,
   TEXTO_ACAO_DA_VEZ,
   TEXTO_SUA_VEZ as T,
+  textoDoControleSemRotulo,
   TITULO_CONTROLE,
 } from '@/shared/material/mensagens';
 
@@ -55,7 +55,7 @@ function Ponto({ ponto, tipo }: { ponto: PontoDoPainel; tipo: 'impedimento' | 'a
         <strong className="font-semibold">{TITULO_CONTROLE[ponto.codigo] ?? ponto.codigo}</strong>
         <span className="text-muted-foreground">
           {' '}
-          {ponto.detalhe ?? CONTROLES[ponto.codigo]?.texto}
+          {ponto.detalhe ?? textoDoControleSemRotulo(ponto.codigo)}
         </span>
       </span>
     </li>
@@ -162,11 +162,6 @@ export function PainelSuaVez({
               : T.ninguem}
         </h2>
         {papel && <p className="text-[13px] text-muted-foreground">{T.voceAtuaComo(papel)}</p>}
-        {principal && quemAge && quemAge.nome && (
-          <p className="text-[13px] text-muted-foreground">
-            {T.vezDe(ROTULO_PAPEL[quemAge.papel], quemAge.nome)}
-          </p>
-        )}
       </div>
 
       {principal && !impedimentos.length && (

@@ -280,9 +280,11 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           <TabsTrigger value="itens" className="h-8 px-3">
             {T.abaItens}
           </TabsTrigger>
-          <TabsTrigger value="orcamentos" className="h-8 px-3">
-            {T.abaOrcamentos((c.orcamentos ?? []).length)}
-          </TabsTrigger>
+          {c.orcamentos && (
+            <TabsTrigger value="orcamentos" className="h-8 px-3">
+              {T.abaOrcamentos(c.orcamentos.length)}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="trilha" className="h-8 px-3">
             {T.abaTrilha}
           </TabsTrigger>
@@ -304,9 +306,12 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           onAcrescentarReferencia={acoes.referenciasDoFiscal ? setReferenciaPara : undefined}
         />
       </TabsContent>
-      <TabsContent value="orcamentos" className="mt-0">
-        <AbaOrcamentos cotacao={c} vencidos={vencidos} />
-      </TabsContent>
+      {/* O técnico não recebe orçamentos (serializarCotacao): sem eles, a aba nem aparece. */}
+      {c.orcamentos && (
+        <TabsContent value="orcamentos" className="mt-0">
+          <AbaOrcamentos cotacao={c} vencidos={vencidos} />
+        </TabsContent>
+      )}
       <TabsContent value="trilha" className="mt-0">
         <AbaTrilha trilha={c.trilha ?? []} />
       </TabsContent>
