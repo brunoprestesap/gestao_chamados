@@ -262,6 +262,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **KPI Card** (`components/dashboard/kpi-card.tsx`): componente reutilizável para métricas com título, valor, helper text e ícone
 - **PageHeader** (`components/dashboard/header.tsx`): título + subtítulo + slot opcional `actions`
 - **Botões primários**: gradiente `from-indigo-600 to-blue-600` com shadow colorida (`shadow-indigo-500/20`)
+- **Variante `gradiente` do `Button`** (`components/ui/button.tsx`, spec 0021): o mesmo botão primário pronto; por ora usada no módulo de material, os outros usos seguem com as classes caso a caso
 - **Inputs do login**: `rounded-xl` com ícone à esquerda e transição de borda no focus
 
 ## Variáveis de Ambiente
@@ -391,6 +392,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - **Unitários**: Vitest (preferido para Next.js 16) ou Jest
 - **Componentes**: Vitest com `@testing-library/react` e `@testing-library/user-event`; o arquivo é `*.test.tsx` e abre com `// @vitest-environment jsdom`, porque o ambiente padrão da suíte é Node
 - **E2E**: Playwright
+- **Acessibilidade no E2E**: `@axe-core/playwright` (desde a spec 0021) roda o axe nas telas do módulo de material dentro de `e2e/cotacao-flow.spec.ts` (`semViolacaoNoAxe`, só dentro do `main`, regras WCAG 2.1 AA); tela nova do módulo entra nessa checagem
 - Padrão: Arrange-Act-Assert
 - Cobertura mínima: 80%
 - **Banco real**: testes de índice único, TTL e corrida usam o MongoDB de verdade por `tests/mongo-test-env.ts`. Sem `MONGO_TEST_URI`, os `*.db.test.ts` são pulados. O apoio aceita um `dbName` por arquivo e chama `createIndexes()` de propósito
@@ -407,7 +409,10 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 ## Agent skills
 
 - [vitest](.agents/skills/vitest/): `antfu/skills`, o runner de teste do projeto (API compatível com Jest, mocks, cobertura, filtro de teste e o ambiente jsdom)
+- [a11y-playwright-testing](.agents/skills/a11y-playwright-testing/): `fugazi/test-automation-skills-agents`, acessibilidade no Playwright com axe (WCAG, teclado e foco, ARIA, nomes acessíveis, contraste), o uso do E2E do módulo de material
+- [axe-core](.agents/skills/axe-core/): `claude-dev-suite/claude-dev-suite`, o motor axe-core em geral (regras, tags WCAG, integração com Playwright, Jest e Vitest)
 - MCP servers: nenhum para as ferramentas de teste (`@testing-library/*`, `jsdom`); são de desenvolvimento local e não têm servidor público. Busca feita em 18/09/2026, não vale repetir.
+- Declined: servidor MCP de axe (só achados de terceiros em agregadores, sem repositório oficial da Deque; o E2E com `@axe-core/playwright` já cobre). Busca feita em 22/10/2026, não vale repetir.
 - Declined: `barcode-detector` (leitura da câmera em `/ativos/ler`, spec 0011), `idb` (fila offline da vistoria, spec 0012)
 
 ## Context files
