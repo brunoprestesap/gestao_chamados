@@ -216,16 +216,26 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await login(page, 'preposto');
     await abrirCotacaoNaFila(page, numero, 'minhas');
 
+    // Spec 0021, fatia 5 (AC-12): o editor tem 4 passos; o item do diagnóstico
+    // vai para três orçamentos, que moram no passo 3.
+    const passos = page.getByRole('navigation', { name: 'Passos da montagem' });
+    await expect(passos.getByRole('button', { name: /Itens/ })).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+    await semViolacaoNoAxe(page);
+    await passos.getByRole('button', { name: /Orçamentos/ }).click();
+
     // Fatia 4: o item do caminho 3 precisa de ao menos uma referência de preço (AC-32).
-    const item = page.locator('fieldset').filter({ hasText: 'Item 1' }).first();
-    await item.getByLabel('Outra fonte').check();
-    await item.getByLabel('Fonte da referência').fill('Painel de preços do governo');
-    await item.getByLabel('Valor unitário').fill('100,00');
-    await item
+    const refs = page.getByRole('region', { name: 'Referências de preço' });
+    await refs.getByLabel('Outra fonte').check();
+    await refs.getByLabel('Fonte da referência').fill('Painel de preços do governo');
+    await refs.getByLabel('Valor unitário').fill('100,00');
+    await refs
       .getByLabel('Data da referência')
       .fill(new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10));
-    await item.getByRole('button', { name: 'Acrescentar referência' }).click();
-    await expect(item.getByText(/Painel de preços do governo/)).toBeVisible();
+    await refs.getByRole('button', { name: 'Acrescentar referência' }).click();
+    await expect(refs.getByText(/Painel de preços do governo/)).toBeVisible();
 
     const precos = ['12,00', '10,00', '11,00'];
     for (const [i, preco] of precos.entries()) {
@@ -242,11 +252,26 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
       await orc.getByLabel(/Validade/).fill('2099-12-31');
       await orc.locator('input[type=file]').setInputFiles(pdf(`orcamento-${n}.pdf`));
       await expect(orc.getByText(`orcamento-${n}.pdf`)).toBeVisible({ timeout: 15000 });
-      await orc.getByLabel(/Disjuntor bipolar 40 A/).fill(preco);
+      // Spec 0021 (AC-14): o preço vai na grade, uma célula por fornecedor.
+      await page.getByLabel(`Disjuntor bipolar 40 A, Loja E2E ${n}, preço unitário`).fill(preco);
     }
-    // Menor preço (R$ 10,00) × 2.
-    await expect(page.getByText(/linha R\$\s*20,00/)).toBeVisible();
+    // Spec 0021 (AC-15): a lista ao vivo e o total pelo menor preço (R$ 10,00 × 2).
+    await expect(page.getByRole('region', { name: 'Total até agora' })).toContainText('R$ 20,00');
+    await expect(
+      page.getByRole('region', { name: 'Pronta para enviar?' }).getByText('Falta:'),
+    ).toHaveCount(0);
+    await semViolacaoNoAxe(page);
 
+    // A 390 px, a grade rola dentro da própria caixa, não a página (AC-25).
+    await page.setViewportSize({ width: 390, height: 844 });
+    const largura = await page.evaluate(() => ({
+      conteudo: document.documentElement.scrollWidth,
+      janela: document.documentElement.clientWidth,
+    }));
+    expect(largura.conteudo).toBeLessThanOrEqual(largura.janela);
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    await page.getByRole('button', { name: 'Continuar para revisar e enviar' }).click();
     await page.getByRole('button', { name: 'Salvar e enviar para análise' }).click();
     await expect(seloDoDetalhe(page)).toHaveAttribute('data-situacao', 'enviada', {
       timeout: 15000,

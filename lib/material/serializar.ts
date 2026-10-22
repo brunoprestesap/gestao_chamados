@@ -332,6 +332,11 @@ export type CotacaoDTO = {
   quemAgeAgora?: QuemAgeDTO | null;
   /** Spec 0021, só TRF1 (AC-8, AC-24). */
   empenho?: EmpenhoDoDetalheDTO;
+  /**
+   * Spec 0021, fatia 5, só a contratada que monta: a raiz do próprio CNPJ, para
+   * a lista "Pronta para enviar?" rodar `impedimentosDeEnvio` no navegador.
+   */
+  raizCnpjContratada?: string;
 };
 
 export type ContextoLeitura = {
@@ -412,6 +417,8 @@ export function serializarCotacao(
     marcas?: ReadonlyMap<string, MarcaAnomalia>;
     /** Só TRF1: o bloco Empenho montado pela leitura (spec 0021, AC-8). */
     empenho?: EmpenhoDoDetalheDTO;
+    /** Só a contratada: a raiz do próprio CNPJ, lida quando ela monta (spec 0021, fatia 5). */
+    raizCnpjContratada?: string;
   } = {},
 ): CotacaoDTO {
   const eventos = extra.eventos ?? [];
@@ -599,6 +606,7 @@ export function serializarCotacao(
     base.advertencias = cot.advertencias
       .map((a) => a.codigo as CodigoControle)
       .filter((c) => CONTROLES[c]?.ve === 'todos');
+    if (extra.raizCnpjContratada) base.raizCnpjContratada = extra.raizCnpjContratada;
     return base;
   }
 

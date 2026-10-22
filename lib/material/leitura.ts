@@ -316,9 +316,19 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
         null;
     }
   }
+  // A contratada que monta recebe a raiz do próprio CNPJ, para a lista do editor (spec 0021).
+  const raizCnpjContratada =
+    visao === 'contratada' && detalhe.acoes.montar
+      ? (await lerMaterialConfig()).raizCnpjContratada
+      : undefined;
   return {
     ...detalhe,
-    cotacao: serializarCotacao(cot, visao, sessao, { ...(await extras(cot)), marcas, empenho }),
+    cotacao: serializarCotacao(cot, visao, sessao, {
+      ...(await extras(cot)),
+      marcas,
+      empenho,
+      raizCnpjContratada,
+    }),
   };
 }
 
