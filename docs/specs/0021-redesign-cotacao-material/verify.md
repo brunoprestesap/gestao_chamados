@@ -1,4 +1,4 @@
-# Verify: Repaginação das telas da cotação de material · spec 0021 · updated 2026-10-22 (fatias 1 a 3)
+# Verify: Repaginação das telas da cotação de material · spec 0021 · updated 2026-10-22 (fatias 1 a 4)
 
 _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
@@ -97,6 +97,36 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - [x] `npx tsc --noEmit` e o ESLint dos arquivos da fatia → sem erro → AC-29
 - [x] `npm run test:e2e -- cotacao-flow` num banco próprio → o detalhe executado mostra "Etapas do ateste" e a tabela, passa no axe a 1280 e a 390 px, e o gestor registra o provisório pelo painel → AC-6, AC-9, AC-25, AC-26
 
+## Fatia 4: diálogos
+
+### UI / manual
+
+- [ ] Como fiscal que assumiu, numa cotação em análise com um item nas duas tabelas, um orçamento vencido e urgência pedida, clique "Encaminhar para aprovação" → o diálogo diz "Resolva os 3 pontos abaixo." e numera 1 · Base do item, 2 · Orçamento com validade vencida, 3 · Urgência → AC-10
+- [ ] No ponto da base, cada opção mostra o preço por unidade e a diferença para a outra tabela em % (ex.: "3,9% menor") → AC-10
+- [ ] Resolva os pontos um a um → cada título ganha o sinal de resolvido, o rodapé conta "N de 3 resolvidos" e o botão Encaminhar só habilita no último → AC-10
+- [ ] Como aprovador com faixa, numa cotação em aprovação, clique "Aprovar" → o texto diz "Ao aprovar, R$ X ficam reservados no empenho escolhido e a compra fica autorizada.", há uma barra por empenho elegível com "Depois: R$ Y" e a caixa "Sua faixa: <nome> · até R$ Z" → AC-10
+- [ ] Um empenho em que o valor passa da parcela relevante do saldo aparece em laranja com "usaria N% do saldo"; um empenho sem saldo fica travado com "sem saldo para esta cotação" → AC-10
+- [ ] Devolver, Reprovar, Cancelar cotação, Descartar rascunho e Recusar a urgência abrem o mesmo diálogo de motivo, com "Mínimo de N caracteres" e o contador "N de M" embaixo do campo → AC-11
+- [ ] Escreva menos que o mínimo e confirme → o erro aparece no próprio campo (vermelho, lido pelo leitor de tela) e nada é enviado → AC-11
+- [ ] Reprovar, Cancelar e Descartar usam o botão vermelho; Devolver e Recusar usam o gradiente; o botão de fechar se chama "Cancelar" em todos, inclusive Encaminhar e Aprovar → AC-11, AC-28
+- [ ] Depois de devolver, reprovar, cancelar ou recusar, o toast diz o que aconteceu ("Cotação devolvida.", "Cotação reprovada." ...), nunca "Feito." → AC-27
+- [ ] A 390 px, os diálogos Encaminhar e Aprovar rolam dentro de si e cabem na largura, sem rolagem horizontal → AC-25
+
+### Value sourcing
+
+- [ ] Diferença em %: Anexo V R$ 1.380,00 e SINAPI R$ 1.325,60 → SINAPI "3,9% menor", Anexo V "4,1% maior"; um dos preços vazio → só "sem preço", sem % → AC-10
+- [ ] Barra por empenho: vem de `empenho.barras` em modo `aprovacao` (saldo depois = saldo menos o valor); o "saldo" do cabeçalho de cada opção é o saldo de agora → AC-10
+- [ ] Destaque: só os empenhos em `projecoes` do detalhe (`consomeParcelaRelevante` com `parcelaRelevantePercentual`); mude o percentual em Parâmetros e reabra → o destaque acompanha → AC-10
+- [ ] Faixa de quem aprova: é a designação vigente de aprovador de quem lê, com o nome e o limite da faixa ativa (`Designado.faixaNome`); um aprovador cuja faixa não cobre o valor não vê a caixa (nem o botão) → AC-10
+- [ ] Tamanho do motivo: devolver, reprovar e cancelar de 5 a 2000 (`MOTIVO_MIN`/`MOTIVO_MAX`, os mesmos do schema); recusar a urgência de 10 a 500 (`TEXTO_CURTO_*`) → AC-11
+
+### Commands
+
+- [x] `npx vitest run "app/(dashboard)/cotacoes" lib/material shared/material` → passam, inclusive `DialogosCotacao.test.tsx` (10 casos novos) → AC-10, AC-11, AC-29
+- [x] `MONGO_TEST_URI=mongodb://127.0.0.1:27017 npx vitest run lib/material` → 413 passam com o banco → AC-29
+- [x] `npx tsc --noEmit` e o ESLint dos arquivos da fatia → sem erro → AC-29
+- [ ] `npm run test:e2e -- cotacao-flow` num banco próprio → o aprovador escolhe o empenho pelo radio novo e aprova; a tela passa no axe → AC-10, AC-26
+
 ## Acceptance-criteria coverage
 
 - AC-1: selo nos três lugares, teste `compartilhado.test.tsx`
@@ -114,4 +144,7 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - AC-24 (fatia 2): `etapas`, `montadoPorNome`, `quemAgeAgora` e `empenho` por visão, `detalhe.db.test.ts`
 - AC-9: etapas, tabela e evidências, `AtesteCotacao.test.tsx` e E2E (etapas e o provisório pelo painel)
 - AC-6 (fatia 3): o painel abre os diálogos do ateste, `AtesteCotacao.test.tsx` e E2E
-- Fatias 4 a 8 (AC-10 a AC-23): passos entram quando cada fatia for construída
+- AC-10: Encaminhar numerado e Aprovar com barras e faixa, `DialogosCotacao.test.tsx` e E2E (aprovar)
+- AC-11: `DialogMotivo` com contador, mínimo e erro no campo, `DialogosCotacao.test.tsx`
+- AC-27 (fatia 4): textos dos diálogos em `mensagens.ts` (`TEXTO_DIALOGO_MOTIVO`, `TEXTO_ENCAMINHAR`, `TEXTO_APROVAR`)
+- Fatias 5 a 8 (AC-12 a AC-23): passos entram quando cada fatia for construída

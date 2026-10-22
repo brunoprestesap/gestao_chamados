@@ -195,6 +195,11 @@ export type DetalheCotacao = {
    */
   projecoes?: Projecao[];
   aprovadoresQueCobrem?: Designado[];
+  /**
+   * Só TRF1, em aprovação: a faixa de quem lê, quando é aprovador vigente que
+   * cobre o valor (spec 0021, AC-10).
+   */
+  faixaDoLeitor?: { nome: string | null; limiteCentavos: number };
   /** Só TRF1: o número do empenho da cotação, para o PDF. */
   empenhoNumero?: string | null;
   /**
@@ -279,6 +284,10 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
     }
     detalhe.empenhosElegiveis = await empenhosElegiveis();
     detalhe.aprovadoresQueCobrem = await aprovadoresQueCobrem(cot.valorTotalCentavos);
+    const euAprovo = detalhe.aprovadoresQueCobrem.find((d) => d.userId === sessao.userId);
+    if (cot.situacao === 'em_aprovacao' && euAprovo?.limiteCentavos != null) {
+      detalhe.faixaDoLeitor = { nome: euAprovo.faixaNome, limiteCentavos: euAprovo.limiteCentavos };
+    }
     const naBarra = await empenhosDaBarra(cot, detalhe.empenhosElegiveis);
     // Uma leitura da projeção serve à barra e ao diálogo de aprovar (o saldo é o de agora).
     const projecoes = await projecoesDosEmpenhos(naBarra.empenhos);

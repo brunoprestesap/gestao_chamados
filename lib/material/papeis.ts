@@ -115,7 +115,13 @@ export function limiteDoAprovador(papeis: Papeis): {
   return melhor;
 }
 
-export type Designado = { userId: string; nome: string; limiteCentavos: number | null };
+export type Designado = {
+  userId: string;
+  nome: string;
+  limiteCentavos: number | null;
+  /** O nome da faixa do limite (spec 0021); `null` sem faixa. */
+  faixaNome: string | null;
+};
 
 /** Quem tem designação vigente para o papel hoje (avisos, "encaminhe a"). */
 export async function designadosVigentes(papel: PapelDesignacao): Promise<Designado[]> {
@@ -134,20 +140,26 @@ export async function designadosVigentes(papel: PapelDesignacao): Promise<Design
       .lean(),
     faixaIds.length
       ? FaixaCompetenciaModel.find({ _id: { $in: faixaIds }, ativa: true })
-          .select('limiteCentavos')
+          .select('limiteCentavos nome')
           .lean()
       : Promise.resolve([]),
   ]);
   const nome = new Map(usuarios.map((u) => [String(u._id), u.name as string]));
-  const limite = new Map(faixas.map((f) => [String(f._id), f.limiteCentavos]));
+  const faixaPorId = new Map(faixas.map((f) => [String(f._id), f]));
   const porUsuario = new Map<string, Designado>();
   for (const d of docs) {
     const id = String(d.userId);
     if (!nome.has(id)) continue;
-    const lim = d.faixaId ? (limite.get(String(d.faixaId)) ?? null) : null;
+    const faixa = d.faixaId ? faixaPorId.get(String(d.faixaId)) : undefined;
+    const lim = faixa?.limiteCentavos ?? null;
     const atual = porUsuario.get(id);
     if (!atual || (lim ?? -1) > (atual.limiteCentavos ?? -1)) {
-      porUsuario.set(id, { userId: id, nome: nome.get(id)!, limiteCentavos: lim });
+      porUsuario.set(id, {
+        userId: id,
+        nome: nome.get(id)!,
+        limiteCentavos: lim,
+        faixaNome: faixa?.nome ?? null,
+      });
     }
   }
   return [...porUsuario.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
