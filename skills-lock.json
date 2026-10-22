@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "a11y-playwright-testing": {
+      "source": "fugazi/test-automation-skills-agents",
+      "sourceType": "github",
+      "skillPath": "skills/a11y-playwright-testing/SKILL.md",
+      "computedHash": "0dd9a834640162952e64e1c86c296148b8146cf63a8f78241eef6c63dda8e6d1"
+    },
     "architect": {
       "source": "jsmastery-pro/skills",
       "sourceType": "github",
@@ -12,6 +18,12 @@
       "sourceType": "github",
       "skillPath": "skills/audit/SKILL.md",
       "computedHash": "f388e74b95dcfea40615dcce28223b9166e9213867ac35e9971b549b7cda1eae"
+    },
+    "axe-core": {
+      "source": "claude-dev-suite/claude-dev-suite",
+      "sourceType": "github",
+      "skillPath": "skills/accessibility/axe-core/SKILL.md",
+      "computedHash": "f4ce630deb492299e67a27eaec5c05ccf93a548f5ee85bf89bb30a485e04470f"
     },
     "check": {
       "source": "jsmastery-pro/skills",

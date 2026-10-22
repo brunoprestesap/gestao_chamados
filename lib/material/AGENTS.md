@@ -29,7 +29,7 @@ As regras da cotação de material (spec 0019, Fatias 1 a 5 construídas): o té
 | `importacao/`     | O CSV do Anexo V e do SINAPI: `csv.ts` (leitura), `revisao.ts`, `pendente.ts` (envio e descarte), `aplicar.ts` (os cinco passos) e `anomalia.ts` (`recalcularAnomalia`)                                                                                   |
 | `tabelas.ts`      | As ações do Admin num item vigente do Anexo V (`marcarAnomalia`, `corrigirCodigoSinapi`) e `lerTabelasPreco`, a leitura das abas Anexo V e SINAPI                                                                                                         |
 
-Constantes, textos e schemas ficam em `shared/material/` (`material.constants.ts`, `mensagens.ts` com todo texto de situação, impedimento e aviso, `valores.ts` com a conta em centavos, `cotacao.schemas.ts`).
+Constantes, textos e schemas ficam em `shared/material/` (`material.constants.ts`, `mensagens.ts` com todo texto de situação, impedimento e aviso, `valores.ts` com a conta em centavos, `cotacao.schemas.ts`). Desde a spec 0021 (repaginação das telas), também `jornada.ts` (as 7 etapas, `posicaoNaJornada`, `etapasDaTrilha` e `situacaoAnteriorDaTrilha`) e `quem-age.ts` (`quemAgeAgora`, o papel que age por situação), puros, para o cliente e o servidor.
 
 ## Convenções
 
@@ -63,6 +63,10 @@ Constantes, textos e schemas ficam em `shared/material/` (`material.constants.ts
 - Parâmetros: a gravação leva os valores lidos ao abrir a tela e só passa se o documento ainda tiver esses valores (o campo ausente casa com o padrão); quem perde recebe "recarregue". Os valores lidos não passam pelos limites do schema, para um documento antigo fora do limite ainda poder ser corrigido. Campo novo em `MaterialConfig` entra em `CAMPOS_PARAMETROS`, `MATERIAL_CONFIG_PADRAO`, `lerMaterialConfig` e no schema, juntos.
 - Material fora de cotação (spec 0018) com a mesma descrição normalizada de item de cotação autorizada, executada ou atestada do chamado ganha um aviso na seção Custo, sem barrar: `foraDeCotacaoJaCotados` (`shared/material/valores.ts`) roda na rota `GET /api/chamados/[id]/cotacoes`, que devolve só o número da cotação por item (`jaCotados`), e só para a gestão.
 - No editor da contratada, salvar antes de classificar ou enviar sobe a versão, e a tela monta o editor com `key={versao}`: recusa depois de salvar vai por `toast.error`, porque um erro guardado no estado do editor some no recarregamento.
+- A fila (spec 0021) recebe `{ aba, q, urgente, pagina }` do endereço (`listarFila`), em páginas de 25 (`POR_PAGINA_FILA`); a busca escapa o regex e casa número da cotação por prefixo, `ticket_number` do chamado ou `codigo` do ativo. "Na etapa há" sai do último evento da trilha com `de` diferente de `para`, nunca de `updatedAt` (o `conciliar` não conta). As abas de trâmite ordenam por esse tempo em memória; "Todas" ordena por `updatedAt` no banco. O resumo do topo (`resumoDaFila`) é por papel e ignora `q` e `urgente`.
+- Campos da spec 0021 no `serializarCotacao`: `etapas` e `montadoPorNome` (TRF1 e contratada), `quemAgeAgora` (todos menos o solicitante, com o nome do fiscal que assumiu só no TRF1) e `empenho` (só TRF1). O bloco Empenho é montado em `lerDetalhe` (`barrasDoEmpenho`) e entra pelo serializador; de `autorizada` em diante a reserva já está no comprometido e não é descontada de novo. Campo novo de leitura passa sempre por `serializarCotacao`, nunca montado na tela.
+- As telas da cotação usam as peças de `app/(dashboard)/cotacoes/_components/compartilhado/` (`SituacaoPill`, `JornadaCotacao`, `SinaisCotacao`, `PainelSuaVez`, `BarraSaldoEmpenho`), também na fila, no detalhe e, nas próximas fatias, no chamado e no cadastro. O painel "Sua vez" monta a ação principal de `ACOES_DA_VEZ` e mostra o texto do controle por `textoDoControleSemRotulo` depois do título curto (`TITULO_CONTROLE`), porque alguns textos de `CONTROLES` já começam com o rótulo. Tabela que rola de lado vai dentro de `detalhe/CaixaRolavel.tsx` (foco pelo teclado e rótulo, exigência do axe).
+- O link do chamado na fila e no detalhe leva a gestão e a contratada a `/conversas/<chamadoId>` e o técnico a `/chamados-atribuidos/<id>`; a `/gestao` não abre chamado pelo endereço.
 
 ## Comandos
 
@@ -82,5 +86,6 @@ MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/materi
 - O PDF da cotação e o do relatório por contrato dividem a mesma trava em memória (`lib/contratos/pdf/trava.ts`), e a renderização não tem prazo: uma renderização travada bloqueia os dois até o processo reiniciar. Aceito sob a regra de instância única; se acontecer, ponha um prazo.
 - O texto do PDF usa a Helvetica padrão, que não tem a seta `→`: escreva a mudança por extenso ("de X para Y"), senão sai um caractere trocado.
 - O E2E `e2e/cotacao-flow.spec.ts` prepara empenho, faixa e designações pelo `e2e/fixtures/material.ts`, de forma idempotente, no banco do `MONGODB_URI`.
+- No E2E, espere a situação da cotação pelo selo do cabeçalho do detalhe (`seloDoDetalhe`, `data-situacao`), nunca por `getByText` com o nome da situação: a jornada mostra os nomes das 7 etapas desde o rascunho, a espera passa na hora e o teste troca de usuário antes de a ação chegar ao servidor. As telas do módulo passam no axe pelo `semViolacaoNoAxe` do mesmo arquivo.
 
 _Drafted by /sync from the introducing change, worth a quick human pass._
