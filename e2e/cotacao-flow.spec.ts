@@ -382,6 +382,9 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await abrirCotacaoNaFila(page, numero);
     await expect(page.getByRole('list', { name: 'Jornada da cotação' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Itens e preços', selected: true })).toBeVisible();
+    // Spec 0021, fatia 3 (AC-9): executada, o ateste vem com as três etapas e o aplicado.
+    await expect(page.getByRole('list', { name: 'Etapas do ateste' })).toBeVisible();
+    await expect(page.getByRole('region', { name: /autorizado e do aplicado/ })).toBeVisible();
     await semViolacaoNoAxe(page);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -395,6 +398,25 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     }));
     expect(largura.conteudo).toBeLessThanOrEqual(largura.janela);
     await semViolacaoNoAxe(page);
+  });
+
+  test('o gestor registra o recebimento provisório pelo painel "Sua vez" (spec 0021, AC-6, AC-9)', async ({
+    page,
+  }) => {
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'admin');
+    await abrirCotacaoNaFila(page, numero);
+    const painel = page.getByRole('region', { name: 'Receber o material' });
+    await painel.getByRole('button', { name: 'Registrar recebimento provisório' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(
+      dialog.getByRole('heading', { name: 'Registrar o recebimento provisório' }),
+    ).toBeVisible();
+    await dialog.getByRole('button', { name: 'Confirmar' }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 15000 });
+    const etapas = page.getByRole('list', { name: 'Etapas do ateste' }).getByRole('listitem');
+    await expect(etapas.first()).toContainText('Registrado', { timeout: 15000 });
+    await expect(etapas.nth(1)).toHaveAttribute('aria-current', 'step');
   });
 });
 
