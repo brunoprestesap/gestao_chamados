@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -50,8 +50,11 @@ export function DialogAprovar({
   onFechar: () => void;
   onConfirmar: (empenhoId: string) => void;
 }) {
+  const rotuloEmpenho = useId();
   const comSaldo = barras.filter((b) => b.saldoDepoisCentavos >= 0);
   const [empenhoId, setEmpenhoId] = useState(comSaldo.length === 1 ? comSaldo[0]!.empenhoId : '');
+  // Depois de um refresh, a escolha pode ter perdido o saldo: sem ela, o botão trava.
+  const escolhaValida = comSaldo.some((b) => b.empenhoId === empenhoId);
 
   return (
     <Dialog open onOpenChange={(o) => !o && !pendente && onFechar()}>
@@ -63,7 +66,7 @@ export function DialogAprovar({
 
         <div className="space-y-2.5">
           <p
-            id="aprovar-empenho"
+            id={rotuloEmpenho}
             className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
           >
             {T.empenho}
@@ -74,7 +77,7 @@ export function DialogAprovar({
             <RadioGroup
               value={empenhoId}
               onValueChange={setEmpenhoId}
-              aria-labelledby="aprovar-empenho"
+              aria-labelledby={rotuloEmpenho}
               className="gap-2.5"
             >
               {barras.map((b) => {
@@ -152,7 +155,7 @@ export function DialogAprovar({
           </Button>
           <Button
             variant="gradiente"
-            disabled={pendente || !empenhoId}
+            disabled={pendente || !escolhaValida}
             onClick={() => onConfirmar(empenhoId)}
           >
             {T.botao}

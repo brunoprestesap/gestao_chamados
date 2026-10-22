@@ -69,6 +69,13 @@ describe('DialogMotivo (AC-11)', () => {
     );
   });
 
+  it('o erro do servidor some quando você edita o texto e é anunciado (role alert)', async () => {
+    montar(vi.fn(), 'A cotação mudou. Recarregue.');
+    expect(screen.getByRole('alert')).toHaveTextContent('A cotação mudou. Recarregue.');
+    await userEvent.type(screen.getByLabelText('Motivo'), 'x');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('o botão de fechar se chama "Cancelar"', () => {
     montar();
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
@@ -206,6 +213,23 @@ describe('DialogAprovar (AC-10)', () => {
     expect(screen.getByText(/usaria 83% do saldo/)).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /2026NE000300/ })).toBeDisabled();
     expect(screen.getByText('sem saldo para esta cotação')).toBeInTheDocument();
+  });
+
+  it('trava o botão quando a escolha perde o saldo depois de recarregar', async () => {
+    const props = {
+      numero: 'COT-2026-0145',
+      valorCentavos: 1_231_540,
+      relevantes: new Set<string>(),
+      faixa: null,
+      pendente: false,
+      onFechar: vi.fn(),
+      onConfirmar: vi.fn(),
+    };
+    const { rerender } = render(<DialogAprovar {...props} barras={[barra({})]} />);
+    const botao = screen.getByRole('button', { name: 'Aprovar e reservar' });
+    expect(botao).toBeEnabled();
+    rerender(<DialogAprovar {...props} barras={[barra({ saldoDepoisCentavos: -1 })]} />);
+    expect(botao).toBeDisabled();
   });
 
   it('aprova no empenho escolhido', async () => {

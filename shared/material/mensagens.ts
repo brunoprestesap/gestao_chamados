@@ -942,7 +942,8 @@ export const TEXTO_DIALOGO_MOTIVO: Record<
     titulo: 'Cancelar a cotação?',
     descricao:
       'A cotação termina aqui e não pode ser reenviada. Se havia saldo reservado, ele volta ao empenho. O motivo fica na trilha.',
-    botao: 'Cancelar cotação',
+    // Nunca "Cancelar ...": o botão ao lado, que fecha sem agir, já se chama "Cancelar".
+    botao: 'Confirmar cancelamento',
     sucesso: 'Cotação cancelada.',
   },
   descartar: {

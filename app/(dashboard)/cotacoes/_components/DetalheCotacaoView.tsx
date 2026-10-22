@@ -490,14 +490,16 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           pendente={pendente}
           erroServidor={erroMotivo}
           onFechar={() => setMotivo(null)}
-          onConfirmar={(texto) =>
+          onConfirmar={(texto) => {
+            // O erro da tentativa anterior sai antes do reenvio, para não piscar como novo.
+            setErroMotivo(null);
             agir(
               () => MOTIVO[motivo].action({ ...base, motivo: texto }),
               TEXTO_DIALOGO_MOTIVO[motivo].sucesso,
               () => setMotivo(null),
               setErroMotivo,
-            )
-          }
+            );
+          }}
         />
       )}
 

@@ -99,6 +99,7 @@ export function DialogMotivo({
             {erro && (
               <p
                 id={`${id}-erro`}
+                role="alert"
                 className="text-[13px] font-medium text-rose-700 dark:text-rose-300"
               >
                 {erro}
