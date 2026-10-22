@@ -915,3 +915,120 @@ export const TEXTO_EMPENHO_DETALHE = {
   rotuloBarra: (p: { numero: string; comprometido: string; esta: string | null; depois: string }) =>
     `Empenho ${p.numero}: comprometido ${p.comprometido}${p.esta ? `, esta cotação ${p.esta}` : ''}, saldo depois ${p.depois}.`,
 } as const;
+
+/** O botão que fecha qualquer diálogo do módulo sem agir (spec 0021, AC-11). */
+export const ROTULO_FECHAR_DIALOGO = 'Cancelar';
+
+/** As ações que pedem motivo, cada uma com o seu diálogo (spec 0021, fatia 4, AC-11). */
+export type AcaoComMotivo = 'devolver' | 'reprovar' | 'cancelar' | 'descartar' | 'recusar_urgencia';
+
+export const TEXTO_DIALOGO_MOTIVO: Record<
+  AcaoComMotivo,
+  { titulo: string; descricao: string; botao: string; sucesso: string }
+> = {
+  devolver: {
+    titulo: 'Devolver para correção',
+    descricao: 'A contratada recebe o motivo e pode ajustar e reenviar.',
+    botao: 'Devolver',
+    sucesso: 'Cotação devolvida.',
+  },
+  reprovar: {
+    titulo: 'Reprovar a cotação?',
+    descricao: 'A cotação termina aqui e não pode ser reenviada. A contratada recebe o motivo.',
+    botao: 'Reprovar',
+    sucesso: 'Cotação reprovada.',
+  },
+  cancelar: {
+    titulo: 'Cancelar a cotação?',
+    descricao:
+      'A cotação termina aqui e não pode ser reenviada. Se havia saldo reservado, ele volta ao empenho. O motivo fica na trilha.',
+    // Nunca "Cancelar ...": o botão ao lado, que fecha sem agir, já se chama "Cancelar".
+    botao: 'Confirmar cancelamento',
+    sucesso: 'Cotação cancelada.',
+  },
+  descartar: {
+    titulo: 'Descartar o rascunho?',
+    descricao: 'O rascunho é encerrado e não pode ser retomado. O motivo fica na trilha.',
+    botao: 'Descartar rascunho',
+    sucesso: 'Rascunho descartado.',
+  },
+  recusar_urgencia: {
+    titulo: 'Recusar a urgência e devolver',
+    descricao:
+      'A urgência recusada não pode ser pedida de novo nesta cotação, e o reenvio segue o fluxo comum. A contratada recebe o motivo.',
+    botao: 'Recusar e devolver',
+    sucesso: 'Urgência recusada. A cotação voltou para a contratada.',
+  },
+};
+
+/** O campo de motivo (AC-11): contador, mínimo embaixo e o erro no próprio campo. */
+export const TEXTO_CAMPO_MOTIVO = {
+  rotulo: 'Motivo',
+  minimo: (n: number) => `Mínimo de ${n} caracteres`,
+  contador: (n: number, max: number) => `${n} de ${max}`,
+  erroMinimo: (n: number) => `Escreva ao menos ${n} caracteres.`,
+} as const;
+
+/** O diálogo Encaminhar (AC-10): os pontos a resolver, numerados. */
+export const TEXTO_ENCAMINHAR = {
+  titulo: 'Encaminhar para aprovação',
+  resumo: (n: number) => (n === 1 ? 'Resolva o ponto abaixo.' : `Resolva os ${n} pontos abaixo.`),
+  vaoParaTrilha: 'As escolhas, as conferências e as confirmações vão para a trilha.',
+  pontoBase: 'Base do item nas duas tabelas',
+  pontoConferencia: 'Conferência obrigatória',
+  pontoVencido: 'Orçamento com validade vencida',
+  pontoUrgencia: 'Urgência',
+  resolvido: 'resolvido',
+  pendente: 'pendente',
+  resolvidos: (feitos: number, total: number) => `${feitos} de ${total} resolvidos`,
+  opcaoAnexoV: (numero: number | null | undefined) => `Anexo V · item ${numero ?? '—'}`,
+  opcaoSinapi: (codigo: string | null | undefined) => `SINAPI · ${codigo ?? '—'}`,
+  porUnidade: (valor: string, unidade: string) => `${valor} por ${unidade}`,
+  semPreco: 'sem preço',
+  diferenca: (pct: string, menor: boolean) => `${pct}% ${menor ? 'menor' : 'maior'}`,
+  mesmoPreco: 'mesmo preço',
+  justificativa: 'Justificativa',
+  conferencia: 'O que foi conferido e o resultado',
+  conferenciaDoItem: (numero: number | null | undefined, marca: string | null) =>
+    `Anexo V, item ${numero ?? '—'}${marca ? `: ${marca}` : ''}`,
+  tamanho: (min: number, max: number) => `De ${min} a ${max} caracteres.`,
+  confirmoVencido: (fornecedor: string, cnpj: string, validade: string | null) =>
+    `Confirmo o orçamento de ${fornecedor} (CNPJ ${cnpj}), com validade ${validade ?? 'não informada'}.`,
+  vencidoAjuda: 'O aprovador vê a advertência já confirmada.',
+  urgenciaJustificativa: 'Justificativa da contratada',
+  urgenciaAjuda:
+    'Aceita, a cotação vai à aprovação sem os orçamentos de 3 empresas por item. Para recusar, feche este diálogo e use "Recusar a urgência".',
+  aceitoUrgencia:
+    'Aceito a urgência. A contratada completa a pesquisa antes do recebimento definitivo.',
+  botao: 'Encaminhar',
+  sucesso: 'Encaminhada para aprovação.',
+} as const;
+
+/** O diálogo Aprovar (AC-10): uma barra por empenho elegível e a faixa de quem aprova. */
+export const TEXTO_APROVAR = {
+  titulo: (numero: string) => `Aprovar a cotação ${numero}`,
+  descricao: (valor: string) =>
+    `Ao aprovar, ${valor} ficam reservados no empenho escolhido e a compra fica autorizada.`,
+  empenho: 'Empenho',
+  saldo: (v: string) => `saldo ${v}`,
+  depois: (v: string) => `Depois: ${v}`,
+  usaria: (pct: number) => `usaria ${pct}% do saldo`,
+  semSaldo: 'sem saldo para esta cotação',
+  semElegivel: 'Nenhum empenho elegível com saldo. A cotação não pode ser aprovada agora.',
+  suaFaixa: 'Sua faixa:',
+  faixa: (nome: string | null, limite: string) =>
+    nome ? `${nome} · até ${limite}` : `até ${limite}`,
+  botao: 'Aprovar e reservar',
+  sucesso: 'Cotação autorizada.',
+} as const;
+
+/** A projeção em poucas palavras, para a linha de cada empenho no diálogo Aprovar. */
+export function textoProjecaoCurta(p: {
+  dataEstimada: string | null;
+  situacao: SituacaoProjecao;
+}): string {
+  if (p.situacao === 'estimada' && p.dataEstimada) {
+    return `esgota por volta de ${p.dataEstimada.split('-').reverse().join('/')}`;
+  }
+  return p.situacao === 'sem_consumo' ? 'sem consumo no período' : 'histórico curto para projetar';
+}

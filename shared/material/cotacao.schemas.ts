@@ -11,6 +11,8 @@ import {
   MAX_ITENS_COTACAO,
   MAX_ORCAMENTOS_COTACAO,
   MAX_REFERENCIAS_POR_PAPEL,
+  MOTIVO_MAX,
+  MOTIVO_MIN,
   PAPEIS_DESIGNACAO,
   RELATORIO_MATERIAL_MAX_DIAS,
   TEXTO_CURTO_MAX,
@@ -39,8 +41,8 @@ const quantidade = z
 const motivoObrigatorio = z
   .string()
   .trim()
-  .min(5, 'Escreva o motivo (ao menos 5 letras).')
-  .max(2000, 'Motivo longo demais.');
+  .min(MOTIVO_MIN, `Escreva o motivo (ao menos ${MOTIVO_MIN} letras).`)
+  .max(MOTIVO_MAX, 'Motivo longo demais.');
 
 export const ItemDiagnosticoSchema = z.object({
   descricao: z.string().trim().min(2, 'Descreva o material.').max(300),

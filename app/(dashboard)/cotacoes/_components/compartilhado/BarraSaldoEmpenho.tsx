@@ -6,7 +6,9 @@ import { TEXTO_EMPENHO_DETALHE as T, textoProjecao } from '@/shared/material/men
 /**
  * A barra de saldo de um empenho (spec 0021, AC-8): o comprometido pelas
  * outras cotações, o valor desta cotação e o que sobra depois dela, sobre o
- * líquido. A conta vem pronta do servidor; aqui só se desenha.
+ * líquido. A conta vem pronta do servidor; aqui só se desenha. A variante
+ * `compacta` é só o trilho, para a linha de cada empenho no diálogo Aprovar
+ * (AC-10), onde `destaque` marca o empenho que ficaria com pouco saldo.
  */
 
 const pct = (parte: number, todo: number) =>
@@ -15,9 +17,13 @@ const pct = (parte: number, todo: number) =>
 export function BarraSaldoEmpenho({
   barra,
   className,
+  variante = 'completa',
+  destaque = false,
 }: {
   barra: BarraEmpenhoDTO;
   className?: string;
+  variante?: 'completa' | 'compacta';
+  destaque?: boolean;
 }) {
   const semSaldo = barra.saldoDepoisCentavos < 0;
   const esta = barra.estaCotacaoCentavos;
@@ -28,6 +34,38 @@ export function BarraSaldoEmpenho({
     depois: formatarReais(barra.saldoDepoisCentavos),
   });
 
+  const trilho = (
+    <div
+      role="img"
+      aria-label={rotulo}
+      className={cn(
+        'flex overflow-hidden rounded-full bg-muted',
+        variante === 'compacta' ? 'h-2' : 'h-2.5',
+        variante === 'compacta' && className,
+      )}
+    >
+      <span
+        className="h-full bg-indigo-300 dark:bg-indigo-400/50"
+        style={{ width: pct(barra.comprometidoCentavos, barra.liquidoCentavos) }}
+      />
+      {esta != null && (
+        <span
+          className={cn(
+            'h-full',
+            semSaldo
+              ? 'bg-rose-600'
+              : destaque
+                ? 'bg-orange-600 dark:bg-orange-400'
+                : 'bg-indigo-600 dark:bg-indigo-400',
+          )}
+          style={{ width: pct(esta, barra.liquidoCentavos) }}
+        />
+      )}
+    </div>
+  );
+
+  if (variante === 'compacta') return trilho;
+
   return (
     <div className={cn('space-y-2.5', className)}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
@@ -36,22 +74,7 @@ export function BarraSaldoEmpenho({
           {T.liquido(formatarReais(barra.liquidoCentavos))}
         </span>
       </div>
-      <div
-        role="img"
-        aria-label={rotulo}
-        className="flex h-2.5 overflow-hidden rounded-full bg-muted"
-      >
-        <span
-          className="h-full bg-indigo-300 dark:bg-indigo-400/50"
-          style={{ width: pct(barra.comprometidoCentavos, barra.liquidoCentavos) }}
-        />
-        {esta != null && (
-          <span
-            className={cn('h-full', semSaldo ? 'bg-rose-600' : 'bg-indigo-600 dark:bg-indigo-400')}
-            style={{ width: pct(esta, barra.liquidoCentavos) }}
-          />
-        )}
-      </div>
+      {trilho}
       <dl
         className={cn(
           'grid gap-2 text-xs text-muted-foreground',

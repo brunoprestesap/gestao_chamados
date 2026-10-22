@@ -5,32 +5,34 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import type { DetalheCotacao } from '@/lib/material/leitura';
-import { formatarReais } from '@/shared/chamados/custo';
-import { TEXTO_CURTO_MAX, TEXTO_CURTO_MIN } from '@/shared/material/material.constants';
 import {
+  MOTIVO_MAX,
+  MOTIVO_MIN,
+  TEXTO_CURTO_MAX,
+  TEXTO_CURTO_MIN,
+} from '@/shared/material/material.constants';
+import {
+  type AcaoComMotivo,
   type CodigoControle,
-  CONTROLES,
   ROTULO_ACAO_SECUNDARIA,
   ROTULO_PAPEL,
   ROTULO_SITUACAO,
   TEXTO_ACAO_DA_VEZ,
+  TEXTO_APROVAR,
   TEXTO_DETALHE as T,
+  TEXTO_DIALOGO_MOTIVO,
+  TEXTO_ENCAMINHAR,
   TEXTO_SUA_VEZ,
   textoDoMotivo,
-  textoProjecao,
 } from '@/shared/material/mensagens';
 
 import {
@@ -47,6 +49,7 @@ import {
 } from '../actions';
 import { AtesteCotacao, atesteVisivel, type PedidoAteste } from './AtesteCotacao';
 import { BotaoPdfCotacao } from './BotaoPdfCotacao';
+import { DialogMotivo } from './compartilhado/DialogMotivo';
 import {
   type AcaoDoPainel,
   acaoPrincipal,
@@ -59,6 +62,7 @@ import { AbaOrcamentos } from './detalhe/AbaOrcamentos';
 import { AbaTrilha } from './detalhe/AbaTrilha';
 import { BlocoEmpenho } from './detalhe/BlocoEmpenho';
 import { CabecalhoCotacao } from './detalhe/CabecalhoCotacao';
+import { DialogAprovar } from './detalhe/DialogAprovar';
 import { DialogEncaminhar } from './DialogEncaminhar';
 import { DialogExecucao } from './DialogExecucao';
 import { DialogMaterial } from './DialogMaterial';
@@ -67,13 +71,26 @@ import { FormReferencia } from './ReferenciasPreco';
 
 type ResultadoAcao = { ok: true } | { ok: false; error: string; impedimentos?: CodigoControle[] };
 
-type ComMotivo = 'devolver' | 'reprovar' | 'cancelar' | 'recusar_urgencia';
-
-const TITULO_MOTIVO: Record<ComMotivo, string> = {
-  devolver: 'Devolver para correção',
-  reprovar: 'Reprovar a cotação',
-  cancelar: 'Cancelar a cotação',
-  recusar_urgencia: 'Recusar a urgência e devolver',
+/** A action e o tamanho do motivo de cada diálogo de motivo (AC-11); o servidor confere. */
+const MOTIVO: Record<
+  AcaoComMotivo,
+  {
+    action: (e: { id: string; versao: number; motivo: string }) => Promise<ResultadoAcao>;
+    min: number;
+    max: number;
+    destrutiva: boolean;
+  }
+> = {
+  devolver: { action: devolverAction, min: MOTIVO_MIN, max: MOTIVO_MAX, destrutiva: false },
+  reprovar: { action: reprovarAction, min: MOTIVO_MIN, max: MOTIVO_MAX, destrutiva: true },
+  cancelar: { action: cancelarAction, min: MOTIVO_MIN, max: MOTIVO_MAX, destrutiva: true },
+  descartar: { action: cancelarAction, min: MOTIVO_MIN, max: MOTIVO_MAX, destrutiva: true },
+  recusar_urgencia: {
+    action: recusarUrgenciaAction,
+    min: TEXTO_CURTO_MIN,
+    max: TEXTO_CURTO_MAX,
+    destrutiva: false,
+  },
 };
 
 const dataHora = (iso: string) =>
@@ -98,9 +115,9 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   const router = useRouter();
   const { cotacao: c, acoes, chamado } = detalhe;
   const [impedimentos, setImpedimentos] = useState<CodigoControle[]>([]);
-  const [motivo, setMotivo] = useState<{ acao: ComMotivo; texto: string } | null>(null);
+  const [motivo, setMotivo] = useState<AcaoComMotivo | null>(null);
+  const [erroMotivo, setErroMotivo] = useState<string | null>(null);
   const [aprovando, setAprovando] = useState(false);
-  const [empenhoId, setEmpenhoId] = useState('');
   const [dialogo, setDialogo] = useState<'editar' | 'executar' | null>(null);
   const [encaminhando, setEncaminhando] = useState(false);
   const [referenciaPara, setReferenciaPara] = useState<string | null>(null);
@@ -125,17 +142,19 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
     orcamentosVencidos.length > 0 ||
     !!urgenciaParaAceite;
 
-  const elegiveisComSaldo = (detalhe.empenhosElegiveis ?? []).filter(
-    (e) => e.saldoCentavos >= (c.valorTotalCentavos ?? 0),
-  );
-
-  function agir(fn: () => Promise<ResultadoAcao>, sucesso: string, depois?: () => void) {
+  function agir(
+    fn: () => Promise<ResultadoAcao>,
+    sucesso: string,
+    depois?: () => void,
+    noErro?: (erro: string) => void,
+  ) {
     setImpedimentos([]);
     iniciar(async () => {
       const r = await fn();
       if (!r.ok) {
         toast.error(r.error);
         setImpedimentos(r.impedimentos ?? []);
+        noErro?.(r.error);
         router.refresh();
         return;
       }
@@ -145,9 +164,9 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
     });
   }
 
-  function abrirAprovar() {
-    setEmpenhoId(elegiveisComSaldo.length === 1 ? elegiveisComSaldo[0]!.id : '');
-    setAprovando(true);
+  function abrirMotivo(acao: AcaoComMotivo) {
+    setErroMotivo(null);
+    setMotivo(acao);
   }
 
   function encaminhar() {
@@ -157,7 +176,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
     }
     agir(
       () => encaminharAction({ ...base, bases: [], conferencias: [] }),
-      'Encaminhada para aprovação.',
+      TEXTO_ENCAMINHAR.sucesso,
     );
   }
 
@@ -169,7 +188,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   // O painel "Sua vez" (AC-6): a ação principal, as secundárias e os pontos, todos de `acoes`.
   const principal = acaoPrincipal(acoes);
   const cliquePrincipal: Partial<Record<NonNullable<typeof principal>, () => void>> = {
-    aprovar: abrirAprovar,
+    aprovar: () => setAprovando(true),
     encaminhar,
     assumir: () => agir(() => assumirAction(base), 'Análise assumida.'),
     executar: () => setDialogo('executar'),
@@ -187,18 +206,18 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
       acoes.devolver && {
         chave: 'devolver',
         rotulo: ROTULO_ACAO_SECUNDARIA.devolver,
-        onClick: () => setMotivo({ acao: 'devolver', texto: '' }),
+        onClick: () => abrirMotivo('devolver'),
       },
       acoes.reprovar && {
         chave: 'reprovar',
         rotulo: ROTULO_ACAO_SECUNDARIA.reprovar,
         destrutiva: true,
-        onClick: () => setMotivo({ acao: 'reprovar', texto: '' }),
+        onClick: () => abrirMotivo('reprovar'),
       },
       acoes.recusarUrgencia && {
         chave: 'recusarUrgencia',
         rotulo: ROTULO_ACAO_SECUNDARIA.recusarUrgencia,
-        onClick: () => setMotivo({ acao: 'recusar_urgencia', texto: '' }),
+        onClick: () => abrirMotivo('recusar_urgencia'),
       },
       acoes.alterar && {
         chave: 'alterar',
@@ -219,7 +238,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
             ? ROTULO_ACAO_SECUNDARIA.descartar
             : ROTULO_ACAO_SECUNDARIA.cancelar,
         destrutiva: true,
-        onClick: () => setMotivo({ acao: 'cancelar', texto: '' }),
+        onClick: () => abrirMotivo(c.situacao === 'rascunho' ? 'descartar' : 'cancelar'),
       },
     ] as (AcaoDoPainel | false)[]
   ).filter((a): a is AcaoDoPainel => !!a);
@@ -459,114 +478,54 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
         </aside>
       </div>
 
-      <Dialog open={!!motivo} onOpenChange={(o) => !o && setMotivo(null)}>
-        <DialogContent className="sm:rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>{motivo ? TITULO_MOTIVO[motivo.acao] : ''}</DialogTitle>
-            <DialogDescription>
-              {motivo?.acao === 'recusar_urgencia'
-                ? `A urgência recusada não pode ser pedida de novo nesta cotação, e o reenvio segue o fluxo comum. O motivo (${TEXTO_CURTO_MIN} a ${TEXTO_CURTO_MAX} caracteres) fica na trilha e vai para a contratada.`
-                : 'O motivo fica na trilha e vai para quem montou a cotação.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor="motivo">Motivo</Label>
-            <Textarea
-              id="motivo"
-              value={motivo?.texto ?? ''}
-              onChange={(e) => motivo && setMotivo({ ...motivo, texto: e.target.value })}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMotivo(null)} disabled={pendente}>
-              Voltar
-            </Button>
-            <Button
-              disabled={pendente}
-              onClick={() => {
-                if (!motivo) return;
-                const entrada = { ...base, motivo: motivo.texto };
-                const fn =
-                  motivo.acao === 'devolver'
-                    ? () => devolverAction(entrada)
-                    : motivo.acao === 'reprovar'
-                      ? () => reprovarAction(entrada)
-                      : motivo.acao === 'recusar_urgencia'
-                        ? () => recusarUrgenciaAction(entrada)
-                        : () => cancelarAction(entrada);
-                agir(fn, 'Feito.', () => setMotivo(null));
-              }}
-            >
-              Confirmar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {motivo && (
+        <DialogMotivo
+          key={motivo}
+          titulo={TEXTO_DIALOGO_MOTIVO[motivo].titulo}
+          descricao={TEXTO_DIALOGO_MOTIVO[motivo].descricao}
+          rotuloConfirmar={TEXTO_DIALOGO_MOTIVO[motivo].botao}
+          destrutiva={MOTIVO[motivo].destrutiva}
+          min={MOTIVO[motivo].min}
+          max={MOTIVO[motivo].max}
+          pendente={pendente}
+          erroServidor={erroMotivo}
+          onFechar={() => setMotivo(null)}
+          onConfirmar={(texto) => {
+            // O erro da tentativa anterior sai antes do reenvio, para não piscar como novo.
+            setErroMotivo(null);
+            agir(
+              () => MOTIVO[motivo].action({ ...base, motivo: texto }),
+              TEXTO_DIALOGO_MOTIVO[motivo].sucesso,
+              () => setMotivo(null),
+              setErroMotivo,
+            );
+          }}
+        />
+      )}
 
-      <Dialog open={aprovando} onOpenChange={setAprovando}>
-        <DialogContent className="sm:rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Aprovar {c.numero}</DialogTitle>
-            <DialogDescription>
-              Aprovar reserva {formatarReais(c.valorTotalCentavos ?? 0)} no empenho escolhido e
-              autoriza a compra.
-            </DialogDescription>
-          </DialogHeader>
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Empenho</legend>
-            {(detalhe.empenhosElegiveis ?? []).map((e) => {
-              const cabe = e.saldoCentavos >= (c.valorTotalCentavos ?? 0);
-              const projecao = detalhe.projecoes?.find((p) => p.empenhoId === e.id);
-              return (
-                <div key={e.id} className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="empenho"
-                      value={e.id}
-                      checked={empenhoId === e.id}
-                      disabled={!cabe}
-                      onChange={() => setEmpenhoId(e.id)}
-                      aria-describedby={projecao ? `projecao-${e.id}` : undefined}
-                    />
-                    {e.numero} · saldo {formatarReais(e.saldoCentavos)}
-                    {!cabe && ' (sem saldo)'}
-                  </label>
-                  {projecao && (
-                    <p
-                      id={`projecao-${e.id}`}
-                      className="ml-6 rounded-lg border border-amber-300/60 bg-amber-50/70 px-2 py-1 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100"
-                    >
-                      {CONTROLES.projecao_esgotamento.texto} {textoProjecao(projecao)}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </fieldset>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAprovando(false)} disabled={pendente}>
-              Voltar
-            </Button>
-            <Button
-              disabled={pendente || !empenhoId}
-              onClick={() =>
-                agir(
-                  () => aprovarAction({ ...base, empenhoId }),
-                  'Cotação autorizada.',
-                  () => setAprovando(false),
-                )
-              }
-            >
-              Aprovar e reservar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {aprovando && (
+        <DialogAprovar
+          numero={c.numero}
+          valorCentavos={c.valorTotalCentavos ?? 0}
+          barras={c.empenho?.modo === 'aprovacao' ? c.empenho.barras : []}
+          relevantes={new Set((detalhe.projecoes ?? []).map((p) => p.empenhoId))}
+          faixa={detalhe.faixaDoLeitor ?? null}
+          pendente={pendente}
+          onFechar={() => setAprovando(false)}
+          onConfirmar={(empenhoId) =>
+            agir(
+              () => aprovarAction({ ...base, empenhoId }),
+              TEXTO_APROVAR.sucesso,
+              () => setAprovando(false),
+            )
+          }
+        />
+      )}
 
       {encaminhando && (
         <DialogEncaminhar
           numero={c.numero}
+          valorCentavos={c.valorTotalCentavos ?? 0}
           ambas={itensAmbas}
           naLista={itensNaLista}
           vencidos={orcamentosVencidos}
@@ -577,7 +536,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
           onConfirmar={(escolhas) =>
             agir(
               () => encaminharAction({ ...base, ...escolhas }),
-              'Encaminhada para aprovação.',
+              TEXTO_ENCAMINHAR.sucesso,
               () => setEncaminhando(false),
             )
           }

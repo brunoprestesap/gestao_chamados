@@ -16,7 +16,10 @@ vi.mock('@/lib/db', () => ({ dbConnect: vi.fn().mockResolvedValue(undefined) }))
  * bloco Empenho por situação, sem desconto em dobro depois da reserva, as
  * datas da jornada e os campos novos filtrados por visão.
  *
- * covers: AC-5, AC-8, AC-24
+ * Fatia 4: a faixa de quem aprova só vai ao próprio aprovador TRF1, em
+ * aprovação, quando ela cobre o valor.
+ *
+ * covers: AC-5, AC-8, AC-10, AC-24
  */
 
 function cru(m: {
@@ -48,6 +51,7 @@ rodar('detalhe da cotação repaginado, contra o Mongo', () => {
     Evento: typeof import('@/models/CotacaoMaterialEvento').CotacaoMaterialEventoModel;
     Designacao: typeof import('@/models/DesignacaoMaterial').DesignacaoMaterialModel;
     Empenho: typeof import('@/models/Empenho').EmpenhoModel;
+    Faixa: typeof import('@/models/FaixaCompetencia').FaixaCompetenciaModel;
   };
   let todos: ModelDeTeste[];
 
@@ -160,6 +164,7 @@ rodar('detalhe da cotação repaginado, contra o Mongo', () => {
       Evento: (await import('@/models/CotacaoMaterialEvento')).CotacaoMaterialEventoModel,
       Designacao: (await import('@/models/DesignacaoMaterial')).DesignacaoMaterialModel,
       Empenho: (await import('@/models/Empenho')).EmpenhoModel,
+      Faixa: (await import('@/models/FaixaCompetencia')).FaixaCompetenciaModel,
     };
     todos = Object.values(M).map((m) => cru(m as never));
     await conectarMongoDeTeste(todos, 'severino_test_material_detalhe');
@@ -312,5 +317,43 @@ rodar('detalhe da cotação repaginado, contra o Mongo', () => {
     expect(tec?.cotacao.empenho).toBeUndefined();
     expect(tec?.papeis).toEqual(['tecnico']);
     expect(JSON.stringify(tec)).not.toMatch(/Marina|Carlos|NE-A/);
+  });
+  it('a faixa de quem aprova só vai ao aprovador TRF1, em aprovação, quando cobre o valor (AC-10, AC-24)', async () => {
+    await empenho('NE-A', 1000_00, 0);
+    const faixa = await M.Faixa.create({
+      nome: 'Faixa II',
+      limiteCentavos: 500_00,
+      criadoPorUserId: new Types.ObjectId(),
+      em: new Date(),
+    });
+    await M.Designacao.create({
+      userId: new Types.ObjectId(ids.fiscal),
+      papel: 'aprovador' as never,
+      faixaId: faixa._id,
+      vigenciaInicio: '2000-01-01',
+      ato: 'Portaria de teste',
+      criadoPorUserId: new Types.ObjectId(),
+      em: new Date(),
+    });
+
+    const cobre = await cotacao({ situacao: 'em_aprovacao', valor: 300_00 });
+    const trf1 = await leitura.lerDetalhe(cobre, fiscal);
+    expect(trf1?.faixaDoLeitor).toEqual({ nome: 'Faixa II', limiteCentavos: 500_00 });
+    // A lista de quem pode aprovar sai sem o nome da faixa.
+    expect(trf1?.aprovadoresQueCobrem).toEqual([
+      { userId: ids.fiscal, nome: 'Marina Fiscal', limiteCentavos: 500_00 },
+    ]);
+
+    const contratada = await leitura.lerDetalhe(cobre, rt);
+    expect(contratada?.faixaDoLeitor).toBeUndefined();
+    expect(JSON.stringify(contratada)).not.toMatch(/Faixa II/);
+
+    const mudar = (campos: object) =>
+      M.Cotacao.collection.updateOne({ _id: new Types.ObjectId(cobre) }, { $set: campos });
+    await mudar({ valorTotalCentavos: 800_00 });
+    expect((await leitura.lerDetalhe(cobre, fiscal))?.faixaDoLeitor).toBeUndefined();
+
+    await mudar({ valorTotalCentavos: 300_00, situacao: 'em_analise' });
+    expect((await leitura.lerDetalhe(cobre, fiscal))?.faixaDoLeitor).toBeUndefined();
   });
 });

@@ -194,7 +194,12 @@ export type DetalheCotacao = {
    * cotação consome a parcela relevante do saldo (AC-38).
    */
   projecoes?: Projecao[];
-  aprovadoresQueCobrem?: Designado[];
+  aprovadoresQueCobrem?: Omit<Designado, 'faixaNome'>[];
+  /**
+   * Só TRF1, em aprovação: a faixa de quem lê, quando é aprovador vigente que
+   * cobre o valor (spec 0021, AC-10).
+   */
+  faixaDoLeitor?: { nome: string | null; limiteCentavos: number };
   /** Só TRF1: o número do empenho da cotação, para o PDF. */
   empenhoNumero?: string | null;
   /**
@@ -278,7 +283,17 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
       }
     }
     detalhe.empenhosElegiveis = await empenhosElegiveis();
-    detalhe.aprovadoresQueCobrem = await aprovadoresQueCobrem(cot.valorTotalCentavos);
+    const aprovadores = await aprovadoresQueCobrem(cot.valorTotalCentavos);
+    // O nome da faixa só vai na faixa de quem lê; a lista sai sem ele.
+    detalhe.aprovadoresQueCobrem = aprovadores.map(({ userId, nome, limiteCentavos }) => ({
+      userId,
+      nome,
+      limiteCentavos,
+    }));
+    const euAprovo = aprovadores.find((d) => d.userId === sessao.userId);
+    if (cot.situacao === 'em_aprovacao' && euAprovo?.limiteCentavos != null) {
+      detalhe.faixaDoLeitor = { nome: euAprovo.faixaNome, limiteCentavos: euAprovo.limiteCentavos };
+    }
     const naBarra = await empenhosDaBarra(cot, detalhe.empenhosElegiveis);
     // Uma leitura da projeção serve à barra e ao diálogo de aprovar (o saldo é o de agora).
     const projecoes = await projecoesDosEmpenhos(naBarra.empenhos);
@@ -351,7 +366,7 @@ export function barrasDoEmpenho(
   >,
   naBarra: { modo: EmpenhoDoDetalheDTO['modo']; empenhos: EmpenhoElegivel[] },
   projecoes: readonly Projecao[],
-  aprovadores: readonly Designado[],
+  aprovadores: readonly Pick<Designado, 'nome'>[],
 ): EmpenhoDoDetalheDTO {
   // Depois da execução, a reserva é ajustada ao executado (spec 0019, AC-10).
   const reserva = (cot.executadoEm ? cot.valorExecutadoCentavos : cot.valorAutorizadoCentavos) ?? 0;

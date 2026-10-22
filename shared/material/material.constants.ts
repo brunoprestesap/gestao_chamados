@@ -194,6 +194,10 @@ export const BUSCA_PRECO_MAX_RESULTADOS = 20;
 export const TEXTO_CURTO_MIN = 10;
 export const TEXTO_CURTO_MAX = 500;
 
+/** Motivo de devolver, reprovar e cancelar: 5 a 2000 caracteres. */
+export const MOTIVO_MIN = 5;
+export const MOTIVO_MAX = 2000;
+
 /** As duas bases que o fiscal escolhe num item `ambas` (AC-27). */
 export const BASES_DE_AMBAS = ['anexo_v', 'sinapi'] as const;
 export type BaseDeAmbas = (typeof BASES_DE_AMBAS)[number];
