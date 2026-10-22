@@ -354,6 +354,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **CI** (GitHub Actions): lint + build (Next.js e socket-server) em todo push/PR na `main` (`.github/workflows/ci.yml`)
 - **CI** também roda, como jobs separados: testes unitários (Vitest, com cobertura) e testes E2E (Playwright, com Mongo e seed no runner)
 - **CI** também roda o job `static-checks` antes de tudo: ESLint, `prettier --check` (`format:check`) e `tsc --noEmit` (`typecheck`). Build e testes só começam se ele passar, e o E2E espera `build-next` e `unit-tests`
+- **E2E na CI** roda dentro da imagem `mcr.microsoft.com/playwright:v<versão>-noble` (`--user 1001`), sem `apt`: ao subir o `@playwright/test` no `package-lock.json`, a tag da imagem em `ci.yml` sobe junto. Lá dentro o Mongo é `mongodb:27017` (nome do serviço) e o mongosh vem do npm (`npx -y mongosh@2.3.8`); o job tem `timeout-minutes: 25`
 - **CD** (GitHub Actions): deploy automático na VPS via **self-hosted runner** após CI passar (`.github/workflows/deploy.yml`)
 - **Self-hosted runner**: instalado na VPS em `/opt/actions-runner`, roda como usuário `github-runner` com acesso ao Docker
 - **Fluxo**: push na `main` → CI (GitHub) → Deploy (VPS) → `git pull` + `docker compose up -d --build`
@@ -396,7 +397,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - Padrão: Arrange-Act-Assert
 - Cobertura mínima: 80%
 - **Banco real**: testes de índice único, TTL e corrida usam o MongoDB de verdade por `tests/mongo-test-env.ts`. Sem `MONGO_TEST_URI`, os `*.db.test.ts` são pulados. O apoio aceita um `dbName` por arquivo e chama `createIndexes()` de propósito
-- **E2E fora do banco de desenvolvimento**: o `e2e/global-setup.ts` desfaz as atribuições de todos os chamados dos técnicos E2E; rode a suíte num banco próprio (`MONGODB_URI` apontando para outro banco), nunca no `manutencao` de desenvolvimento
+- **E2E fora do banco de desenvolvimento**: o `e2e/global-setup.ts` desfaz as atribuições de todos os chamados dos técnicos E2E; rode a suíte num banco próprio (`MONGODB_URI` apontando para outro banco), nunca no `manutencao` de desenvolvimento. Sem `mongosh` instalado, o seed desse banco roda com `npx -y mongosh@2.3.8 mongodb://localhost:27017/<banco> < scripts/seed.js`, e o servidor sobe com o mesmo `MONGODB_URI` (que vence o `.env.local`) e `LDAP_URL=`, `SMTP_HOST=` e `LLM_ENABLED=false` vazios ou desligados
 - **Vitest**: `vitest.config.ts` tira as diretivas `'use server'` e `'use client'` dos módulos e troca `server-only` e `next/cache` pelos mocks de `tests/mocks/`. A cobertura mede só `lib/**/*.ts` e `shared/**/*.ts`, sem limite mínimo configurado
 
 ## Convenções
