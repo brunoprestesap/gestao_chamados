@@ -413,7 +413,7 @@ spec [0021](../specs/0021-redesign-cotacao-material/index.md) · code in `app/(d
 - [x] Design it (spec): `/architect repaginação das telas da cotação de material`
 - [ ] Build it: `/develop repaginação das telas da cotação de material`
   - [x] Peças compartilhadas, fila, detalhe e ateste (fatias 1 a 3) · AC-1 a AC-9, AC-24 a AC-29
-  - [ ] Diálogos e editor da contratada em passos (fatias 4 e 5) · AC-10 a AC-15
+  - [x] Diálogos e editor da contratada em passos (fatias 4 e 5) · AC-10 a AC-15
   - [ ] Cartão no chamado e cadastro de material (fatias 6 e 7) · AC-16 a AC-22
   - [ ] Relatório de material (fatia 8) · AC-23
 - [ ] Verify it: `/check verify repaginação das telas da cotação de material`
