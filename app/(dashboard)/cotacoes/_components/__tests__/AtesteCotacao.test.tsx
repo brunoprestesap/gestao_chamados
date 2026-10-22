@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * O ateste na tela da cotação (spec 0019, fatia 2): o selo de prazo, os
- * botões de cada papel e a nota fiscal, que passa por uma conferência antes
- * de gravar porque não se troca depois.
+ * O ateste na tela da cotação (spec 0019, fatia 2, repaginado pela spec
+ * 0021, fatia 3): as três etapas com estado, prazo e atraso, o autorizado e o
+ * aplicado por item, as evidências e a nota fiscal, que passa por uma
+ * conferência antes de gravar porque não se troca depois. Os registros abrem
+ * pelo painel "Sua vez"; aqui um painel mínimo faz esse papel.
  *
- * covers: AC-15, AC-21, AC-22
+ * covers: AC-15, AC-21, AC-22 (0019); AC-9 (0021)
  */
 
 const m = vi.hoisted(() => ({
@@ -30,11 +32,49 @@ vi.mock('../apoio', async (original) => ({
 }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
+import { useState } from 'react';
+
 import type { Acoes } from '@/lib/material/leitura';
 import type { CotacaoDTO } from '@/lib/material/serializar';
+import { TEXTO_ACAO_DA_VEZ } from '@/shared/material/mensagens';
 
 import { SeloPrazoAteste } from '../apoio';
-import { AtesteCotacao } from '../AtesteCotacao';
+import { AtesteCotacao, type PedidoAteste } from '../AtesteCotacao';
+
+/** O painel "Sua vez" reduzido: um botão por ação liberada, que abre o diálogo do ateste. */
+function ComPainel({
+  cotacao,
+  acoes,
+  onAlterado,
+}: {
+  cotacao: CotacaoDTO;
+  acoes: Acoes;
+  onAlterado: () => void;
+}) {
+  const [pedido, setPedido] = useState<PedidoAteste | null>(null);
+  const botoes = [
+    ['receberProvisorio', 'provisorio'],
+    ['receberDefinitivo', 'definitivo'],
+    ['registrarNotaFiscal', 'nota_fiscal'],
+  ] as const;
+  return (
+    <>
+      {botoes
+        .filter(([acao]) => acoes[acao])
+        .map(([acao, p]) => (
+          <button key={acao} type="button" onClick={() => setPedido(p)}>
+            {TEXTO_ACAO_DA_VEZ[acao].botao}
+          </button>
+        ))}
+      <AtesteCotacao
+        cotacao={cotacao}
+        pedido={pedido}
+        onPedido={setPedido}
+        onAlterado={onAlterado}
+      />
+    </>
+  );
+}
 
 const semAcao: Acoes = {
   editarDiagnostico: false,
@@ -80,21 +120,22 @@ beforeEach(() => {
 });
 
 describe('AtesteCotacao', () => {
-  it('mostra o selo de atraso e o botão do provisório ao gestor (AC-21)', () => {
+  it('mostra a etapa atrasada com o prazo e o botão do provisório ao gestor (AC-21, AC-9)', () => {
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={base}
         acoes={{ ...semAcao, receberProvisorio: true }}
         onAlterado={vi.fn()}
       />,
     );
-    expect(screen.getByText('Recebimento provisório atrasado (prazo 15/10/2026)')).toBeVisible();
+    expect(screen.getByText('O prazo era 15/10/2026.')).toBeVisible();
+    expect(screen.getByText(/^1 · Atrasado/)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Registrar recebimento provisório' })).toBeVisible();
   });
 
   it('não aparece antes da execução', () => {
     const { container } = render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={{ ...base, situacao: 'autorizada', prazoAteste: null }}
         acoes={semAcao}
         onAlterado={vi.fn()}
@@ -108,7 +149,7 @@ describe('AtesteCotacao', () => {
     const onAlterado = vi.fn();
     m.registrarRecebimentoAction.mockResolvedValue({ ok: true, situacao: 'executada', versao: 8 });
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={base}
         acoes={{ ...semAcao, receberProvisorio: true }}
         onAlterado={onAlterado}
@@ -132,7 +173,7 @@ describe('AtesteCotacao', () => {
     m.enviarArquivo.mockResolvedValue({ ok: true, arquivoId: 'a'.repeat(24) });
     m.registrarNotaFiscalAction.mockResolvedValue({ ok: true, situacao: 'atestada', versao: 10 });
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={{ ...base, situacao: 'atestada', visao: 'contratada', prazoAteste: undefined }}
         acoes={{ ...semAcao, registrarNotaFiscal: true }}
         onAlterado={vi.fn()}
@@ -176,7 +217,7 @@ describe('AtesteCotacao', () => {
   it('o campo de data não aceita dia futuro', async () => {
     const user = userEvent.setup();
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={{ ...base, situacao: 'atestada', visao: 'contratada' }}
         acoes={{ ...semAcao, registrarNotaFiscal: true }}
         onAlterado={vi.fn()}
@@ -192,7 +233,7 @@ describe('AtesteCotacao', () => {
   it('o campo de data vai do dia da autorização, em Belém, até hoje (AC-22)', async () => {
     const user = userEvent.setup();
     render(
-      <AtesteCotacao
+      <ComPainel
         // 02:00 UTC do dia 10 ainda é o dia 9 em Belém.
         cotacao={{
           ...base,
@@ -210,7 +251,7 @@ describe('AtesteCotacao', () => {
 
   it('a contratada vê a data do recebimento sem o nome de quem recebeu (AC-21)', () => {
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={{
           ...base,
           situacao: 'atestada',
@@ -223,10 +264,10 @@ describe('AtesteCotacao', () => {
         onAlterado={vi.fn()}
       />,
     );
-    expect(screen.getByText('12/10/2026, 12:00')).toBeVisible();
-    expect(screen.getByText('13/10/2026, 12:00')).toBeVisible();
-    expect(screen.queryByText(/—/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/atrasado|até \d/)).not.toBeInTheDocument();
+    expect(screen.getByText('Em 12/10/2026, 12:00.')).toBeVisible();
+    expect(screen.getByText('Em 13/10/2026, 12:00.')).toBeVisible();
+    expect(screen.queryByText(/, por /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/atrasado|prazo/i)).not.toBeInTheDocument();
   });
 
   it('trocar o anexo ou desistir remove o arquivo ainda não ligado à nota (AC-22)', async () => {
@@ -235,7 +276,7 @@ describe('AtesteCotacao', () => {
       .mockResolvedValueOnce({ ok: true, arquivoId: 'a'.repeat(24) })
       .mockResolvedValueOnce({ ok: true, arquivoId: 'b'.repeat(24) });
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={{ ...base, situacao: 'atestada', visao: 'contratada' }}
         acoes={{ ...semAcao, registrarNotaFiscal: true }}
         onAlterado={vi.fn()}
@@ -251,7 +292,7 @@ describe('AtesteCotacao', () => {
     await screen.findByText('Anexado: nf2.pdf');
     expect(m.removerArquivoAction).toHaveBeenCalledWith({ arquivoId: 'a'.repeat(24) });
 
-    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
     await waitFor(() =>
       expect(m.removerArquivoAction).toHaveBeenLastCalledWith({ arquivoId: 'b'.repeat(24) }),
     );
@@ -262,7 +303,7 @@ describe('AtesteCotacao', () => {
     m.enviarArquivo.mockResolvedValue({ ok: true, arquivoId: 'a'.repeat(24) });
     m.registrarNotaFiscalAction.mockResolvedValue({ ok: true, situacao: 'atestada', versao: 10 });
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={{ ...base, situacao: 'atestada', visao: 'contratada' }}
         acoes={{ ...semAcao, registrarNotaFiscal: true }}
         onAlterado={vi.fn()}
@@ -297,7 +338,7 @@ describe('AtesteCotacao, anexo que sobrou de outra visita', () => {
     const user = userEvent.setup();
     m.registrarNotaFiscalAction.mockResolvedValue({ ok: true, situacao: 'atestada', versao: 10 });
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={{
           ...base,
           situacao: 'atestada',
@@ -335,7 +376,7 @@ describe('AtesteCotacao, anexo que sobrou de outra visita', () => {
   it('um anexo removido nesta tela não volta ao reabrir antes de a página recarregar', async () => {
     const user = userEvent.setup();
     render(
-      <AtesteCotacao
+      <ComPainel
         cotacao={{
           ...base,
           situacao: 'atestada',
@@ -347,12 +388,130 @@ describe('AtesteCotacao, anexo que sobrou de outra visita', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Registrar nota fiscal' }));
-    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
     await waitFor(() =>
       expect(m.removerArquivoAction).toHaveBeenCalledWith({ arquivoId: 'b'.repeat(24) }),
     );
     await user.click(screen.getByRole('button', { name: 'Registrar nota fiscal' }));
     expect(screen.queryByText(/Anexado:/)).not.toBeInTheDocument();
+  });
+});
+
+describe('AtesteCotacao, etapas, tabela e evidências (spec 0021, AC-9)', () => {
+  const item = {
+    id: 'i1',
+    descricao: 'Primer epóxi',
+    unidade: 'kit',
+    quantidade: 6,
+    motivo: 'piso',
+    doDiagnostico: true,
+    precoAplicadoCentavos: 28_450,
+    quantidadeExecutada: 5,
+    valorExecutadoCentavos: 142_250,
+  };
+
+  it('as três etapas em ordem: provisório feito, definitivo agora com prazo, nota a seguir', () => {
+    render(
+      <ComPainel
+        cotacao={{
+          ...base,
+          recebimentoProvisorio: { porNome: 'Gestora', em: '2026-10-12T15:00:00Z' },
+          prazoAteste: { etapa: 'definitivo', venceEm: '2099-10-17', atrasado: false },
+        }}
+        acoes={semAcao}
+        onAlterado={vi.fn()}
+      />,
+    );
+    const etapas = within(screen.getByRole('list', { name: 'Etapas do ateste' })).getAllByRole(
+      'listitem',
+    );
+    expect(etapas.map((e) => e.textContent)).toEqual([
+      expect.stringMatching(/^1 · Registrado.*Recebimento provisório.*por Gestora/),
+      expect.stringMatching(/^2 · Agora.*Recebimento definitivo.*Prazo até 17\/10\/2099/),
+      expect.stringMatching(/^3 · A seguir.*Nota fiscal/),
+    ]);
+    expect(etapas[1]).toHaveAttribute('aria-current', 'step');
+  });
+
+  it('a nota registrada mostra número, data e o link do arquivo', () => {
+    render(
+      <ComPainel
+        cotacao={{
+          ...base,
+          situacao: 'atestada',
+          prazoAteste: null,
+          notaFiscal: {
+            porNome: null,
+            em: '2026-10-18T12:00:00Z',
+            numero: '4321',
+            data: '2026-10-18',
+            arquivoId: 'f'.repeat(24),
+          },
+        }}
+        acoes={semAcao}
+        onAlterado={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Nº 4321, de 18/10/2026.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Arquivo da nota fiscal' })).toHaveAttribute(
+      'href',
+      `/api/cotacoes/arquivos/${'f'.repeat(24)}`,
+    );
+  });
+
+  it('autorizado é quantidade vezes o preço aplicado; aplicado é o executado do item', () => {
+    render(
+      <ComPainel
+        cotacao={{
+          ...base,
+          executadoEm: '2026-10-10T15:00:00Z',
+          valorExecutadoCentavos: 142_250,
+          itens: [item],
+        }}
+        acoes={semAcao}
+        onAlterado={vi.fn()}
+      />,
+    );
+    const tabela = within(screen.getByRole('region', { name: /autorizado e do aplicado/ }));
+    const linha = tabela.getByRole('row', { name: /Primer epóxi/ });
+    expect(
+      within(linha)
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual([
+      'Primer epóxikit',
+      '6',
+      expect.stringMatching(/R\$\s1\.707,00/),
+      '5',
+      expect.stringMatching(/R\$\s1\.422,50/),
+    ]);
+  });
+
+  it('evidências viram lista de arquivos com o tipo pela extensão', () => {
+    const evid = (id: string, nome: string) => ({
+      id,
+      tipo: 'evidencia' as const,
+      nomeOriginal: nome,
+      tamanho: 2048,
+      em: '2026-10-10T12:00:00Z',
+      meu: false,
+    });
+    render(
+      <ComPainel
+        cotacao={{
+          ...base,
+          arquivos: [evid('e1', 'depois.jpg'), evid('e2', 'medicao.PDF')],
+        }}
+        acoes={semAcao}
+        onAlterado={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Evidências (2)' })).toBeVisible();
+    expect(screen.getByRole('link', { name: /depois\.jpg.*Foto · 2 KB/ })).toHaveAttribute(
+      'href',
+      '/api/cotacoes/arquivos/e1',
+    );
+    expect(screen.getByRole('link', { name: /medicao\.PDF.*PDF · 2 KB/ })).toBeVisible();
   });
 });
 

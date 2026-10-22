@@ -45,7 +45,7 @@ import {
   reprovarAction,
   retirarReferenciaAction,
 } from '../actions';
-import { AtesteCotacao } from './AtesteCotacao';
+import { AtesteCotacao, atesteVisivel, type PedidoAteste } from './AtesteCotacao';
 import { BotaoPdfCotacao } from './BotaoPdfCotacao';
 import {
   type AcaoDoPainel,
@@ -104,6 +104,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   const [dialogo, setDialogo] = useState<'editar' | 'executar' | null>(null);
   const [encaminhando, setEncaminhando] = useState(false);
   const [referenciaPara, setReferenciaPara] = useState<string | null>(null);
+  const [pedidoAteste, setPedidoAteste] = useState<PedidoAteste | null>(null);
   const [pendente, iniciar] = useTransition();
   const trf1 = c.visao === 'trf1';
   // Itens `ambas` pedem a base, e os da lista de conferência, a conferência (AC-27, AC-29).
@@ -173,11 +174,11 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
     assumir: () => agir(() => assumirAction(base), 'Análise assumida.'),
     executar: () => setDialogo('executar'),
     editarDiagnostico: () => setDialogo('editar'),
+    receberProvisorio: () => setPedidoAteste('provisorio'),
+    receberDefinitivo: () => setPedidoAteste('definitivo'),
+    registrarNotaFiscal: () => setPedidoAteste('nota_fiscal'),
   };
   const ancoraPrincipal: Partial<Record<NonNullable<typeof principal>, string>> = {
-    receberProvisorio: '#ateste',
-    receberDefinitivo: '#ateste',
-    registrarNotaFiscal: '#ateste',
     completarPesquisa: '#pesquisa',
     montar: '#montagem',
   };
@@ -360,6 +361,18 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
             </section>
           )}
 
+          {/* Da execução em diante, o ateste é o trabalho da vez: vem antes do conteúdo (AC-9). */}
+          {atesteVisivel(c) && (
+            <div id="ateste" className="scroll-mt-24">
+              <AtesteCotacao
+                cotacao={c}
+                pedido={pedidoAteste}
+                onPedido={setPedidoAteste}
+                onAlterado={() => router.refresh()}
+              />
+            </div>
+          )}
+
           {conteudo}
 
           {acoes.montar && (c.trilha ?? []).length > 0 && (
@@ -384,7 +397,8 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
             </div>
           )}
 
-          {(c.arquivos ?? []).some((a) => a.tipo === 'evidencia') && (
+          {/* Da execução em diante, as evidências moram no ateste (AC-9). */}
+          {!atesteVisivel(c) && (c.arquivos ?? []).some((a) => a.tipo === 'evidencia') && (
             <section
               aria-labelledby="evid-titulo"
               className="space-y-2 rounded-2xl border border-border/50 bg-card p-5 text-sm"
@@ -409,10 +423,6 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
               </ul>
             </section>
           )}
-
-          <div id="ateste" className="scroll-mt-24">
-            <AtesteCotacao cotacao={c} acoes={acoes} onAlterado={() => router.refresh()} />
-          </div>
         </div>
 
         <aside aria-label={TEXTO_SUA_VEZ.rotuloOutros} className="min-w-0 space-y-5">

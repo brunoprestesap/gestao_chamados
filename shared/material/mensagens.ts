@@ -705,8 +705,9 @@ export function textoDoControleSemRotulo(codigo: CodigoControle): string {
 
 /**
  * As ações que fazem a vez de quem lê, na ordem em que viram a ação principal
- * do painel "Sua vez" (AC-6). As do ateste, da pesquisa e da montagem moram
- * numa seção da própria página, e o botão do painel leva até ela.
+ * do painel "Sua vez" (AC-6). As da pesquisa e da montagem moram numa seção
+ * da própria página, e o botão do painel leva até ela; as do ateste abrem o
+ * diálogo de registro direto do painel (fatia 3).
  */
 export const ACOES_DA_VEZ = [
   'aprovar',
@@ -727,9 +728,15 @@ export const TEXTO_ACAO_DA_VEZ: Record<AcaoDaVez, { titulo: string; botao: strin
   encaminhar: { titulo: 'Analisar e encaminhar', botao: 'Encaminhar para aprovação' },
   assumir: { titulo: 'Assumir a análise', botao: 'Assumir análise' },
   executar: { titulo: 'Aplicar o material', botao: 'Registrar execução' },
-  receberProvisorio: { titulo: 'Receber o material', botao: 'Ir para o ateste' },
-  receberDefinitivo: { titulo: 'Atestar o recebimento', botao: 'Ir para o ateste' },
-  registrarNotaFiscal: { titulo: 'Registrar a nota fiscal', botao: 'Ir para o ateste' },
+  receberProvisorio: {
+    titulo: 'Receber o material',
+    botao: 'Registrar recebimento provisório',
+  },
+  receberDefinitivo: {
+    titulo: 'Atestar o recebimento',
+    botao: 'Registrar recebimento definitivo',
+  },
+  registrarNotaFiscal: { titulo: 'Registrar a nota fiscal', botao: 'Registrar nota fiscal' },
   completarPesquisa: { titulo: 'Completar a pesquisa de preços', botao: 'Ir para a pesquisa' },
   montar: { titulo: 'Montar e enviar a cotação', botao: 'Ir para a montagem' },
   editarDiagnostico: { titulo: 'Revisar o material registrado', botao: 'Editar material' },
@@ -817,6 +824,71 @@ export const TEXTO_DETALHE = {
   pesquisaPendente:
     'A pesquisa de preços ainda não tem orçamentos de 3 empresas para cada item. O recebimento definitivo espera por ela.',
   pesquisaCompletaEm: (quando: string) => `Pesquisa de preços completa em ${quando}.`,
+} as const;
+
+/** O ateste do detalhe (spec 0021, fatia 3, AC-9). */
+export const TEXTO_ATESTE = {
+  titulo: 'Ateste',
+  regraDoPrazo: (dias: number) => `${dias} dias corridos por etapa, contados da execução.`,
+  etapas: 'Etapas do ateste',
+  provisorio: 'Recebimento provisório',
+  definitivo: 'Recebimento definitivo',
+  notaFiscal: 'Nota fiscal',
+  estadoFeito: 'Registrado',
+  estadoAgora: 'Agora',
+  estadoAtrasado: (dias: number) =>
+    dias <= 0 ? 'Atrasado' : dias === 1 ? 'Atrasado 1 dia' : `Atrasado ${dias} dias`,
+  estadoDepois: 'A seguir',
+  registradoEm: (quando: string, nome: string | null) =>
+    nome ? `Em ${quando}, por ${nome}.` : `Em ${quando}.`,
+  prazoAte: (data: string) => `Prazo até ${data}.`,
+  prazoEra: (data: string) => `O prazo era ${data}.`,
+  esperaTrf1: 'Aguardando o TRF1.',
+  provisorioAjuda: 'Confira o material aplicado no local.',
+  definitivoDepois: 'Depois do provisório. Fecha a cotação como atestada.',
+  definitivoAjuda: 'Fecha a cotação como atestada.',
+  notaDepois: 'A contratada registra depois do ateste.',
+  notaEsperando: 'Aguardando a contratada.',
+  notaRegistrada: (numero: string, data: string) => `Nº ${numero}, de ${data}.`,
+  arquivoDaNota: 'Arquivo da nota fiscal',
+  tabela: 'Autorizado e aplicado',
+  tabelaRotulo: 'Tabela do autorizado e do aplicado por item',
+  informadoEm: (quando: string) => `Informado pelo técnico em ${quando}.`,
+  colunaItem: 'Item',
+  colunaQtdAutorizada: 'Qtd. autorizada',
+  colunaValorAutorizado: 'Valor autorizado',
+  colunaQtdAplicada: 'Qtd. aplicada',
+  colunaValorAplicado: 'Valor aplicado',
+  semPreco: 'sem preço',
+  total: 'Total',
+  evidencias: (n: number) => `Evidências (${n})`,
+  semEvidencias: 'Nenhuma evidência enviada.',
+  foto: 'Foto',
+  pdf: 'PDF',
+  // Os diálogos de registro.
+  cancelar: 'Cancelar',
+  confirmar: 'Confirmar',
+  tituloProvisorio: 'Registrar o recebimento provisório',
+  tituloDefinitivo: 'Registrar o recebimento definitivo',
+  descricaoProvisorio:
+    'Você registra que recebeu o material aplicado, para conferência. O definitivo vem depois. O ato fica na trilha com o seu nome.',
+  descricaoDefinitivo:
+    'Você atesta que o material foi aplicado como autorizado. A cotação passa a atestada e a contratada é avisada para enviar a nota fiscal. O ato fica na trilha com o seu nome.',
+  okProvisorio: 'Recebimento provisório registrado.',
+  okDefinitivo: 'Recebimento definitivo registrado. A cotação está atestada.',
+  tituloNota: (numero: string) => `Nota fiscal de ${numero}`,
+  descricaoNota:
+    'Número, data de emissão (entre o dia da autorização e hoje) e o arquivo da nota (PDF, JPEG ou PNG, até 20 MB).',
+  numero: 'Número',
+  dataEmissao: 'Data de emissão',
+  arquivo: 'Arquivo',
+  enviando: 'Enviando o arquivo…',
+  anexado: (nome: string) => `Anexado: ${nome}`,
+  conferir: 'Conferir',
+  corrigir: 'Corrigir',
+  confirmarRegistrar: 'Confirmar e registrar',
+  semTroca: 'Depois de registrada, a nota fiscal não pode ser trocada.',
+  okNota: 'Nota fiscal registrada.',
 } as const;
 
 export const TEXTO_EMPENHO_DETALHE = {

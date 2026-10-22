@@ -1,4 +1,4 @@
-# Verify: Repaginação das telas da cotação de material · spec 0021 · updated 2026-10-21 (fatias 1 e 2)
+# Verify: Repaginação das telas da cotação de material · spec 0021 · updated 2026-10-22 (fatias 1 a 3)
 
 _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
@@ -69,6 +69,34 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/material shared/material "app/(dashboard)/cotacoes"` → tudo passa, inclusive `detalhe.db.test.ts`, `detalhe-pecas.test.ts` e `DetalheCotacaoView.test.tsx`, sem mudar expectativa dos testes antigos → AC-29
 - [x] `npm run test:e2e -- cotacao-flow` num banco próprio → o passo da aprovação acha o empenho no bloco Empenho e o "limite no ato" na aba Trilha; o detalhe passa no axe a 1280 e a 390 px → AC-25, AC-26
 
+## Fatia 3: ateste
+
+### UI / manual
+
+- [ ] Como gestor, abra `/cotacoes/[id]` de uma cotação executada → o ateste vem antes das abas, com três cartões em ordem: 1 Recebimento provisório (Agora, com "Prazo até dd/mm"), 2 Recebimento definitivo (A seguir), 3 Nota fiscal (A seguir), e a regra "5 dias corridos por etapa" → AC-9
+- [ ] A mesma cotação executada há mais de 5 dias → o cartão 1 fica laranja, com "Atrasado N dias" e "O prazo era dd/mm" → AC-9
+- [ ] O painel "Sua vez" diz "Receber o material", "Você atua como Gestor." e o botão gradiente "Registrar recebimento provisório"; clique → abre o diálogo de confirmação com "Cancelar" e "Confirmar"; confirme → o cartão 1 vira "Registrado" com data e nome, o 2 vira "Agora" com o prazo novo → AC-6, AC-9
+- [ ] Registre o definitivo pelo painel → a cotação fica atestada, o cartão 2 vira "Registrado" e o 3 diz "Aguardando a contratada." → AC-6, AC-9
+- [ ] Como responsável técnico, abra a mesma cotação atestada → o painel diz "Registrar a nota fiscal" com o botão "Registrar nota fiscal"; o diálogo pede número, data e arquivo, passa pela conferência e, registrada, o cartão 3 mostra "Nº X, de dd/mm/aaaa." e o link "Arquivo da nota fiscal" → AC-6, AC-9
+- [ ] Como responsável técnico, numa cotação executada → os cartões abertos dizem só "Aguardando o TRF1.", sem prazo nem atraso, e os registrados mostram a data sem o nome de quem recebeu → AC-9, AC-24
+- [ ] A tabela "Autorizado e aplicado" mostra, por item, Qtd. autorizada, Valor autorizado, Qtd. aplicada (em destaque quando difere) e Valor aplicado, com o total no rodapé; "Informado pelo técnico em …" no topo → AC-9
+- [ ] As evidências aparecem embaixo da tabela como lista, cada uma com ícone de foto ou de PDF, "Foto · 120 KB" ou "PDF · 1,2 MB", e baixam pelo link; não há mais a seção solta "Evidências da aplicação" nessa fase → AC-9
+- [ ] Como técnico atribuído, abra a cotação executada → não vê o ateste; vê as evidências na seção própria, como antes → AC-9, AC-24
+- [ ] A 390 px → os três cartões empilham, a tabela rola dentro da caixa, o painel "Sua vez" desce para depois do conteúdo, sem rolagem horizontal da página → AC-25
+
+### Value sourcing
+
+- [ ] Valor autorizado: item de 6 unidades a R$ 284,50 de preço aplicado → R$ 1.707,00; item com quantidade decimal (2,5 × R$ 10,01) → R$ 25,03, o mesmo arredondamento de `valorDaLinhaCentavos` → AC-9
+- [ ] Valor aplicado: é o `valorExecutadoCentavos` gravado no item, não a conta refeita na tela; o total do rodapé é o `valorExecutadoCentavos` da cotação → AC-9
+- [ ] Prazo e atraso: vêm só de `prazoAteste` (TRF1); a contratada nunca vê "Prazo" nem "Atrasado", mesmo com a cotação atrasada → AC-9, AC-24
+- [ ] Dias de atraso: com o prazo vencido ontem (em Belém), o cartão diz "Atrasado 1 dia"; perto da meia-noite UTC (21h em Belém) a conta continua pelo dia de Belém → AC-9
+
+### Commands
+
+- [x] `npx vitest run lib/material shared/material "app/(dashboard)/cotacoes" "app/(dashboard)/gestao"` → 631 passam (os `*.db.test.ts` pulam sem `MONGO_TEST_URI`), inclusive `AtesteCotacao.test.tsx` com os casos novos de etapas, tabela e evidências → AC-9, AC-29
+- [x] `npx tsc --noEmit` e o ESLint dos arquivos da fatia → sem erro → AC-29
+- [ ] `npm run test:e2e -- cotacao-flow` num banco próprio → o detalhe executado mostra "Etapas do ateste" e a tabela, passa no axe a 1280 e a 390 px, e o gestor registra o provisório pelo painel → AC-6, AC-9, AC-25, AC-26
+
 ## Acceptance-criteria coverage
 
 - AC-1: selo nos três lugares, teste `compartilhado.test.tsx`
@@ -84,4 +112,6 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - AC-7: abas Itens, Orçamentos (grade e menor preço) e Trilha (com a conciliação), `DetalheCotacaoView.test.tsx`
 - AC-8: bloco Empenho por situação, sem desconto em dobro, `detalhe.db.test.ts`
 - AC-24 (fatia 2): `etapas`, `montadoPorNome`, `quemAgeAgora` e `empenho` por visão, `detalhe.db.test.ts`
-- Fatias 3 a 8 (AC-9 a AC-23): passos entram quando cada fatia for construída
+- AC-9: etapas, tabela e evidências, `AtesteCotacao.test.tsx` e E2E (etapas e o provisório pelo painel)
+- AC-6 (fatia 3): o painel abre os diálogos do ateste, `AtesteCotacao.test.tsx` e E2E
+- Fatias 4 a 8 (AC-10 a AC-23): passos entram quando cada fatia for construída
