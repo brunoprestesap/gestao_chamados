@@ -131,10 +131,9 @@ export function DialogNotaFiscal({
             className="space-y-1 rounded-xl border border-amber-300/60 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100"
           >
             <p>
-              Confira antes de registrar: nota nº{' '}
-              <span className="font-semibold">{nf.numero.trim()}</span>, emitida em{' '}
-              <span className="font-semibold">{dataCurta(nf.data)}</span>, arquivo{' '}
-              <span className="font-semibold">{nf.nomeArquivo}</span>.
+              {T.conferencia.nota} <span className="font-semibold">{nf.numero.trim()}</span>
+              {T.conferencia.emitida} <span className="font-semibold">{dataCurta(nf.data)}</span>
+              {T.conferencia.arquivo} <span className="font-semibold">{nf.nomeArquivo}</span>.
             </p>
             <p>{T.semTroca}</p>
           </div>

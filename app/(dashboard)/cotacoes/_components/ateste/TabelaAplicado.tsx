@@ -36,6 +36,9 @@ const ehPdf = (a: ArquivoDTO) => /\.pdf$/i.test(a.nomeOriginal);
  * O autorizado e o aplicado por item, com as evidências da aplicação (spec
  * 0021, AC-9). Autorizado: quantidade e quantidade vezes o preço aplicado;
  * aplicado: a quantidade executada e o `valorExecutadoCentavos` do item.
+ * O total autorizado é o gravado na aprovação (só TRF1) ou, para a
+ * contratada, o total da cotação, o mesmo do cabeçalho; nunca a soma das
+ * linhas, que deixaria de fora um item sem preço sem avisar.
  */
 export function TabelaAplicado({ cotacao: c }: { cotacao: CotacaoDTO }) {
   const itens = c.itens ?? [];
@@ -44,7 +47,7 @@ export function TabelaAplicado({ cotacao: c }: { cotacao: CotacaoDTO }) {
     i.precoAplicadoCentavos != null
       ? valorDaLinhaCentavos(i.quantidade, i.precoAplicadoCentavos)
       : null;
-  const totalAutorizado = itens.reduce((soma, i) => soma + (autorizado(i) ?? 0), 0);
+  const totalAutorizado = c.valorAutorizadoCentavos ?? c.valorTotalCentavos ?? null;
 
   return (
     <section
@@ -102,6 +105,14 @@ export function TabelaAplicado({ cotacao: c }: { cotacao: CotacaoDTO }) {
                       )}
                     >
                       {formatarQuantidade(i.quantidadeExecutada ?? 0)}
+                      {/* A diferença também em texto, não só pela cor (AC-26). */}
+                      {diferente && (
+                        <span className="block text-xs font-normal">
+                          {(i.quantidadeExecutada ?? 0) < i.quantidade
+                            ? T.abaixoDoAutorizado
+                            : T.acimaDoAutorizado}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="pr-5 text-right tabular-nums">
                       {formatarReais(i.valorExecutadoCentavos ?? 0)}
@@ -116,7 +127,7 @@ export function TabelaAplicado({ cotacao: c }: { cotacao: CotacaoDTO }) {
                   {T.total}
                 </TableCell>
                 <TableCell className="text-right font-bold tabular-nums">
-                  {formatarReais(totalAutorizado)}
+                  {totalAutorizado != null ? formatarReais(totalAutorizado) : null}
                 </TableCell>
                 <TableCell />
                 <TableCell className="pr-5 text-right font-bold tabular-nums">

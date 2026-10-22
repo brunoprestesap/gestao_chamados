@@ -860,6 +860,8 @@ export const TEXTO_ATESTE = {
   colunaQtdAplicada: 'Qtd. aplicada',
   colunaValorAplicado: 'Valor aplicado',
   semPreco: 'sem preço',
+  abaixoDoAutorizado: 'abaixo do autorizado',
+  acimaDoAutorizado: 'acima do autorizado',
   total: 'Total',
   evidencias: (n: number) => `Evidências (${n})`,
   semEvidencias: 'Nenhuma evidência enviada.',
@@ -887,6 +889,12 @@ export const TEXTO_ATESTE = {
   conferir: 'Conferir',
   corrigir: 'Corrigir',
   confirmarRegistrar: 'Confirmar e registrar',
+  /** A conferência antes de gravar, em partes para o número, a data e o arquivo saírem em negrito. */
+  conferencia: {
+    nota: 'Confira antes de registrar: nota nº',
+    emitida: ', emitida em',
+    arquivo: ', arquivo',
+  },
   semTroca: 'Depois de registrada, a nota fiscal não pode ser trocada.',
   okNota: 'Nota fiscal registrada.',
 } as const;

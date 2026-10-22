@@ -482,9 +482,52 @@ describe('AtesteCotacao, etapas, tabela e evidências (spec 0021, AC-9)', () => 
       'Primer epóxikit',
       '6',
       expect.stringMatching(/R\$\s1\.707,00/),
-      '5',
+      // A diferença vem também em texto, não só pela cor (AC-26).
+      '5abaixo do autorizado',
       expect.stringMatching(/R\$\s1\.422,50/),
     ]);
+  });
+
+  it('o total autorizado é o gravado na aprovação, não a soma das linhas', () => {
+    render(
+      <ComPainel
+        cotacao={{
+          ...base,
+          executadoEm: '2026-10-10T15:00:00Z',
+          valorExecutadoCentavos: 142_250,
+          valorTotalCentavos: 999_999,
+          valorAutorizadoCentavos: 300_000,
+          // Um item sem preço não pode sumir do total sem aviso.
+          itens: [item, { ...item, id: 'i2', descricao: 'Rolo', precoAplicadoCentavos: null }],
+        }}
+        acoes={semAcao}
+        onAlterado={vi.fn()}
+      />,
+    );
+    const tabela = within(screen.getByRole('region', { name: /autorizado e do aplicado/ }));
+    expect(tabela.getByRole('row', { name: /Rolo/ })).toHaveTextContent('sem preço');
+    expect(tabela.getByRole('row', { name: /^Total/ })).toHaveTextContent(/R\$\s3\.000,00/);
+  });
+
+  it('a contratada, sem o autorizado gravado, vê o total da cotação no rodapé', () => {
+    render(
+      <ComPainel
+        cotacao={{
+          ...base,
+          visao: 'contratada',
+          prazoAteste: undefined,
+          executadoEm: '2026-10-10T15:00:00Z',
+          valorExecutadoCentavos: 142_250,
+          valorTotalCentavos: 170_700,
+          itens: [{ ...item, quantidadeExecutada: 7 }],
+        }}
+        acoes={semAcao}
+        onAlterado={vi.fn()}
+      />,
+    );
+    const tabela = within(screen.getByRole('region', { name: /autorizado e do aplicado/ }));
+    expect(tabela.getByRole('row', { name: /Primer/ })).toHaveTextContent('acima do autorizado');
+    expect(tabela.getByRole('row', { name: /^Total/ })).toHaveTextContent(/R\$\s1\.707,00/);
   });
 
   it('evidências viram lista de arquivos com o tipo pela extensão', () => {
