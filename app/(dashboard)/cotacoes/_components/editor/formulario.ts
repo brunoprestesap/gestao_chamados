@@ -206,9 +206,10 @@ export function prontaParaEnviar(
           : (f.referencias.find((x) => x.entrada.id === r.id)?.gravada?.valorUnitarioCentavos ?? 1),
       retiradaEm: null,
     }));
+    // O controle só olha se a referência foi retirada, não quando: a data é um marcador.
     const doFiscal = f.referenciasFiscal.map((r) => ({
       valorUnitarioCentavos: r.valorUnitarioCentavos,
-      retiradaEm: r.retirada ? r.data : null,
+      retiradaEm: r.retirada ? new Date(0) : null,
     }));
     return { _id: i.id, origem: f.origem, referencias: [...daContratada, ...doFiscal] };
   });

@@ -182,6 +182,6 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - AC-12: 4 passos com navegação livre e o passo mantido depois de salvar, `EditorContratada.test.tsx` e E2E
 - AC-13: busca no Anexo V e no SINAPI dentro do item, `EditorContratada.test.tsx`
 - AC-14: grade por fornecedor com o menor preço e "N de 3", `EditorContratada.test.tsx` e E2E
-- AC-15: lista "Pronta para enviar?" e total ao vivo, com paridade com o envio, `formulario.test.ts`, `EditorContratada.test.tsx` e E2E
+- AC-15: lista "Pronta para enviar?" e total ao vivo, com paridade com o envio, `formulario.test.ts`, `formulario.db.test.ts` (contra `salvarRascunho` e `transicionar` no Mongo), `EditorContratada.test.tsx` e E2E
 - AC-27 (fatia 5): textos do editor em `mensagens.ts` (`TEXTO_EDITOR`, `ROTULO_PASSO_MONTAGEM`)
 - Fatias 6 a 8 (AC-16 a AC-23): passos entram quando cada fatia for construída
