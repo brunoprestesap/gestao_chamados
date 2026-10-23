@@ -30,6 +30,7 @@ const acoes = vi.hoisted(() => ({
 vi.mock('../../actions', () => acoes);
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
+import { PEDIDO_URGENCIA_VAZIO, type PedidoUrgencia } from '../editor/formulario';
 import { EditorContratada } from '../EditorContratada';
 
 const RECUSA = 'Este insumo equivale aos itens 4 e 5 do Anexo V; escolha um deles.';
@@ -116,12 +117,15 @@ function Tela({
 }) {
   const [versao, setVersao] = useState(1);
   const [passo, setPasso] = useState<PassoMontagem>(passoInicial);
+  const [pedido, setPedido] = useState<PedidoUrgencia>(PEDIDO_URGENCIA_VAZIO);
   return (
     <EditorContratada
       key={versao}
       cotacao={cotacao(versao, extra)}
       passo={passo}
       onPasso={setPasso}
+      pedidoUrgencia={pedido}
+      onPedidoUrgencia={setPedido}
       onAlterado={() => setVersao(2)}
       onImpedimentos={() => {}}
     />
@@ -189,6 +193,45 @@ describe('passos da montagem', () => {
       ).toHaveAttribute('aria-current', 'step'),
     );
     expect(screen.queryByRole('button', { name: 'Salvar e enviar para análise' })).toBeNull();
+  });
+
+  it('trocar de passo leva o foco ao título do passo novo', async () => {
+    render(<Tela />);
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar para preço de tabela' }));
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Onde está o preço de cada item?' }),
+    ).toHaveFocus();
+  });
+});
+
+describe('urgência pedida no envio', () => {
+  it('justificativa curta barra o envio antes de salvar, e a lista acusa', async () => {
+    render(<Tela passoInicial="revisar" />);
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Pedir urgência' }));
+    await userEvent.type(screen.getByLabelText(/Justificativa da urgência \(/), 'curta');
+    const linha = within(screen.getByRole('region', { name: 'Pronta para enviar?' }))
+      .getByText('Justificativa da urgência')
+      .closest('li');
+    expect(linha).toHaveTextContent('Falta:');
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar e enviar para análise' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Justifique a urgência');
+    expect(acoes.salvarRascunhoAction).not.toHaveBeenCalled();
+  });
+
+  it('o pedido de urgência sobrevive ao editor montado de novo por um envio recusado', async () => {
+    acoes.enviarCotacaoAction.mockResolvedValue({ ok: false, error: 'Recusado.' });
+    render(<Tela passoInicial="revisar" />);
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Pedir urgência' }));
+    const texto = 'Elevador parado com gente dependendo dele';
+    await userEvent.type(screen.getByLabelText(/Justificativa da urgência \(/), texto);
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar e enviar para análise' }));
+    await waitFor(() => expect(acoes.enviarCotacaoAction).toHaveBeenCalled());
+    expect(acoes.enviarCotacaoAction).toHaveBeenCalledWith(
+      expect.objectContaining({ urgencia: { justificativa: texto } }),
+    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Recusado.'));
+    expect(screen.getByRole('checkbox', { name: 'Pedir urgência' })).toBeChecked();
+    expect(screen.getByLabelText(/Justificativa da urgência \(/)).toHaveValue(texto);
   });
 });
 

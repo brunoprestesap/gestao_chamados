@@ -71,6 +71,7 @@ export function ProntaParaEnviar({
                     <span className="sr-only">{passa ? T.linhaPronta : T.linhaFalta} </span>
                     {l.rotulo}
                   </p>
+                  {l.erro && <p className="text-xs">{l.erro}</p>}
                   {l.codigos.map((c) => (
                     <p key={c} className="text-xs">
                       <span className="font-semibold">{TITULO_CONTROLE[c]}.</span>{' '}

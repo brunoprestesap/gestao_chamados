@@ -104,12 +104,12 @@ export function BuscaPrecoNoItem({
         {resultado && (
           <div className="grid gap-4 md:grid-cols-2">
             <section aria-labelledby={`anexo-${id}`} className="min-w-0 space-y-2">
-              <h4
+              <h3
                 id={`anexo-${id}`}
                 className="text-xs font-semibold tracking-wide text-indigo-800 uppercase dark:text-indigo-200"
               >
                 {T.anexoV(resultado.contrato, resultado.anexoV.length)}
-              </h4>
+              </h3>
               {!resultado.contrato ? (
                 <p className="text-sm text-muted-foreground">{T.semAnexoV}</p>
               ) : resultado.anexoV.length === 0 ? (
@@ -149,12 +149,12 @@ export function BuscaPrecoNoItem({
               )}
             </section>
             <section aria-labelledby={`sinapi-${id}`} className="min-w-0 space-y-2">
-              <h4
+              <h3
                 id={`sinapi-${id}`}
                 className="text-xs font-semibold tracking-wide text-sky-800 uppercase dark:text-sky-200"
               >
                 {T.sinapi(mes, resultado.sinapi.length)}
-              </h4>
+              </h3>
               {!resultado.mes ? (
                 <p className="text-sm text-muted-foreground">{T.semSinapi}</p>
               ) : resultado.sinapi.length === 0 ? (

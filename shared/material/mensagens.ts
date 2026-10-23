@@ -1154,6 +1154,7 @@ export const TEXTO_EDITOR = {
   linhaFalta: 'Falta:',
   prontaFormulario: 'Campos preenchidos',
   prontaCnpj: 'CNPJ válido em cada orçamento, nenhum da contratada',
+  prontaUrgencia: 'Justificativa da urgência',
   prontaValidade: 'Validade em cada orçamento',
   prontaOrcamentos: (min: number) =>
     min === 1 ? '1 orçamento por item (urgência)' : `${min} orçamentos por item`,

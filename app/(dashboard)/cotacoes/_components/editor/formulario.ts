@@ -2,7 +2,11 @@ import type { CotacaoDTO, ReferenciaDTO } from '@/lib/material/serializar';
 import { formatarQuantidade } from '@/shared/chamados/custo';
 import { formatarCnpj } from '@/shared/contratos/cnpj';
 import { impedimentosDeEnvio } from '@/shared/material/controles';
-import { type ReferenciaEntrada, SalvarRascunhoSchema } from '@/shared/material/cotacao.schemas';
+import {
+  EnviarSchema,
+  type ReferenciaEntrada,
+  SalvarRascunhoSchema,
+} from '@/shared/material/cotacao.schemas';
 import {
   MIN_ORCAMENTOS_POR_ITEM,
   MIN_ORCAMENTOS_URGENCIA,
@@ -56,6 +60,10 @@ export type EstadoDoFormulario = {
   itens: ItemDoFormulario[];
   orcamentos: OrcamentoDoFormulario[];
 };
+
+/** O pedido de urgência em edição (AC-35 da spec 0019). */
+export type PedidoUrgencia = { pedir: boolean; justificativa: string };
+export const PEDIDO_URGENCIA_VAZIO: PedidoUrgencia = { pedir: false, justificativa: '' };
 
 export const daTabela = (i: Pick<ItemDoFormulario, 'origem'>) =>
   !!i.origem && i.origem !== 'orcamento';
@@ -222,8 +230,25 @@ export function prontaParaEnviar(
   };
 }
 
-/** Uma linha da lista "Pronta para enviar?": passa, ou os códigos que a barram. */
-export type LinhaPronta = { chave: string; rotulo: string; codigos: CodigoControle[] };
+/**
+ * A justificativa da urgência pedida agora, pelo mesmo `EnviarSchema` do envio:
+ * `null` quando passa, ou a mensagem do schema.
+ */
+export function erroDaUrgencia(cotacaoId: string, justificativa: string): string | null {
+  const p = EnviarSchema.safeParse({ id: cotacaoId, versao: 1, urgencia: { justificativa } });
+  return p.success ? null : (p.error.issues[0]?.message ?? 'Dados inválidos.');
+}
+
+/**
+ * Uma linha da lista "Pronta para enviar?": passa, ou os códigos que a barram;
+ * `erro` é a recusa de um schema que não vira código (a justificativa da urgência).
+ */
+export type LinhaPronta = {
+  chave: string;
+  rotulo: string;
+  codigos: CodigoControle[];
+  erro?: string;
+};
 
 /**
  * As linhas da lista, cada uma juntando os códigos de `impedimentosDeEnvio`
@@ -234,6 +259,8 @@ export function linhasDaLista(
   e: EstadoDoFormulario,
   r: ResultadoPronta,
   urgencia: boolean,
+  /** A urgência pedida agora; na já pedida, vale a justificativa gravada. */
+  pedido?: { cotacaoId: string; justificativa: string } | null,
 ): LinhaPronta[] {
   const imp = new Set(r.ok ? r.impedimentos : []);
   const com = (codigos: CodigoControle[]) => codigos.filter((c) => imp.has(c));
@@ -278,12 +305,21 @@ export function linhasDaLista(
   } else {
     linhas.push({ chave: 'tabela', rotulo: TEXTO_EDITOR.prontaSoTabela, codigos: [] });
   }
+  if (pedido) {
+    const erro = erroDaUrgencia(pedido.cotacaoId, pedido.justificativa);
+    linhas.push({
+      chave: 'urgencia',
+      rotulo: TEXTO_EDITOR.prontaUrgencia,
+      codigos: [],
+      ...(erro ? { erro } : {}),
+    });
+  }
   return linhas;
 }
 
-/** Linha que passa: sem código e, na do formulário, sem erro. */
+/** Linha que passa: sem código nem erro e, na do formulário, sem erro. */
 export const linhaPassa = (l: LinhaPronta, r: ResultadoPronta) =>
-  l.codigos.length === 0 && (l.chave !== 'formulario' || r.ok);
+  l.codigos.length === 0 && !l.erro && (l.chave !== 'formulario' || r.ok);
 
 /** Os preços em centavos que os orçamentos deram ao item, sem os vazios ou inválidos. */
 export function precosDoItem(orcamentos: readonly OrcamentoDoFormulario[], itemId: string) {

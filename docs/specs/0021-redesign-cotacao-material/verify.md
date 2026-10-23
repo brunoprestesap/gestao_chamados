@@ -140,6 +140,7 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - [ ] Lance 3 preços num item → o menor fica em verde e o item mostra "3 de 3" com as empresas; um fornecedor sem validade ou sem arquivo aparece no cabeçalho da coluna com o que falta → AC-14
 - [ ] Na coluna lateral, abaixo de "Sua vez", a lista "Pronta para enviar?" diz o que está pronto e o que falta, com a barra de progresso; mude um preço ou um CNPJ → a lista e o "Total até agora" mudam na hora, sem salvar → AC-15
 - [ ] No passo 4, a lista aparece dentro do conteúdo, com o resumo dos itens e o pedido de urgência (caixa e justificativa) → AC-12, AC-15
+- [ ] Marque "Pedir urgência" e escreva menos de 10 caracteres na justificativa → a lista mostra "Falta:" na linha "Justificativa da urgência", e "Salvar e enviar para análise" mostra o erro sem salvar; com a justificativa certa e o envio recusado, a caixa e o texto continuam lá → AC-15
 - [ ] Os textos novos do editor ("Pronta para enviar?", "Total até agora", "Salvar e enviar para análise") vêm de `mensagens.ts` → AC-27
 - [ ] A 390 px, os 4 passos e a grade cabem na tela; a grade rola dentro de si, sem rolagem horizontal da página → AC-25
 

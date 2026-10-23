@@ -85,7 +85,7 @@ export function SecaoDoPasso({
     >
       <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 pb-3">
         <div className="min-w-0 space-y-1">
-          <h2 id={id} className="text-base font-semibold">
+          <h2 id={id} tabIndex={-1} className="text-base font-semibold focus:outline-none">
             {titulo}
           </h2>
           {ajuda && <p className="text-sm text-muted-foreground">{ajuda}</p>}

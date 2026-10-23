@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { impedimentosDeEnvio } from '@/lib/material/controles';
-import { SalvarRascunhoSchema } from '@/shared/material/cotacao.schemas';
+import { EnviarSchema, SalvarRascunhoSchema } from '@/shared/material/cotacao.schemas';
 import { TEXTO_EDITOR } from '@/shared/material/mensagens';
 
 import {
   type EstadoDoFormulario,
   itemNovo,
+  linhaPassa,
   linhasDaLista,
   montarEntrada,
   orcamentoNovo,
@@ -238,6 +239,30 @@ describe('linhas da lista e total', () => {
       'referencia',
     ]);
     expect(linhas.find((l) => l.chave === 'validade')!.codigos).toEqual(['validade_ausente']);
+  });
+
+  it('urgência pedida agora: a justificativa passa pelo schema do envio', () => {
+    const e = estadoBase();
+    const linha = (justificativa: string) =>
+      linhasDaLista(e, naTela(e, true), true, { cotacaoId: COTACAO, justificativa }).find(
+        (l) => l.chave === 'urgencia',
+      )!;
+    for (const curta of ['', '   curta   ']) {
+      const l = linha(curta);
+      const servidor = EnviarSchema.safeParse({
+        id: COTACAO,
+        versao: 1,
+        urgencia: { justificativa: curta },
+      });
+      expect(servidor.success).toBe(false);
+      expect(l.erro).toBe(servidor.error!.issues[0]!.message);
+      expect(linhaPassa(l, naTela(e, true))).toBe(false);
+    }
+    const ok = linha('Elevador parado com gente dependendo dele');
+    expect(ok.erro).toBeUndefined();
+    expect(linhaPassa(ok, naTela(e, true))).toBe(true);
+    // Sem pedido agora (não pediu, ou já pedida), não há linha da justificativa.
+    expect(linhasDaLista(e, naTela(e), false).some((l) => l.chave === 'urgencia')).toBe(false);
   });
 
   it('só com itens de tabela, sem linhas de orçamento', () => {

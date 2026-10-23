@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft, ArrowRight, Loader2, Send } from 'lucide-react';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 
@@ -21,6 +21,7 @@ import { enviarArquivo, novoId } from './apoio';
 import type { EscolhaTabela } from './editor/BuscaPrecoNoItem';
 import {
   erroAntesDeSalvar,
+  erroDaUrgencia,
   estadoDoDto,
   type ItemDoFormulario,
   itemNovo,
@@ -28,6 +29,7 @@ import {
   montarEntrada,
   type OrcamentoDoFormulario,
   orcamentoNovo,
+  type PedidoUrgencia,
   prontaParaEnviar,
   totalPeloMenorPreco,
 } from './editor/formulario';
@@ -53,6 +55,8 @@ export function EditorContratada({
   cotacao,
   passo,
   onPasso,
+  pedidoUrgencia,
+  onPedidoUrgencia,
   onAlterado,
   onImpedimentos,
   slotLateral,
@@ -60,6 +64,9 @@ export function EditorContratada({
   cotacao: CotacaoDTO;
   passo: PassoMontagem;
   onPasso: (p: PassoMontagem) => void;
+  /** O pedido de urgência em edição; mora fora do editor, como o passo. */
+  pedidoUrgencia: PedidoUrgencia;
+  onPedidoUrgencia: (p: PedidoUrgencia) => void;
   onAlterado: () => void;
   onImpedimentos: (codigos: CodigoControle[]) => void;
   slotLateral?: HTMLElement | null;
@@ -73,14 +80,26 @@ export function EditorContratada({
   // A urgência só é pedida uma vez e nunca depois de recusada (AC-35).
   const urgencia = cotacao.urgencia ?? null;
   const podePedirUrgencia = !urgencia?.pedida;
-  const [pedirUrgencia, setPedirUrgencia] = useState(false);
-  const [justificativaUrgencia, setJustificativaUrgencia] = useState('');
+  const { pedir: pedirUrgencia, justificativa: justificativaUrgencia } = pedidoUrgencia;
+  const pedindoAgora = podePedirUrgencia && pedirUrgencia;
   const [pendente, iniciar] = useTransition();
+  // Trocar de passo leva o foco ao título do passo novo, para o leitor de tela.
+  const conteudo = useRef<HTMLDivElement>(null);
+  const focarAoTrocar = useRef(false);
+
+  useEffect(() => {
+    if (!focarAoTrocar.current) return;
+    focarAoTrocar.current = false;
+    conteudo.current?.querySelector<HTMLElement>('h2')?.focus();
+  }, [passo]);
+
+  function irPara(p: PassoMontagem) {
+    focarAoTrocar.current = true;
+    onPasso(p);
+  }
 
   const estado = { itens, orcamentos };
-  const emUrgencia = urgencia?.pedida
-    ? urgencia.decisao !== 'recusada'
-    : podePedirUrgencia && pedirUrgencia;
+  const emUrgencia = urgencia?.pedida ? urgencia.decisao !== 'recusada' : pedindoAgora;
   const resultado = prontaParaEnviar(estado, {
     cotacaoId: cotacao.id,
     raizContratada: cotacao.raizCnpjContratada ?? '',
@@ -88,7 +107,12 @@ export function EditorContratada({
   });
   const lista = (
     <ProntaParaEnviar
-      linhas={linhasDaLista(estado, resultado, emUrgencia)}
+      linhas={linhasDaLista(
+        estado,
+        resultado,
+        emUrgencia,
+        pedindoAgora ? { cotacaoId: cotacao.id, justificativa: justificativaUrgencia } : null,
+      )}
       resultado={resultado}
       total={totalPeloMenorPreco(estado)}
     />
@@ -172,7 +196,12 @@ export function EditorContratada({
   function salvar(eDepois?: 'enviar') {
     setErro(null);
     onImpedimentos([]);
-    const antes = erroAntesDeSalvar(estado);
+    // A justificativa curta seria recusada no envio, depois de o salvar subir a versão.
+    const antes =
+      erroAntesDeSalvar(estado) ??
+      (eDepois === 'enviar' && pedindoAgora
+        ? erroDaUrgencia(cotacao.id, justificativaUrgencia)
+        : null);
     if (antes) {
       setErro(antes);
       return;
@@ -192,9 +221,7 @@ export function EditorContratada({
       const e = await enviarCotacaoAction({
         id: cotacao.id,
         versao: r.versao,
-        ...(podePedirUrgencia && pedirUrgencia
-          ? { urgencia: { justificativa: justificativaUrgencia } }
-          : {}),
+        ...(pedindoAgora ? { urgencia: { justificativa: justificativaUrgencia } } : {}),
       });
       if (!e.ok) {
         // Mesmo motivo da classificação: o editor é montado de novo ao recarregar.
@@ -214,50 +241,54 @@ export function EditorContratada({
 
   return (
     <div className="space-y-5">
-      <PassosMontagem passo={passo} onPasso={onPasso} />
+      <PassosMontagem passo={passo} onPasso={irPara} />
 
-      {passo === 'itens' && (
-        <PassoItens
-          itens={itens}
-          onMudar={mudarItem}
-          onTirar={(id) => setItens((ls) => ls.filter((x) => x.id !== id))}
-          onAcrescentar={() => setItens((ls) => [...ls, itemNovo(novoId())])}
-        />
-      )}
-      {passo === 'tabela' && (
-        <PassoPrecoTabela
-          cotacaoId={cotacao.id}
-          itens={itens}
-          pendente={pendente}
-          onClassificar={classificar}
-        />
-      )}
-      {passo === 'orcamentos' && (
-        <PassoOrcamentos
-          itens={itens}
-          orcamentos={orcamentos}
-          enviandoArquivo={enviandoArquivo}
-          pendente={pendente}
-          onMudarOrcamento={mudarOrcamento}
-          onMudarPreco={mudarPreco}
-          onAnexar={(id, arquivo) => void anexar(id, arquivo)}
-          onTirarOrcamento={(id) => setOrcamentos((os) => os.filter((x) => x.id !== id))}
-          onAcrescentarOrcamento={() => setOrcamentos((os) => [...os, orcamentoNovo(novoId())])}
-          onAcrescentarReferencia={acrescentarReferencia}
-          onTirarReferencia={tirarReferencia}
-        />
-      )}
-      {passo === 'revisar' && (
-        <PassoRevisar
-          estado={estado}
-          urgencia={urgencia}
-          pedirUrgencia={pedirUrgencia}
-          justificativa={justificativaUrgencia}
-          onPedirUrgencia={setPedirUrgencia}
-          onJustificativa={setJustificativaUrgencia}
-          lista={lista}
-        />
-      )}
+      <div ref={conteudo} className="space-y-5">
+        {passo === 'itens' && (
+          <PassoItens
+            itens={itens}
+            onMudar={mudarItem}
+            onTirar={(id) => setItens((ls) => ls.filter((x) => x.id !== id))}
+            onAcrescentar={() => setItens((ls) => [...ls, itemNovo(novoId())])}
+          />
+        )}
+        {passo === 'tabela' && (
+          <PassoPrecoTabela
+            cotacaoId={cotacao.id}
+            itens={itens}
+            pendente={pendente}
+            onClassificar={classificar}
+          />
+        )}
+        {passo === 'orcamentos' && (
+          <PassoOrcamentos
+            itens={itens}
+            orcamentos={orcamentos}
+            enviandoArquivo={enviandoArquivo}
+            pendente={pendente}
+            onMudarOrcamento={mudarOrcamento}
+            onMudarPreco={mudarPreco}
+            onAnexar={(id, arquivo) => void anexar(id, arquivo)}
+            onTirarOrcamento={(id) => setOrcamentos((os) => os.filter((x) => x.id !== id))}
+            onAcrescentarOrcamento={() => setOrcamentos((os) => [...os, orcamentoNovo(novoId())])}
+            onAcrescentarReferencia={acrescentarReferencia}
+            onTirarReferencia={tirarReferencia}
+          />
+        )}
+        {passo === 'revisar' && (
+          <PassoRevisar
+            estado={estado}
+            urgencia={urgencia}
+            pedirUrgencia={pedirUrgencia}
+            justificativa={justificativaUrgencia}
+            onPedirUrgencia={(pedir) => onPedidoUrgencia({ ...pedidoUrgencia, pedir })}
+            onJustificativa={(justificativa) =>
+              onPedidoUrgencia({ ...pedidoUrgencia, justificativa })
+            }
+            lista={lista}
+          />
+        )}
+      </div>
 
       {erro && (
         <p role="alert" className="text-sm text-destructive">
@@ -267,7 +298,7 @@ export function EditorContratada({
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/50 bg-card p-3">
         {anterior ? (
-          <Button type="button" variant="ghost" className="gap-2" onClick={() => onPasso(anterior)}>
+          <Button type="button" variant="ghost" className="gap-2" onClick={() => irPara(anterior)}>
             <ArrowLeft aria-hidden="true" />
             {T.voltarPara(ROTULO_PASSO_MONTAGEM[anterior])}
           </Button>
@@ -284,7 +315,7 @@ export function EditorContratada({
               type="button"
               variant="gradiente"
               className="gap-2"
-              onClick={() => onPasso(seguinte)}
+              onClick={() => irPara(seguinte)}
             >
               {T.continuarPara(ROTULO_PASSO_MONTAGEM[seguinte])}
               <ArrowRight aria-hidden="true" />
