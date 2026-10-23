@@ -6,6 +6,7 @@ import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { ReferenciaDTO } from '@/lib/material/serializar';
 import { formatarReais } from '@/shared/chamados/custo';
 import type { ReferenciaEntrada } from '@/shared/material/cotacao.schemas';
@@ -126,26 +127,25 @@ export function FormReferencia({
   return (
     <fieldset className="space-y-2 rounded-lg border border-dashed border-border p-2">
       <legend className="px-1 text-xs font-medium text-muted-foreground">Nova referência</legend>
-      <div className="flex flex-wrap gap-4 text-xs">
-        <label className="flex items-center gap-1.5">
-          <input
-            type="radio"
-            name={`tipo-${id}`}
-            checked={tipo === 'sinapi'}
-            onChange={() => setTipo('sinapi')}
-          />
-          Insumo do SINAPI
-        </label>
-        <label className="flex items-center gap-1.5">
-          <input
-            type="radio"
-            name={`tipo-${id}`}
-            checked={tipo === 'livre'}
-            onChange={() => setTipo('livre')}
-          />
-          Outra fonte
-        </label>
-      </div>
+      <RadioGroup
+        aria-label="Tipo da referência"
+        value={tipo}
+        onValueChange={(v) => setTipo(v as 'sinapi' | 'livre')}
+        className="flex flex-wrap gap-4 text-xs"
+      >
+        <div className="flex items-center gap-1.5">
+          <RadioGroupItem id={`tipo-sinapi-${id}`} value="sinapi" />
+          <Label htmlFor={`tipo-sinapi-${id}`} className="text-xs font-normal">
+            Insumo do SINAPI
+          </Label>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <RadioGroupItem id={`tipo-livre-${id}`} value="livre" />
+          <Label htmlFor={`tipo-livre-${id}`} className="text-xs font-normal">
+            Outra fonte
+          </Label>
+        </div>
+      </RadioGroup>
       {tipo === 'sinapi' ? (
         <div className="space-y-1">
           <Label htmlFor={`cod-${id}`} className="text-xs">

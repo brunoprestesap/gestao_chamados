@@ -1032,3 +1032,148 @@ export function textoProjecaoCurta(p: {
   }
   return p.situacao === 'sem_consumo' ? 'sem consumo no período' : 'histórico curto para projetar';
 }
+
+// ---------------------------------------------------------------------------
+// Spec 0021, fatia 5: o editor da contratada em passos
+// ---------------------------------------------------------------------------
+
+export const PASSOS_MONTAGEM = ['itens', 'tabela', 'orcamentos', 'revisar'] as const;
+export type PassoMontagem = (typeof PASSOS_MONTAGEM)[number];
+
+/** Os 4 passos da montagem (AC-12), na ordem. */
+export const ROTULO_PASSO_MONTAGEM: Record<PassoMontagem, string> = {
+  itens: 'Itens',
+  tabela: 'Preço de tabela',
+  orcamentos: 'Orçamentos',
+  revisar: 'Revisar e enviar',
+};
+
+export const TEXTO_EDITOR = {
+  passos: 'Passos da montagem',
+  continuarPara: (passo: string) => `Continuar para ${passo.toLowerCase()}`,
+  voltarPara: (passo: string) => `Voltar para ${passo.toLowerCase()}`,
+  salvarRascunho: 'Salvar rascunho',
+  rascunhoSalvo: 'Rascunho salvo.',
+  enviar: 'Salvar e enviar para análise',
+  enviada: 'Cotação enviada para análise.',
+  arquivoAntesDeSalvar: 'Anexe o arquivo de cada orçamento antes de salvar.',
+
+  // Passo 1
+  itensTitulo: 'O que vai ser comprado',
+  itensAjuda:
+    'Os itens do diagnóstico do técnico não mudam de descrição, unidade nem quantidade. Acrescente o que faltar.',
+  item: (n: number) => `Item ${n}`,
+  doDiagnostico: 'do diagnóstico do técnico',
+  descricao: 'Descrição',
+  unidade: 'Unidade',
+  quantidade: 'Quantidade',
+  paraQueServe: 'Para que serve',
+  tirarItem: (n: number) => `Tirar item ${n}`,
+  acrescentarItem: 'Acrescentar item',
+  semDescricao: 'item sem descrição',
+
+  // Passo 2
+  tabelaTitulo: 'Onde está o preço de cada item?',
+  tabelaAjuda:
+    'Procure no Anexo V e no SINAPI. Sem preço de tabela, o item vai para três orçamentos.',
+  resolvidos: (feitos: number, total: number) => `${feitos} de ${total} resolvidos`,
+  semPrecoAinda: 'sem preço ainda',
+  tresOrcamentos: 'Três orçamentos',
+  valorProvisorio: 'valor provisório até o fiscal escolher a base',
+  porUnidade: (valor: string, unidade: string) => `${valor} por ${unidade}`,
+  buscarPreco: 'Buscar preço',
+  buscarNaTabela: 'Buscar na tabela',
+  trocar: 'Trocar',
+  fecharBusca: 'Fechar a busca',
+  usarTresOrcamentos: 'Usar três orçamentos',
+  nenhumServe: 'Nenhum serve?',
+  campoBusca: (item: string) => `Buscar preço para ${item}`,
+  campoBuscaAjuda: 'Descrição, número do item ou código SINAPI.',
+  buscar: 'Buscar',
+  usar: 'Usar',
+  usarItem: (descricao: string) => `Usar ${descricao}`,
+  anexoV: (contrato: string | null, n: number) =>
+    contrato ? `Anexo V do contrato ${contrato} · ${n}` : `Anexo V · ${n}`,
+  semAnexoV: 'Sem contrato vigente com Anexo V para o tipo de serviço deste chamado.',
+  sinapi: (mes: string | null, n: number) => (mes ? `SINAPI ${mes} · ${n}` : `SINAPI · ${n}`),
+  semSinapi: 'Nenhum mês do SINAPI importado.',
+  nadaNaTabela: 'Nada encontrado nesta tabela.',
+  temEquivalenteSinapi: (codigo: string) => `tem equivalente SINAPI ${codigo}`,
+  equivaleAoAnexoV: (numeros: string) => `equivale ao item ${numeros} do Anexo V`,
+  tabelaNaoSeEdita:
+    'O preço e a unidade vêm da tabela e não se editam. Item do Anexo V que também está no SINAPI entra com as duas bases, e o fiscal escolhe qual vale.',
+  precoAplicado: 'Preço da tabela aplicado.',
+  voltouParaOrcamentos: 'Item voltou para três orçamentos.',
+
+  // Passo 3
+  orcamentosAjuda: (min: number) =>
+    `Cada item sem preço de tabela precisa de preço em ao menos ${min} orçamentos de empresas diferentes (raízes de CNPJ distintas), nenhum da própria contratada. Um orçamento pode cotar só parte dos itens.`,
+  semItemParaOrcamento:
+    'Todos os itens têm preço de tabela: esta cotação não precisa de orçamentos.',
+  fornecedores: 'Fornecedores',
+  orcamento: (n: number) => `Orçamento ${n}`,
+  fornecedor: 'Fornecedor',
+  cnpj: 'CNPJ',
+  data: 'Data',
+  validade: 'Validade (obrigatória para enviar)',
+  anexarArquivo: 'Anexar arquivo do orçamento',
+  trocarArquivo: 'Trocar arquivo',
+  tirarOrcamento: 'Tirar orçamento',
+  acrescentarOrcamento: 'Acrescentar orçamento',
+  semOrcamentos: 'Nenhum orçamento ainda. Acrescente o primeiro para lançar os preços.',
+  gradeTitulo: 'Preços dos orçamentos',
+  gradeAjuda: 'Preço unitário de cada fornecedor por item. Deixe vazio o que ele não cotou.',
+  gradeRotulo: 'Grade de preços por fornecedor',
+  colunaItem: 'Item',
+  colunaBase: 'Base',
+  naoCotou: 'não cotou',
+  menorPreco: 'menor preço (vira a base)',
+  precoDaCelula: (item: string, fornecedor: string) => `${item}, ${fornecedor}, preço unitário`,
+  contagemDoItem: (n: number, min: number) => `${n} de ${min}`,
+  empresasDiferentes: (n: number) => (n === 1 ? '1 empresa' : `${n} empresas diferentes`),
+  faltaNoFornecedor: (faltas: readonly string[]) => `falta ${faltas.join(' e ')}`,
+  faltaValidade: 'validade',
+  faltaArquivo: 'arquivo',
+  validadeAte: (data: string) => `val. ${data}`,
+  itensComTabela: 'Com preço de tabela, fora da grade:',
+  referenciasTitulo: 'Referências de preço',
+  referenciasAjuda: 'Cada item sem preço de tabela precisa de ao menos uma referência para enviar.',
+  referenciasDoFiscal: 'Incluídas pelo fiscal',
+  tirarReferencia: 'Tirar esta referência',
+  referenciaNova: (sinapi: string) => `SINAPI ${sinapi} · o preço vem da tabela ao salvar`,
+
+  // Passo 4 e a lista lateral
+  revisarAjuda: 'Confira os itens e o total. O envio é conferido de novo no servidor.',
+  resumoItens: 'Itens da cotação',
+  origemDoPreco: 'Origem do preço',
+  unitario: 'Unitário',
+  valorDaLinha: 'Valor',
+  prontaTitulo: 'Pronta para enviar?',
+  prontaContagem: (feitos: number, total: number) => `${feitos} de ${total}`,
+  linhaPronta: 'Pronto:',
+  linhaFalta: 'Falta:',
+  prontaFormulario: 'Campos preenchidos',
+  prontaCnpj: 'CNPJ válido em cada orçamento, nenhum da contratada',
+  prontaUrgencia: 'Justificativa da urgência',
+  prontaValidade: 'Validade em cada orçamento',
+  prontaOrcamentos: (min: number) =>
+    min === 1 ? '1 orçamento por item (urgência)' : `${min} orçamentos por item`,
+  prontaRaizes: 'Empresas diferentes em cada item',
+  prontaReferencia: 'Uma referência de preço por item',
+  prontaSoTabela: 'Todos os itens com preço de tabela',
+  prontaServidor: 'O envio confere de novo as tabelas do mês e as referências do SINAPI.',
+  totalAteAgora: 'Total até agora',
+  totalAjuda: 'pelo menor preço de cada item',
+  itensSemPreco: (n: number) => (n === 1 ? '1 item ainda sem preço' : `${n} itens ainda sem preço`),
+  urgencia: 'Urgência',
+  pedirUrgencia: 'Pedir urgência',
+  pedirUrgenciaAjuda: (min: number) =>
+    `Basta 1 orçamento por item até a autorização. Depois dela, complete a pesquisa com orçamentos de ${min} empresas diferentes.`,
+  justificativaUrgencia: (min: number, max: number) =>
+    `Justificativa da urgência (${min} a ${max} caracteres)`,
+  justificativaPedida: 'Justificativa',
+  urgenciaRecusada: (motivo: string | null, min: number) =>
+    `O fiscal recusou a urgência${motivo ? `: ${motivo}` : ''}. O reenvio segue o fluxo comum, com os ${min} orçamentos de cada item.`,
+  urgenciaVale: (min: number) =>
+    `Com a urgência, basta 1 orçamento por item para enviar. Depois da autorização, complete a pesquisa com orçamentos de ${min} empresas diferentes.`,
+} as const;

@@ -23,6 +23,7 @@ import {
 import {
   type AcaoComMotivo,
   type CodigoControle,
+  type PassoMontagem,
   ROTULO_ACAO_SECUNDARIA,
   ROTULO_PAPEL,
   ROTULO_SITUACAO,
@@ -66,6 +67,7 @@ import { DialogAprovar } from './detalhe/DialogAprovar';
 import { DialogEncaminhar } from './DialogEncaminhar';
 import { DialogExecucao } from './DialogExecucao';
 import { DialogMaterial } from './DialogMaterial';
+import { PEDIDO_URGENCIA_VAZIO, type PedidoUrgencia } from './editor/formulario';
 import { EditorContratada } from './EditorContratada';
 import { FormReferencia } from './ReferenciasPreco';
 
@@ -122,6 +124,11 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
   const [encaminhando, setEncaminhando] = useState(false);
   const [referenciaPara, setReferenciaPara] = useState<string | null>(null);
   const [pedidoAteste, setPedidoAteste] = useState<PedidoAteste | null>(null);
+  // O passo da montagem fica aqui: salvar monta o editor de novo (`key={versao}`).
+  const [passoMontagem, setPassoMontagem] = useState<PassoMontagem>('itens');
+  const [pedidoUrgencia, setPedidoUrgencia] = useState<PedidoUrgencia>(PEDIDO_URGENCIA_VAZIO);
+  // Onde o editor põe a lista "Pronta para enviar?", na coluna lateral (spec 0021, AC-15).
+  const [slotPronta, setSlotPronta] = useState<HTMLDivElement | null>(null);
   const [pendente, iniciar] = useTransition();
   const trf1 = c.visao === 'trf1';
   // Itens `ambas` pedem a base, e os da lista de conferência, a conferência (AC-27, AC-29).
@@ -286,8 +293,13 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
       <EditorContratada
         key={c.versao}
         cotacao={c}
+        passo={passoMontagem}
+        onPasso={setPassoMontagem}
+        pedidoUrgencia={pedidoUrgencia}
+        onPedidoUrgencia={setPedidoUrgencia}
         onAlterado={() => router.refresh()}
         onImpedimentos={setImpedimentos}
+        slotLateral={slotPronta}
       />
     </div>
   ) : (
@@ -463,6 +475,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
             quemAge={c.quemAgeAgora}
             pendente={pendente}
           />
+          {acoes.montar && <div ref={setSlotPronta} />}
           {trf1 && c.empenho && <BlocoEmpenho empenho={c.empenho} />}
           {acoes.gerarPdf && (
             <section

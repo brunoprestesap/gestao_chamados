@@ -127,6 +127,38 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - [x] `npx tsc --noEmit` e o ESLint dos arquivos da fatia → sem erro → AC-29
 - [x] `npm run test:e2e -- cotacao-flow` num banco próprio → o aprovador escolhe o empenho pelo radio novo e aprova; a tela passa no axe → AC-10, AC-26
 
+## Fatia 5: editor da contratada em passos
+
+### UI / manual
+
+- [x] Como responsável técnico num rascunho, a montagem mostra 4 passos (Itens, Preço de tabela, Orçamentos, Revisar e enviar); clique em qualquer passo → ele abre direto, marcado como o passo atual → AC-12
+- [x] Vá até Orçamentos e clique "Salvar rascunho" → o toast confirma e a tela continua em Orçamentos, sem voltar para Itens → AC-12
+- [x] "Salvar e enviar para análise" só aparece no passo 4; nos outros, o rodapé tem "Voltar para ...", "Salvar rascunho" e "Continuar para ..." (gradiente) → AC-12, AC-28
+- [x] No passo 2, um item sem preço mostra "sem preço ainda"; clique "Buscar preço" → a busca abre dentro do próprio item, com Anexo V e SINAPI lado a lado no desktop e um embaixo do outro no celular → AC-13
+- [x] Clique "Usar" num resultado → o rascunho é salvo, o preço da tabela entra no item com a origem (Anexo V ou SINAPI) e a contagem "N de M resolvidos" sobe; "Usar três orçamentos" manda o item para a grade → AC-13
+- [x] No passo 3, cada fornecedor tem o seu cartão ("Orçamento N") e a grade tem uma linha por item sem preço de tabela e uma coluna por fornecedor → AC-14
+- [x] Lance 3 preços num item → o menor fica em verde e o item mostra "3 de 3" com as empresas; um fornecedor sem validade ou sem arquivo aparece no cabeçalho da coluna com o que falta → AC-14
+- [x] Na coluna lateral, abaixo de "Sua vez", a lista "Pronta para enviar?" diz o que está pronto e o que falta, com a barra de progresso; mude um preço ou um CNPJ → a lista e o "Total até agora" mudam na hora, sem salvar → AC-15
+- [x] No passo 4, a lista aparece dentro do conteúdo, com o resumo dos itens e o pedido de urgência (caixa e justificativa) → AC-12, AC-15
+- [x] Marque "Pedir urgência" e escreva menos de 10 caracteres na justificativa → a lista mostra "Falta:" na linha "Justificativa da urgência", e "Salvar e enviar para análise" mostra o erro sem salvar; com a justificativa certa e o envio recusado, a caixa e o texto continuam lá → AC-15
+- [x] Os textos novos do editor ("Pronta para enviar?", "Total até agora", "Salvar e enviar para análise") vêm de `mensagens.ts` → AC-27
+- [x] A 390 px, os 4 passos e a grade cabem na tela; a grade rola dentro de si, sem rolagem horizontal da página → AC-25
+
+### Value sourcing
+
+- [x] Itens da lista: cada linha junta os códigos de `impedimentosDeEnvio` (o mesmo do servidor, agora em `shared/material/controles.ts`), rodando sobre o formulário pelo mesmo `montarEntrada` e `SalvarRascunhoSchema` do salvar → AC-15
+- [x] Paridade com o envio: use a mesma raiz de CNPJ em dois orçamentos → a lista mostra "Empresas da mesma raiz" e o envio é recusado pelo mesmo motivo; o mesmo vale para o CNPJ da contratada (`raizCnpjContratada`, que só sai para a contratada que monta) → AC-15
+- [ ] O que só o servidor sabe continua no envio: tabelas do mês e o preço de uma referência SINAPI nova; a lista avisa isso no rodapé → AC-15
+- [x] Total até agora: soma do menor preço de cada item vezes a quantidade (preço de tabela ou menor orçamento), em centavos; itens sem preço não entram e aparecem como "N itens ainda sem preço" → AC-15
+- [x] Menor preço da grade: o menor valor válido entre os fornecedores do item; célula vazia ou inválida não conta → AC-14
+
+### Commands
+
+- [x] `npx vitest run "app/(dashboard)/cotacoes" lib/material shared/material` → passam, inclusive `editor/__tests__/formulario.test.ts` (paridade da lista com o envio) e `EditorContratada.test.tsx` (passos, busca, grade e lista) → AC-12 a AC-15, AC-29
+- [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run "app/(dashboard)/cotacoes" lib/material shared/material` → 647 passam com o banco, sem expectativa alterada em `lib/material` → AC-29
+- [x] `npx tsc --noEmit` e o ESLint dos arquivos da fatia → sem erro → AC-29
+- [x] `npm run test:e2e` no banco `severino_e2e` → 121 passam; a montagem vai pelos passos e pela grade, passa no axe e cabe a 390 px → AC-12, AC-14, AC-15, AC-25, AC-26
+
 ## Acceptance-criteria coverage
 
 - AC-1: selo nos três lugares, teste `compartilhado.test.tsx`
@@ -147,4 +179,9 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - AC-10: Encaminhar numerado e Aprovar com barras e faixa, `DialogosCotacao.test.tsx` e E2E (aprovar)
 - AC-11: `DialogMotivo` com contador, mínimo e erro no campo, `DialogosCotacao.test.tsx`
 - AC-27 (fatia 4): textos dos diálogos em `mensagens.ts` (`TEXTO_DIALOGO_MOTIVO`, `TEXTO_ENCAMINHAR`, `TEXTO_APROVAR`)
-- Fatias 5 a 8 (AC-12 a AC-23): passos entram quando cada fatia for construída
+- AC-12: 4 passos com navegação livre e o passo mantido depois de salvar, `EditorContratada.test.tsx` e E2E
+- AC-13: busca no Anexo V e no SINAPI dentro do item, `EditorContratada.test.tsx`
+- AC-14: grade por fornecedor com o menor preço e "N de 3", `EditorContratada.test.tsx` e E2E
+- AC-15: lista "Pronta para enviar?" e total ao vivo, com paridade com o envio, `formulario.test.ts`, `formulario.db.test.ts` (contra `salvarRascunho` e `transicionar` no Mongo), `EditorContratada.test.tsx` e E2E
+- AC-27 (fatia 5): textos do editor em `mensagens.ts` (`TEXTO_EDITOR`, `ROTULO_PASSO_MONTAGEM`)
+- Fatias 6 a 8 (AC-16 a AC-23): passos entram quando cada fatia for construída
