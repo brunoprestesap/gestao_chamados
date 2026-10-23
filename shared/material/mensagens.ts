@@ -1177,3 +1177,124 @@ export const TEXTO_EDITOR = {
   urgenciaVale: (min: number) =>
     `Com a urgência, basta 1 orçamento por item para enviar. Depois da autorização, complete a pesquisa com orçamentos de ${min} empresas diferentes.`,
 } as const;
+
+/**
+ * As fases do cartão do solicitante (spec 0021, AC-16): três fases em
+ * palavras simples, sem valor e sem nomes. Reprovada e cancelada viram
+ * `encerrada`, que mostra só a frase, sem a barra.
+ */
+export const FASES_SOLICITANTE = ['pedido', 'aprovacao', 'instalacao'] as const;
+export type FaseSolicitante = (typeof FASES_SOLICITANTE)[number] | 'encerrada';
+
+export const FASE_DA_SITUACAO: Record<SituacaoCotacao, FaseSolicitante> = {
+  rascunho: 'pedido',
+  enviada: 'pedido',
+  em_analise: 'pedido',
+  devolvida: 'pedido',
+  em_aprovacao: 'aprovacao',
+  autorizada: 'aprovacao',
+  executada: 'instalacao',
+  atestada: 'instalacao',
+  reprovada: 'encerrada',
+  cancelada: 'encerrada',
+};
+
+export const ROTULO_FASE_SOLICITANTE: Record<(typeof FASES_SOLICITANTE)[number], string> = {
+  pedido: 'Pedido',
+  aprovacao: 'Aprovação',
+  instalacao: 'Instalação',
+};
+
+export const TEXTO_FASE_SOLICITANTE: Record<FaseSolicitante, { titulo: string; frase: string }> = {
+  pedido: {
+    titulo: 'Aguardando material',
+    frase: 'O conserto precisa de material. O pedido de compra está sendo preparado e conferido.',
+  },
+  aprovacao: {
+    titulo: 'Aguardando material',
+    frase:
+      'O conserto precisa de material. A compra passa pela aprovação do tribunal e, depois de liberada, o técnico instala.',
+  },
+  instalacao: {
+    titulo: 'Material aplicado',
+    frase: 'O material do conserto já foi aplicado pelo técnico.',
+  },
+  encerrada: {
+    titulo: 'Compra de material encerrada',
+    frase: 'O pedido de material deste chamado foi encerrado sem compra.',
+  },
+};
+
+/** O cartão da cotação no chamado (spec 0021, fatia 6). */
+export const TEXTO_CARTAO = {
+  titulo: 'Material',
+  itens: 'Itens',
+  valor: 'Valor',
+  maisItens: (n: number) => (n === 1 ? '+1 item' : `+${n} itens`),
+  verCotacao: 'ver cotação',
+  abrirCotacao: 'Abrir cotação',
+  registrarMaterial: 'Registrar material',
+  registrarMaterialAjuda:
+    'Se o conserto precisa de material, liste o que falta. A contratada monta a cotação a partir daqui.',
+  fases: 'Fases da compra de material',
+  semVez: 'Nenhuma ação pendente nesta cotação.',
+  motivo: (situacao: string, motivo: string) => `${situacao}: ${motivo}`,
+  /** A dica da próxima ação, abaixo do título curto de `TEXTO_ACAO_DA_VEZ`. */
+  dica: {
+    executar: 'Depois de aplicar, informe as quantidades e anexe as fotos ou o PDF.',
+    editarDiagnostico: 'A contratada ainda não começou a montar: você pode corrigir os itens.',
+    montar: 'Escolha o preço de cada item e envie para a análise do fiscal.',
+    completarPesquisa: 'A urgência foi aceita: complete os orçamentos de cada item.',
+    registrarNotaFiscal: 'O recebimento foi atestado: registre a nota fiscal.',
+  } as Partial<Record<AcaoDaVez, string>>,
+} as const;
+
+/** Os diálogos do técnico no cartão (spec 0021, fatia 6). */
+export const TEXTO_DIALOGO_MATERIAL = {
+  tituloCriar: 'Registrar material',
+  tituloEditar: 'Editar material',
+  descricao:
+    'Liste o material que o serviço precisa. A contratada monta a cotação a partir daqui, e nada é comprado antes da autorização.',
+  item: (n: number) => `Item ${n}`,
+  descricaoItem: 'Descrição',
+  descricaoExemplo: 'Disjuntor bipolar 40 A',
+  unidade: 'Unidade',
+  quantidade: 'Quantidade',
+  paraQueServe: 'Para que serve',
+  paraQueServeExemplo: 'Substituir o disjuntor queimado do quadro QD-2',
+  tirarItem: (n: number) => `Tirar item ${n}`,
+  acrescentarItem: 'Acrescentar item',
+  limiteItens: (max: number) => `Até ${max} itens por cotação.`,
+  cancelar: 'Cancelar',
+  registrar: 'Registrar',
+  salvar: 'Salvar',
+  registrado: 'Material registrado. O responsável técnico da contratada foi avisado.',
+  atualizado: 'Material atualizado.',
+} as const;
+
+export const TEXTO_DIALOGO_EXECUCAO = {
+  titulo: 'Registrar execução do material',
+  descricao:
+    'Informe quanto foi aplicado de cada item. Aplicar menos que o autorizado devolve a diferença ao saldo.',
+  itens: 'Quantidades aplicadas',
+  autorizado: (qtd: string, unidade: string) => `Autorizado: ${qtd} ${unidade}`,
+  aplicado: (unidade: string) => `Aplicado (${unidade})`,
+  evidencias: 'Evidências (foto ou PDF)',
+  evidenciasAjuda: 'Pelo menos uma evidência é obrigatória.',
+  semEvidencias: 'Nenhuma evidência anexada ainda.',
+  anexar: 'Anexar evidência',
+  enviando: 'Enviando…',
+  tirar: (nome: string) => `Tirar ${nome}`,
+  foto: 'Foto',
+  pdf: 'PDF',
+  cancelar: 'Cancelar',
+  registrar: 'Registrar execução',
+  registrada: 'Execução registrada. O gestor do contrato foi avisado.',
+} as const;
+
+/** O bloco recolhido da cotação antiga no sheet da gestão (spec 0021, AC-17). */
+export const TEXTO_HISTORICO_ANTERIOR = {
+  titulo: 'Histórico: sistema anterior',
+  contagem: (n: number) => (n === 1 ? '1 cotação' : `${n} cotações`),
+  esperando: 'uma esperando aprovação',
+} as const;

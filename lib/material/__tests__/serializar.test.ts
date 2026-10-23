@@ -142,6 +142,30 @@ describe('serializarCotacao', () => {
     expect(dto.situacao).toBe('autorizada');
   });
 
+  it('o solicitante recebe a fase, sem quem age agora (spec 0021, AC-16, AC-24)', () => {
+    const fase = (situacao: CotacaoBruta['situacao']) =>
+      serializarCotacao({ ...cot, situacao }, 'solicitante', { userId: 'u' }, { eventos }).fase;
+    expect(fase('rascunho')).toBe('pedido');
+    expect(fase('devolvida')).toBe('pedido');
+    expect(fase('em_aprovacao')).toBe('aprovacao');
+    expect(fase('autorizada')).toBe('aprovacao');
+    expect(fase('executada')).toBe('instalacao');
+    expect(fase('atestada')).toBe('instalacao');
+    expect(fase('reprovada')).toBe('encerrada');
+    expect(fase('cancelada')).toBe('encerrada');
+    const dto = serializarCotacao(cot, 'solicitante', { userId: 'u' }, { eventos });
+    expect(dto).not.toHaveProperty('quemAgeAgora');
+    expect(dto).not.toHaveProperty('montadoPorNome');
+  });
+
+  it('só o solicitante recebe a fase', () => {
+    for (const visao of ['trf1', 'contratada', 'tecnico'] as const) {
+      expect(serializarCotacao(cot, visao, { userId: 'u' }, { eventos })).not.toHaveProperty(
+        'fase',
+      );
+    }
+  });
+
   it('o técnico vê itens e valores, sem orçamento, empenho, limite nem advertência', () => {
     const dto = serializarCotacao(cot, 'tecnico', { userId: 'u' }, { eventos });
     expect(dto.itens).toHaveLength(1);

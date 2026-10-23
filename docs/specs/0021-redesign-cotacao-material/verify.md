@@ -159,6 +159,33 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - [x] `npx tsc --noEmit` e o ESLint dos arquivos da fatia → sem erro → AC-29
 - [x] `npm run test:e2e` no banco `severino_e2e` → 121 passam; a montagem vai pelos passos e pela grade, passa no axe e cabe a 390 px → AC-12, AC-14, AC-15, AC-25, AC-26
 
+## Fatia 6: cartão no chamado
+
+### UI / manual
+
+- [ ] Como técnico atribuído, num chamado com cotação `autorizada`, abra `/chamados-atribuidos/<id>` → o cartão mostra o selo, a jornada em barrinhas, a caixa "Aplicar o material" com o botão "Registrar execução" e até 3 itens com "+N itens", sem valor → AC-16
+- [ ] No mesmo cartão, "Registrar execução" → o diálogo mostra "Quantidades aplicadas", as evidências com ícone de foto ou PDF e "Cancelar"; anexar uma evidência mantém o diálogo aberto → AC-16, AC-27
+- [ ] Num chamado em atendimento sem cotação, "Registrar material" → o diálogo tem "Acrescentar item" e o botão primário em gradiente → AC-27, AC-28
+- [ ] Como fiscal (lado TRF1) no sheet da `/gestao`, numa cotação `em_analise` que um fiscal assumiu → o cartão mostra Itens, Valor e "Agora é a vez de: Fiscal (nome)" → AC-16, AC-24
+- [ ] Como Preposto responsável técnico, no mesmo chamado → o cartão mostra a próxima ação dela com o botão que leva ao detalhe e "Agora é a vez de: Fiscal.", sem nome → AC-16, AC-24
+- [ ] Como solicitante, em `/meus-chamados/<id>` → o cartão mostra a frase da fase e a barra Pedido, Aprovação, Instalação com a fase atual marcada, sem número, valor nem nomes; numa cotação reprovada ou cancelada, só a frase, sem a barra → AC-16, AC-24
+- [ ] No sheet da gestão de um chamado com cotação antiga `enviada` → o bloco "Histórico: sistema anterior" já vem aberto, com Aprovar e Recusar; num chamado só com antigas decididas, vem fechado; sem nenhuma, não aparece → AC-17
+- [ ] A 390 px, as quatro versões do cartão e os dois diálogos cabem sem rolagem horizontal da página → AC-25
+
+### Value sourcing
+
+- [ ] Versão do cartão: sai de `cotacao.visao` (de `visaoDe`), nunca do perfil; o Preposto designado responsável técnico recebe a versão `contratada`, e um Admin fiscal a versão `trf1` → AC-16
+- [ ] Fase do solicitante: `FASE_DA_SITUACAO` em `mensagens.ts`, entregue por `serializarCotacao` só na visão `solicitante`; varie a situação (rascunho, devolvida, em aprovação, autorizada, executada, atestada, reprovada, cancelada) e confira pedido, pedido, aprovação, aprovação, instalação, instalação, encerrada, encerrada → AC-16
+- [ ] Quem age agora: `quemAgeAgora` por situação; o nome do fiscal que assumiu só na visão TRF1, nulo para contratada e técnico, e o campo nem existe para o solicitante → AC-16, AC-24
+- [ ] Próxima ação: técnico só `executar` e `editarDiagnostico` no próprio cartão; contratada a primeira de `ACOES_DA_VEZ` liberada em `acoesDisponiveis`, com link para `/cotacoes/<id>`; TRF1 sem ação no cartão → AC-16
+
+### Commands
+
+- [x] `npx vitest run "app/(dashboard)/cotacoes" "app/(dashboard)/gestao" lib/material shared/material` → passam, inclusive `CartaoCotacaoMaterial.test.tsx` (as quatro versões), `CotacaoApprovalCard.test.tsx` (bloco recolhido) e `serializar.test.ts` (fase) → AC-16, AC-17, AC-24
+- [x] `MONGO_TEST_URI=mongodb://localhost:27017/severino_test npx vitest run lib/material` → passam, inclusive o cartão por visão em `fatia4.db.test.ts` (Preposto responsável técnico sem o nome do fiscal) → AC-16, AC-24, AC-29
+- [x] `npx tsc --noEmit` e o ESLint dos arquivos da fatia → sem erro → AC-29
+- [ ] `npm run test:e2e -- cotacao-flow` num banco próprio → o técnico executa pelo cartão novo, o solicitante vê a fase Instalação, e o cartão passa no axe → AC-16, AC-25, AC-26
+
 ## Acceptance-criteria coverage
 
 - AC-1: selo nos três lugares, teste `compartilhado.test.tsx`
@@ -184,4 +211,8 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 - AC-14: grade por fornecedor com o menor preço e "N de 3", `EditorContratada.test.tsx` e E2E
 - AC-15: lista "Pronta para enviar?" e total ao vivo, com paridade com o envio, `formulario.test.ts`, `formulario.db.test.ts` (contra `salvarRascunho` e `transicionar` no Mongo), `EditorContratada.test.tsx` e E2E
 - AC-27 (fatia 5): textos do editor em `mensagens.ts` (`TEXTO_EDITOR`, `ROTULO_PASSO_MONTAGEM`)
-- Fatias 6 a 8 (AC-16 a AC-23): passos entram quando cada fatia for construída
+- AC-16: as quatro versões pela `visao`, `CartaoCotacaoMaterial.test.tsx`, `serializar.test.ts`, `fatia4.db.test.ts` e E2E
+- AC-17: bloco recolhido da cotação antiga, `CotacaoApprovalCard.test.tsx`
+- AC-24 (fatia 6): `fase` só para o solicitante, nome do fiscal só no TRF1, `serializar.test.ts` e `fatia4.db.test.ts`
+- AC-27 (fatia 6): textos do cartão e dos diálogos em `mensagens.ts` (`TEXTO_CARTAO`, `TEXTO_FASE_SOLICITANTE`, `TEXTO_DIALOGO_MATERIAL`, `TEXTO_DIALOGO_EXECUCAO`, `TEXTO_HISTORICO_ANTERIOR`)
+- Fatias 7 e 8 (AC-18 a AC-23): passos entram quando cada fatia for construída

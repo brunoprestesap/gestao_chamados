@@ -700,6 +700,38 @@ rodar('fatia 4 da cotação de material, contra o Mongo', () => {
     });
   });
 
+  describe('cartão do chamado por visão (spec 0021, AC-16, AC-24)', () => {
+    it('o Preposto responsável técnico recebe o cartão da contratada, sem o nome do fiscal', async () => {
+      const c = await criada();
+      await enviar(c, [await orcamento(c.id, c.itemId, A)], {
+        urgencia: 'Quadro geral sem energia',
+      });
+      await agir(c.id, 'assumir');
+      const chamadoId = String((await M.Cotacao.findById(c.id).lean())!.chamadoId);
+
+      const rt = await leitura.cartaoDoChamado(chamadoId, { userId: ids.rt, role: 'Preposto' });
+      expect(rt!.cotacao!.visao).toBe('contratada');
+      expect(rt!.cotacao!.quemAgeAgora).toEqual({ papel: 'fiscal', nome: null });
+      expect(rt!.cotacao).not.toHaveProperty('fase');
+      expect(rt!.cotacao).not.toHaveProperty('empenho');
+
+      const trf1 = await leitura.cartaoDoChamado(chamadoId, { userId: ids.fiscal, role: 'Admin' });
+      expect(trf1!.cotacao!.visao).toBe('trf1');
+      expect(trf1!.cotacao!.quemAgeAgora).toEqual({ papel: 'fiscal', nome: 'fiscal' });
+
+      const sol = await leitura.cartaoDoChamado(chamadoId, {
+        userId: ids.solicitante,
+        role: 'Solicitante',
+      });
+      expect(sol!.cotacao!.visao).toBe('solicitante');
+      expect(sol!.cotacao!.fase).toBe('pedido');
+      expect(sol!.acoes).toBeNull();
+      for (const campo of ['quemAgeAgora', 'valorTotalCentavos', 'itens', 'montadoPorNome']) {
+        expect(sol!.cotacao).not.toHaveProperty(campo);
+      }
+    });
+  });
+
   describe('visibilidade (AC-15)', () => {
     it('a contratada vê referências sem o autor do fiscal; o solicitante não vê a urgência', async () => {
       const c = await criada();
