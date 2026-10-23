@@ -131,26 +131,26 @@ _Steps derived from spec 0021 acceptance criteria. `/check verify` runs these; `
 
 ### UI / manual
 
-- [ ] Como responsável técnico num rascunho, a montagem mostra 4 passos (Itens, Preço de tabela, Orçamentos, Revisar e enviar); clique em qualquer passo → ele abre direto, marcado como o passo atual → AC-12
-- [ ] Vá até Orçamentos e clique "Salvar rascunho" → o toast confirma e a tela continua em Orçamentos, sem voltar para Itens → AC-12
-- [ ] "Salvar e enviar para análise" só aparece no passo 4; nos outros, o rodapé tem "Voltar para ...", "Salvar rascunho" e "Continuar para ..." (gradiente) → AC-12, AC-28
-- [ ] No passo 2, um item sem preço mostra "sem preço ainda"; clique "Buscar preço" → a busca abre dentro do próprio item, com Anexo V e SINAPI lado a lado no desktop e um embaixo do outro no celular → AC-13
-- [ ] Clique "Usar" num resultado → o rascunho é salvo, o preço da tabela entra no item com a origem (Anexo V ou SINAPI) e a contagem "N de M resolvidos" sobe; "Usar três orçamentos" manda o item para a grade → AC-13
-- [ ] No passo 3, cada fornecedor tem o seu cartão ("Orçamento N") e a grade tem uma linha por item sem preço de tabela e uma coluna por fornecedor → AC-14
-- [ ] Lance 3 preços num item → o menor fica em verde e o item mostra "3 de 3" com as empresas; um fornecedor sem validade ou sem arquivo aparece no cabeçalho da coluna com o que falta → AC-14
-- [ ] Na coluna lateral, abaixo de "Sua vez", a lista "Pronta para enviar?" diz o que está pronto e o que falta, com a barra de progresso; mude um preço ou um CNPJ → a lista e o "Total até agora" mudam na hora, sem salvar → AC-15
-- [ ] No passo 4, a lista aparece dentro do conteúdo, com o resumo dos itens e o pedido de urgência (caixa e justificativa) → AC-12, AC-15
-- [ ] Marque "Pedir urgência" e escreva menos de 10 caracteres na justificativa → a lista mostra "Falta:" na linha "Justificativa da urgência", e "Salvar e enviar para análise" mostra o erro sem salvar; com a justificativa certa e o envio recusado, a caixa e o texto continuam lá → AC-15
-- [ ] Os textos novos do editor ("Pronta para enviar?", "Total até agora", "Salvar e enviar para análise") vêm de `mensagens.ts` → AC-27
-- [ ] A 390 px, os 4 passos e a grade cabem na tela; a grade rola dentro de si, sem rolagem horizontal da página → AC-25
+- [x] Como responsável técnico num rascunho, a montagem mostra 4 passos (Itens, Preço de tabela, Orçamentos, Revisar e enviar); clique em qualquer passo → ele abre direto, marcado como o passo atual → AC-12
+- [x] Vá até Orçamentos e clique "Salvar rascunho" → o toast confirma e a tela continua em Orçamentos, sem voltar para Itens → AC-12
+- [x] "Salvar e enviar para análise" só aparece no passo 4; nos outros, o rodapé tem "Voltar para ...", "Salvar rascunho" e "Continuar para ..." (gradiente) → AC-12, AC-28
+- [x] No passo 2, um item sem preço mostra "sem preço ainda"; clique "Buscar preço" → a busca abre dentro do próprio item, com Anexo V e SINAPI lado a lado no desktop e um embaixo do outro no celular → AC-13
+- [x] Clique "Usar" num resultado → o rascunho é salvo, o preço da tabela entra no item com a origem (Anexo V ou SINAPI) e a contagem "N de M resolvidos" sobe; "Usar três orçamentos" manda o item para a grade → AC-13
+- [x] No passo 3, cada fornecedor tem o seu cartão ("Orçamento N") e a grade tem uma linha por item sem preço de tabela e uma coluna por fornecedor → AC-14
+- [x] Lance 3 preços num item → o menor fica em verde e o item mostra "3 de 3" com as empresas; um fornecedor sem validade ou sem arquivo aparece no cabeçalho da coluna com o que falta → AC-14
+- [x] Na coluna lateral, abaixo de "Sua vez", a lista "Pronta para enviar?" diz o que está pronto e o que falta, com a barra de progresso; mude um preço ou um CNPJ → a lista e o "Total até agora" mudam na hora, sem salvar → AC-15
+- [x] No passo 4, a lista aparece dentro do conteúdo, com o resumo dos itens e o pedido de urgência (caixa e justificativa) → AC-12, AC-15
+- [x] Marque "Pedir urgência" e escreva menos de 10 caracteres na justificativa → a lista mostra "Falta:" na linha "Justificativa da urgência", e "Salvar e enviar para análise" mostra o erro sem salvar; com a justificativa certa e o envio recusado, a caixa e o texto continuam lá → AC-15
+- [x] Os textos novos do editor ("Pronta para enviar?", "Total até agora", "Salvar e enviar para análise") vêm de `mensagens.ts` → AC-27
+- [x] A 390 px, os 4 passos e a grade cabem na tela; a grade rola dentro de si, sem rolagem horizontal da página → AC-25
 
 ### Value sourcing
 
-- [ ] Itens da lista: cada linha junta os códigos de `impedimentosDeEnvio` (o mesmo do servidor, agora em `shared/material/controles.ts`), rodando sobre o formulário pelo mesmo `montarEntrada` e `SalvarRascunhoSchema` do salvar → AC-15
-- [ ] Paridade com o envio: use a mesma raiz de CNPJ em dois orçamentos → a lista mostra "Empresas da mesma raiz" e o envio é recusado pelo mesmo motivo; o mesmo vale para o CNPJ da contratada (`raizCnpjContratada`, que só sai para a contratada que monta) → AC-15
+- [x] Itens da lista: cada linha junta os códigos de `impedimentosDeEnvio` (o mesmo do servidor, agora em `shared/material/controles.ts`), rodando sobre o formulário pelo mesmo `montarEntrada` e `SalvarRascunhoSchema` do salvar → AC-15
+- [x] Paridade com o envio: use a mesma raiz de CNPJ em dois orçamentos → a lista mostra "Empresas da mesma raiz" e o envio é recusado pelo mesmo motivo; o mesmo vale para o CNPJ da contratada (`raizCnpjContratada`, que só sai para a contratada que monta) → AC-15
 - [ ] O que só o servidor sabe continua no envio: tabelas do mês e o preço de uma referência SINAPI nova; a lista avisa isso no rodapé → AC-15
-- [ ] Total até agora: soma do menor preço de cada item vezes a quantidade (preço de tabela ou menor orçamento), em centavos; itens sem preço não entram e aparecem como "N itens ainda sem preço" → AC-15
-- [ ] Menor preço da grade: o menor valor válido entre os fornecedores do item; célula vazia ou inválida não conta → AC-14
+- [x] Total até agora: soma do menor preço de cada item vezes a quantidade (preço de tabela ou menor orçamento), em centavos; itens sem preço não entram e aparecem como "N itens ainda sem preço" → AC-15
+- [x] Menor preço da grade: o menor valor válido entre os fornecedores do item; célula vazia ou inválida não conta → AC-14
 
 ### Commands
 
