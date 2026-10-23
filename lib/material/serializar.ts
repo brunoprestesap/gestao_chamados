@@ -9,7 +9,12 @@ import {
   type SituacaoProjecao,
   type TipoArquivoCotacao,
 } from '@/shared/material/material.constants';
-import { type CodigoControle, CONTROLES } from '@/shared/material/mensagens';
+import {
+  type CodigoControle,
+  CONTROLES,
+  FASE_DA_SITUACAO,
+  type FaseSolicitante,
+} from '@/shared/material/mensagens';
 import { quemAgeAgora } from '@/shared/material/quem-age';
 import { valorProvisorio } from '@/shared/material/valores';
 
@@ -25,7 +30,7 @@ import type { MarcaAnomalia } from './precos';
  * - `contratada`: responsável técnico, sem empenho, saldo, limites,
  *   advertências de preço nem confrontos de base;
  * - `tecnico`: o técnico atribuído, só itens, valores, situação e motivos;
- * - `solicitante`: só a situação.
+ * - `solicitante`: só a situação e a fase (spec 0021).
  */
 
 export type Visao = 'trf1' | 'contratada' | 'tecnico' | 'solicitante';
@@ -330,6 +335,8 @@ export type CotacaoDTO = {
   montadoPorNome?: string | null;
   /** Spec 0021: todos menos o solicitante. */
   quemAgeAgora?: QuemAgeDTO | null;
+  /** Spec 0021, só o solicitante: a fase em palavras simples (AC-16). */
+  fase?: FaseSolicitante;
   /** Spec 0021, só TRF1 (AC-8, AC-24). */
   empenho?: EmpenhoDoDetalheDTO;
   /**
@@ -443,7 +450,7 @@ export function serializarCotacao(
     atualizadaEm: cot.updatedAt.toISOString(),
     ultimoMotivo: visao === 'solicitante' ? null : (ultimo?.motivo ?? null),
   };
-  if (visao === 'solicitante') return base;
+  if (visao === 'solicitante') return { ...base, fase: FASE_DA_SITUACAO[cot.situacao] };
 
   base.itens = cot.itens.map((i) => ({
     id: String(i._id),

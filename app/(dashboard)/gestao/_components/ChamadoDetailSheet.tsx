@@ -492,8 +492,12 @@ export function ChamadoDetailSheet({
           <ScrollArea className="min-h-0 flex-1">
             <TabsContent value="detalhes" className="mt-0">
               <div className="space-y-5 px-5 py-5">
-                <CotacaoApprovalCard ticketId={chamado._id} canReview={userRole === 'Admin'} />
                 <CartaoCotacaoMaterial chamadoId={chamado._id} />
+                <CotacaoApprovalCard
+                  ticketId={chamado._id}
+                  canReview={userRole === 'Admin'}
+                  recolhido
+                />
 
                 {/* Description — primary focus area */}
                 <section aria-labelledby="desc-heading">
