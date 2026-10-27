@@ -7,7 +7,7 @@ import { cartaoDoChamado } from '@/lib/material/leitura';
 /**
  * O cartão da cotação de material no chamado (spec 0019): a em trâmite, ou a
  * mais recente, pela visão de quem lê (AC-15). O solicitante recebe só a
- * situação.
+ * fase (spec 0021, AC-24).
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const sessao = await verifySession();

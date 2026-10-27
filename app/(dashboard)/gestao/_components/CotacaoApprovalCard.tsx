@@ -1,6 +1,13 @@
 'use client';
 
-import { CheckCircle2, ClipboardList, Loader2, ThumbsDown } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ClipboardList,
+  History,
+  Loader2,
+  ThumbsDown,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -22,6 +29,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateTime } from '@/lib/utils';
 import { centavos, formatarReais } from '@/shared/chamados/custo';
+import { TEXTO_HISTORICO_ANTERIOR } from '@/shared/material/mensagens';
 
 export type CotacaoDTO = {
   _id: string;
@@ -50,6 +58,11 @@ interface Props {
   ticketId: string;
   canReview: boolean;
   onChange?: () => void;
+  /**
+   * Spec 0021 (AC-17): mostra tudo num bloco recolhido "Histórico: sistema
+   * anterior", que abre sozinho só com uma cotação antiga `enviada` esperando.
+   */
+  recolhido?: boolean;
 }
 
 const STATUS_BADGE: Record<CotacaoDTO['status'], string> = {
@@ -63,7 +76,7 @@ const STATUS_LABEL: Record<CotacaoDTO['status'], string> = {
   recusada: 'Recusada',
 };
 
-export function CotacaoApprovalCard({ ticketId, canReview, onChange }: Props) {
+export function CotacaoApprovalCard({ ticketId, canReview, onChange, recolhido }: Props) {
   const [data, setData] = useState<CotacoesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +85,8 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange }: Props) {
   const [rejectObs, setRejectObs] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [rejectError, setRejectError] = useState<string | null>(null);
+  // `null` até quem lê abrir ou fechar: aí vale o padrão (aberto só com uma `enviada`).
+  const [aberto, setAberto] = useState<boolean | null>(null);
 
   const fetchCotacoes = useCallback(async () => {
     setLoading(true);
@@ -139,7 +154,11 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange }: Props) {
     }
   }, [data, rejectObs, fetchCotacoes, onChange]);
 
-  if (loading) {
+  // Recolhido, a maioria dos chamados não tem cotação antiga: sem esqueleto piscando à toa.
+  // Na recarga (depois de aprovar ou recusar), o bloco já lido fica na tela.
+  if (loading && recolhido && !data) return null;
+
+  if (loading && !recolhido) {
     return (
       <Card className="rounded-2xl border-border/50">
         <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
@@ -166,7 +185,7 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange }: Props) {
     ? data.history.filter((c) => c._id !== active._id)
     : data.history;
 
-  return (
+  const conteudo = (
     <>
       {active && (
         <Card className="rounded-2xl border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/10">
@@ -321,5 +340,37 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange }: Props) {
         </DialogContent>
       </Dialog>
     </>
+  );
+
+  if (!recolhido) return conteudo;
+
+  const total = (active ? 1 : 0) + historyWithoutActive.length;
+  return (
+    <details
+      open={aberto ?? active != null}
+      onToggle={(e) => {
+        // O navegador também dispara `toggle` ao montar aberto: igual ao padrão, não é escolha de ninguém.
+        const open = e.currentTarget.open;
+        setAberto((atual) => (atual === null && open === (active != null) ? null : open));
+      }}
+      className="group rounded-2xl border border-border/60 bg-card"
+    >
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+        <History className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <span className="flex-1">
+          {TEXTO_HISTORICO_ANTERIOR.titulo}
+          <span className="font-normal text-muted-foreground">
+            {' · '}
+            {TEXTO_HISTORICO_ANTERIOR.contagem(total)}
+            {active && `, ${TEXTO_HISTORICO_ANTERIOR.esperando}`}
+          </span>
+        </span>
+        <ChevronDown
+          className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="space-y-3 px-3 pb-3">{conteudo}</div>
+    </details>
   );
 }

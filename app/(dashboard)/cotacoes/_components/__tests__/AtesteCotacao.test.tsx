@@ -133,6 +133,27 @@ describe('AtesteCotacao', () => {
     expect(screen.getByRole('button', { name: 'Registrar recebimento provisório' })).toBeVisible();
   });
 
+  it('os dias de atraso contam pelo dia de Belém, mesmo depois das 21h, quando UTC já virou (AC-9)', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-10-17T00:30:00Z'));
+      render(
+        <ComPainel
+          cotacao={{
+            ...base,
+            prazoAteste: { etapa: 'provisorio', venceEm: '2026-10-15', atrasado: true },
+          }}
+          acoes={semAcao}
+          onAlterado={vi.fn()}
+        />,
+      );
+      expect(screen.getByText(/Atrasado 1 dia/)).toBeVisible();
+      expect(screen.queryByText(/Atrasado 2 dias/)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('não aparece antes da execução', () => {
     const { container } = render(
       <ComPainel

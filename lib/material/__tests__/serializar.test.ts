@@ -7,6 +7,7 @@ import {
   type EventoBruto,
   podeBaixar,
   serializarCotacao,
+  serializarParaSolicitante,
   visaoDe,
 } from '../serializar';
 
@@ -134,12 +135,33 @@ describe('visaoDe', () => {
 });
 
 describe('serializarCotacao', () => {
-  it('o solicitante recebe só a situação', () => {
-    const dto = serializarCotacao(cot, 'solicitante', { userId: 'u' }, { eventos });
-    expect(dto.itens).toBeUndefined();
-    expect(dto.valorTotalCentavos).toBeUndefined();
-    expect(dto.trilha).toBeUndefined();
-    expect(dto.situacao).toBe('autorizada');
+  it('o solicitante recebe só a fase: sem número, situação crua, versão, itens nem valor (spec 0021, AC-24)', () => {
+    expect(serializarParaSolicitante(cot)).toEqual({
+      id: String(cot._id),
+      visao: 'solicitante',
+      fase: 'aprovacao',
+    });
+  });
+
+  it('a fase do solicitante agrupa as situações (spec 0021, AC-16)', () => {
+    const fase = (situacao: CotacaoBruta['situacao']) =>
+      serializarParaSolicitante({ ...cot, situacao }).fase;
+    expect(fase('rascunho')).toBe('pedido');
+    expect(fase('devolvida')).toBe('pedido');
+    expect(fase('em_aprovacao')).toBe('aprovacao');
+    expect(fase('autorizada')).toBe('aprovacao');
+    expect(fase('executada')).toBe('instalacao');
+    expect(fase('atestada')).toBe('instalacao');
+    expect(fase('reprovada')).toBe('encerrada');
+    expect(fase('cancelada')).toBe('encerrada');
+  });
+
+  it('só o solicitante recebe a fase', () => {
+    for (const visao of ['trf1', 'contratada', 'tecnico'] as const) {
+      expect(serializarCotacao(cot, visao, { userId: 'u' }, { eventos })).not.toHaveProperty(
+        'fase',
+      );
+    }
   });
 
   it('o técnico vê itens e valores, sem orçamento, empenho, limite nem advertência', () => {

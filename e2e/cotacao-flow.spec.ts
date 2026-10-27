@@ -114,7 +114,9 @@ function seloDoDetalhe(page: Page) {
     .first();
 }
 
-/** O cartão "Material" da tela do chamado. */
+/** O cartão de material na tela do chamado, nas quatro versões (spec 0021). */
+const CARTAO_MATERIAL = '[data-cartao-material]';
+
 function cartaoMaterial(page: Page) {
   return page.locator('section').filter({ has: page.getByRole('heading', { name: 'Material' }) });
 }
@@ -338,6 +340,8 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await page.goto(caminhoDoChamado);
 
     const cartao = cartaoMaterial(page);
+    await expect(cartao.getByText('Aplicar o material')).toBeVisible({ timeout: 15000 });
+    await semViolacaoNoAxe(page, CARTAO_MATERIAL);
     await cartao.getByRole('button', { name: 'Registrar execução', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('heading', { name: /execução do material/i })).toBeVisible();
@@ -353,15 +357,20 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     await expect(cartao.getByText('Executada')).toBeVisible({ timeout: 15000 });
   });
 
-  test('o solicitante vê só a situação do material, sem valor (AC-15)', async ({ page }) => {
+  test('o solicitante vê só a fase do material, sem valor (AC-15; spec 0021, AC-16)', async ({
+    page,
+  }) => {
     test.skip(!numero, 'material não registrado');
     await login(page, 'solicitante');
     await page.goto(caminhoDoChamado.replace('/chamados-atribuidos/', '/meus-chamados/'));
 
-    const linha = page.getByText('Material do chamado:');
-    await expect(linha).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('Executada').first()).toBeVisible();
+    const cartao = page.getByRole('region', { name: 'Material' });
+    await expect(cartao).toHaveAttribute('data-fase', 'instalacao', { timeout: 15000 });
+    await expect(cartao.getByRole('heading', { name: 'Material aplicado' })).toBeVisible();
+    await expect(cartao.locator('[aria-current="step"]')).toHaveText('Instalação');
+    await expect(cartao.getByText(numero)).toHaveCount(0);
     await expect(page.getByText(/R\$\s*10,00|R\$\s*20,00/)).toHaveCount(0);
+    await semViolacaoNoAxe(page, CARTAO_MATERIAL);
   });
 
   test('a fila busca pelo número e guarda o filtro no endereço, sem violação no axe (spec 0021, AC-3, AC-26)', async ({
@@ -445,10 +454,125 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
   });
 });
 
-/** As telas do módulo passam no axe (AC-26): contraste e controles, só dentro do `main`. */
-async function semViolacaoNoAxe(page: Page) {
+// ---------------------------------------------------------------------------
+// Suite 3: o cadastro de material em seções (spec 0021, fatia 7)
+// ---------------------------------------------------------------------------
+
+const SECOES_CADASTRO_E2E = [
+  ['empenhos', 'Empenhos'],
+  ['designacoes', 'Designações'],
+  ['faixas', 'Faixas de aprovação'],
+  ['anexo-v', 'Anexo V'],
+  ['sinapi', 'SINAPI'],
+  ['parametros', 'Parâmetros'],
+] as const;
+
+test.describe.serial('Cotação de material: o cadastro em seções', () => {
+  test('a seção vai no endereço e sobrevive ao recarregar; desativar faixa pede confirmação (spec 0021, AC-18, AC-19, AC-21)', async ({
+    page,
+  }) => {
+    await garantirCadastroMaterial();
+    await login(page, 'admin');
+    await page.goto('/configuracoes/material');
+    await expect(page.getByRole('region', { name: 'Para aprovar a primeira cotação' })).toBeVisible(
+      { timeout: 15000 },
+    );
+    const nav = page.getByRole('navigation', { name: 'Seções do cadastro' });
+    await expect(nav.getByRole('link', { name: /^Empenhos/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    await nav.getByRole('link', { name: /^Faixas de aprovação/ }).click();
+    await expect(page).toHaveURL(/\?secao=faixas$/);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Faixas de aprovação', level: 2 })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByRole('list', { name: 'Escada de limites' })).toBeVisible();
+
+    await page
+      .getByRole('button', { name: /^Desativar a faixa/ })
+      .first()
+      .click();
+    const dialogo = page.getByRole('dialog');
+    await expect(dialogo.getByRole('button', { name: 'Desativar faixa' })).toBeVisible();
+    await dialogo.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(dialogo).not.toBeVisible();
+  });
+
+  test('as seis seções passam no axe, no desktop e a 390 px sem rolagem horizontal (spec 0021, AC-25, AC-26)', async ({
+    page,
+  }) => {
+    test.slow();
+    await login(page, 'admin');
+    for (const largura of [1280, 390]) {
+      await page.setViewportSize({ width: largura, height: 900 });
+      for (const [secao, titulo] of SECOES_CADASTRO_E2E) {
+        await page.goto(`/configuracoes/material?secao=${secao}`);
+        await expect(
+          page.getByRole('heading', { name: titulo, level: 2, exact: true }),
+        ).toBeVisible({
+          timeout: 15000,
+        });
+        const medida = await page.evaluate(() => ({
+          conteudo: document.documentElement.scrollWidth,
+          janela: document.documentElement.clientWidth,
+        }));
+        expect(medida.conteudo, `${secao} a ${largura} px`).toBeLessThanOrEqual(medida.janela);
+        await semViolacaoNoAxe(page);
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 4: o relatório de material (spec 0021, fatia 8)
+// ---------------------------------------------------------------------------
+
+test.describe.serial('Cotação de material: o relatório', () => {
+  test('os atalhos trocam o período, e a tela passa no axe no desktop e a 390 px (spec 0021, AC-23, AC-25, AC-26)', async ({
+    page,
+  }) => {
+    await login(page, 'admin');
+    await page.goto('/relatorios/material');
+    const periodo = page.getByRole('region', { name: 'Período do relatório' });
+    await expect(periodo.getByRole('link', { name: 'Mês atual' })).toHaveAttribute(
+      'aria-current',
+      'true',
+      { timeout: 15000 },
+    );
+    await expect(page.getByRole('region', { name: 'Pontos de atenção' })).toBeVisible();
+    await semViolacaoNoAxe(page);
+
+    await periodo.getByRole('link', { name: 'Ano atual' }).click();
+    await expect(page).toHaveURL(/inicio=\d{4}-01-01/);
+    await expect(periodo.getByRole('link', { name: 'Ano atual' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(page.getByRole('region', { name: 'Custo por equipamento' })).toBeVisible({
+      timeout: 15000,
+    });
+    const medida = await page.evaluate(() => ({
+      conteudo: document.documentElement.scrollWidth,
+      janela: document.documentElement.clientWidth,
+    }));
+    expect(medida.conteudo).toBeLessThanOrEqual(medida.janela);
+    await semViolacaoNoAxe(page);
+  });
+});
+
+/**
+ * As telas do módulo passam no axe (AC-26): contraste e controles, só dentro do
+ * `main`. Na tela do chamado, só dentro do cartão de material, que é do módulo.
+ */
+async function semViolacaoNoAxe(page: Page, dentroDe = 'main') {
   const resultado = await new AxeBuilder({ page })
-    .include('main')
+    .include(dentroDe)
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
     .analyze();
   expect(resultado.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);

@@ -1,24 +1,15 @@
 'use client';
 
-import {
-  AlertTriangle,
-  BadgeCheck,
-  FileSpreadsheet,
-  Landmark,
-  Loader2,
-  Plus,
-  Power,
-  Scale,
-  SlidersHorizontal,
-  Table2,
-  UserCheck,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, Plus } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
+import { BarraSaldoEmpenho } from '@/app/(dashboard)/cotacoes/_components/compartilhado/BarraSaldoEmpenho';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -30,25 +21,40 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { EmpenhoLinha, PainelMaterial } from '@/lib/material/cadastro';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type {
+  DesignacaoLinha,
+  EmpenhoLinha,
+  FaixaLinha,
+  ItemPrimeiraCotacao,
+  NotasCadastro,
+  PainelMaterial,
+} from '@/lib/material/cadastro';
 import type { ParametrosComHistorico } from '@/lib/material/parametros';
 import type { TabelasPreco } from '@/lib/material/tabelas';
+import { cn } from '@/lib/utils';
 import { formatarReais } from '@/shared/chamados/custo';
+import { escadaDeFaixas, type SecaoCadastro, SECOES_CADASTRO } from '@/shared/material/cadastro';
 import {
   PAPEIS_DESIGNACAO,
   type PapelDesignacao,
   PERFIS_POR_PAPEL,
-  TAXA_ADMINISTRACAO_MATERIAL,
 } from '@/shared/material/material.constants';
-import { ROTULO_PAPEL_DESIGNACAO } from '@/shared/material/mensagens';
+import {
+  ROTULO_FECHAR_DIALOGO,
+  ROTULO_PAPEL_DESIGNACAO,
+  ROTULO_SECAO_CADASTRO,
+  TEXTO_CADASTRO,
+  TEXTO_CADASTRO_SECOES,
+  TEXTO_CONFIRMACAO_CADASTRO,
+  TEXTO_FORMULARIOS_CADASTRO,
+  textoProjecaoCurta,
+} from '@/shared/material/mensagens';
 import { reaisParaCentavos } from '@/shared/material/valores';
 
 import {
@@ -60,29 +66,65 @@ import {
   movimentarEmpenhoAction,
   revogarDesignacaoAction,
 } from '../actions';
+import { CabecalhoSecao, CARTAO_CADASTRO } from './CabecalhoSecao';
+import { DialogConfirmacao } from './DialogConfirmacao';
 import { AbaParametros } from './ParametrosMaterial';
 import { AbaAnexoV, AbaSinapi } from './TabelasPreco';
 
 type Resultado = { ok: true } | { ok: false; error: string };
+type Executar = (fn: () => Promise<Resultado>, sucesso: string, depois?: () => void) => void;
 
-const SELECT =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const T = TEXTO_CADASTRO;
+const E = TEXTO_CADASTRO_SECOES.empenhos;
+const D = TEXTO_CADASTRO_SECOES.designacoes;
+const F = TEXTO_CADASTRO_SECOES.faixas;
+const C = TEXTO_CONFIRMACAO_CADASTRO;
+const F_ = TEXTO_FORMULARIOS_CADASTRO;
+const FE = F_.empenho;
+const FM = F_.movimento;
+const FD = F_.designacao;
+const FF = F_.faixa;
 
-function dataBr(ymd: string | null): string {
-  if (!ymd) return 'sem fim';
+const FORM_EMPENHO_VAZIO = () => ({
+  numero: '',
+  exercicio: String(new Date().getFullYear()),
+  valor: '',
+  vigenciaFim: '',
+});
+
+const FORM_DESIGNACAO_VAZIO = () => ({
+  userId: '',
+  papel: 'fiscal' as PapelDesignacao,
+  faixaId: '',
+  vigenciaInicio: '',
+  vigenciaFim: '',
+  ato: '',
+});
+
+function dataBr(ymd: string): string {
   const [a, m, d] = ymd.slice(0, 10).split('-');
   return `${d}/${m}/${a}`;
 }
 
-/** Abas do cadastro do material (spec 0019, AC-19, e o Anexo V e o SINAPI da fatia 3). */
+const CARTAO = CARTAO_CADASTRO;
+
+/**
+ * O cadastro de material (spec 0019, AC-19, e o Anexo V e o SINAPI da fatia 3)
+ * em seções no endereço, com a navegação lateral e a lista "Para aprovar a
+ * primeira cotação" no topo (spec 0021, AC-18 a AC-21).
+ */
 export function GerirMaterial({
+  secao,
   painel,
   tabelas,
   parametros,
 }: {
+  secao: SecaoCadastro;
   painel: PainelMaterial;
-  tabelas: TabelasPreco;
-  parametros: ParametrosComHistorico;
+  /** Só nas seções Anexo V e SINAPI; nas outras a página nem lê. */
+  tabelas: TabelasPreco | null;
+  /** Só na seção Parâmetros. */
+  parametros: ParametrosComHistorico | null;
 }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
@@ -102,117 +144,319 @@ export function GerirMaterial({
 
   return (
     <div className="space-y-6">
-      {(painel.faltando.length > 0 || painel.itensSemCodigo.length > 0) && (
-        <section
-          aria-labelledby="faltando-titulo"
-          className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 dark:border-amber-700/50 dark:bg-amber-950/30"
-        >
-          <h2
-            id="faltando-titulo"
-            className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200"
-          >
-            <AlertTriangle className="h-4 w-4" aria-hidden="true" />O que falta
-          </h2>
-          {painel.faltando.length > 0 && (
-            <>
-              <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-amber-900 dark:text-amber-100">
-                {painel.faltando.map((f) => (
-                  <li key={f}>{f}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200/80">
-                Sem empenho e designações, a cotação é montada e analisada, mas não é encaminhada
-                nem aprovada. Sem Anexo V ou SINAPI, a busca não oferece o caminho dela.
-              </p>
-            </>
+      <PrimeiraCotacao itens={painel.primeiraCotacao} />
+
+      <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start">
+        <NavSecoes atual={secao} notas={painel.notas} />
+
+        <div className="min-w-0">
+          {secao === 'empenhos' && (
+            <Empenhos empenhos={painel.empenhos} pendente={pendente} executar={executar} />
           )}
-          {painel.itensSemCodigo.length > 0 && (
-            <details className="mt-3 text-sm text-amber-900 dark:text-amber-100">
-              <summary className="cursor-pointer font-medium">
-                {painel.itensSemCodigo.length} itens do Anexo V sem código SINAPI (sem referência
-                para comparar o preço)
-              </summary>
-              <ul className="mt-1 list-disc space-y-0.5 pl-6">
-                {painel.itensSemCodigo.map((i) => (
-                  <li key={`${i.contrato}-${i.numero}`}>
-                    Contrato {i.contrato}, item {i.numero}: {i.descricao}
-                  </li>
-                ))}
-              </ul>
-            </details>
+          {secao === 'designacoes' && (
+            <Designacoes painel={painel} pendente={pendente} executar={executar} />
           )}
-        </section>
-      )}
-
-      <p className="text-sm text-muted-foreground">
-        Taxa de administração sobre material:{' '}
-        <span className="font-medium text-foreground">
-          {formatarReais(TAXA_ADMINISTRACAO_MATERIAL)}
-        </span>{' '}
-        (fixa em zero pelo contrato, sem edição).
-      </p>
-
-      <Tabs defaultValue="empenhos">
-        <TabsList className="h-auto flex-wrap">
-          <TabsTrigger value="empenhos" className="flex-1 gap-2 rounded-lg sm:flex-none">
-            <Landmark className="h-4 w-4" aria-hidden="true" />
-            Empenhos
-          </TabsTrigger>
-          <TabsTrigger value="designacoes" className="flex-1 gap-2 rounded-lg sm:flex-none">
-            <UserCheck className="h-4 w-4" aria-hidden="true" />
-            Designações
-          </TabsTrigger>
-          <TabsTrigger value="faixas" className="flex-1 gap-2 rounded-lg sm:flex-none">
-            <Scale className="h-4 w-4" aria-hidden="true" />
-            Faixas
-          </TabsTrigger>
-          <TabsTrigger value="anexo-v" className="flex-1 gap-2 rounded-lg sm:flex-none">
-            <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
-            Anexo V
-          </TabsTrigger>
-          <TabsTrigger value="sinapi" className="flex-1 gap-2 rounded-lg sm:flex-none">
-            <Table2 className="h-4 w-4" aria-hidden="true" />
-            SINAPI
-          </TabsTrigger>
-          <TabsTrigger value="parametros" className="flex-1 gap-2 rounded-lg sm:flex-none">
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Parâmetros
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="empenhos" className="mt-6 focus-visible:outline-none">
-          <Empenhos empenhos={painel.empenhos} pendente={pendente} executar={executar} />
-        </TabsContent>
-        <TabsContent value="designacoes" className="mt-6 focus-visible:outline-none">
-          <Designacoes painel={painel} pendente={pendente} executar={executar} />
-        </TabsContent>
-        <TabsContent value="faixas" className="mt-6 focus-visible:outline-none">
-          <Faixas painel={painel} pendente={pendente} executar={executar} />
-        </TabsContent>
-        <TabsContent value="anexo-v" className="mt-6 focus-visible:outline-none">
-          <AbaAnexoV tabelas={tabelas} />
-        </TabsContent>
-        <TabsContent value="sinapi" className="mt-6 focus-visible:outline-none">
-          <AbaSinapi tabelas={tabelas} />
-        </TabsContent>
-        <TabsContent value="parametros" className="mt-6 focus-visible:outline-none">
-          {/* A chave remonta o formulário quando os valores gravados mudam. */}
-          <AbaParametros
-            key={JSON.stringify([
-              parametros.percentualSinapi,
-              parametros.janelaDias,
-              parametros.parcelaRelevantePercentual,
-              parametros.raizCnpjContratada,
-            ])}
-            parametros={parametros}
-          />
-        </TabsContent>
-      </Tabs>
+          {secao === 'faixas' && <Faixas painel={painel} pendente={pendente} executar={executar} />}
+          {secao === 'anexo-v' && tabelas && (
+            <AbaAnexoV
+              tabelas={tabelas}
+              contratosSemAnexo={painel.contratosSemAnexo}
+              itensSemCodigo={painel.itensSemCodigo}
+            />
+          )}
+          {secao === 'sinapi' && tabelas && (
+            <AbaSinapi tabelas={tabelas} atrasado={painel.sinapiAtrasado} />
+          )}
+          {secao === 'parametros' && parametros && (
+            // A chave remonta o formulário quando os valores gravados mudam.
+            <AbaParametros
+              key={JSON.stringify([
+                parametros.percentualSinapi,
+                parametros.janelaDias,
+                parametros.parcelaRelevantePercentual,
+                parametros.raizCnpjContratada,
+              ])}
+              parametros={parametros}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-type Executar = (fn: () => Promise<Resultado>, sucesso: string, depois?: () => void) => void;
+// ---------------------------------------------------------------------------
+// Lista inicial e navegação
+// ---------------------------------------------------------------------------
+
+function tituloEDetalhe(item: ItemPrimeiraCotacao): { titulo: string; detalhe: string } {
+  switch (item.chave) {
+    case 'empenho':
+      return {
+        titulo: T.primeira.empenho.titulo,
+        detalhe: T.primeira.empenho.detalhe(item.elegiveis),
+      };
+    case 'faixas':
+      return { titulo: T.primeira.faixas.titulo, detalhe: T.primeira.faixas.detalhe(item.ativas) };
+    case 'designacoes':
+      return {
+        titulo: T.primeira.designacoes.titulo,
+        detalhe: T.primeira.designacoes.detalhe(item.faltam),
+      };
+    case 'semCodigo':
+      return {
+        titulo: T.primeira.semCodigo.titulo,
+        detalhe: T.primeira.semCodigo.detalhe(item.itens),
+      };
+  }
+}
+
+const hrefSecao = (s: SecaoCadastro) => `/configuracoes/material?secao=${s}`;
+
+/** "Para aprovar a primeira cotação" (AC-19): cada item leva à seção que o resolve. */
+function PrimeiraCotacao({ itens }: { itens: ItemPrimeiraCotacao[] }) {
+  const prontos = itens.filter((i) => i.pronto).length;
+  return (
+    <section
+      aria-labelledby="primeira-cotacao"
+      className="space-y-3 rounded-2xl bg-indigo-50/80 p-4 dark:bg-indigo-950/30 sm:p-5"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2
+          id="primeira-cotacao"
+          className="text-base font-semibold text-indigo-950 dark:text-indigo-100"
+        >
+          {T.primeira.titulo}
+        </h2>
+        <span className="text-sm font-semibold text-indigo-800 dark:text-indigo-200">
+          {T.primeira.prontos(prontos, itens.length)}
+        </span>
+      </div>
+      <ol className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+        {itens.map((item) => {
+          const { titulo, detalhe } = tituloEDetalhe(item);
+          return (
+            <li
+              key={item.chave}
+              data-pronto={item.pronto}
+              className={cn(
+                'flex items-start gap-3 rounded-xl border bg-card p-3',
+                item.pronto ? 'border-border/60' : 'border-orange-300 dark:border-orange-700/60',
+              )}
+            >
+              {item.pronto ? (
+                <CheckCircle2
+                  className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                  aria-hidden="true"
+                />
+              ) : (
+                <AlertCircle
+                  className="mt-0.5 h-5 w-5 shrink-0 text-orange-700 dark:text-orange-400"
+                  aria-hidden="true"
+                />
+              )}
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-sm font-semibold">
+                  {titulo}
+                  <span className="sr-only">
+                    : {item.pronto ? T.primeira.pronto : T.primeira.falta}
+                  </span>
+                </span>
+                <Link
+                  href={hrefSecao(item.secao)}
+                  className="text-[13px] text-indigo-700 underline-offset-2 hover:underline dark:text-indigo-300"
+                >
+                  {detalhe}
+                </Link>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+function notaDaSecao(s: SecaoCadastro, n: NotasCadastro): string | null {
+  switch (s) {
+    case 'empenhos':
+      return T.nota.empenhos(n.empenhos);
+    case 'designacoes':
+      return T.nota.designacoes(n.designacoes);
+    case 'faixas':
+      return T.nota.faixas(n.faixas);
+    case 'anexo-v':
+      return T.nota.anexoV(n.anexoV);
+    case 'sinapi':
+      return T.nota.sinapi(n.sinapi);
+    case 'parametros':
+      return null;
+  }
+}
+
+/** A navegação lateral (AC-18): a seção vai no endereço, então recarregar a mantém. */
+function NavSecoes({ atual, notas }: { atual: SecaoCadastro; notas: NotasCadastro }) {
+  return (
+    <nav aria-label={T.navegacao}>
+      <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
+        {SECOES_CADASTRO.map((s) => {
+          const nota = notaDaSecao(s, notas);
+          const ativa = s === atual;
+          return (
+            <li key={s} className="min-w-0">
+              <Link
+                href={hrefSecao(s)}
+                scroll={false}
+                aria-current={ativa ? 'page' : undefined}
+                className={cn(
+                  'flex min-h-11 flex-col items-start justify-center gap-0.5 rounded-xl px-3 py-2 text-sm transition-colors lg:flex-row lg:items-center lg:justify-between lg:gap-2',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  ativa
+                    ? 'bg-card font-semibold text-foreground shadow-sm ring-1 ring-border'
+                    : 'text-foreground/80 hover:bg-muted',
+                )}
+              >
+                <span>{ROTULO_SECAO_CADASTRO[s]}</span>
+                {nota && (
+                  <span className="shrink-0 text-xs font-medium text-muted-foreground">{nota}</span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Empenhos
+// ---------------------------------------------------------------------------
+
+function SituacaoEmpenho({ e }: { e: EmpenhoLinha }) {
+  if (e.elegivel) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200"
+      >
+        {E.situacao.elegivel}
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="outline"
+      className={
+        e.ativo
+          ? 'border-orange-300 bg-orange-50 text-orange-900 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-200'
+          : 'text-muted-foreground'
+      }
+    >
+      {e.ativo ? E.situacao.fora : E.situacao.inativo}
+    </Badge>
+  );
+}
+
+function CartaoEmpenho({
+  e,
+  pendente,
+  onMovimento,
+  onSituacao,
+}: {
+  e: EmpenhoLinha;
+  pendente: boolean;
+  onMovimento: () => void;
+  onSituacao: () => void;
+}) {
+  return (
+    <article
+      aria-labelledby={`empenho-${e.id}`}
+      className={cn(CARTAO, 'space-y-4 p-4 sm:p-5', !e.ativo && 'bg-muted/30 shadow-none')}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <h3 id={`empenho-${e.id}`} className="font-mono text-[15px] font-semibold">
+            {e.numero}
+          </h3>
+          <SituacaoEmpenho e={e} />
+          <span className="text-[13px] text-muted-foreground">
+            {E.exercicio(e.exercicio)} ·{' '}
+            {e.vigenciaFim ? E.vigenteAte(dataBr(e.vigenciaFim)) : E.semFim}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <Button size="sm" variant="ghost" disabled={pendente} onClick={onMovimento}>
+            {E.movimento}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={pendente} onClick={onSituacao}>
+            {e.ativo ? `${E.inativar}…` : `${E.reativar}…`}
+          </Button>
+        </div>
+      </div>
+
+      {e.ativo ? (
+        <div className="space-y-3">
+          <BarraSaldoEmpenho
+            variante="compacta"
+            className="h-3"
+            barra={{
+              empenhoId: e.id,
+              numero: e.numero,
+              liquidoCentavos: e.valorLiquidoCentavos,
+              comprometidoCentavos: e.comprometidoCentavos,
+              estaCotacaoCentavos: null,
+              saldoDepoisCentavos: e.saldoCentavos,
+              projecao: e.projecao,
+            }}
+          />
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <ValorEmpenho rotulo={E.liquido} valor={formatarReais(e.valorLiquidoCentavos)} />
+            <ValorEmpenho
+              rotulo={E.comprometido}
+              valor={formatarReais(e.comprometidoCentavos)}
+              classe="text-indigo-700 dark:text-indigo-300"
+            />
+            <ValorEmpenho rotulo={E.saldo} valor={formatarReais(e.saldoCentavos)} />
+            {e.projecao && (
+              <ValorEmpenho
+                rotulo={E.projecao}
+                valor={textoProjecaoCurta(e.projecao)}
+                classe="text-sm font-medium"
+              />
+            )}
+          </dl>
+          {!e.elegivel && (
+            <p className="text-[13px] text-muted-foreground">
+              {E.naoRecebe(formatarReais(e.saldoCentavos))}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-[13px] text-muted-foreground">
+          {E.naoRecebe(formatarReais(e.saldoCentavos))}
+        </p>
+      )}
+    </article>
+  );
+}
+
+function ValorEmpenho({
+  rotulo,
+  valor,
+  classe,
+}: {
+  rotulo: string;
+  valor: string;
+  classe?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{rotulo}</dt>
+      <dd className={cn('text-lg font-semibold tabular-nums', classe)}>{valor}</dd>
+    </div>
+  );
+}
 
 function Empenhos({
   empenhos,
@@ -224,19 +468,15 @@ function Empenhos({
   executar: Executar;
 }) {
   const [novo, setNovo] = useState(false);
-  const [form, setForm] = useState({
-    numero: '',
-    exercicio: String(new Date().getFullYear()),
-    valor: '',
-    vigenciaFim: '',
-  });
+  const [form, setForm] = useState(FORM_EMPENHO_VAZIO);
   const [movendo, setMovendo] = useState<EmpenhoLinha | null>(null);
   const [mov, setMov] = useState({ tipo: 'reforco' as 'reforco' | 'anulacao', valor: '', ato: '' });
+  const [confirmando, setConfirmando] = useState<EmpenhoLinha | null>(null);
 
   function criar() {
     const valor = reaisParaCentavos(form.valor);
     if (valor == null) {
-      toast.error('Informe o valor em reais, como 12.345,67.');
+      toast.error(FE.valorInvalido);
       return;
     }
     executar(
@@ -247,8 +487,11 @@ function Empenhos({
           valorInicialCentavos: valor,
           vigenciaFim: form.vigenciaFim || null,
         }),
-      'Empenho cadastrado.',
-      () => setNovo(false),
+      FE.cadastrado,
+      () => {
+        setNovo(false);
+        setForm(FORM_EMPENHO_VAZIO());
+      },
     );
   }
 
@@ -256,7 +499,7 @@ function Empenhos({
     if (!movendo) return;
     const valor = reaisParaCentavos(mov.valor);
     if (valor == null) {
-      toast.error('Informe o valor em reais, como 1.000,00.');
+      toast.error(FM.valorInvalido);
       return;
     }
     executar(
@@ -267,124 +510,79 @@ function Empenhos({
           valorCentavos: valor,
           ato: mov.ato,
         }),
-      mov.tipo === 'reforco' ? 'Reforço registrado.' : 'Anulação registrada.',
+      FM.registrado(mov.tipo),
       () => setMovendo(null),
     );
   }
 
+  const textoConfirmar = confirmando ? (confirmando.ativo ? C.inativar : C.reativar) : null;
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={() => setNovo(true)} className="gap-2">
+    <section aria-label={ROTULO_SECAO_CADASTRO.empenhos} className="space-y-4">
+      <CabecalhoSecao titulo={ROTULO_SECAO_CADASTRO.empenhos} descricao={E.descricao}>
+        <Button variant="gradiente" onClick={() => setNovo(true)} className="gap-2">
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Novo empenho
+          {E.novo}
         </Button>
-      </div>
-      <div className="overflow-x-auto rounded-2xl border border-border/50">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Número</TableHead>
-              <TableHead>Exercício</TableHead>
-              <TableHead className="text-right">Líquido</TableHead>
-              <TableHead className="text-right">Comprometido</TableHead>
-              <TableHead className="text-right">Saldo</TableHead>
-              <TableHead>Vigência</TableHead>
-              <TableHead>Situação</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {empenhos.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
-                  Nenhum empenho cadastrado.
-                </TableCell>
-              </TableRow>
-            )}
-            {empenhos.map((e) => (
-              <TableRow key={e.id}>
-                <TableCell className="font-medium">{e.numero}</TableCell>
-                <TableCell>{e.exercicio}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatarReais(e.valorLiquidoCentavos)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatarReais(e.comprometidoCentavos)}
-                </TableCell>
-                <TableCell className="text-right font-medium tabular-nums">
-                  {formatarReais(e.saldoCentavos)}
-                </TableCell>
-                <TableCell>{dataBr(e.vigenciaFim)}</TableCell>
-                <TableCell>
-                  {e.elegivel ? (
-                    <Badge
-                      variant="outline"
-                      className="border-emerald-300 text-emerald-700 dark:text-emerald-300"
-                    >
-                      Elegível
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      {e.ativo ? 'Fora do exercício ou vencido' : 'Inativo'}
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell className="space-x-2 text-right">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pendente}
-                    onClick={() => {
-                      setMovendo(e);
-                      setMov({ tipo: 'reforco', valor: '', ato: '' });
-                    }}
-                  >
-                    Movimento
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={pendente}
-                    aria-label={
-                      e.ativo ? `Inativar empenho ${e.numero}` : `Reativar empenho ${e.numero}`
-                    }
-                    onClick={() =>
-                      executar(
-                        () => alterarSituacaoEmpenhoAction({ empenhoId: e.id, ativo: !e.ativo }),
-                        e.ativo ? 'Empenho inativado.' : 'Empenho reativado.',
-                      )
-                    }
-                  >
-                    <Power className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      </CabecalhoSecao>
+
+      {empenhos.length === 0 ? (
+        <p className={cn(CARTAO, 'p-6 text-center text-sm text-muted-foreground')}>{E.vazio}</p>
+      ) : (
+        empenhos.map((e) => (
+          <CartaoEmpenho
+            key={e.id}
+            e={e}
+            pendente={pendente}
+            onMovimento={() => {
+              setMovendo(e);
+              setMov({ tipo: 'reforco', valor: '', ato: '' });
+            }}
+            onSituacao={() => setConfirmando(e)}
+          />
+        ))
+      )}
+
+      {confirmando && textoConfirmar && (
+        <DialogConfirmacao
+          titulo={textoConfirmar.titulo(confirmando.numero)}
+          efeito={textoConfirmar.efeito}
+          rotuloConfirmar={textoConfirmar.botao}
+          destrutiva={confirmando.ativo}
+          pendente={pendente}
+          onFechar={() => setConfirmando(null)}
+          onConfirmar={() =>
+            executar(
+              () =>
+                alterarSituacaoEmpenhoAction({
+                  empenhoId: confirmando.id,
+                  ativo: !confirmando.ativo,
+                }),
+              textoConfirmar.sucesso,
+              () => setConfirmando(null),
+            )
+          }
+        />
+      )}
 
       <Dialog open={novo} onOpenChange={setNovo}>
         <DialogContent className="sm:rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Novo empenho</DialogTitle>
-            <DialogDescription>
-              O valor inicial vira o líquido; reforço e anulação entram depois como movimentos.
-            </DialogDescription>
+            <DialogTitle>{E.novo}</DialogTitle>
+            <DialogDescription>{FE.descricao}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="emp-numero">Número</Label>
+              <Label htmlFor="emp-numero">{FE.numero}</Label>
               <Input
                 id="emp-numero"
                 value={form.numero}
                 onChange={(e) => setForm({ ...form, numero: e.target.value })}
-                placeholder="2026NE000123"
+                placeholder={FE.exemploNumero}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="emp-exercicio">Exercício</Label>
+              <Label htmlFor="emp-exercicio">{FE.exercicio}</Label>
               <Input
                 id="emp-exercicio"
                 inputMode="numeric"
@@ -393,17 +591,17 @@ function Empenhos({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="emp-valor">Valor inicial (R$)</Label>
+              <Label htmlFor="emp-valor">{FE.valor}</Label>
               <Input
                 id="emp-valor"
                 inputMode="decimal"
                 value={form.valor}
                 onChange={(e) => setForm({ ...form, valor: e.target.value })}
-                placeholder="50.000,00"
+                placeholder={FE.exemploValor}
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="emp-fim">Fim da vigência (opcional)</Label>
+              <Label htmlFor="emp-fim">{FE.fim}</Label>
               <Input
                 id="emp-fim"
                 type="date"
@@ -414,11 +612,11 @@ function Empenhos({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNovo(false)} disabled={pendente}>
-              Cancelar
+              {ROTULO_FECHAR_DIALOGO}
             </Button>
-            <Button onClick={criar} disabled={pendente}>
-              {pendente && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-              Cadastrar
+            <Button variant="gradiente" onClick={criar} disabled={pendente} className="gap-2">
+              {pendente && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {FE.cadastrar}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -427,37 +625,41 @@ function Empenhos({
       <Dialog open={!!movendo} onOpenChange={(o) => !o && setMovendo(null)}>
         <DialogContent className="sm:rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Movimento do empenho {movendo?.numero}</DialogTitle>
-            <DialogDescription>
-              A anulação é recusada se deixar o líquido abaixo do que já está comprometido.
-            </DialogDescription>
+            <DialogTitle>{FM.titulo(movendo?.numero ?? '')}</DialogTitle>
+            <DialogDescription>{FM.descricao}</DialogDescription>
           </DialogHeader>
           {movendo && movendo.movimentos.length > 0 && (
             <ul className="max-h-32 space-y-1 overflow-y-auto text-xs text-muted-foreground">
               {movendo.movimentos.map((m, i) => (
                 <li key={i}>
-                  {m.tipo === 'reforco' ? 'Reforço' : 'Anulação'} de{' '}
-                  {formatarReais(m.valorCentavos)} · {m.ato} ·{' '}
-                  {new Date(m.em).toLocaleDateString('pt-BR')}
+                  {FM.linha(
+                    m.tipo as 'reforco' | 'anulacao',
+                    formatarReais(m.valorCentavos),
+                    m.ato,
+                    new Date(m.em).toLocaleDateString('pt-BR'),
+                  )}
                 </li>
               ))}
             </ul>
           )}
           <div className="grid gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="mov-tipo">Tipo</Label>
-              <select
-                id="mov-tipo"
-                className={SELECT}
+              <Label htmlFor="mov-tipo">{FM.tipo}</Label>
+              <Select
                 value={mov.tipo}
-                onChange={(e) => setMov({ ...mov, tipo: e.target.value as 'reforco' | 'anulacao' })}
+                onValueChange={(v) => setMov({ ...mov, tipo: v as 'reforco' | 'anulacao' })}
               >
-                <option value="reforco">Reforço</option>
-                <option value="anulacao">Anulação</option>
-              </select>
+                <SelectTrigger id="mov-tipo" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reforco">{FM.reforco}</SelectItem>
+                  <SelectItem value="anulacao">{FM.anulacao}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="mov-valor">Valor (R$)</Label>
+              <Label htmlFor="mov-valor">{FM.valor}</Label>
               <Input
                 id="mov-valor"
                 inputMode="decimal"
@@ -466,7 +668,7 @@ function Empenhos({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="mov-ato">Ato (documento SEI)</Label>
+              <Label htmlFor="mov-ato">{FM.ato}</Label>
               <Input
                 id="mov-ato"
                 value={mov.ato}
@@ -476,15 +678,58 @@ function Empenhos({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMovendo(null)} disabled={pendente}>
-              Cancelar
+              {ROTULO_FECHAR_DIALOGO}
             </Button>
-            <Button onClick={movimentar} disabled={pendente}>
-              Registrar
+            <Button variant="gradiente" onClick={movimentar} disabled={pendente}>
+              {FM.registrar}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Designações
+// ---------------------------------------------------------------------------
+
+/** A ordem dos grupos: o lado TRF1 na ordem do fluxo, a contratada por último. */
+const ORDEM_PAPEIS: readonly PapelDesignacao[] = [
+  'fiscal',
+  'gestor',
+  'aprovador',
+  'responsavel_tecnico',
+];
+
+function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  const [primeira, ...resto] = partes;
+  return `${primeira?.[0] ?? ''}${resto.at(-1)?.[0] ?? ''}`.toUpperCase() || '?';
+}
+
+function SituacaoDesignacao({ d }: { d: DesignacaoLinha }) {
+  if (d.revogadaEm) {
+    return (
+      <Badge variant="outline" className="text-muted-foreground">
+        {D.situacao.revogada}
+      </Badge>
+    );
+  }
+  return d.vigente ? (
+    <Badge
+      variant="outline"
+      className="border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200"
+    >
+      {D.situacao.vigente}
+    </Badge>
+  ) : (
+    <Badge
+      variant="outline"
+      className="border-orange-300 bg-orange-50 text-orange-900 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-200"
+    >
+      {D.situacao.fora}
+    </Badge>
   );
 }
 
@@ -498,17 +743,12 @@ function Designacoes({
   executar: Executar;
 }) {
   const [nova, setNova] = useState(false);
-  const [form, setForm] = useState({
-    userId: '',
-    papel: 'fiscal' as PapelDesignacao,
-    faixaId: '',
-    vigenciaInicio: '',
-    vigenciaFim: '',
-    ato: '',
-  });
+  const [form, setForm] = useState(FORM_DESIGNACAO_VAZIO);
   const [mostrarRevogadas, setMostrarRevogadas] = useState(false);
+  const [revogando, setRevogando] = useState<DesignacaoLinha | null>(null);
   const usuarios = painel.usuarios.filter((u) => PERFIS_POR_PAPEL[form.papel].includes(u.role));
   const faixasAtivas = painel.faixas.filter((f) => f.ativa);
+  const limiteDaFaixa = new Map(painel.faixas.map((f) => [f.id, f.limiteCentavos]));
   const lista = painel.designacoes.filter((d) => mostrarRevogadas || !d.revogadaEm);
 
   function criar() {
@@ -522,159 +762,195 @@ function Designacoes({
           vigenciaFim: form.vigenciaFim || null,
           ato: form.ato,
         }),
-      'Designação registrada.',
-      () => setNova(false),
+      FD.registrada,
+      () => {
+        setNova(false);
+        setForm(FORM_DESIGNACAO_VAZIO());
+      },
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
+    <section aria-label={ROTULO_SECAO_CADASTRO.designacoes} className="space-y-4">
+      <CabecalhoSecao titulo={ROTULO_SECAO_CADASTRO.designacoes} descricao={D.descricao}>
+        <div className="flex min-h-10 items-center gap-2">
+          <Checkbox
+            id="mostrar-revogadas"
             checked={mostrarRevogadas}
-            onChange={(e) => setMostrarRevogadas(e.target.checked)}
+            onCheckedChange={(v) => setMostrarRevogadas(v === true)}
           />
-          Mostrar revogadas
-        </label>
-        <Button onClick={() => setNova(true)} className="gap-2">
+          <Label htmlFor="mostrar-revogadas" className="font-normal text-muted-foreground">
+            {D.mostrarRevogadas}
+          </Label>
+        </div>
+        <Button variant="gradiente" onClick={() => setNova(true)} className="gap-2">
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Nova designação
+          {D.nova}
         </Button>
-      </div>
-      <div className="overflow-x-auto rounded-2xl border border-border/50">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Pessoa</TableHead>
-              <TableHead>Papel</TableHead>
-              <TableHead>Faixa</TableHead>
-              <TableHead>Vigência</TableHead>
-              <TableHead>Ato</TableHead>
-              <TableHead>Situação</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {lista.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                  Nenhuma designação.
-                </TableCell>
-              </TableRow>
+      </CabecalhoSecao>
+
+      {ORDEM_PAPEIS.map((papel) => {
+        const doPapel = lista.filter((d) => d.papel === papel);
+        return (
+          <section
+            key={papel}
+            aria-labelledby={`papel-${papel}`}
+            className={cn(CARTAO, 'overflow-hidden')}
+          >
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-4 py-3 sm:px-5">
+              <h3 id={`papel-${papel}`} className="text-[15px] font-semibold">
+                {ROTULO_PAPEL_DESIGNACAO[papel]}
+              </h3>
+              <span className="text-[13px] text-muted-foreground">{D.ajudaPapel[papel]}</span>
+            </div>
+            {doPapel.length === 0 ? (
+              <p className="border-t border-border/50 px-4 py-3 text-sm text-muted-foreground sm:px-5">
+                {D.vazioPapel}
+              </p>
+            ) : (
+              <ul>
+                {doPapel.map((d) => {
+                  const limite = d.faixaId ? limiteDaFaixa.get(d.faixaId) : undefined;
+                  const vigencia = D.vigencia(
+                    dataBr(d.vigenciaInicio),
+                    d.vigenciaFim ? dataBr(d.vigenciaFim) : null,
+                  );
+                  return (
+                    <li
+                      key={d.id}
+                      className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 px-4 py-3 sm:px-5"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200"
+                        >
+                          {iniciais(d.nome)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold">{d.nome}</span>
+                          <span className="block text-[13px] text-muted-foreground">
+                            {[
+                              d.faixa
+                                ? D.faixa(d.faixa, limite != null ? formatarReais(limite) : null)
+                                : null,
+                              vigencia,
+                              d.ato,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <SituacaoDesignacao d={d} />
+                        {!d.revogadaEm && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={pendente}
+                            onClick={() => setRevogando(d)}
+                            aria-label={D.revogarDe(d.nome)}
+                          >
+                            {D.revogar}…
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
-            {lista.map((d) => (
-              <TableRow key={d.id}>
-                <TableCell className="font-medium">{d.nome}</TableCell>
-                <TableCell>{ROTULO_PAPEL_DESIGNACAO[d.papel]}</TableCell>
-                <TableCell>{d.faixa ?? '—'}</TableCell>
-                <TableCell>
-                  {dataBr(d.vigenciaInicio)} a {dataBr(d.vigenciaFim)}
-                </TableCell>
-                <TableCell className="max-w-[12rem] truncate">{d.ato}</TableCell>
-                <TableCell>
-                  {d.revogadaEm ? (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      Revogada
-                    </Badge>
-                  ) : d.vigente ? (
-                    <Badge
-                      variant="outline"
-                      className="border-emerald-300 text-emerald-700 dark:text-emerald-300"
-                    >
-                      Vigente
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">Fora da vigência</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {!d.revogadaEm && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pendente}
-                      onClick={() =>
-                        executar(
-                          () => revogarDesignacaoAction({ designacaoId: d.id }),
-                          'Designação revogada.',
-                        )
-                      }
-                    >
-                      Revogar
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+          </section>
+        );
+      })}
+
+      {revogando && (
+        <DialogConfirmacao
+          titulo={C.revogar.titulo(revogando.nome)}
+          efeito={C.revogar.efeito(revogando.papel)}
+          rotuloConfirmar={C.revogar.botao}
+          destrutiva
+          pendente={pendente}
+          onFechar={() => setRevogando(null)}
+          onConfirmar={() =>
+            executar(
+              () => revogarDesignacaoAction({ designacaoId: revogando.id }),
+              C.revogar.sucesso,
+              () => setRevogando(null),
+            )
+          }
+        />
+      )}
 
       <Dialog open={nova} onOpenChange={setNova}>
         <DialogContent className="sm:rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Nova designação</DialogTitle>
-            <DialogDescription>
-              Fiscal, gestor e aprovador só podem ser Admin; responsável técnico, Preposto ou
-              Técnico. Mudar um limite é criar faixa nova e designar de novo.
-            </DialogDescription>
+            <DialogTitle>{D.nova}</DialogTitle>
+            <DialogDescription>{FD.descricao}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="des-papel">Papel</Label>
-              <select
-                id="des-papel"
-                className={SELECT}
+              <Label htmlFor="des-papel">{FD.papel}</Label>
+              <Select
                 value={form.papel}
-                onChange={(e) =>
-                  setForm({ ...form, papel: e.target.value as PapelDesignacao, userId: '' })
+                onValueChange={(v) =>
+                  // A pessoa e a faixa dependem do papel: trocar o papel zera as duas.
+                  setForm({ ...form, papel: v as PapelDesignacao, userId: '', faixaId: '' })
                 }
               >
-                {PAPEIS_DESIGNACAO.map((p) => (
-                  <option key={p} value={p}>
-                    {ROTULO_PAPEL_DESIGNACAO[p]}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="des-papel" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAPEIS_DESIGNACAO.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {ROTULO_PAPEL_DESIGNACAO[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="des-user">Pessoa</Label>
-              <select
-                id="des-user"
-                className={SELECT}
-                value={form.userId}
-                onChange={(e) => setForm({ ...form, userId: e.target.value })}
+              <Label htmlFor="des-user">{FD.pessoa}</Label>
+              <Select
+                value={form.userId || undefined}
+                onValueChange={(v) => setForm({ ...form, userId: v })}
               >
-                <option value="">Escolha</option>
-                {usuarios.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.nome} ({u.role})
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="des-user" className="w-full">
+                  <SelectValue placeholder={F_.escolha} />
+                </SelectTrigger>
+                <SelectContent>
+                  {usuarios.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {FD.opcaoPessoa(u.nome, u.role)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {form.papel === 'aprovador' && (
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="des-faixa">Faixa</Label>
-                <select
-                  id="des-faixa"
-                  className={SELECT}
-                  value={form.faixaId}
-                  onChange={(e) => setForm({ ...form, faixaId: e.target.value })}
+                <Label htmlFor="des-faixa">{FD.faixa}</Label>
+                <Select
+                  value={form.faixaId || undefined}
+                  onValueChange={(v) => setForm({ ...form, faixaId: v })}
                 >
-                  <option value="">Escolha</option>
-                  {faixasAtivas.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.nome} (até {formatarReais(f.limiteCentavos)})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="des-faixa" className="w-full">
+                    <SelectValue placeholder={F_.escolha} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {faixasAtivas.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {FD.opcaoFaixa(f.nome, formatarReais(f.limiteCentavos))}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="des-inicio">Início</Label>
+              <Label htmlFor="des-inicio">{FD.inicio}</Label>
               <Input
                 id="des-inicio"
                 type="date"
@@ -683,7 +959,7 @@ function Designacoes({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="des-fim">Fim (opcional)</Label>
+              <Label htmlFor="des-fim">{FD.fim}</Label>
               <Input
                 id="des-fim"
                 type="date"
@@ -692,7 +968,7 @@ function Designacoes({
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="des-ato">Ato de designação (portaria, documento SEI)</Label>
+              <Label htmlFor="des-ato">{FD.ato}</Label>
               <Input
                 id="des-ato"
                 value={form.ato}
@@ -702,18 +978,25 @@ function Designacoes({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNova(false)} disabled={pendente}>
-              Cancelar
+              {ROTULO_FECHAR_DIALOGO}
             </Button>
-            <Button onClick={criar} disabled={pendente}>
-              {pendente && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-              Designar
+            <Button variant="gradiente" onClick={criar} disabled={pendente} className="gap-2">
+              {pendente && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {FD.designar}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Faixas
+// ---------------------------------------------------------------------------
+
+const pctLimite = (limite: number, maior: number) =>
+  `${maior > 0 ? Math.max(4, Math.min(100, (limite / maior) * 100)) : 0}%`;
 
 function Faixas({
   painel,
@@ -725,34 +1008,48 @@ function Faixas({
   executar: Executar;
 }) {
   const [form, setForm] = useState({ nome: '', limite: '' });
+  const [desativando, setDesativando] = useState<{ faixa: FaixaLinha; aprovadores: number } | null>(
+    null,
+  );
+  const escada = escadaDeFaixas(painel.faixas, painel.designacoes);
+  const maior = escada.degraus.at(-1)?.limiteCentavos ?? 0;
+  const desativadas = painel.faixas.filter((f) => !f.ativa);
 
   function criar() {
     const limite = reaisParaCentavos(form.limite);
     if (limite == null) {
-      toast.error('Informe o limite em reais, como 17.600,00.');
+      toast.error(FF.limiteInvalido);
       return;
     }
     executar(
       () => criarFaixaAction({ nome: form.nome, limiteCentavos: limite }),
-      'Faixa criada.',
+      FF.criada,
       () => setForm({ nome: '', limite: '' }),
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 rounded-2xl border border-border/50 p-4 sm:grid-cols-[1fr_12rem_auto] sm:items-end">
+    <section aria-label={ROTULO_SECAO_CADASTRO.faixas} className="space-y-4">
+      <CabecalhoSecao titulo={ROTULO_SECAO_CADASTRO.faixas} descricao={F.descricao} />
+
+      <form
+        className={cn(CARTAO, 'grid gap-3 p-4 sm:grid-cols-[1fr_12rem_auto] sm:items-end')}
+        onSubmit={(e) => {
+          e.preventDefault();
+          criar();
+        }}
+      >
         <div className="space-y-1.5">
-          <Label htmlFor="faixa-nome">Nome da faixa</Label>
+          <Label htmlFor="faixa-nome">{F.nome}</Label>
           <Input
             id="faixa-nome"
             value={form.nome}
             onChange={(e) => setForm({ ...form, nome: e.target.value })}
-            placeholder="Diretor do Foro"
+            placeholder={FF.exemploNome}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="faixa-limite">Limite (R$)</Label>
+          <Label htmlFor="faixa-limite">{F.limite}</Label>
           <Input
             id="faixa-limite"
             inputMode="decimal"
@@ -760,72 +1057,116 @@ function Faixas({
             onChange={(e) => setForm({ ...form, limite: e.target.value })}
           />
         </div>
-        <Button onClick={criar} disabled={pendente} className="gap-2">
+        <Button type="submit" variant="gradiente" disabled={pendente} className="gap-2">
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Criar faixa
+          {F.criar}
         </Button>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Faixa não se edita: o que já foi aprovado guarda o limite do momento.
-      </p>
-      <div className="overflow-x-auto rounded-2xl border border-border/50">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead className="text-right">Limite</TableHead>
-              <TableHead>Situação</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {painel.faixas.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                  Nenhuma faixa criada.
-                </TableCell>
-              </TableRow>
-            )}
-            {painel.faixas.map((f) => (
-              <TableRow key={f.id}>
-                <TableCell className="font-medium">{f.nome}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatarReais(f.limiteCentavos)}
-                </TableCell>
-                <TableCell>
-                  {f.ativa ? (
-                    <Badge
-                      variant="outline"
-                      className="gap-1 border-emerald-300 text-emerald-700 dark:text-emerald-300"
-                    >
-                      <BadgeCheck className="h-3 w-3" aria-hidden="true" />
-                      Ativa
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      Desativada
-                    </Badge>
+      </form>
+
+      <div className={cn(CARTAO, 'space-y-1 p-4 sm:p-5')}>
+        {escada.degraus.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">{F.vazio}</p>
+        ) : (
+          <ol aria-label={F.escada} className="divide-y divide-border/50">
+            {escada.degraus.map((g) => (
+              <li
+                key={g.id}
+                data-aprovadores={g.aprovadores}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3 sm:grid-cols-[8rem_minmax(6rem,1fr)_auto_auto_auto]"
+              >
+                <span className="truncate text-sm font-semibold">{g.nome}</span>
+                <span
+                  aria-hidden="true"
+                  className="order-last col-span-2 h-2.5 overflow-hidden rounded-full bg-muted sm:order-none sm:col-span-1"
+                >
+                  <span
+                    className={cn(
+                      'block h-full rounded-full',
+                      g.aprovadores > 0
+                        ? 'bg-indigo-600 dark:bg-indigo-400'
+                        : 'bg-indigo-200 dark:bg-indigo-900',
+                    )}
+                    style={{ width: pctLimite(g.limiteCentavos, maior) }}
+                  />
+                </span>
+                <span className="text-right text-sm tabular-nums">
+                  {F.ate(formatarReais(g.limiteCentavos))}
+                </span>
+                <span
+                  className={cn(
+                    'text-[13px] sm:text-right',
+                    g.aprovadores === 0
+                      ? 'font-medium text-orange-800 dark:text-orange-300'
+                      : 'text-muted-foreground',
                   )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {f.ativa && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pendente}
-                      onClick={() =>
-                        executar(() => desativarFaixaAction({ faixaId: f.id }), 'Faixa desativada.')
-                      }
-                    >
-                      Desativar
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
+                >
+                  {F.aprovadores(g.aprovadores)}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={pendente}
+                  className="justify-self-end"
+                  aria-label={F.desativarA(g.nome)}
+                  onClick={() =>
+                    setDesativando({
+                      faixa: painel.faixas.find((f) => f.id === g.id)!,
+                      aprovadores: g.aprovadores,
+                    })
+                  }
+                >
+                  {F.desativar}…
+                </Button>
+              </li>
             ))}
-          </TableBody>
-        </Table>
+          </ol>
+        )}
+        {escada.degraus.length > 0 && (
+          <p
+            className={cn(
+              'border-t border-border/50 pt-3 text-[13px]',
+              escada.tetoCentavos == null
+                ? 'font-medium text-orange-800 dark:text-orange-300'
+                : 'text-muted-foreground',
+            )}
+          >
+            {escada.tetoCentavos == null ? F.semTeto : F.teto(formatarReais(escada.tetoCentavos))}
+          </p>
+        )}
       </div>
-    </div>
+
+      {desativadas.length > 0 && (
+        <details className={cn(CARTAO, 'p-4 text-sm sm:p-5')}>
+          <summary className="cursor-pointer font-medium">
+            {F.desativadas(desativadas.length)}
+          </summary>
+          <ul className="mt-2 space-y-1 text-muted-foreground">
+            {desativadas.map((f) => (
+              <li key={f.id}>
+                {f.nome} · {F.ate(formatarReais(f.limiteCentavos))}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {desativando && (
+        <DialogConfirmacao
+          titulo={C.desativar.titulo(desativando.faixa.nome)}
+          efeito={C.desativar.efeito(desativando.aprovadores)}
+          rotuloConfirmar={C.desativar.botao}
+          destrutiva
+          pendente={pendente}
+          onFechar={() => setDesativando(null)}
+          onConfirmar={() =>
+            executar(
+              () => desativarFaixaAction({ faixaId: desativando.faixa.id }),
+              C.desativar.sucesso,
+              () => setDesativando(null),
+            )
+          }
+        />
+      )}
+    </section>
   );
 }

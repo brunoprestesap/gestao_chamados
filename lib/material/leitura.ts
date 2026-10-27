@@ -43,9 +43,11 @@ import {
   type ArquivoBruto,
   type CotacaoBruta,
   type CotacaoDTO,
+  type CotacaoSolicitanteDTO,
   type EmpenhoDoDetalheDTO,
   type EventoBruto,
   serializarCotacao,
+  serializarParaSolicitante,
   visaoDe,
 } from './serializar';
 
@@ -419,7 +421,7 @@ export function barrasDoEmpenho(
 }
 
 export type CartaoCotacao = {
-  cotacao: CotacaoDTO | null;
+  cotacao: CotacaoDTO | CotacaoSolicitanteDTO | null;
   acoes: Acoes | null;
   /** O técnico atribuído pode registrar material agora. */
   podeCriar: boolean;
@@ -449,14 +451,12 @@ export async function cartaoDoChamado(
 
   const visao = visaoDe({ userId: sessao.userId, papeis, ehTecnicoAtribuido, ehSolicitante }, cot);
   if (!visao) return { cotacao: null, acoes: null, podeCriar };
+  if (visao === 'solicitante') {
+    return { cotacao: serializarParaSolicitante(cot), acoes: null, podeCriar };
+  }
   return {
-    cotacao: serializarCotacao(
-      cot,
-      visao,
-      sessao,
-      visao === 'solicitante' ? {} : await extras(cot),
-    ),
-    acoes: visao === 'solicitante' ? null : acoesDisponiveis(cot, papeis, ehTecnicoAtribuido),
+    cotacao: serializarCotacao(cot, visao, sessao, await extras(cot)),
+    acoes: acoesDisponiveis(cot, papeis, ehTecnicoAtribuido),
     podeCriar,
   };
 }

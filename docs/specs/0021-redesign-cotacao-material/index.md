@@ -1,7 +1,7 @@
 # 0021. Repaginação das telas da cotação de material
 
 **Date**: 2026-10-21
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

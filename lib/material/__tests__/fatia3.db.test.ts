@@ -66,6 +66,7 @@ rodar('fatia 3 da cotação de material, contra o Mongo', () => {
     Cotacao: typeof import('@/models/CotacaoMaterial').CotacaoMaterialModel;
     Evento: typeof import('@/models/CotacaoMaterialEvento').CotacaoMaterialEventoModel;
     Empenho: typeof import('@/models/Empenho').EmpenhoModel;
+    Faixa: typeof import('@/models/FaixaCompetencia').FaixaCompetenciaModel;
     Designacao: typeof import('@/models/DesignacaoMaterial').DesignacaoMaterialModel;
     Contrato: typeof import('@/models/Contrato').ContratoModel;
     AnexoV: typeof import('@/models/AnexoVItem').AnexoVItemModel;
@@ -104,6 +105,7 @@ rodar('fatia 3 da cotação de material, contra o Mongo', () => {
       Cotacao: (await import('@/models/CotacaoMaterial')).CotacaoMaterialModel,
       Evento: (await import('@/models/CotacaoMaterialEvento')).CotacaoMaterialEventoModel,
       Empenho: (await import('@/models/Empenho')).EmpenhoModel,
+      Faixa: (await import('@/models/FaixaCompetencia')).FaixaCompetenciaModel,
       Designacao: (await import('@/models/DesignacaoMaterial')).DesignacaoMaterialModel,
       Contrato: (await import('@/models/Contrato')).ContratoModel,
       AnexoV: (await import('@/models/AnexoVItem')).AnexoVItemModel,
@@ -821,23 +823,19 @@ rodar('fatia 3 da cotação de material, contra o Mongo', () => {
   // painel
   // -------------------------------------------------------------------------
 
-  describe('painel do que falta (AC-28, AC-30)', () => {
+  describe('painel do que falta (AC-28, AC-30; spec 0021, AC-18 e AC-19)', () => {
     it('sem tabelas, aponta o contrato sem Anexo V e o SINAPI ausente', async () => {
       const p = await cad.lerPendenciasMaterial();
-      expect(p.faltando).toEqual(
-        expect.arrayContaining([
-          'O contrato CT-1 não tem Anexo V carregado: o caminho 1 fica fechado.',
-          'Nenhum mês do SINAPI importado: o caminho 2 fica fechado.',
-        ]),
-      );
+      expect(p.contratosSemAnexo).toEqual(['CT-1']);
+      expect(p.sinapiAtrasado).toBe(true);
+      expect(p.notas.sinapi).toBeNull();
     });
 
     it('SINAPI velho aparece como atrasado', async () => {
       await importarSinapi('2020-01');
       const p = await cad.lerPendenciasMaterial();
-      expect(p.faltando).toContain(
-        'O SINAPI está atrasado: o mês mais recente importado é 01/2020.',
-      );
+      expect(p.sinapiAtrasado).toBe(true);
+      expect(p.notas.sinapi).toBe('2020-01');
     });
 
     it('lista só os itens vigentes com código vazio, não o de código fora do mês', async () => {
@@ -847,7 +845,117 @@ rodar('fatia 3 da cotação de material, contra o Mongo', () => {
       expect(p.itensSemCodigo).toEqual([
         { contrato: 'CT-1', numero: 3, descricao: 'Lâmpada fluorescente' },
       ]);
-      expect(p.faltando.some((f) => f.includes('CT-1'))).toBe(false);
+      expect(p.contratosSemAnexo).toEqual([]);
+      expect(p.primeiraCotacao.find((i) => i.chave === 'semCodigo')).toEqual({
+        chave: 'semCodigo',
+        secao: 'anexo-v',
+        pronto: false,
+        itens: 1,
+      });
+      expect(p.notas.anexoV).toEqual({ revisaoAberta: false, itens: ANEXO_V1.length });
+    });
+
+    it('a lista da primeira cotação diz o que falta, cada item com a sua seção', async () => {
+      const p = await cad.lerPendenciasMaterial();
+      expect(p.primeiraCotacao).toEqual([
+        { chave: 'empenho', secao: 'empenhos', pronto: true, elegiveis: 1 },
+        { chave: 'faixas', secao: 'faixas', pronto: false, ativas: 0 },
+        {
+          chave: 'designacoes',
+          secao: 'designacoes',
+          pronto: false,
+          faltam: ['gestor', 'aprovador'],
+        },
+        { chave: 'semCodigo', secao: 'anexo-v', pronto: true, itens: 0 },
+      ]);
+      expect(p.notas).toMatchObject({ empenhos: 1, designacoes: 3, faixas: 0 });
+    });
+
+    it('a nota do Anexo V diz "revisão aberta" só com importação do Anexo V em aberto', async () => {
+      const sinapi = await pend.enviarImportacaoSinapi({
+        referencia: '2026-08',
+        arquivoNome: 's.csv',
+        bytes: csvSinapi(...SINAPI_08),
+        autorId: ids.admin,
+      });
+      expect(sinapi).toMatchObject({ ok: true });
+      expect((await cad.lerPendenciasMaterial()).notas.anexoV.revisaoAberta).toBe(false);
+
+      await enviarAnexo();
+      expect((await cad.lerPendenciasMaterial()).notas.anexoV.revisaoAberta).toBe(true);
+    });
+
+    it('gestor e aprovador vigentes fecham as designações; revogar o aprovador volta a faltar', async () => {
+      expect(
+        await cad.criarFaixa(ids.admin, { nome: 'Faixa I', limiteCentavos: 5_000_00 }),
+      ).toEqual({ ok: true });
+      const faixa = await M.Faixa.findOne().lean();
+      for (const [userId, papel, faixaId] of [
+        [ids.admin, 'gestor', null],
+        [ids.outroFiscal, 'aprovador', String(faixa!._id)],
+      ] as const) {
+        expect(
+          await cad.criarDesignacao(ids.admin, {
+            userId,
+            papel,
+            faixaId,
+            vigenciaInicio: '2000-01-01',
+            ato: 'Portaria',
+          }),
+        ).toEqual({ ok: true });
+      }
+      const designacoes = async () =>
+        (await cad.lerPendenciasMaterial()).primeiraCotacao.find((i) => i.chave === 'designacoes');
+      expect(await designacoes()).toMatchObject({ pronto: true, faltam: [] });
+
+      const aprovador = await M.Designacao.findOne({ papel: 'aprovador' }).lean();
+      expect(await cad.revogarDesignacao(ids.admin, String(aprovador!._id))).toEqual({ ok: true });
+
+      expect(await designacoes()).toMatchObject({ pronto: false, faltam: ['aprovador'] });
+      const p = await cad.lerPendenciasMaterial();
+      expect(p.notas.designacoes).toBe(4);
+      expect(p.notas.faixas).toBe(1);
+    });
+
+    it('gestor com a vigência já encerrada não conta como designado', async () => {
+      expect(
+        await cad.criarDesignacao(ids.admin, {
+          userId: ids.admin,
+          papel: 'gestor',
+          vigenciaInicio: '2000-01-01',
+          vigenciaFim: '2001-12-31',
+          ato: 'Portaria antiga',
+        }),
+      ).toEqual({ ok: true });
+      const p = await cad.lerPendenciasMaterial();
+      expect(p.primeiraCotacao.find((i) => i.chave === 'designacoes')).toMatchObject({
+        faltam: ['gestor', 'aprovador'],
+      });
+      expect(p.notas.designacoes).toBe(3);
+    });
+
+    it('o painel dá projeção só ao empenho elegível e marca a designação revogada como não vigente', async () => {
+      await M.Empenho.create({
+        numero: 'NE-INATIVO',
+        exercicio: 2000,
+        valorInicialCentavos: 100_00,
+        valorLiquidoCentavos: 100_00,
+        ativo: false,
+        criadoPorUserId: new Types.ObjectId(),
+      });
+      const fiscal2 = await M.Designacao.findOne({ userId: new Types.ObjectId(ids.outroFiscal) });
+      await cad.revogarDesignacao(ids.admin, String(fiscal2!._id));
+
+      const painel = await cad.lerPainelMaterial();
+      const ne1 = painel.empenhos.find((e) => e.numero === 'NE1')!;
+      const inativo = painel.empenhos.find((e) => e.numero === 'NE-INATIVO')!;
+      expect(ne1.elegivel).toBe(true);
+      expect(ne1.projecao).toMatchObject({ empenhoId: ne1.id, saldoCentavos: 1_000_000_00 });
+      expect(inativo.elegivel).toBe(false);
+      expect(inativo.projecao).toBeNull();
+      const revogada = painel.designacoes.find((d) => d.userId === ids.outroFiscal)!;
+      expect(revogada.vigente).toBe(false);
+      expect(revogada.revogadaEm).not.toBeNull();
     });
 
     it('mesesAntes atravessa a virada do ano', () => {

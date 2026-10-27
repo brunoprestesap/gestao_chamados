@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * campos com os valores vigentes, a gravação que manda os valores lidos junto
  * dos novos (para a escrita ser condicional) e o histórico de cada mudança.
  *
- * covers: AC-42
+ * covers: AC-42; spec 0021, AC-22
  */
 
 const m = vi.hoisted(() => ({
@@ -50,13 +50,25 @@ describe('AbaParametros', () => {
     render(<AbaParametros parametros={vigentes} />);
 
     expect(screen.getByLabelText('Percentual admitido sobre o SINAPI')).toHaveValue('10');
-    expect(screen.getByLabelText('Janela do fracionamento e da reincidência (dias)')).toHaveValue(
-      '90',
-    );
-    expect(screen.getByLabelText('Parcela relevante do saldo (%)')).toHaveValue('20');
+    expect(screen.getByLabelText('Janela do fracionamento e da reincidência')).toHaveValue('90');
+    expect(screen.getByLabelText('Parcela relevante do saldo')).toHaveValue('20');
     expect(screen.getByLabelText('Raiz do CNPJ da contratada')).toHaveAccessibleDescription(
       /8 primeiros dígitos/,
     );
+  });
+
+  it('a unidade fica junto do campo e a taxa de administração aparece em 0%, travada (spec 0021)', () => {
+    render(<AbaParametros parametros={vigentes} />);
+
+    expect(
+      screen.getByLabelText('Janela do fracionamento e da reincidência'),
+    ).toHaveAccessibleDescription(/^Em dias\./);
+    expect(screen.getByLabelText('Parcela relevante do saldo')).toHaveAccessibleDescription(
+      /^Em %\./,
+    );
+    const taxa = screen.getByLabelText('Taxa de administração sobre material');
+    expect(taxa).toHaveValue('0');
+    expect(taxa).toBeDisabled();
   });
 
   it('sem mudança registrada, diz que valem os padrões', () => {
@@ -69,7 +81,7 @@ describe('AbaParametros', () => {
     const user = userEvent.setup();
     render(<AbaParametros parametros={vigentes} />);
 
-    const janela = screen.getByLabelText('Janela do fracionamento e da reincidência (dias)');
+    const janela = screen.getByLabelText('Janela do fracionamento e da reincidência');
     await user.clear(janela);
     await user.type(janela, '30');
     await user.click(screen.getByRole('button', { name: 'Gravar parâmetros' }));
@@ -125,8 +137,8 @@ describe('AbaParametros', () => {
     );
 
     const linha = screen.getByRole('row', { name: /Janela do fracionamento/ });
-    expect(linha).toHaveTextContent('90');
-    expect(linha).toHaveTextContent('30');
+    expect(linha).toHaveTextContent('90 dias');
+    expect(linha).toHaveTextContent('30 dias');
     expect(linha).toHaveTextContent('Maria');
   });
 });

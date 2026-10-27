@@ -6,11 +6,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * O cartão da cotação de material na tela do técnico (spec 0019, AC-10).
- * Anexar evidência recarrega só o cartão: recarregar a tela inteira desmonta
- * o diálogo de execução no meio do registro.
+ * O cartão da cotação de material no chamado. Spec 0019, AC-10: anexar
+ * evidência recarrega só o cartão, porque recarregar a tela inteira desmonta
+ * o diálogo de execução no meio do registro. Spec 0021, AC-16: a versão sai de
+ * `cotacao.visao`, e cada uma mostra só o que o servidor mandou.
  *
- * covers: AC-10
+ * covers: AC-10 (0019), AC-16 (0021)
  */
 
 vi.mock('../../actions', () => ({
@@ -102,5 +103,133 @@ describe('CartaoCotacaoMaterial · evidência no diálogo de execução', () => 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(onAlterado).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+});
+
+describe('CartaoCotacaoMaterial · versão por visão (spec 0021, AC-16)', () => {
+  const fetchMock = vi.fn();
+  const responder = (c: unknown) => fetchMock.mockResolvedValue({ ok: true, json: async () => c });
+
+  beforeEach(() => vi.stubGlobal('fetch', fetchMock));
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  const item = (n: number) => ({ ...cartao.cotacao.itens[0], id: `i${n}`, descricao: `Peça ${n}` });
+
+  it('técnico: jornada, a próxima ação e a lista resumida de itens', async () => {
+    // Arrange
+    responder({
+      ...cartao,
+      cotacao: { ...cartao.cotacao, itens: [1, 2, 3, 4, 5].map(item), trilha: [] },
+    });
+
+    // Act
+    render(<CartaoCotacaoMaterial chamadoId="ch1" />);
+
+    // Assert
+    expect(await screen.findByText('Aplicar o material')).toBeInTheDocument();
+    expect(screen.getByText('Peça 1')).toBeInTheDocument();
+    expect(screen.queryByText('Peça 4')).not.toBeInTheDocument();
+    expect(screen.getByText('+2 itens')).toBeInTheDocument();
+    expect(screen.queryByText(/R\$/)).not.toBeInTheDocument();
+  });
+
+  it('TRF1: itens, valor e quem age agora com o nome do fiscal', async () => {
+    // Arrange
+    responder({
+      podeCriar: false,
+      acoes: { ...cartao.acoes, executar: false },
+      cotacao: {
+        ...cartao.cotacao,
+        visao: 'trf1',
+        situacao: 'em_analise',
+        valorTotalCentavos: 1231540,
+        quemAgeAgora: { papel: 'fiscal', nome: 'Ana Ribeiro' },
+      },
+    });
+
+    // Act
+    render(<CartaoCotacaoMaterial chamadoId="ch1" />);
+
+    // Assert
+    expect(await screen.findByText(/R\$\s*12\.315,40/)).toBeInTheDocument();
+    expect(screen.getByText('Agora é a vez de: Fiscal (Ana Ribeiro).')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Abrir cotação' })).toHaveAttribute(
+      'href',
+      '/cotacoes/c1',
+    );
+  });
+
+  it('contratada: a próxima ação dela leva ao detalhe, e quem age vem só pelo papel', async () => {
+    // Arrange
+    responder({
+      podeCriar: false,
+      acoes: { ...cartao.acoes, executar: false, montar: true },
+      cotacao: {
+        ...cartao.cotacao,
+        visao: 'contratada',
+        situacao: 'devolvida',
+        valorTotalCentavos: 5000,
+        ultimoMotivo: 'Falta o orçamento da terceira empresa',
+        quemAgeAgora: { papel: 'responsavel_tecnico', nome: null },
+      },
+    });
+
+    // Act
+    render(<CartaoCotacaoMaterial chamadoId="ch1" />);
+
+    // Assert
+    expect(await screen.findByRole('link', { name: /Ir para a montagem/ })).toHaveAttribute(
+      'href',
+      '/cotacoes/c1',
+    );
+    expect(screen.getByText('Agora é a vez de: Responsável técnico.')).toBeInTheDocument();
+    expect(screen.getByText(/Falta o orçamento da terceira empresa/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ['pedido', 'Aguardando material', 'Pedido'],
+    ['aprovacao', 'Aguardando material', 'Aprovação'],
+    ['instalacao', 'Material aplicado', 'Instalação'],
+  ])(
+    'solicitante na fase %s: frase e a barra de três fases, sem valor',
+    async (fase, titulo, atual) => {
+      // Arrange
+      responder({
+        podeCriar: false,
+        acoes: null,
+        // O que o servidor manda ao solicitante: só a fase (AC-24).
+        cotacao: { id: 'c1', visao: 'solicitante', fase },
+      });
+
+      // Act
+      render(<CartaoCotacaoMaterial chamadoId="ch1" />);
+
+      // Assert
+      expect(await screen.findByRole('heading', { name: titulo })).toBeInTheDocument();
+      const fases = screen.getByRole('list', { name: 'Fases da compra de material' });
+      expect(fases.querySelector('[aria-current="step"]')).toHaveTextContent(atual);
+      expect(screen.queryByText(/R\$/)).not.toBeInTheDocument();
+    },
+  );
+
+  it('solicitante com a compra encerrada: só a frase, sem a barra', async () => {
+    // Arrange
+    responder({
+      podeCriar: false,
+      acoes: null,
+      cotacao: { id: 'c1', visao: 'solicitante', fase: 'encerrada' },
+    });
+
+    // Act
+    render(<CartaoCotacaoMaterial chamadoId="ch1" />);
+
+    // Assert
+    expect(
+      await screen.findByRole('heading', { name: 'Compra de material encerrada' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 });
