@@ -39,7 +39,13 @@ import type { ParametrosComHistorico } from '@/lib/material/parametros';
 import type { TabelasPreco } from '@/lib/material/tabelas';
 import { cn } from '@/lib/utils';
 import { formatarReais } from '@/shared/chamados/custo';
-import { escadaDeFaixas, type SecaoCadastro, SECOES_CADASTRO } from '@/shared/material/cadastro';
+import {
+  dataHoraDoCadastro,
+  escadaDeFaixas,
+  linhaDoTempoDoEmpenho,
+  type SecaoCadastro,
+  SECOES_CADASTRO,
+} from '@/shared/material/cadastro';
 import {
   PAPEIS_DESIGNACAO,
   type PapelDesignacao,
@@ -53,6 +59,7 @@ import {
   TEXTO_CADASTRO_SECOES,
   TEXTO_CONFIRMACAO_CADASTRO,
   TEXTO_FORMULARIOS_CADASTRO,
+  TEXTO_HISTORICO_CADASTRO,
   textoProjecaoCurta,
 } from '@/shared/material/mensagens';
 import { reaisParaCentavos } from '@/shared/material/valores';
@@ -71,14 +78,26 @@ import { DialogConfirmacao } from './DialogConfirmacao';
 import { AbaParametros } from './ParametrosMaterial';
 import { AbaAnexoV, AbaSinapi } from './TabelasPreco';
 
-type Resultado = { ok: true } | { ok: false; error: string };
-type Executar = (fn: () => Promise<Resultado>, sucesso: string, depois?: () => void) => void;
+type Falha = { ok: false; error: string; campo?: 'motivo' };
+type Resultado = { ok: true } | Falha;
+type Executar = (
+  fn: () => Promise<Resultado>,
+  sucesso: string,
+  depois?: () => void,
+  noErro?: (falha: Falha) => void,
+) => void;
+
+/** O erro que volta ao campo de motivo (spec 0022, AC-5); os outros ficam só no toast. */
+const erroDoCampo = (definir: (erro: string) => void) => (f: Falha) => {
+  if (f.campo === 'motivo') definir(f.error);
+};
 
 const T = TEXTO_CADASTRO;
 const E = TEXTO_CADASTRO_SECOES.empenhos;
 const D = TEXTO_CADASTRO_SECOES.designacoes;
 const F = TEXTO_CADASTRO_SECOES.faixas;
 const C = TEXTO_CONFIRMACAO_CADASTRO;
+const H = TEXTO_HISTORICO_CADASTRO;
 const F_ = TEXTO_FORMULARIOS_CADASTRO;
 const FE = F_.empenho;
 const FM = F_.movimento;
@@ -129,18 +148,19 @@ export function GerirMaterial({
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
 
-  function executar(fn: () => Promise<Resultado>, sucesso: string, depois?: () => void) {
+  const executar: Executar = (fn, sucesso, depois, noErro) => {
     iniciar(async () => {
       const r = await fn();
       if (!r.ok) {
         toast.error(r.error);
+        noErro?.(r);
         return;
       }
       toast.success(sucesso);
       depois?.();
       router.refresh();
     });
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -437,7 +457,50 @@ function CartaoEmpenho({
           {E.naoRecebe(formatarReais(e.saldoCentavos))}
         </p>
       )}
+
+      <HistoricoEmpenho e={e} />
     </article>
+  );
+}
+
+/** A linha do tempo única do empenho, do mais novo ao mais antigo (spec 0022, AC-6 e AC-7). */
+function HistoricoEmpenho({ e }: { e: EmpenhoLinha }) {
+  const itens = linhaDoTempoDoEmpenho(e);
+  return (
+    <details className="border-t border-border/50 pt-3 text-[13px]">
+      <summary className="cursor-pointer font-medium">{H.historico}</summary>
+      {itens.length === 0 ? (
+        <p className="mt-2 text-muted-foreground">{H.vazio}</p>
+      ) : (
+        <ol className="mt-2 space-y-2">
+          {itens.map((item, i) => (
+            <li key={i} className="border-l-2 border-border pl-3">
+              {item.tipo === 'antigo' ? (
+                <span className="text-muted-foreground">{H.empenhoAntigo}</span>
+              ) : (
+                <>
+                  <span className="block font-medium">
+                    {item.tipo === 'situacao'
+                      ? item.ativo
+                        ? H.reativado
+                        : H.inativado
+                      : item.tipoMovimento === 'anulacao'
+                        ? H.anulacao(formatarReais(item.valorCentavos))
+                        : H.reforco(formatarReais(item.valorCentavos))}
+                  </span>
+                  <span className="block text-muted-foreground">
+                    {H.quemQuando(dataHoraDoCadastro(item.em), item.porNome)}
+                  </span>
+                  <span className="block text-muted-foreground">
+                    {item.tipo === 'movimento' ? H.ato(item.ato) : `${H.motivo}: ${item.motivo}`}
+                  </span>
+                </>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
   );
 }
 
@@ -472,6 +535,7 @@ function Empenhos({
   const [movendo, setMovendo] = useState<EmpenhoLinha | null>(null);
   const [mov, setMov] = useState({ tipo: 'reforco' as 'reforco' | 'anulacao', valor: '', ato: '' });
   const [confirmando, setConfirmando] = useState<EmpenhoLinha | null>(null);
+  const [erroMotivo, setErroMotivo] = useState<string | null>(null);
 
   function criar() {
     const valor = reaisParaCentavos(form.valor);
@@ -538,7 +602,10 @@ function Empenhos({
               setMovendo(e);
               setMov({ tipo: 'reforco', valor: '', ato: '' });
             }}
-            onSituacao={() => setConfirmando(e)}
+            onSituacao={() => {
+              setErroMotivo(null);
+              setConfirmando(e);
+            }}
           />
         ))
       )}
@@ -550,18 +617,22 @@ function Empenhos({
           rotuloConfirmar={textoConfirmar.botao}
           destrutiva={confirmando.ativo}
           pendente={pendente}
+          erroMotivo={erroMotivo}
           onFechar={() => setConfirmando(null)}
-          onConfirmar={() =>
+          onConfirmar={(motivo) => {
+            setErroMotivo(null);
             executar(
               () =>
                 alterarSituacaoEmpenhoAction({
                   empenhoId: confirmando.id,
                   ativo: !confirmando.ativo,
+                  motivo,
                 }),
               textoConfirmar.sucesso,
               () => setConfirmando(null),
-            )
-          }
+              erroDoCampo(setErroMotivo),
+            );
+          }}
         />
       )}
 
@@ -636,7 +707,7 @@ function Empenhos({
                     m.tipo as 'reforco' | 'anulacao',
                     formatarReais(m.valorCentavos),
                     m.ato,
-                    new Date(m.em).toLocaleDateString('pt-BR'),
+                    dataHoraDoCadastro(m.em),
                   )}
                 </li>
               ))}
@@ -708,6 +779,16 @@ function iniciais(nome: string): string {
   return `${primeira?.[0] ?? ''}${resto.at(-1)?.[0] ?? ''}`.toUpperCase() || '?';
 }
 
+/** Quem fez e quando, com o motivo; o ato antigo diz que o motivo não foi registrado (spec 0022, AC-7). */
+function AtoComMotivo({ texto, motivo }: { texto: string; motivo: string | null }) {
+  return (
+    <>
+      <span className="block">{texto}</span>
+      <span className="block">{motivo ? `${H.motivo}: ${motivo}` : H.motivoNaoRegistrado}</span>
+    </>
+  );
+}
+
 function SituacaoDesignacao({ d }: { d: DesignacaoLinha }) {
   if (d.revogadaEm) {
     return (
@@ -746,6 +827,7 @@ function Designacoes({
   const [form, setForm] = useState(FORM_DESIGNACAO_VAZIO);
   const [mostrarRevogadas, setMostrarRevogadas] = useState(false);
   const [revogando, setRevogando] = useState<DesignacaoLinha | null>(null);
+  const [erroMotivo, setErroMotivo] = useState<string | null>(null);
   const usuarios = painel.usuarios.filter((u) => PERFIS_POR_PAPEL[form.papel].includes(u.role));
   const faixasAtivas = painel.faixas.filter((f) => f.ativa);
   const limiteDaFaixa = new Map(painel.faixas.map((f) => [f.id, f.limiteCentavos]));
@@ -849,13 +931,30 @@ function Designacoes({
                             size="sm"
                             variant="ghost"
                             disabled={pendente}
-                            onClick={() => setRevogando(d)}
+                            onClick={() => {
+                              setErroMotivo(null);
+                              setRevogando(d);
+                            }}
                             aria-label={D.revogarDe(d.nome)}
                           >
                             {D.revogar}…
                           </Button>
                         )}
                       </div>
+                      {d.revogadaEm && (
+                        <details className="basis-full text-[13px]">
+                          <summary className="cursor-pointer font-medium">{H.historico}</summary>
+                          <div className="mt-1 border-l-2 border-border pl-3 text-muted-foreground">
+                            <AtoComMotivo
+                              texto={H.revogada(
+                                dataHoraDoCadastro(d.revogadaEm),
+                                d.revogadaPorNome ?? H.usuarioRemovido,
+                              )}
+                              motivo={d.revogadaMotivo}
+                            />
+                          </div>
+                        </details>
+                      )}
                     </li>
                   );
                 })}
@@ -872,14 +971,17 @@ function Designacoes({
           rotuloConfirmar={C.revogar.botao}
           destrutiva
           pendente={pendente}
+          erroMotivo={erroMotivo}
           onFechar={() => setRevogando(null)}
-          onConfirmar={() =>
+          onConfirmar={(motivo) => {
+            setErroMotivo(null);
             executar(
-              () => revogarDesignacaoAction({ designacaoId: revogando.id }),
+              () => revogarDesignacaoAction({ designacaoId: revogando.id, motivo }),
               C.revogar.sucesso,
               () => setRevogando(null),
-            )
-          }
+              erroDoCampo(setErroMotivo),
+            );
+          }}
         />
       )}
 
@@ -1011,6 +1113,7 @@ function Faixas({
   const [desativando, setDesativando] = useState<{ faixa: FaixaLinha; aprovadores: number } | null>(
     null,
   );
+  const [erroMotivo, setErroMotivo] = useState<string | null>(null);
   const escada = escadaDeFaixas(painel.faixas, painel.designacoes);
   const maior = escada.degraus.at(-1)?.limiteCentavos ?? 0;
   const desativadas = painel.faixas.filter((f) => !f.ativa);
@@ -1108,12 +1211,13 @@ function Faixas({
                   disabled={pendente}
                   className="justify-self-end"
                   aria-label={F.desativarA(g.nome)}
-                  onClick={() =>
+                  onClick={() => {
+                    setErroMotivo(null);
                     setDesativando({
                       faixa: painel.faixas.find((f) => f.id === g.id)!,
                       aprovadores: g.aprovadores,
-                    })
-                  }
+                    });
+                  }}
                 >
                   {F.desativar}…
                 </Button>
@@ -1143,7 +1247,22 @@ function Faixas({
           <ul className="mt-2 space-y-1 text-muted-foreground">
             {desativadas.map((f) => (
               <li key={f.id}>
-                {f.nome} · {F.ate(formatarReais(f.limiteCentavos))}
+                <span className="block font-medium text-foreground">
+                  {f.nome} · {F.ate(formatarReais(f.limiteCentavos))}
+                </span>
+                <span className="mt-0.5 block border-l-2 border-border pl-3 text-[13px]">
+                  {f.desativadaEm ? (
+                    <AtoComMotivo
+                      texto={H.desativada(
+                        dataHoraDoCadastro(f.desativadaEm),
+                        f.desativadaPorNome ?? H.usuarioRemovido,
+                      )}
+                      motivo={f.desativadaMotivo}
+                    />
+                  ) : (
+                    H.faixaAntiga
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -1157,14 +1276,17 @@ function Faixas({
           rotuloConfirmar={C.desativar.botao}
           destrutiva
           pendente={pendente}
+          erroMotivo={erroMotivo}
           onFechar={() => setDesativando(null)}
-          onConfirmar={() =>
+          onConfirmar={(motivo) => {
+            setErroMotivo(null);
             executar(
-              () => desativarFaixaAction({ faixaId: desativando.faixa.id }),
+              () => desativarFaixaAction({ faixaId: desativando.faixa.id, motivo }),
               C.desativar.sucesso,
               () => setDesativando(null),
-            )
-          }
+              erroDoCampo(setErroMotivo),
+            );
+          }}
         />
       )}
     </section>

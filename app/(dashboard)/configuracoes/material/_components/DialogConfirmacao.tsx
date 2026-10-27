@@ -1,22 +1,14 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { ROTULO_FECHAR_DIALOGO } from '@/shared/material/mensagens';
+import { DialogMotivo } from '@/app/(dashboard)/cotacoes/_components/compartilhado/DialogMotivo';
+import { TEXTO_CURTO_MAX, TEXTO_CURTO_MIN } from '@/shared/material/material.constants';
 
 /**
  * A confirmação do cadastro (spec 0021, AC-21): revogar designação, desativar
- * faixa e inativar ou reativar empenho dizem o efeito antes de agir. Sem
- * motivo: o servidor continua o mesmo. Montado só enquanto aberto.
+ * faixa e inativar ou reativar empenho dizem o efeito antes de agir. Desde a
+ * spec 0022 (AC-5), pede também o motivo, com o mesmo campo do diálogo de
+ * motivo da cotação: rótulo, contador, mínimo e erro no campo. Montado só
+ * enquanto aberto, então o texto zera a cada abertura.
  */
 export function DialogConfirmacao({
   titulo,
@@ -24,6 +16,7 @@ export function DialogConfirmacao({
   rotuloConfirmar,
   destrutiva = false,
   pendente,
+  erroMotivo,
   onFechar,
   onConfirmar,
 }: {
@@ -32,31 +25,23 @@ export function DialogConfirmacao({
   rotuloConfirmar: string;
   destrutiva?: boolean;
   pendente: boolean;
+  /** A recusa do servidor ao motivo, mostrada no campo. */
+  erroMotivo?: string | null;
   onFechar: () => void;
-  onConfirmar: () => void;
+  onConfirmar: (motivo: string) => void;
 }) {
   return (
-    <Dialog open onOpenChange={(o) => !o && !pendente && onFechar()}>
-      <DialogContent className="sm:max-w-md sm:rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>{titulo}</DialogTitle>
-          <DialogDescription>{efeito}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onFechar} disabled={pendente}>
-            {ROTULO_FECHAR_DIALOGO}
-          </Button>
-          <Button
-            variant={destrutiva ? 'destructive' : 'gradiente'}
-            onClick={onConfirmar}
-            disabled={pendente}
-            className="gap-2"
-          >
-            {pendente && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            {rotuloConfirmar}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <DialogMotivo
+      titulo={titulo}
+      descricao={efeito}
+      rotuloConfirmar={rotuloConfirmar}
+      destrutiva={destrutiva}
+      min={TEXTO_CURTO_MIN}
+      max={TEXTO_CURTO_MAX}
+      pendente={pendente}
+      erroServidor={erroMotivo}
+      onFechar={onFechar}
+      onConfirmar={onConfirmar}
+    />
   );
 }

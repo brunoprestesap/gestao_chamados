@@ -497,6 +497,13 @@ test.describe.serial('Cotação de material: o cadastro em seções', () => {
       .click();
     const dialogo = page.getByRole('dialog');
     await expect(dialogo.getByRole('button', { name: 'Desativar faixa' })).toBeVisible();
+    // Spec 0022 (AC-5): o motivo abaixo do mínimo não envia e o erro fica no campo.
+    const motivo = dialogo.getByLabel('Motivo');
+    await motivo.fill('curto');
+    await dialogo.getByRole('button', { name: 'Desativar faixa' }).click();
+    await expect(motivo).toHaveAttribute('aria-invalid', 'true');
+    await expect(motivo).toBeFocused();
+    await semViolacaoNoAxe(page, '[role="dialog"]');
     await dialogo.getByRole('button', { name: 'Cancelar' }).click();
     await expect(dialogo).not.toBeVisible();
   });

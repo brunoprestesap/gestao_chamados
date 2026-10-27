@@ -64,3 +64,61 @@ export function escadaDeFaixas(
       : null,
   };
 }
+
+// O formatador é criado uma vez, com opções fixas, para o servidor e o
+// navegador darem o mesmo texto (spec 0022, AC-6).
+const FORMATO_DATA_HORA = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Belem',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/** A data e a hora de um ato do cadastro (ISO), no fuso de Belém. */
+export function dataHoraDoCadastro(iso: string): string {
+  return FORMATO_DATA_HORA.format(new Date(iso));
+}
+
+export type MovimentoDoEmpenho = {
+  tipo: string;
+  valorCentavos: number;
+  ato: string;
+  em: string;
+  porNome: string;
+};
+
+export type SituacaoDoEmpenho = { ativo: boolean; motivo: string; porNome: string; em: string };
+
+/** Um item da linha do tempo do empenho; `antigo` é a inativação de antes do motivo (AC-7). */
+export type ItemLinhaDoTempo =
+  | ({ tipo: 'movimento'; tipoMovimento: string } & Omit<MovimentoDoEmpenho, 'tipo'>)
+  | ({ tipo: 'situacao' } & SituacaoDoEmpenho)
+  | { tipo: 'antigo' };
+
+/**
+ * A linha do tempo única do empenho (spec 0022, AC-6): movimentos e mudanças
+ * de situação, do mais novo ao mais antigo. Recebe as situações na ordem em
+ * que foram gravadas. O item `antigo` entra no fim quando o empenho está
+ * inativo sem histórico, ou quando a primeira mudança gravada é uma
+ * reativação: nos dois casos houve uma inativação antes do registro (AC-7).
+ */
+export function linhaDoTempoDoEmpenho(e: {
+  ativo: boolean;
+  movimentos: readonly MovimentoDoEmpenho[];
+  situacoes: readonly SituacaoDoEmpenho[];
+}): ItemLinhaDoTempo[] {
+  const datados: Extract<ItemLinhaDoTempo, { em: string }>[] = [
+    ...e.movimentos.map(({ tipo, ...m }) => ({
+      tipo: 'movimento' as const,
+      tipoMovimento: tipo,
+      ...m,
+    })),
+    ...e.situacoes.map((s) => ({ tipo: 'situacao' as const, ...s })),
+  ];
+  datados.sort((a, b) => Date.parse(b.em) - Date.parse(a.em));
+  const primeira = e.situacoes[0];
+  const inativadoAntes = primeira ? primeira.ativo : !e.ativo;
+  return inativadoAntes ? [...datados, { tipo: 'antigo' }] : datados;
+}

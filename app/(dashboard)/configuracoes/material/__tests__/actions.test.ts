@@ -43,7 +43,10 @@ vi.mock('@/lib/material/tabelas', () => ({
   corrigirCodigoSinapi: tabelas.corrigirCodigoSinapi,
 }));
 
+import { ERRO_SEM_PERMISSAO } from '@/shared/ativos/ativo.constants';
+
 import {
+  alterarSituacaoEmpenhoAction,
   aplicarImportacaoAction,
   corrigirCodigoSinapiAction,
   criarDesignacaoAction,
@@ -59,6 +62,7 @@ import {
 
 const ID = 'a'.repeat(24);
 const ADMIN = 'u'.repeat(24);
+const MOTIVO = 'Fim da designação pelo contrato';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -115,8 +119,8 @@ describe('validação e repasse', () => {
   });
 
   it('quem cadastra vai como autor do registro', async () => {
-    await revogarDesignacaoAction({ designacaoId: ID });
-    expect(cadastro.revogarDesignacao).toHaveBeenCalledWith(ADMIN, ID);
+    await revogarDesignacaoAction({ designacaoId: ID, motivo: MOTIVO });
+    expect(cadastro.revogarDesignacao).toHaveBeenCalledWith(ADMIN, ID, MOTIVO);
   });
 
   it('a recusa da regra volta como veio', async () => {
@@ -290,5 +294,71 @@ describe('salvarParametrosAction (AC-42)', () => {
 
     expect(r).toEqual({ ok: false, error: 'Não foi possível salvar agora. Tente de novo.' });
     erro.mockRestore();
+  });
+});
+
+describe('motivo dos atos do cadastro (spec 0022)', () => {
+  it('as três levam o Admin como autor e o motivo aparado (AC-1, AC-2, AC-3)', async () => {
+    await desativarFaixaAction({ faixaId: ID, motivo: `  ${MOTIVO}  ` });
+    await alterarSituacaoEmpenhoAction({ empenhoId: ID, ativo: false, motivo: MOTIVO });
+    expect(cadastro.desativarFaixa).toHaveBeenCalledWith(ADMIN, ID, MOTIVO);
+    expect(cadastro.alterarSituacaoEmpenho).toHaveBeenCalledWith(ADMIN, ID, false, MOTIVO);
+  });
+
+  it('revogar leva o Admin, a designação e o motivo aparado (AC-1)', async () => {
+    expect(await revogarDesignacaoAction({ designacaoId: ID, motivo: `\n${MOTIVO} ` })).toEqual({
+      ok: true,
+    });
+    expect(cadastro.revogarDesignacao).toHaveBeenCalledWith(ADMIN, ID, MOTIVO);
+  });
+
+  it('motivo acima de 500 caracteres é recusado no campo (AC-5)', async () => {
+    const r = await desativarFaixaAction({ faixaId: ID, motivo: 'a'.repeat(501) });
+    expect(r).toEqual({ ok: false, error: 'Até 500 caracteres.', campo: 'motivo' });
+    expect(cadastro.desativarFaixa).not.toHaveBeenCalled();
+  });
+
+  it('id inválido é recusado sem apontar o campo de motivo', async () => {
+    const resultados = await Promise.all([
+      revogarDesignacaoAction({ designacaoId: 'x', motivo: MOTIVO }),
+      desativarFaixaAction({ faixaId: 'x', motivo: MOTIVO }),
+      alterarSituacaoEmpenhoAction({ empenhoId: 'x', ativo: false, motivo: MOTIVO }),
+    ]);
+    for (const r of resultados) {
+      expect(r.ok).toBe(false);
+      expect(r).not.toHaveProperty('campo');
+    }
+    for (const fn of Object.values(cadastro)) expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('a recusa da corrida volta como veio, sem campo (AC-3)', async () => {
+    const recusa = { ok: false, error: 'O empenho já está inativo. Recarregue.' };
+    cadastro.alterarSituacaoEmpenho.mockResolvedValue(recusa);
+    expect(
+      await alterarSituacaoEmpenhoAction({ empenhoId: ID, ativo: false, motivo: MOTIVO }),
+    ).toEqual(recusa);
+  });
+
+  it.each(['123456789', '          ', undefined])(
+    'motivo %j é recusado no campo e não chega no banco',
+    async (motivo) => {
+      const resultados = await Promise.all([
+        revogarDesignacaoAction({ designacaoId: ID, motivo }),
+        desativarFaixaAction({ faixaId: ID, motivo }),
+        alterarSituacaoEmpenhoAction({ empenhoId: ID, ativo: true, motivo }),
+      ]);
+      for (const r of resultados) expect(r).toMatchObject({ ok: false, campo: 'motivo' });
+      for (const fn of Object.values(cadastro)) expect(fn).not.toHaveBeenCalled();
+    },
+  );
+
+  it('quem não é Admin recebe a recusa de permissão nas três, mesmo sem motivo (AC-8)', async () => {
+    sessao.atual = { userId: ADMIN, role: 'Preposto' };
+    const resultados = await Promise.all([
+      revogarDesignacaoAction({ designacaoId: ID }),
+      desativarFaixaAction({ faixaId: ID }),
+      alterarSituacaoEmpenhoAction({ empenhoId: ID, ativo: false }),
+    ]);
+    for (const r of resultados) expect(r).toEqual({ ok: false, error: ERRO_SEM_PERMISSAO });
   });
 });

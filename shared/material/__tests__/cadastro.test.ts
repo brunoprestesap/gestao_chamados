@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { escadaDeFaixas, secaoDoCadastro } from '../cadastro';
+import {
+  dataHoraDoCadastro,
+  escadaDeFaixas,
+  linhaDoTempoDoEmpenho,
+  secaoDoCadastro,
+} from '../cadastro';
 import { mesCurto, TEXTO_CADASTRO, TEXTO_CONFIRMACAO_CADASTRO } from '../mensagens';
 
 /**
@@ -86,5 +91,76 @@ describe('textos do cadastro', () => {
   it('nenhum texto do cadastro fala em "caminho 1" ou "caminho 2"', () => {
     const tudo = JSON.stringify(TEXTO_CADASTRO);
     expect(tudo).not.toMatch(/caminho [12]/);
+  });
+});
+
+// Spec 0022: o histórico de cada linha.
+
+describe('dataHoraDoCadastro (spec 0022, AC-6)', () => {
+  it('formata no fuso de Belém, com data e hora', () => {
+    // 02:30 UTC do dia 5 ainda é dia 4 em Belém (UTC-3).
+    expect(dataHoraDoCadastro('2026-05-05T02:30:00.000Z')).toMatch(/^04\/05\/2026,? 23:30$/);
+  });
+});
+
+describe('linhaDoTempoDoEmpenho (spec 0022, AC-6, AC-7)', () => {
+  const mov = (em: string) => ({
+    tipo: 'reforco',
+    valorCentavos: 100,
+    ato: 'SEI 1',
+    em,
+    porNome: 'Ana',
+  });
+  const sit = (ativo: boolean, em: string) => ({
+    ativo,
+    motivo: 'Motivo qualquer',
+    porNome: 'Ana',
+    em,
+  });
+
+  it('junta movimentos e situações do mais novo ao mais antigo', () => {
+    const itens = linhaDoTempoDoEmpenho({
+      ativo: false,
+      movimentos: [mov('2026-01-02T00:00:00Z'), mov('2026-03-01T00:00:00Z')],
+      situacoes: [sit(false, '2026-02-01T00:00:00Z')],
+    });
+    expect(itens.map((i) => (i.tipo === 'antigo' ? 'antigo' : i.em.slice(0, 7)))).toEqual([
+      '2026-03',
+      '2026-02',
+      '2026-01',
+    ]);
+    expect(itens[0]).toMatchObject({ tipo: 'movimento', tipoMovimento: 'reforco' });
+  });
+
+  it('empenho ativo que nunca mudou de situação não ganha item extra', () => {
+    expect(linhaDoTempoDoEmpenho({ ativo: true, movimentos: [], situacoes: [] })).toEqual([]);
+  });
+
+  it('inativo sem histórico ganha o item antigo no fim', () => {
+    const itens = linhaDoTempoDoEmpenho({
+      ativo: false,
+      movimentos: [mov('2026-01-02T00:00:00Z')],
+      situacoes: [],
+    });
+    expect(itens.at(-1)).toEqual({ tipo: 'antigo' });
+  });
+
+  it('primeira mudança gravada sendo uma reativação também ganha o item antigo', () => {
+    const itens = linhaDoTempoDoEmpenho({
+      ativo: true,
+      movimentos: [],
+      situacoes: [sit(true, '2026-02-01T00:00:00Z')],
+    });
+    expect(itens).toHaveLength(2);
+    expect(itens.at(-1)).toEqual({ tipo: 'antigo' });
+  });
+
+  it('histórico que começa por inativação não ganha item extra', () => {
+    const itens = linhaDoTempoDoEmpenho({
+      ativo: true,
+      movimentos: [],
+      situacoes: [sit(false, '2026-02-01T00:00:00Z'), sit(true, '2026-02-02T00:00:00Z')],
+    });
+    expect(itens.some((i) => i.tipo === 'antigo')).toBe(false);
   });
 });

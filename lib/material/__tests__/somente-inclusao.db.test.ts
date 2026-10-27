@@ -108,8 +108,12 @@ rodar('registros só de inclusão, contra o Mongo', () => {
     });
     const admin = String(new Types.ObjectId());
 
-    expect(await cadastro.revogarDesignacao(admin, String(d._id))).toEqual({ ok: true });
-    expect((await cadastro.revogarDesignacao(admin, String(d._id))).ok).toBe(false);
+    expect(
+      await cadastro.revogarDesignacao(admin, String(d._id), 'Motivo de teste do cadastro'),
+    ).toEqual({ ok: true });
+    expect(
+      (await cadastro.revogarDesignacao(admin, String(d._id), 'Motivo de teste do cadastro')).ok,
+    ).toBe(false);
     const lida = await Designacao.findById(d._id).lean();
     expect(lida?.revogadaEm).toBeInstanceOf(Date);
     // Fora da função própria, nem o campo de revogação muda.
@@ -135,7 +139,13 @@ rodar('registros só de inclusão, contra o Mongo', () => {
     await expect(Faixa.updateOne({ _id: f._id }, { $set: { limiteCentavos: 1 } })).rejects.toThrow(
       /só de inclusão/,
     );
-    expect(await cadastro.desativarFaixa(String(f._id))).toEqual({ ok: true });
+    expect(
+      await cadastro.desativarFaixa(
+        String(new Types.ObjectId()),
+        String(f._id),
+        'Motivo de teste do cadastro',
+      ),
+    ).toEqual({ ok: true });
     const lida = await Faixa.findById(f._id).lean();
     expect(lida?.ativa).toBe(false);
     expect(lida?.limiteCentavos).toBe(17_600_00);
