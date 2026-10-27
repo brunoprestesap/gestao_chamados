@@ -143,6 +143,35 @@ describe('DialogEncaminhar (AC-10)', () => {
     expect(screen.getByText(/4,1% maior/)).toBeInTheDocument();
   });
 
+  it('com um dos preços vazio, a opção diz "sem preço" e nenhuma das duas mostra % (AC-10)', () => {
+    render(
+      <DialogEncaminhar
+        numero="COT-2026-0146"
+        valorCentavos={276_000}
+        ambas={[
+          item({
+            origem: 'ambas',
+            anexoVNumero: 214,
+            anexoVPrecoCentavos: 138_000,
+            sinapiCodigo: '39408',
+            sinapiPrecoCentavos: null,
+          }),
+        ]}
+        naLista={[]}
+        vencidos={[]}
+        urgencia={null}
+        open
+        onOpenChange={vi.fn()}
+        pendente={false}
+        onConfirmar={vi.fn()}
+      />,
+    );
+    const opcao = (re: RegExp) => screen.getByText(re).closest('label')!;
+    expect(opcao(/SINAPI · 39408/)).toHaveTextContent('sem preço');
+    expect(opcao(/SINAPI · 39408/).textContent).not.toMatch(/%/);
+    expect(opcao(/Anexo V · item 214/).textContent).not.toMatch(/%/);
+  });
+
   it('só habilita o Encaminhar com todos os pontos resolvidos', async () => {
     const onConfirmar = montar();
     const botao = screen.getByRole('button', { name: 'Encaminhar' });

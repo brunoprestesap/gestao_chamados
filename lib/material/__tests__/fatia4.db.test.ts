@@ -9,6 +9,12 @@ import {
   temMongoDeTeste,
 } from '@/tests/mongo-test-env';
 
+import type { CartaoCotacao } from '../leitura';
+import type { CotacaoDTO } from '../serializar';
+
+/** O cartão de quem está no fluxo (não o solicitante), já com a cotação. */
+const doFluxo = (c: CartaoCotacao | null) => c!.cotacao as CotacaoDTO;
+
 const emitToRoom = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 vi.mock('@/lib/realtime-emit', () => ({ emitToRoom }));
 const enviarEmailCotacao = vi.hoisted(() => vi.fn().mockResolvedValue(true));
@@ -710,25 +716,22 @@ rodar('fatia 4 da cotação de material, contra o Mongo', () => {
       const chamadoId = String((await M.Cotacao.findById(c.id).lean())!.chamadoId);
 
       const rt = await leitura.cartaoDoChamado(chamadoId, { userId: ids.rt, role: 'Preposto' });
-      expect(rt!.cotacao!.visao).toBe('contratada');
-      expect(rt!.cotacao!.quemAgeAgora).toEqual({ papel: 'fiscal', nome: null });
+      expect(doFluxo(rt).visao).toBe('contratada');
+      expect(doFluxo(rt).quemAgeAgora).toEqual({ papel: 'fiscal', nome: null });
       expect(rt!.cotacao).not.toHaveProperty('fase');
       expect(rt!.cotacao).not.toHaveProperty('empenho');
 
       const trf1 = await leitura.cartaoDoChamado(chamadoId, { userId: ids.fiscal, role: 'Admin' });
-      expect(trf1!.cotacao!.visao).toBe('trf1');
-      expect(trf1!.cotacao!.quemAgeAgora).toEqual({ papel: 'fiscal', nome: 'fiscal' });
+      expect(doFluxo(trf1).visao).toBe('trf1');
+      expect(doFluxo(trf1).quemAgeAgora).toEqual({ papel: 'fiscal', nome: 'fiscal' });
 
       const sol = await leitura.cartaoDoChamado(chamadoId, {
         userId: ids.solicitante,
         role: 'Solicitante',
       });
-      expect(sol!.cotacao!.visao).toBe('solicitante');
-      expect(sol!.cotacao!.fase).toBe('pedido');
+      // AC-24: só a fase. Sem número, sem a situação crua e sem versão.
+      expect(sol!.cotacao).toEqual({ id: c.id, visao: 'solicitante', fase: 'pedido' });
       expect(sol!.acoes).toBeNull();
-      for (const campo of ['quemAgeAgora', 'valorTotalCentavos', 'itens', 'montadoPorNome']) {
-        expect(sol!.cotacao).not.toHaveProperty(campo);
-      }
     });
   });
 
@@ -767,7 +770,7 @@ rodar('fatia 4 da cotação de material, contra o Mongo', () => {
         String((await M.Cotacao.findById(c.id).lean())!.chamadoId),
         { userId: ids.tecnico, role: 'Técnico' },
       );
-      expect(tecnico!.cotacao!.urgencia).toEqual({ pedida: true });
+      expect(doFluxo(tecnico).urgencia).toEqual({ pedida: true });
     });
 
     it('o técnico não vê o motivo da recusa da urgência nem a pesquisa de preços na trilha', async () => {
@@ -787,7 +790,7 @@ rodar('fatia 4 da cotação de material, contra o Mongo', () => {
         userId: ids.tecnico,
         role: 'Técnico',
       });
-      const cot = tecnico!.cotacao!;
+      const cot = doFluxo(tecnico);
       expect(cot.visao).toBe('tecnico');
       expect(cot.urgencia).toEqual({ pedida: true });
       expect(cot.ultimoMotivo).toBeNull();

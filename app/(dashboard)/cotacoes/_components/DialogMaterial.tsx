@@ -80,7 +80,13 @@ export function DialogMaterial(props: Props) {
         props.modo === 'criar'
           ? await criarCotacaoAction({
               chamadoId: props.chamadoId,
-              itens: itens.map(({ id: _id, ...i }) => i),
+              // Item novo ainda não tem id no servidor: vai sem o id da tela.
+              itens: itens.map((i) => ({
+                descricao: i.descricao,
+                unidade: i.unidade,
+                quantidade: i.quantidade,
+                motivo: i.motivo,
+              })),
             })
           : await salvarRascunhoAction({ id: props.cotacaoId, versao: props.versao, itens });
       if (!r.ok) {

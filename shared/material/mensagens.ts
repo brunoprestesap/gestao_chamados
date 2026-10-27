@@ -1,5 +1,6 @@
 import { formatarReais } from '@/shared/chamados/custo';
 
+import type { SecaoCadastro } from './cadastro';
 import type {
   AcaoCotacao,
   FaseOrcamento,
@@ -449,9 +450,17 @@ export const ERROS_PARAMETROS = {
 
 export const ROTULO_PARAMETRO = {
   percentualSinapi: 'Percentual admitido sobre o SINAPI',
-  janelaDias: 'Janela do fracionamento e da reincidência (dias)',
-  parcelaRelevantePercentual: 'Parcela relevante do saldo (%)',
+  janelaDias: 'Janela do fracionamento e da reincidência',
+  parcelaRelevantePercentual: 'Parcela relevante do saldo',
   raizCnpjContratada: 'Raiz do CNPJ da contratada',
+} as const;
+
+/** A unidade escrita ao lado do campo e do valor no histórico (spec 0021, AC-22). */
+export const UNIDADE_PARAMETRO = {
+  percentualSinapi: '%',
+  janelaDias: 'dias',
+  parcelaRelevantePercentual: '%',
+  raizCnpjContratada: null,
 } as const;
 
 /** Divisão por zero no relatório (AC-41): nunca 0%. */
@@ -1297,4 +1306,472 @@ export const TEXTO_HISTORICO_ANTERIOR = {
   titulo: 'Histórico: sistema anterior',
   contagem: (n: number) => (n === 1 ? '1 cotação' : `${n} cotações`),
   esperando: 'uma esperando aprovação',
+} as const;
+
+// ---------------------------------------------------------------------------
+// Spec 0021, fatia 7: o cadastro de material em seções
+// ---------------------------------------------------------------------------
+
+const MESES_CURTOS = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+] as const;
+
+/** `2026-09` vira `set/2026`. */
+export function mesCurto(referencia: string): string {
+  const [a, m] = referencia.split('-');
+  return `${MESES_CURTOS[Number(m) - 1] ?? m}/${a}`;
+}
+
+const plural = (n: number, um: string, varios: string) => (n === 1 ? `1 ${um}` : `${n} ${varios}`);
+
+export const ROTULO_SECAO_CADASTRO: Record<SecaoCadastro, string> = {
+  empenhos: 'Empenhos',
+  designacoes: 'Designações',
+  faixas: 'Faixas de aprovação',
+  'anexo-v': 'Anexo V',
+  sinapi: 'SINAPI',
+  parametros: 'Parâmetros',
+};
+
+const PAPEL_MINUSCULO: Record<PapelDesignacao, string> = {
+  responsavel_tecnico: 'responsável técnico',
+  fiscal: 'fiscal',
+  gestor: 'gestor',
+  aprovador: 'aprovador',
+};
+
+/** A navegação lateral e a lista "Para aprovar a primeira cotação" (AC-18, AC-19). */
+export const TEXTO_CADASTRO = {
+  titulo: 'Cadastro de material',
+  subtitulo:
+    'Empenhos, quem aprova, tabelas de preço e regras. Nada se apaga: designação é revogada, faixa é desativada, o empenho recebe reforço ou anulação e cada importação vira uma versão nova.',
+  navegacao: 'Seções do cadastro',
+  nota: {
+    empenhos: (n: number) => plural(n, 'elegível', 'elegíveis'),
+    designacoes: (n: number) => plural(n, 'vigente', 'vigentes'),
+    faixas: (n: number) => plural(n, 'ativa', 'ativas'),
+    anexoV: (p: { revisaoAberta: boolean; itens: number }) =>
+      p.revisaoAberta ? 'revisão aberta' : plural(p.itens, 'item', 'itens'),
+    sinapi: (mes: string | null) => (mes ? mesCurto(mes) : 'nenhum mês'),
+  },
+  primeira: {
+    titulo: 'Para aprovar a primeira cotação',
+    prontos: (n: number, total: number) => `${n} de ${total} prontos`,
+    pronto: 'pronto',
+    falta: 'falta',
+    empenho: {
+      titulo: 'Empenho elegível',
+      detalhe: (n: number) =>
+        n === 0 ? 'nenhum ativo, do exercício e na vigência' : plural(n, 'elegível', 'elegíveis'),
+    },
+    faixas: {
+      titulo: 'Faixas de aprovação',
+      detalhe: (n: number) => (n === 0 ? 'nenhuma ativa' : plural(n, 'ativa', 'ativas')),
+    },
+    designacoes: {
+      titulo: 'Designações',
+      detalhe: (faltam: readonly PapelDesignacao[]) =>
+        faltam.length === 0
+          ? 'fiscal, gestor e aprovador'
+          : `falta ${faltam.map((p) => PAPEL_MINUSCULO[p]).join(', ')}`,
+    },
+    semCodigo: {
+      titulo: 'Anexo V sem código SINAPI',
+      detalhe: (n: number) =>
+        n === 0 ? 'todos os itens têm código' : plural(n, 'item para ligar', 'itens para ligar'),
+    },
+  },
+} as const;
+
+/** As seções de empenhos, designações e faixas (AC-20). */
+export const TEXTO_CADASTRO_SECOES = {
+  empenhos: {
+    descricao:
+      'O valor inicial vira o líquido; reforço e anulação entram depois como movimentos. Só o empenho elegível recebe reserva.',
+    novo: 'Novo empenho',
+    vazio: 'Nenhum empenho cadastrado.',
+    movimento: 'Reforço ou anulação',
+    inativar: 'Inativar',
+    reativar: 'Reativar',
+    exercicio: (a: number) => `Exercício ${a}`,
+    vigenteAte: (d: string) => `vigente até ${d}`,
+    semFim: 'sem fim de vigência',
+    liquido: 'Valor líquido',
+    comprometido: 'Comprometido',
+    saldo: 'Saldo',
+    projecao: 'Projeção',
+    situacao: {
+      elegivel: 'Elegível',
+      fora: 'Fora do exercício ou vencido',
+      inativo: 'Inativo',
+    },
+    naoRecebe: (saldo: string) => `${saldo} de saldo · não recebe novas reservas`,
+  },
+  designacoes: {
+    descricao:
+      'Quem age em cada papel. Fiscal, gestor e aprovador são usuários Admin; o responsável técnico é Preposto ou Técnico da contratada.',
+    mostrarRevogadas: 'Mostrar revogadas',
+    nova: 'Nova designação',
+    vazioPapel: 'Ninguém designado.',
+    ajudaPapel: {
+      fiscal: 'analisa e encaminha',
+      gestor: 'recebe o material',
+      aprovador: 'cada um até o limite da sua faixa',
+      responsavel_tecnico: 'contratada · monta e envia',
+    } satisfies Record<PapelDesignacao, string>,
+    vigencia: (inicio: string, fim: string | null) =>
+      fim ? `${inicio} a ${fim}` : `desde ${inicio}`,
+    faixa: (nome: string, limite: string | null) => (limite ? `${nome} · até ${limite}` : nome),
+    situacao: { vigente: 'Vigente', revogada: 'Revogada', fora: 'Fora da vigência' },
+    revogar: 'Revogar',
+    revogarDe: (nome: string) => `Revogar a designação de ${nome}`,
+  },
+  faixas: {
+    descricao:
+      'Faixa não se edita: o que já foi aprovado guarda o limite do momento. Para mudar um limite, crie uma faixa nova e designe de novo.',
+    nome: 'Nome da faixa',
+    limite: 'Limite (R$)',
+    criar: 'Criar faixa',
+    vazio: 'Nenhuma faixa ativa. Sem faixa, ninguém aprova cotação.',
+    ate: (v: string) => `até ${v}`,
+    aprovadores: (n: number) =>
+      n === 0 ? 'ninguém vigente' : plural(n, 'aprovador', 'aprovadores'),
+    teto: (v: string) => `Cotação acima de ${v} não tem quem aprove.`,
+    semTeto: 'Nenhuma faixa tem aprovador vigente: nenhuma cotação pode ser aprovada.',
+    desativadas: (n: number) => `Desativadas (${n})`,
+    desativar: 'Desativar',
+    desativarA: (nome: string) => `Desativar a faixa ${nome}`,
+    escada: 'Escada de limites',
+  },
+} as const;
+
+/** Os formulários de empenho, movimento, designação e faixa (AC-27). */
+export const TEXTO_FORMULARIOS_CADASTRO = {
+  escolha: 'Escolha',
+  empenho: {
+    descricao: 'O valor inicial vira o líquido; reforço e anulação entram depois como movimentos.',
+    numero: 'Número',
+    exercicio: 'Exercício',
+    valor: 'Valor inicial (R$)',
+    fim: 'Fim da vigência (opcional)',
+    cadastrar: 'Cadastrar',
+    cadastrado: 'Empenho cadastrado.',
+    valorInvalido: 'Informe o valor em reais, como 12.345,67.',
+    exemploNumero: '2026NE000123',
+    exemploValor: '50.000,00',
+  },
+  movimento: {
+    titulo: (numero: string) => `Movimento do empenho ${numero}`,
+    descricao: 'A anulação é recusada se deixar o líquido abaixo do que já está comprometido.',
+    tipo: 'Tipo',
+    reforco: 'Reforço',
+    anulacao: 'Anulação',
+    linha: (tipo: 'reforco' | 'anulacao', valor: string, ato: string, data: string) =>
+      `${tipo === 'reforco' ? 'Reforço' : 'Anulação'} de ${valor} · ${ato} · ${data}`,
+    valor: 'Valor (R$)',
+    ato: 'Ato (documento SEI)',
+    registrar: 'Registrar',
+    valorInvalido: 'Informe o valor em reais, como 1.000,00.',
+    registrado: (tipo: 'reforco' | 'anulacao') =>
+      tipo === 'reforco' ? 'Reforço registrado.' : 'Anulação registrada.',
+  },
+  designacao: {
+    descricao:
+      'Fiscal, gestor e aprovador só podem ser Admin; responsável técnico, Preposto ou Técnico. Mudar um limite é criar faixa nova e designar de novo.',
+    papel: 'Papel',
+    pessoa: 'Pessoa',
+    faixa: 'Faixa',
+    inicio: 'Início',
+    fim: 'Fim (opcional)',
+    ato: 'Ato de designação (portaria, documento SEI)',
+    designar: 'Designar',
+    registrada: 'Designação registrada.',
+    opcaoPessoa: (nome: string, perfil: string) => `${nome} (${perfil})`,
+    opcaoFaixa: (nome: string, limite: string) => `${nome} (até ${limite})`,
+  },
+  faixa: {
+    exemploNome: 'Diretor do Foro',
+    criada: 'Faixa criada.',
+    limiteInvalido: 'Informe o limite em reais, como 17.600,00.',
+  },
+} as const;
+
+/** O envio do CSV, a revisão e as ações num item do Anexo V (AC-27). */
+export const TEXTO_IMPORTACAO_CADASTRO = {
+  layout: {
+    titulo: 'Layout do arquivo',
+    csv: 'CSV separado por ponto e vírgula, como o Excel em português grava. Colunas obrigatórias:',
+    opcional: 'opcional:',
+    cabecalho:
+      '. O cabeçalho pode estar em qualquer uma das 20 primeiras linhas, e colunas a mais são ignoradas. Preço com vírgula decimal e até 2 casas (R$ opcional).',
+    anexo: 'ITEM de 1 a 200, sem repetir. CODIGO_SINAPI vazio mantém o código da versão anterior.',
+    sinapi:
+      'Converta a planilha da Caixa (UF AP, não desonerado) e dê à coluna de preço do AP o nome PRECO. Um mês por arquivo; mês já importado não entra de novo.',
+  },
+  tabela: {
+    numero: 'Nº',
+    descricao: 'Descrição',
+    quantidade: 'Qtd. estimada',
+    preco: 'Preço',
+    sinapi: 'SINAPI',
+    conferencia: 'Conferência',
+    acoes: 'Ações',
+    semCodigo: 'sem código',
+    foraDoMes: 'fora do mês mais recente',
+  },
+  enviar: {
+    tituloAnexo: 'Importar o Anexo V de um contrato',
+    tituloSinapi: 'Importar um mês do SINAPI',
+    contrato: 'Contrato',
+    escolhaContrato: 'Escolha o contrato',
+    mes: 'Mês de referência',
+    arquivo: 'Arquivo CSV',
+    botao: 'Enviar para revisão',
+    bloqueado:
+      'Há uma importação deste tipo aberta. Aplique ou descarte a que está em revisão antes de enviar outra.',
+    semArquivo: 'Escolha o arquivo CSV.',
+    falhou: 'Não foi possível enviar o arquivo.',
+    falhouTente: 'Não foi possível enviar o arquivo. Tente de novo.',
+    lido: 'Arquivo lido. Confira a revisão antes de aplicar.',
+    linha: (n: number, motivo: string) => `Linha ${n}: ${motivo}`,
+  },
+  campo: {
+    descricao: 'Descrição',
+    unidade: 'Unidade',
+    quantidadeEstimada: 'Qtd. estimada',
+    precoCentavos: 'Preço',
+    sinapiCodigo: 'Código SINAPI',
+  } as Record<string, string>,
+  revisao: {
+    descartar: 'Descartar',
+    descartada: 'Importação descartada.',
+    aplicarAnexo: 'Aplicar versão nova',
+    aplicarSinapi: 'Aplicar mês',
+    retomar: 'Retomar a aplicação',
+    aplicadoAnexo: 'Anexo V aplicado.',
+    aplicadoSinapi: 'Mês do SINAPI aplicado.',
+    parada: 'A aplicação parou no meio. Aplicar de novo continua de onde parou, sem duplicar nada.',
+  },
+  item: {
+    marcar: 'Marcar',
+    desmarcar: 'Desmarcar',
+    codigo: 'Código',
+    marcado: 'Item marcado para conferência.',
+    desmarcado: 'Marca tirada.',
+    codigoCorrigido: 'Código SINAPI corrigido.',
+    tituloCodigo: (n: number) => `Código SINAPI do item ${n}`,
+    tituloMarcar: (n: number) => `Marcar o item ${n} para conferência`,
+    tituloDesmarcar: (n: number) => `Tirar a marca do item ${n}`,
+    efeitoCodigo:
+      'O código antigo e o motivo ficam no histórico do item, e a marca automática é recalculada.',
+    efeitoMarca:
+      'Com a marca, o fiscal só encaminha a cotação que usa este item depois de registrar a conferência. O motivo fica no histórico.',
+    campoCodigo: 'Código SINAPI (vazio tira o código)',
+    motivo: 'Motivo',
+    tamanhoMotivo: (min: number, max: number) => `De ${min} a ${max} caracteres.`,
+    confirmar: 'Confirmar',
+  },
+} as const;
+
+/** As confirmações que dizem o efeito antes de agir (AC-21). */
+export const TEXTO_CONFIRMACAO_CADASTRO = {
+  inativar: {
+    titulo: (numero: string) => `Inativar o empenho ${numero}?`,
+    efeito:
+      'Ele deixa de receber reservas a partir de agora. As cotações já autorizadas continuam com o valor reservado nele.',
+    botao: 'Inativar empenho',
+    sucesso: 'Empenho inativado.',
+  },
+  reativar: {
+    titulo: (numero: string) => `Reativar o empenho ${numero}?`,
+    efeito: 'Ele volta a receber reservas, desde que esteja no exercício e na vigência.',
+    botao: 'Reativar empenho',
+    sucesso: 'Empenho reativado.',
+  },
+  revogar: {
+    titulo: (nome: string) => `Revogar a designação de ${nome}?`,
+    efeito: (papel: PapelDesignacao) =>
+      `A pessoa deixa de agir como ${PAPEL_MINUSCULO[papel]} a partir de agora. Os atos já registrados ficam na trilha. A revogação não se desfaz: para voltar, crie uma designação nova.`,
+    botao: 'Revogar designação',
+    sucesso: 'Designação revogada.',
+  },
+  desativar: {
+    titulo: (nome: string) => `Desativar a faixa ${nome}?`,
+    efeito: (aprovadores: number) =>
+      `${
+        aprovadores === 0
+          ? 'Nenhum aprovador vigente usa esta faixa.'
+          : `${plural(aprovadores, 'aprovador vigente deixa', 'aprovadores vigentes deixam')} de aprovar por ela a partir de agora.`
+      } O que já foi aprovado guarda o limite do momento. A faixa não volta: para ter o limite de novo, crie uma faixa nova.`,
+    botao: 'Desativar faixa',
+    sucesso: 'Faixa desativada.',
+  },
+} as const;
+
+/** Anexo V, SINAPI e a revisão da importação (AC-22), sem "caminho 1" nem "caminho 2". */
+export const TEXTO_CADASTRO_TABELAS = {
+  semAnexo:
+    'Nenhum contrato tem Anexo V carregado. Sem ele, a busca não oferece os itens do Anexo V.',
+  contratoSemAnexo: (numero: string) =>
+    `O contrato ${numero} não tem Anexo V carregado: a busca não oferece os itens dele.`,
+  semCodigoLista: (n: number) =>
+    `${plural(n, 'item sem código SINAPI', 'itens sem código SINAPI')} (sem referência para comparar o preço)`,
+  semMes: 'Nenhum mês importado. Sem SINAPI, a busca não oferece os insumos do SINAPI.',
+  atrasado: (mes: string) =>
+    `O SINAPI está atrasado: o mês mais recente importado é ${mes.split('-').reverse().join('/')}.`,
+  emUso: 'em uso',
+  revisao: {
+    titulo: 'Revise antes de aplicar',
+    filtros: 'Grupos da revisão',
+    novos: 'Novos',
+    alterados: 'Alterados',
+    removidosAnexo: 'Saem da versão nova',
+    removidosSinapi: 'Fora deste mês',
+    numero: 'Nº',
+    codigo: 'Código',
+    item: 'Item',
+    oQueMuda: 'O que muda',
+    mostrando: (n: number, total: number) => `Mostrando ${n} de ${total}.`,
+    vazio: 'Nada neste grupo.',
+    entra: 'entra na versão nova',
+    sai: 'sai da versão nova',
+    novoNoMes: 'novo neste mês',
+    foraDoMes: 'não está neste mês',
+  },
+} as const;
+
+/** Os parâmetros com a unidade junto do campo e a taxa travada (AC-22). */
+export const TEXTO_PARAMETROS = {
+  ajuda: {
+    percentualSinapi: (min: number, max: number) =>
+      `Quanto o preço pode passar da referência (SINAPI ou outra) antes de travar ou avisar. De ${min} a ${max}. Mudar refaz a marca automática de anomalia do Anexo V.`,
+    janelaDias: (min: number, max: number) =>
+      `Quantos dias para trás contam no fracionamento e na reincidência. De ${min} a ${max}.`,
+    parcelaRelevantePercentual: (min: number, max: number) =>
+      `A partir de que parte do saldo do empenho o aprovador vê a projeção de esgotamento. De ${min} a ${max}.`,
+    raizCnpjContratada: () =>
+      'Os 8 primeiros dígitos do CNPJ da contratada: orçamento com essa raiz é recusado.',
+  },
+  taxa: 'Taxa de administração sobre material',
+  taxaAjuda: 'Fixa em zero pelo contrato, sem edição.',
+  gravar: 'Gravar parâmetros',
+  gravados: 'Parâmetros gravados.',
+  noAto:
+    'Cada ato da cotação guarda na trilha os valores vigentes naquele momento: mudar aqui não muda o que já foi registrado.',
+  historico: (n: number) => `Histórico de mudanças (${n})`,
+  semHistorico: 'Nenhuma mudança registrada: valem os padrões.',
+} as const;
+
+// ---------------------------------------------------------------------------
+// Spec 0021, fatia 8: o relatório de material
+// ---------------------------------------------------------------------------
+
+/** O relatório com atalhos de período, os quatro números, barras e pontos de atenção (AC-23). */
+export const TEXTO_RELATORIO = {
+  titulo: 'Relatório de material',
+  subtitulo: 'Prazo, preço e consumo das cotações de material no período.',
+  periodo: {
+    grupo: 'Período do relatório',
+    atalho: { mes: 'Mês atual', trimestre: 'Trimestre atual', ano: 'Ano atual' },
+    outro: 'Outro período',
+    de: 'De',
+    ate: 'Até',
+    ver: 'Ver período',
+    mostrando: (inicio: string, fim: string) =>
+      `Mostrando ${inicio} a ${fim}, em dias de Belém. Cada número entra pela data do próprio fato: a autorização, o primeiro envio, a execução ou o pedido de urgência.`,
+    ajuda: (max: number) => `Até ${max} dias.`,
+    erro: (motivo: string) => `${motivo} Mostrando o mês corrente.`,
+  },
+  numeros: {
+    rotulo: 'Indicadores do período',
+    tempo: 'Do envio à autorização',
+    tempoAjuda: (mediana: string, n: number) =>
+      `média · mediana ${mediana} em ${plural(n, 'cotação autorizada', 'cotações autorizadas')}`,
+    devolvidas: 'Devolvidas',
+    devolvidasAjuda: (n: number, total: number) =>
+      `${n} de ${total} enviadas pela primeira vez no período`,
+    impedimento: 'Impedimento na primeira tentativa',
+    divergencia: 'Divergência entre autorizado e executado',
+    divergenciaAjuda: (n: number, total: number) =>
+      `${n} de ${plural(total, 'executada', 'executadas')} com diferença`,
+  },
+  custo: {
+    titulo: 'Custo por equipamento',
+    descricao: (total: string, semAtivo: string) =>
+      `Valor executado no período: ${total} no total, ${semAtivo} sem equipamento. Os 20 equipamentos de maior valor.`,
+    cotacoes: (n: number) => plural(n, 'cotação', 'cotações'),
+    vazio: 'Nenhum material executado em equipamento no período.',
+  },
+  empenhos: {
+    titulo: 'Empenhos: saldo e projeção',
+    descricao:
+      'Hoje, sem período. O consumo médio vem das reservas e liberações dos últimos 90 dias; reforço e anulação não entram.',
+    linha: (saldo: string, porDia: string | null) =>
+      porDia ? `Saldo ${saldo} · consumo de ${porDia} por dia` : `Saldo ${saldo}`,
+    vazio: 'Nenhum empenho ativo cadastrado.',
+  },
+  tabela: {
+    titulo: 'Preço de tabela',
+    descricao:
+      'Itens do Anexo V nas cotações autorizadas no período, a preço do Anexo V menos o equivalente SINAPI, qualquer que seja a base aplicada.',
+    diferenca: 'Diferença para o SINAPI',
+    diferencaAjuda: (n: number) => `${plural(n, 'item', 'itens')} com equivalente SINAPI`,
+    semEquivalente: 'Sem equivalente SINAPI',
+    semEquivalenteAjuda: (n: number) => `${plural(n, 'item', 'itens')}, a preço do Anexo V`,
+    ligar: 'ligar no cadastro',
+  },
+  atencao: {
+    titulo: 'Pontos de atenção',
+    urgencias: (n: number) => plural(n, 'cotação por urgência', 'cotações por urgência'),
+    urgenciasAjuda: (pendentes: number) =>
+      pendentes === 0
+        ? 'pesquisa completa em todas'
+        : plural(pendentes, 'com pesquisa pendente', 'com pesquisa pendente'),
+    fracionamento: (n: number) => plural(n, 'sinal de fracionamento', 'sinais de fracionamento'),
+    fracionamentoAjuda: 'advertência em algum ato do período',
+    acima: (n: number) => plural(n, 'item acima do estimado', 'itens acima do estimado'),
+    acimaAjuda: 'consumo do Anexo V',
+    nada: 'Nada a apontar no período.',
+  },
+  urgencias: {
+    titulo: (n: number) => `Cotações por exceção de urgência (${n})`,
+    descricao: 'Pela data do pedido de urgência.',
+    cotacao: 'Cotação',
+    chamado: 'Chamado',
+    decisao: 'Decisão',
+    pesquisa: 'Pesquisa',
+    aceita: 'Aceita',
+    recusada: 'Recusada',
+    semDecisao: 'Sem decisão',
+    completa: 'Completa',
+    pendente: 'Pendente',
+  },
+  fracionamento: {
+    titulo: (n: number) => `Advertências de fracionamento (${n})`,
+    descricao: 'Cotações com a advertência em algum ato do período.',
+  },
+  consumo: {
+    titulo: 'Consumo por item do Anexo V',
+    descricao:
+      'Acumulado do contrato, sem período: executado das cotações executadas e atestadas mais o autorizado ainda não executado, contra a quantidade estimada do item vigente.',
+    item: 'Item',
+    contrato: 'Contrato',
+    consumo: 'Consumo',
+    usado: 'Usado / estimado',
+    situacao: 'Situação',
+    acima: 'Acima do estimado',
+    dentro: 'Dentro',
+    vazio: 'Nenhum item do Anexo V consumido até agora.',
+  },
 } as const;

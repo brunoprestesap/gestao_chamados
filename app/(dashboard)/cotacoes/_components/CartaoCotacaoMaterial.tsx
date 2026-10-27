@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import type { Acoes, CartaoCotacao } from '@/lib/material/leitura';
-import type { CotacaoDTO } from '@/lib/material/serializar';
+import type { CotacaoDTO, CotacaoSolicitanteDTO } from '@/lib/material/serializar';
 import { cn } from '@/lib/utils';
 import { formatarQuantidade, formatarReais } from '@/shared/chamados/custo';
 import { situacaoAnteriorDaTrilha } from '@/shared/material/jornada';
@@ -333,8 +333,8 @@ function LinkDaCotacao({ cotacao: c }: { cotacao: CotacaoDTO }) {
  * O solicitante vê uma frase fixa por fase e a barra de três fases, sem valor
  * e sem nomes. A fase encerrada mostra só a frase.
  */
-function CartaoSolicitante({ cotacao: c }: { cotacao: CotacaoDTO }) {
-  const fase = c.fase ?? 'pedido';
+function CartaoSolicitante({ cotacao: c }: { cotacao: CotacaoSolicitanteDTO }) {
+  const fase = c.fase;
   const texto = TEXTO_FASE_SOLICITANTE[fase];
   const atual = fase === 'encerrada' ? -1 : FASES_SOLICITANTE.indexOf(fase);
   return (

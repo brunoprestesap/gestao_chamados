@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -16,6 +17,8 @@ vi.mock('@/app/(dashboard)/chamados-atribuidos/cotacao.actions', () => ({
   approveCotacaoAction: vi.fn(),
   rejectCotacaoAction: vi.fn(),
 }));
+
+import { approveCotacaoAction } from '@/app/(dashboard)/chamados-atribuidos/cotacao.actions';
 
 import { CotacaoApprovalCard, type CotacaoDTO } from '../CotacaoApprovalCard';
 
@@ -88,5 +91,35 @@ describe('CotacaoApprovalCard · recolhido (spec 0021, AC-17)', () => {
     // Assert
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('depois de aprovar a única enviada, fica na tela durante a recarga e volta a recolher', async () => {
+    // Arrange
+    const user = userEvent.setup();
+    const enviada = antiga('enviada', 'a1');
+    responder({ active: enviada, history: [enviada] });
+    vi.mocked(approveCotacaoAction).mockResolvedValue({ ok: true });
+    render(<CotacaoApprovalCard ticketId="ch1" canReview recolhido />);
+    const bloco = (await screen.findByText('Histórico: sistema anterior')).closest('details')!;
+    // O navegador dispara `toggle` ao montar o `details` já aberto.
+    fireEvent(bloco, new Event('toggle'));
+    let liberar: (corpo: unknown) => void = () => {};
+    fetchMock.mockReturnValueOnce(
+      new Promise((ok) => {
+        liberar = (corpo) => ok({ ok: true, json: async () => corpo });
+      }),
+    );
+
+    // Act
+    await user.click(screen.getByRole('button', { name: 'Aprovar' }));
+
+    // Assert: durante a recarga, o bloco continua montado
+    expect(screen.getByText('Histórico: sistema anterior')).toBeInTheDocument();
+    liberar({ active: null, history: [{ ...enviada, status: 'aprovada' }] });
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText('Histórico: sistema anterior').closest('details'),
+      ).not.toHaveAttribute('open'),
+    );
   });
 });

@@ -30,10 +30,14 @@ import type { MarcaAnomalia } from './precos';
  * - `contratada`: responsável técnico, sem empenho, saldo, limites,
  *   advertências de preço nem confrontos de base;
  * - `tecnico`: o técnico atribuído, só itens, valores, situação e motivos;
- * - `solicitante`: só a situação e a fase (spec 0021).
+ * - `solicitante`: só a fase, em palavras simples (spec 0021, AC-24), por
+ *   `serializarParaSolicitante`.
  */
 
 export type Visao = 'trf1' | 'contratada' | 'tecnico' | 'solicitante';
+
+/** As visões que recebem a cotação inteira, filtrada por `serializarCotacao`. */
+export type VisaoDoFluxo = Exclude<Visao, 'solicitante'>;
 
 export type CotacaoBruta = {
   _id: Types.ObjectId;
@@ -293,6 +297,12 @@ export type EmpenhoDoDetalheDTO = {
 /** Quem age agora (spec 0021). O nome do fiscal que assumiu só sai na visão TRF1. */
 export type QuemAgeDTO = { papel: PapelEvento; nome: string | null };
 
+/**
+ * O que o solicitante recebe (spec 0021, AC-24): só a fase. Sem número, sem a
+ * situação crua (que desfaria o agrupamento das fases) e sem versão.
+ */
+export type CotacaoSolicitanteDTO = { id: string; visao: 'solicitante'; fase: FaseSolicitante };
+
 export type CotacaoDTO = {
   id: string;
   numero: string;
@@ -300,7 +310,7 @@ export type CotacaoDTO = {
   situacao: SituacaoCotacao;
   emTramite: boolean;
   versao: number;
-  visao: Visao;
+  visao: VisaoDoFluxo;
   criadaEm: string;
   atualizadaEm: string;
   /** Motivo do último devolver, reprovar ou cancelar. */
@@ -335,8 +345,6 @@ export type CotacaoDTO = {
   montadoPorNome?: string | null;
   /** Spec 0021: todos menos o solicitante. */
   quemAgeAgora?: QuemAgeDTO | null;
-  /** Spec 0021, só o solicitante: a fase em palavras simples (AC-16). */
-  fase?: FaseSolicitante;
   /** Spec 0021, só TRF1 (AC-8, AC-24). */
   empenho?: EmpenhoDoDetalheDTO;
   /**
@@ -411,9 +419,16 @@ const ACOES_FORA_DA_TRILHA_DO_TECNICO = new Set([
 
 const ymdDe = (d: Date) => d.toISOString().slice(0, 10);
 
+/** A cotação para o solicitante: só a fase (spec 0021, AC-16, AC-24). */
+export function serializarParaSolicitante(
+  cot: Pick<CotacaoBruta, '_id' | 'situacao'>,
+): CotacaoSolicitanteDTO {
+  return { id: String(cot._id), visao: 'solicitante', fase: FASE_DA_SITUACAO[cot.situacao] };
+}
+
 export function serializarCotacao(
   cot: CotacaoBruta,
-  visao: Visao,
+  visao: VisaoDoFluxo,
   ctx: { userId: string },
   extra: {
     eventos?: EventoBruto[];
@@ -448,9 +463,8 @@ export function serializarCotacao(
     visao,
     criadaEm: cot.createdAt.toISOString(),
     atualizadaEm: cot.updatedAt.toISOString(),
-    ultimoMotivo: visao === 'solicitante' ? null : (ultimo?.motivo ?? null),
+    ultimoMotivo: ultimo?.motivo ?? null,
   };
-  if (visao === 'solicitante') return { ...base, fase: FASE_DA_SITUACAO[cot.situacao] };
 
   base.itens = cot.itens.map((i) => ({
     id: String(i._id),

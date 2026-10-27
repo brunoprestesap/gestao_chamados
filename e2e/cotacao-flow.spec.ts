@@ -114,7 +114,6 @@ function seloDoDetalhe(page: Page) {
     .first();
 }
 
-/** O cartão "Material" da tela do chamado. */
 /** O cartão de material na tela do chamado, nas quatro versões (spec 0021). */
 const CARTAO_MATERIAL = '[data-cartao-material]';
 
@@ -452,6 +451,118 @@ test.describe.serial('Cotação de material: do registro do técnico à execuç�
     const etapas = page.getByRole('list', { name: 'Etapas do ateste' }).getByRole('listitem');
     await expect(etapas.first()).toContainText('Registrado', { timeout: 15000 });
     await expect(etapas.nth(1)).toHaveAttribute('aria-current', 'step');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 3: o cadastro de material em seções (spec 0021, fatia 7)
+// ---------------------------------------------------------------------------
+
+const SECOES_CADASTRO_E2E = [
+  ['empenhos', 'Empenhos'],
+  ['designacoes', 'Designações'],
+  ['faixas', 'Faixas de aprovação'],
+  ['anexo-v', 'Anexo V'],
+  ['sinapi', 'SINAPI'],
+  ['parametros', 'Parâmetros'],
+] as const;
+
+test.describe.serial('Cotação de material: o cadastro em seções', () => {
+  test('a seção vai no endereço e sobrevive ao recarregar; desativar faixa pede confirmação (spec 0021, AC-18, AC-19, AC-21)', async ({
+    page,
+  }) => {
+    await garantirCadastroMaterial();
+    await login(page, 'admin');
+    await page.goto('/configuracoes/material');
+    await expect(page.getByRole('region', { name: 'Para aprovar a primeira cotação' })).toBeVisible(
+      { timeout: 15000 },
+    );
+    const nav = page.getByRole('navigation', { name: 'Seções do cadastro' });
+    await expect(nav.getByRole('link', { name: /^Empenhos/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    await nav.getByRole('link', { name: /^Faixas de aprovação/ }).click();
+    await expect(page).toHaveURL(/\?secao=faixas$/);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Faixas de aprovação', level: 2 })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByRole('list', { name: 'Escada de limites' })).toBeVisible();
+
+    await page
+      .getByRole('button', { name: /^Desativar a faixa/ })
+      .first()
+      .click();
+    const dialogo = page.getByRole('dialog');
+    await expect(dialogo.getByRole('button', { name: 'Desativar faixa' })).toBeVisible();
+    await dialogo.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(dialogo).not.toBeVisible();
+  });
+
+  test('as seis seções passam no axe, no desktop e a 390 px sem rolagem horizontal (spec 0021, AC-25, AC-26)', async ({
+    page,
+  }) => {
+    test.slow();
+    await login(page, 'admin');
+    for (const largura of [1280, 390]) {
+      await page.setViewportSize({ width: largura, height: 900 });
+      for (const [secao, titulo] of SECOES_CADASTRO_E2E) {
+        await page.goto(`/configuracoes/material?secao=${secao}`);
+        await expect(
+          page.getByRole('heading', { name: titulo, level: 2, exact: true }),
+        ).toBeVisible({
+          timeout: 15000,
+        });
+        const medida = await page.evaluate(() => ({
+          conteudo: document.documentElement.scrollWidth,
+          janela: document.documentElement.clientWidth,
+        }));
+        expect(medida.conteudo, `${secao} a ${largura} px`).toBeLessThanOrEqual(medida.janela);
+        await semViolacaoNoAxe(page);
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 4: o relatório de material (spec 0021, fatia 8)
+// ---------------------------------------------------------------------------
+
+test.describe.serial('Cotação de material: o relatório', () => {
+  test('os atalhos trocam o período, e a tela passa no axe no desktop e a 390 px (spec 0021, AC-23, AC-25, AC-26)', async ({
+    page,
+  }) => {
+    await login(page, 'admin');
+    await page.goto('/relatorios/material');
+    const periodo = page.getByRole('region', { name: 'Período do relatório' });
+    await expect(periodo.getByRole('link', { name: 'Mês atual' })).toHaveAttribute(
+      'aria-current',
+      'true',
+      { timeout: 15000 },
+    );
+    await expect(page.getByRole('region', { name: 'Pontos de atenção' })).toBeVisible();
+    await semViolacaoNoAxe(page);
+
+    await periodo.getByRole('link', { name: 'Ano atual' }).click();
+    await expect(page).toHaveURL(/inicio=\d{4}-01-01/);
+    await expect(periodo.getByRole('link', { name: 'Ano atual' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(page.getByRole('region', { name: 'Custo por equipamento' })).toBeVisible({
+      timeout: 15000,
+    });
+    const medida = await page.evaluate(() => ({
+      conteudo: document.documentElement.scrollWidth,
+      janela: document.documentElement.clientWidth,
+    }));
+    expect(medida.conteudo).toBeLessThanOrEqual(medida.janela);
+    await semViolacaoNoAxe(page);
   });
 });
 

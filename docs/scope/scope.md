@@ -10,41 +10,42 @@ _São recomendações para manter a construção organizada, não obrigações. 
 
 ## At a glance
 
-| #   | Feature                                            | Phase         | Status      |
-| --- | -------------------------------------------------- | ------------- | ----------- |
-| 1   | Autenticação LDAP e perfis                         | Contexto      | existing    |
-| 2   | Unidades e usuários                                | Contexto      | existing    |
-| 3   | Catálogo de serviços                               | Contexto      | existing    |
-| 4   | Abertura de chamado por formulário                 | Contexto      | existing    |
-| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto      | existing    |
-| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto      | existing    |
-| 7   | SLA, expediente e pausas                           | Contexto      | existing    |
-| 8   | Notificações em tempo real                         | Contexto      | existing    |
-| 9   | Integração com a IA local                          | Foundation    | done        |
-| 10  | Conversa e decisões da IA no banco                 | Foundation    | done        |
-| 11  | Tela de chat de chamados                           | Slice 1       | done        |
-| 12  | Abertura do chamado pela IA                        | Slice 1       | done        |
-| 13  | Andamento e conversa com o técnico                 | Slice 2       | done        |
-| 14  | Calibração da trava de confiança                   | Slice 3       | done        |
-| 15  | Prioridade e SLA automáticos                       | Slice 3       | done        |
-| 16  | Atribuição automática ao técnico                   | Slice 3       | done        |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done        |
-| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done        |
-| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done        |
-| 24  | Importador SICAM e vistoria em campo               | Ativos        | done        |
-| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done        |
-| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done        |
-| 27  | Candidatos à substituição                          | Ativos        | done        |
-| 28  | Relatório mensal por contrato com ativo            | Ativos        | done        |
-| 30  | Custo acumulado por ativo                          | Ativos        | done        |
-| 31  | Cotação e fornecimento de material                 | Material      | done        |
-| 32  | IMR do contrato: indicadores 3 e 4                 | Material      | planned     |
-| 33  | Repaginação das telas da cotação de material       | Material      | in-progress |
-| 29  | Correções de integridade do chamado                | Ciclo de vida | done        |
-| 20  | Aviso de chamado duplicado                         | Slice 4       | done        |
-| 18  | Painel de acurácia da IA                           | Slice 3       | planned     |
-| 19  | Fotos no chat                                      | Slice 4       | planned     |
-| 21  | Entrada por voz                                    | Slice 4       | planned     |
+| #   | Feature                                            | Phase         | Status   |
+| --- | -------------------------------------------------- | ------------- | -------- |
+| 1   | Autenticação LDAP e perfis                         | Contexto      | existing |
+| 2   | Unidades e usuários                                | Contexto      | existing |
+| 3   | Catálogo de serviços                               | Contexto      | existing |
+| 4   | Abertura de chamado por formulário                 | Contexto      | existing |
+| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto      | existing |
+| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto      | existing |
+| 7   | SLA, expediente e pausas                           | Contexto      | existing |
+| 8   | Notificações em tempo real                         | Contexto      | existing |
+| 9   | Integração com a IA local                          | Foundation    | done     |
+| 10  | Conversa e decisões da IA no banco                 | Foundation    | done     |
+| 11  | Tela de chat de chamados                           | Slice 1       | done     |
+| 12  | Abertura do chamado pela IA                        | Slice 1       | done     |
+| 13  | Andamento e conversa com o técnico                 | Slice 2       | done     |
+| 14  | Calibração da trava de confiança                   | Slice 3       | done     |
+| 15  | Prioridade e SLA automáticos                       | Slice 3       | done     |
+| 16  | Atribuição automática ao técnico                   | Slice 3       | done     |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done     |
+| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done     |
+| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done     |
+| 24  | Importador SICAM e vistoria em campo               | Ativos        | done     |
+| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done     |
+| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done     |
+| 27  | Candidatos à substituição                          | Ativos        | done     |
+| 28  | Relatório mensal por contrato com ativo            | Ativos        | done     |
+| 30  | Custo acumulado por ativo                          | Ativos        | done     |
+| 31  | Cotação e fornecimento de material                 | Material      | done     |
+| 32  | IMR do contrato: indicadores 3 e 4                 | Material      | planned  |
+| 33  | Repaginação das telas da cotação de material       | Material      | done     |
+| 34  | Motivo e histórico no cadastro de material         | Material      | planned  |
+| 29  | Correções de integridade do chamado                | Ciclo de vida | done     |
+| 20  | Aviso de chamado duplicado                         | Slice 4       | done     |
+| 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
+| 19  | Fotos no chat                                      | Slice 4       | planned  |
+| 21  | Entrada por voz                                    | Slice 4       | planned  |
 
 ## Existing (contexto)
 
@@ -404,20 +405,27 @@ Os indicadores 3 (tempo de resposta, até o dia útil seguinte) e 4 (forneciment
 
 - [ ] Design it (spec): `/architect IMR do contrato indicadores 3 e 4`
 
-### 33. Repaginação das telas da cotação de material · in-progress
+### 33. Repaginação das telas da cotação de material · done
 
 As 11 telas da cotação de material redesenhadas sobre o visual do Sigma: a ação de cada papel no topo, a fila com busca e paginação, o editor da contratada em passos e o cartão do chamado por perfil, sem mudar as regras de `lib/material`. from spec 0019
 **Done when:** cada papel vê a sua próxima ação no topo do detalhe e do cartão; a fila busca, filtra e pagina pelo endereço e mede o tempo na etapa pela trilha; a contratada monta em passos com a lista do que falta ao vivo; nenhum campo só do TRF1 chega a outra visão; todas as telas funcionam a 390 px; as regras e os testes de `lib/material` seguem iguais.
 spec [0021](../specs/0021-redesign-cotacao-material/index.md) · code in `app/(dashboard)/cotacoes/`, `app/(dashboard)/configuracoes/material/`, `app/(dashboard)/relatorios/material/`, `lib/material/leitura.ts`, `lib/material/serializar.ts`, `shared/material/`
 
 - [x] Design it (spec): `/architect repaginação das telas da cotação de material`
-- [ ] Build it: `/develop repaginação das telas da cotação de material`
+- [x] Build it: `/develop repaginação das telas da cotação de material`
   - [x] Peças compartilhadas, fila, detalhe e ateste (fatias 1 a 3) · AC-1 a AC-9, AC-24 a AC-29
   - [x] Diálogos e editor da contratada em passos (fatias 4 e 5) · AC-10 a AC-15
-  - [ ] Cartão no chamado e cadastro de material (fatias 6 e 7) · AC-16 a AC-22 · fatia 6 construída, falta a 7
-  - [ ] Relatório de material (fatia 8) · AC-23
-- [ ] Verify it: `/check verify repaginação das telas da cotação de material`
-- [ ] Test it: `/test repaginação das telas da cotação de material`
+  - [x] Cartão no chamado e cadastro de material (fatias 6 e 7) · AC-16 a AC-22
+  - [x] Relatório de material (fatia 8) · AC-23
+- [x] Verify it: `/check verify repaginação das telas da cotação de material`
+- [x] Test it: `/test repaginação das telas da cotação de material`
+
+### 34. Motivo e histórico no cadastro de material · needs a decision
+
+Revogar designação, desativar faixa e inativar empenho passam a pedir motivo e a deixar histórico; hoje a confirmação da 0021 evita o clique errado, mas não registra o porquê. Muda schemas e actions de `lib/material`, por isso spec própria. from spec 0021
+**Done when:** cada um dos três atos exige motivo; o histórico mostra quem fez, quando e por quê, só para o lado TRF1; nada já gravado muda de sentido.
+
+- [ ] Design it (spec): `/architect motivo e histórico no cadastro de material`
 
 ## Slice 3: fechamento
 
@@ -477,6 +485,11 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Leitor de tela de verdade no AC-18**: o `/check verify` da 0004 conferiu a região ao vivo programaticamente (o texto que ela recebe bate com o esperado), mas sem NVDA ou outro leitor de tela instalado nesta máquina para ouvir o anúncio de verdade; rodar quando houver um leitor de tela disponível · from spec 0004
 - **Cotação, observação de material e pausa por terceiros na conversa**: hoje ficam fora do sinal ao vivo de `/conversas`; considerar se a gestão sentir falta · from spec 0005
 - **Simplificação dos caminhos 1 e 2 do material**: análise e aprovação num ato único para cotação só com itens do Anexo V e do SINAPI, quando o fiscal decidir a pendência 5 · from spec 0019
+- **Lote e ordem na rodada diária do material**: dividir em lotes o cancelamento da conciliação se o volume de cotações em trâmite crescer · from spec 0019
+- **Campo `situacaoDesde` na cotação**: gravar na transição se as cotações em trâmite passarem de algumas centenas e "Mais tempo na etapa" ficar lento · from spec 0021
+- **Variante `gradiente` do `Button` no Sigma inteiro**: trocar os usos caso a caso fora do módulo de material · from spec 0021
+- **Visão do Admin sem designação e cotação reprovada ou cancelada**: desenhar no canvas; hoje seguem o padrão do detalhe com o "Sua vez" dizendo quem age · from spec 0021
+- **Miniatura das evidências da cotação**: pede servir o arquivo inline e decidir quem vê; decidir junto com Fotos no chat (19) · from spec 0021
 - **Aviso de reatribuição de técnico**: `reatribuicao_tecnico` não emite nenhum evento hoje; se o solicitante precisar saber quando o técnico muda, cobrir numa fatia futura · from spec 0005
 - **Viés de concordância no acerto de serviço**: o Preposto vê a sugestão de serviço pré preenchida na classificação, então o número medido mede concordância, não um julgamento independente; considerar esconder a sugestão também na classificação se o viés atrapalhar a calibração · from spec 0006
 - **Unificar a escolha de técnico manual e automática**: `findBestTechnician`, as duas rotas `eligible-technicians` e as cópias à mão de `ACTIVE_STATUSES` passam a usar o critério novo (desempate justo) e `CHAMADO_STATUS_CARGA_TECNICO` · from spec 0008

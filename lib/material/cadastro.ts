@@ -10,6 +10,7 @@ import { ContratoModel } from '@/models/Contrato';
 import { DesignacaoMaterialModel } from '@/models/DesignacaoMaterial';
 import { EmpenhoModel } from '@/models/Empenho';
 import { FaixaCompetenciaModel } from '@/models/FaixaCompetencia';
+import { ImportacaoMaterialModel } from '@/models/ImportacaoMaterial';
 import { UserModel } from '@/models/user.model';
 import type {
   CriarDesignacaoInput,
@@ -18,7 +19,6 @@ import type {
   MovimentoEmpenhoInput,
 } from '@/shared/material/cotacao.schemas';
 import {
-  PAPEIS_DESIGNACAO,
   type PapelDesignacao,
   PERFIS_POR_PAPEL,
   SINAPI_MESES_DE_ATRASO_ACEITOS,
@@ -26,6 +26,7 @@ import {
 
 import { filtroVigente } from './papeis';
 import { mesSinapiMaisRecente } from './precos';
+import { type Projecao, projecoesDosEmpenhos } from './projecao';
 import { filtroElegivel, registrarMovimento } from './saldo';
 
 /**
@@ -194,6 +195,8 @@ export type EmpenhoLinha = {
   vigenciaFim: string | null;
   ativo: boolean;
   elegivel: boolean;
+  /** A projeção de esgotamento pelo saldo de agora; só no empenho elegível (spec 0021, AC-20). */
+  projecao: Projecao | null;
   movimentos: { tipo: string; valorCentavos: number; ato: string; em: string }[];
 };
 
@@ -204,6 +207,7 @@ export type DesignacaoLinha = {
   userId: string;
   nome: string;
   papel: PapelDesignacao;
+  faixaId: string | null;
   faixa: string | null;
   vigenciaInicio: string;
   vigenciaFim: string | null;
@@ -216,9 +220,36 @@ export type UsuarioOpcao = { id: string; nome: string; role: string };
 
 export type ItemSemCodigo = { contrato: string; numero: number; descricao: string };
 
+/** Os papéis que precisam de alguém vigente para a primeira cotação ser aprovada (spec 0021, AC-19). */
+export const PAPEIS_DA_PRIMEIRA_COTACAO = [
+  'fiscal',
+  'gestor',
+  'aprovador',
+] as const satisfies readonly PapelDesignacao[];
+
+/** Um item da lista "Para aprovar a primeira cotação", com a seção que o resolve (AC-19). */
+export type ItemPrimeiraCotacao =
+  | { chave: 'empenho'; secao: 'empenhos'; pronto: boolean; elegiveis: number }
+  | { chave: 'faixas'; secao: 'faixas'; pronto: boolean; ativas: number }
+  | { chave: 'designacoes'; secao: 'designacoes'; pronto: boolean; faltam: PapelDesignacao[] }
+  | { chave: 'semCodigo'; secao: 'anexo-v'; pronto: boolean; itens: number };
+
+/** As notas da navegação lateral (AC-18); parâmetros não tem nota. */
+export type NotasCadastro = {
+  empenhos: number;
+  designacoes: number;
+  faixas: number;
+  anexoV: { revisaoAberta: boolean; itens: number };
+  sinapi: string | null;
+};
+
 export type PendenciasMaterial = {
-  /** O que falta para o fluxo encaminhar e aprovar, e para os caminhos 1 e 2 (AC-30). */
-  faltando: string[];
+  primeiraCotacao: ItemPrimeiraCotacao[];
+  notas: NotasCadastro;
+  /** Contratos ativos e vigentes sem Anexo V carregado (aviso da seção Anexo V). */
+  contratosSemAnexo: string[];
+  /** O mês SINAPI mais recente fora da tolerância (aviso da seção SINAPI). */
+  sinapiAtrasado: boolean;
   /** Itens vigentes do Anexo V sem código SINAPI (AC-28). */
   itensSemCodigo: ItemSemCodigo[];
 };
@@ -230,13 +261,6 @@ export type PainelMaterial = PendenciasMaterial & {
   usuarios: UsuarioOpcao[];
 };
 
-const ROTULO_PAPEL_PENDENCIA: Record<PapelDesignacao, string> = {
-  responsavel_tecnico: 'responsável técnico',
-  fiscal: 'fiscal',
-  gestor: 'gestor',
-  aprovador: 'aprovador',
-};
-
 /** O mês `AAAA-MM` de `n` meses antes de `mes`. */
 export function mesesAntes(mes: string, n: number): string {
   const [a, m] = mes.split('-').map(Number) as [number, number];
@@ -245,59 +269,49 @@ export function mesesAntes(mes: string, n: number): string {
 }
 
 /**
- * O painel do que falta (AC-30, _Painel do que falta_), numa leitura: sem
- * empenho elegível, papel sem designação vigente, contrato ativo e vigente
- * sem Anexo V, SINAPI ausente ou atrasado e itens do Anexo V sem código.
+ * A lista "Para aprovar a primeira cotação" (spec 0021, AC-19) e as notas da
+ * navegação lateral (AC-18), numa leitura: empenhos elegíveis, faixas ativas,
+ * fiscal, gestor e aprovador vigentes e itens do Anexo V sem código. Também
+ * os avisos das seções Anexo V e SINAPI: contrato ativo e vigente sem Anexo V
+ * e SINAPI ausente ou atrasado.
  */
 export async function lerPendenciasMaterial(): Promise<PendenciasMaterial> {
   const hoje = hojeEmBelem();
-  const [elegiveis, vigentes, contratos, ponteiros, mes] = await Promise.all([
-    EmpenhoModel.find(filtroElegivel()).select('_id').lean(),
-    DesignacaoMaterialModel.find(filtroVigente(hoje)).select('papel').lean(),
-    ContratoModel.find({
-      isActive: true,
-      vigenciaInicio: { $lte: hoje },
-      vigenciaFim: { $gte: hoje },
-    })
-      .select('numero')
-      .sort({ numero: 1 })
-      .lean(),
-    AnexoVVigenciaModel.find().lean(),
-    mesSinapiMaisRecente(),
-  ]);
+  const [elegiveis, vigentes, faixasAtivas, contratos, ponteiros, mes, revisaoAnexo] =
+    await Promise.all([
+      EmpenhoModel.find(filtroElegivel()).select('_id').lean(),
+      DesignacaoMaterialModel.find(filtroVigente(hoje)).select('papel').lean(),
+      FaixaCompetenciaModel.countDocuments({ ativa: true }),
+      ContratoModel.find({
+        isActive: true,
+        vigenciaInicio: { $lte: hoje },
+        vigenciaFim: { $gte: hoje },
+      })
+        .select('numero')
+        .sort({ numero: 1 })
+        .lean(),
+      AnexoVVigenciaModel.find().lean(),
+      mesSinapiMaisRecente(),
+      ImportacaoMaterialModel.exists({ tipo: 'anexo_v', emAberto: true }),
+    ]);
 
-  const faltando: string[] = [];
-  if (elegiveis.length === 0) {
-    faltando.push('Nenhum empenho elegível (ativo, do exercício e na vigência).');
-  }
   const papeisVigentes = new Set(vigentes.map((v) => v.papel));
-  for (const p of PAPEIS_DESIGNACAO) {
-    if (!papeisVigentes.has(p))
-      faltando.push(`Ninguém designado como ${ROTULO_PAPEL_PENDENCIA[p]}.`);
-  }
+  const faltam = PAPEIS_DA_PRIMEIRA_COTACAO.filter((p) => !papeisVigentes.has(p));
 
   const ponteiroDe = new Map(ponteiros.map((p) => [String(p.contratoId), p]));
   const comItens = ponteiros.length
-    ? await AnexoVItemModel.aggregate<{ _id: Types.ObjectId }>([
+    ? await AnexoVItemModel.aggregate<{ _id: Types.ObjectId; itens: number }>([
         { $match: { $or: ponteiros.map((p) => ({ contratoId: p.contratoId, versao: p.versao })) } },
-        { $group: { _id: '$contratoId' } },
+        { $group: { _id: '$contratoId', itens: { $sum: 1 } } },
       ])
     : [];
   const contratosComItens = new Set(comItens.map((c) => String(c._id)));
-  for (const c of contratos) {
-    if (!ponteiroDe.has(String(c._id)) || !contratosComItens.has(String(c._id))) {
-      faltando.push(`O contrato ${c.numero} não tem Anexo V carregado: o caminho 1 fica fechado.`);
-    }
-  }
+  const contratosSemAnexo = contratos
+    .filter((c) => !ponteiroDe.has(String(c._id)) || !contratosComItens.has(String(c._id)))
+    .map((c) => c.numero);
 
   const mesCorrente = hoje.slice(0, 7);
-  if (!mes) {
-    faltando.push('Nenhum mês do SINAPI importado: o caminho 2 fica fechado.');
-  } else if (mes < mesesAntes(mesCorrente, SINAPI_MESES_DE_ATRASO_ACEITOS)) {
-    faltando.push(
-      `O SINAPI está atrasado: o mês mais recente importado é ${mes.split('-').reverse().join('/')}.`,
-    );
-  }
+  const sinapiAtrasado = !mes || mes < mesesAntes(mesCorrente, SINAPI_MESES_DE_ATRASO_ACEITOS);
 
   const numeroContrato = new Map(contratos.map((c) => [String(c._id), c.numero]));
   const semCodigo = ponteiros.length
@@ -317,7 +331,34 @@ export async function lerPendenciasMaterial(): Promise<PendenciasMaterial> {
     for (const o of outros) numeroContrato.set(String(o._id), o.numero);
   }
   return {
-    faltando,
+    primeiraCotacao: [
+      {
+        chave: 'empenho',
+        secao: 'empenhos',
+        pronto: elegiveis.length > 0,
+        elegiveis: elegiveis.length,
+      },
+      { chave: 'faixas', secao: 'faixas', pronto: faixasAtivas > 0, ativas: faixasAtivas },
+      { chave: 'designacoes', secao: 'designacoes', pronto: faltam.length === 0, faltam },
+      {
+        chave: 'semCodigo',
+        secao: 'anexo-v',
+        pronto: semCodigo.length === 0,
+        itens: semCodigo.length,
+      },
+    ],
+    notas: {
+      empenhos: elegiveis.length,
+      designacoes: vigentes.length,
+      faixas: faixasAtivas,
+      anexoV: {
+        revisaoAberta: !!revisaoAnexo,
+        itens: comItens.reduce((soma, c) => soma + c.itens, 0),
+      },
+      sinapi: mes,
+    },
+    contratosSemAnexo,
+    sinapiAtrasado,
     itensSemCodigo: semCodigo.map((s) => ({
       contrato: numeroContrato.get(String(s.contratoId)) ?? '—',
       numero: s.numero,
@@ -342,6 +383,15 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
       lerPendenciasMaterial(),
     ]);
   const elegivel = new Set(elegiveis.map((e) => String(e._id)));
+  const projecoes = await projecoesDosEmpenhos(
+    empenhos
+      .filter((e) => elegivel.has(String(e._id)))
+      .map((e) => ({
+        id: String(e._id),
+        saldoCentavos: e.valorLiquidoCentavos - e.comprometidoCentavos,
+      })),
+  );
+  const projecaoDe = new Map(projecoes.map((p) => [p.empenhoId, p]));
   const vigenteIds = new Set(vigentes.map((v) => String(v._id)));
   const nomeFaixa = new Map(faixas.map((f) => [String(f._id), f.nome]));
   const nomeUser = new Map(usuarios.map((u) => [String(u._id), u.name as string]));
@@ -366,6 +416,7 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
       vigenciaFim: e.vigenciaFim ?? null,
       ativo: e.ativo,
       elegivel: elegivel.has(String(e._id)),
+      projecao: projecaoDe.get(String(e._id)) ?? null,
       movimentos: e.movimentos.map((m) => ({
         tipo: m.tipo,
         valorCentavos: m.valorCentavos,
@@ -384,6 +435,7 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
       userId: String(d.userId),
       nome: nomeUser.get(String(d.userId)) ?? '—',
       papel: d.papel as PapelDesignacao,
+      faixaId: d.faixaId ? String(d.faixaId) : null,
       faixa: d.faixaId ? (nomeFaixa.get(String(d.faixaId)) ?? null) : null,
       vigenciaInicio: d.vigenciaInicio,
       vigenciaFim: d.vigenciaFim ?? null,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
+import { CaixaRolavel } from '@/app/(dashboard)/cotacoes/_components/detalhe/CaixaRolavel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +19,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -26,12 +34,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import type { ItemSemCodigo } from '@/lib/material/cadastro';
+import type { MudancaRevisao } from '@/lib/material/importacao/revisao';
 import type {
   ContratoAnexoV,
   ImportacaoAberta,
   ItemAnexoVLinha,
   TabelasPreco,
 } from '@/lib/material/tabelas';
+import { cn } from '@/lib/utils';
 import { formatarQuantidade, formatarReais } from '@/shared/chamados/custo';
 import {
   COLUNAS_ANEXO_V,
@@ -40,7 +51,14 @@ import {
   TEXTO_CURTO_MIN,
   type TipoImportacaoMaterial,
 } from '@/shared/material/material.constants';
-import { textoMarcaAnomalia } from '@/shared/material/mensagens';
+import {
+  mesCurto,
+  ROTULO_FECHAR_DIALOGO,
+  ROTULO_SECAO_CADASTRO,
+  TEXTO_CADASTRO_TABELAS as TT,
+  TEXTO_IMPORTACAO_CADASTRO,
+  textoMarcaAnomalia,
+} from '@/shared/material/mensagens';
 
 import {
   aplicarImportacaoAction,
@@ -48,11 +66,15 @@ import {
   descartarImportacaoAction,
   marcarAnomaliaAction,
 } from '../actions';
+import { CabecalhoSecao, CARTAO_CADASTRO } from './CabecalhoSecao';
 
 type Resultado = { ok: true } | { ok: false; error: string };
 
-const SELECT =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const R = TT.revisao;
+const TI = TEXTO_IMPORTACAO_CADASTRO;
+const TE = TI.enviar;
+const TR = TI.revisao;
+const TT_I = TI.item;
 
 const mesBr = (ref: string | null) => (ref ? ref.split('-').reverse().join('/') : '—');
 const dataHora = (iso: string) =>
@@ -80,6 +102,16 @@ function useAcao() {
   return { pendente, executar, router };
 }
 
+/** Um aviso da seção (contrato sem Anexo V, SINAPI atrasado), em laranja. */
+function Aviso({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-2 rounded-xl border border-orange-300/70 bg-orange-50/80 p-3 text-sm text-orange-950 dark:border-orange-700/50 dark:bg-orange-950/30 dark:text-orange-100">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Envio do CSV
 // ---------------------------------------------------------------------------
@@ -94,28 +126,21 @@ function LayoutCsv({ tipo }: { tipo: TipoImportacaoMaterial }) {
   const layout = tipo === 'anexo_v' ? COLUNAS_ANEXO_V : COLUNAS_SINAPI;
   return (
     <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
-      <p className="font-medium text-foreground">Layout do arquivo</p>
+      <p className="font-medium text-foreground">{TI.layout.titulo}</p>
       <p className="mt-1">
-        CSV separado por ponto e vírgula, como o Excel em português grava. Colunas obrigatórias:{' '}
-        <span className="font-mono">{layout.obrigatorias.join(' ; ')}</span>
+        {TI.layout.csv} <span className="font-mono">{layout.obrigatorias.join(' ; ')}</span>
         {layout.opcionais.length > 0 && (
           <>
             {' '}
-            · opcional: <span className="font-mono">{layout.opcionais.join(' ; ')}</span>
+            · {TI.layout.opcional} <span className="font-mono">{layout.opcionais.join(' ; ')}</span>
           </>
         )}
-        . O cabeçalho pode estar em qualquer uma das 20 primeiras linhas, e colunas a mais são
-        ignoradas. Preço com vírgula decimal e até 2 casas (R$ opcional).
+        {TI.layout.cabecalho}
       </p>
       {tipo === 'anexo_v' ? (
-        <p className="mt-1">
-          ITEM de 1 a 200, sem repetir. CODIGO_SINAPI vazio mantém o código da versão anterior.
-        </p>
+        <p className="mt-1">{TI.layout.anexo}</p>
       ) : (
-        <p className="mt-1">
-          Converta a planilha da Caixa (UF AP, não desonerado) e dê à coluna de preço do AP o nome
-          PRECO. Um mês por arquivo; mês já importado não entra de novo.
-        </p>
+        <p className="mt-1">{TI.layout.sinapi}</p>
       )}
     </div>
   );
@@ -141,7 +166,7 @@ function EnviarCsv({
   async function enviar() {
     setRecusa(null);
     if (!arquivo) {
-      setRecusa({ error: 'Escolha o arquivo CSV.' });
+      setRecusa({ error: TE.semArquivo });
       return;
     }
     const form = new FormData();
@@ -155,17 +180,17 @@ function EnviarCsv({
       const corpo = (await resp.json().catch(() => ({}))) as Partial<RecusaEnvio>;
       if (!resp.ok) {
         setRecusa({
-          error: corpo.error ?? 'Não foi possível enviar o arquivo.',
+          error: corpo.error ?? TE.falhou,
           colunasFaltando: corpo.colunasFaltando,
           linhas: corpo.linhas,
         });
         return;
       }
-      toast.success('Arquivo lido. Confira a revisão antes de aplicar.');
+      toast.success(TE.lido);
       setArquivo(null);
       router.refresh();
     } catch {
-      setRecusa({ error: 'Não foi possível enviar o arquivo. Tente de novo.' });
+      setRecusa({ error: TE.falhouTente });
     } finally {
       setEnviando(false);
     }
@@ -174,39 +199,35 @@ function EnviarCsv({
   return (
     <section
       aria-labelledby={`enviar-${tipo}`}
-      className="space-y-3 rounded-2xl border border-border/50 p-4"
+      className={cn(CARTAO_CADASTRO, 'space-y-3 p-4 sm:p-5')}
     >
       <h3 id={`enviar-${tipo}`} className="text-sm font-semibold">
-        {tipo === 'anexo_v' ? 'Importar o Anexo V de um contrato' : 'Importar um mês do SINAPI'}
+        {tipo === 'anexo_v' ? TE.tituloAnexo : TE.tituloSinapi}
       </h3>
       <LayoutCsv tipo={tipo} />
       {bloqueado ? (
-        <p className="text-sm text-muted-foreground">
-          Há uma importação deste tipo aberta. Aplique ou descarte a que está em revisão antes de
-          enviar outra.
-        </p>
+        <p className="text-sm text-muted-foreground">{TE.bloqueado}</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           {tipo === 'anexo_v' ? (
             <div className="space-y-1">
-              <Label htmlFor="imp-contrato">Contrato</Label>
-              <select
-                id="imp-contrato"
-                className={SELECT}
-                value={contratoId}
-                onChange={(e) => setContratoId(e.target.value)}
-              >
-                <option value="">Escolha o contrato</option>
-                {(contratos ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.numero} · {c.empresa}
-                  </option>
-                ))}
-              </select>
+              <Label htmlFor="imp-contrato">{TE.contrato}</Label>
+              <Select value={contratoId || undefined} onValueChange={setContratoId}>
+                <SelectTrigger id="imp-contrato" className="w-full">
+                  <SelectValue placeholder={TE.escolhaContrato} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(contratos ?? []).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.numero} · {c.empresa}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ) : (
             <div className="space-y-1">
-              <Label htmlFor="imp-mes">Mês de referência</Label>
+              <Label htmlFor="imp-mes">{TE.mes}</Label>
               <Input
                 id="imp-mes"
                 type="month"
@@ -216,7 +237,7 @@ function EnviarCsv({
             </div>
           )}
           <div className="space-y-1">
-            <Label htmlFor={idArquivo}>Arquivo CSV</Label>
+            <Label htmlFor={idArquivo}>{TE.arquivo}</Label>
             <Input
               id={idArquivo}
               type="file"
@@ -224,13 +245,13 @@ function EnviarCsv({
               onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
             />
           </div>
-          <Button onClick={enviar} disabled={enviando} className="gap-2">
+          <Button variant="gradiente" onClick={enviar} disabled={enviando} className="gap-2">
             {enviando ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
               <FileUp className="h-4 w-4" aria-hidden="true" />
             )}
-            Enviar para revisão
+            {TE.botao}
           </Button>
         </div>
       )}
@@ -243,9 +264,7 @@ function EnviarCsv({
           {recusa.linhas && recusa.linhas.length > 0 && (
             <ul className="mt-1 list-disc pl-6">
               {recusa.linhas.map((l) => (
-                <li key={`${l.linha}-${l.motivo}`}>
-                  Linha {l.linha}: {l.motivo}
-                </li>
+                <li key={`${l.linha}-${l.motivo}`}>{TE.linha(l.linha, l.motivo)}</li>
               ))}
             </ul>
           )}
@@ -259,13 +278,7 @@ function EnviarCsv({
 // Revisão da importação aberta
 // ---------------------------------------------------------------------------
 
-const ROTULO_CAMPO: Record<string, string> = {
-  descricao: 'descrição',
-  unidade: 'unidade',
-  quantidadeEstimada: 'quantidade estimada',
-  precoCentavos: 'preço',
-  sinapiCodigo: 'código SINAPI',
-};
+const ROTULO_CAMPO = TI.campo;
 
 function valorCampo(campo: string, v: string | number | null): string {
   if (v == null || v === '') return 'vazio';
@@ -274,130 +287,188 @@ function valorCampo(campo: string, v: string | number | null): string {
   return String(v);
 }
 
+/** O valor antigo riscado ao lado do novo (spec 0021, AC-22), lido também pelo leitor de tela. */
+function Mudanca({ m }: { m: MudancaRevisao }) {
+  return (
+    <span className="block">
+      <span className="text-muted-foreground">{ROTULO_CAMPO[m.campo] ?? m.campo}</span>{' '}
+      <span className="sr-only">de </span>
+      <del className="text-muted-foreground">{valorCampo(m.campo, m.antes)}</del>{' '}
+      <span aria-hidden="true">→</span>
+      <span className="sr-only"> para</span> <strong>{valorCampo(m.campo, m.depois)}</strong>
+    </span>
+  );
+}
+
+type Grupo = 'novos' | 'alterados' | 'removidos';
+
 function RevisaoAberta({ imp }: { imp: ImportacaoAberta }) {
   const { pendente, executar } = useAcao();
-  const titulo =
-    imp.tipo === 'anexo_v'
-      ? `Anexo V do contrato ${imp.contratoNumero ?? '—'}`
-      : `SINAPI de ${mesBr(imp.referencia)}`;
-  const contraQue =
-    imp.tipo === 'anexo_v'
-      ? imp.versaoBase
-        ? `comparado com a versão ${imp.versaoBase}, a vigente`
-        : 'primeira importação deste contrato'
-      : imp.comparadoCom
-        ? `comparado com ${mesBr(imp.comparadoCom)}, o mês mais recente (só para leitura)`
-        : 'primeiro mês importado';
-  const grupos = [
-    { chave: 'novos', titulo: 'Novos', linhas: imp.revisao?.novos ?? [], total: imp.resumo.novos },
-    {
-      chave: 'alterados',
-      titulo: 'Alterados',
-      linhas: imp.revisao?.alterados ?? [],
-      total: imp.resumo.alterados,
-    },
+  const anexo = imp.tipo === 'anexo_v';
+  const grupos: { chave: Grupo; titulo: string; total: number }[] = [
+    { chave: 'novos', titulo: R.novos, total: imp.resumo.novos },
+    { chave: 'alterados', titulo: R.alterados, total: imp.resumo.alterados },
     {
       chave: 'removidos',
-      titulo: imp.tipo === 'anexo_v' ? 'Removidos (saem da versão nova)' : 'Fora deste mês',
-      linhas: imp.revisao?.removidos ?? [],
+      titulo: anexo ? R.removidosAnexo : R.removidosSinapi,
       total: imp.resumo.removidos,
     },
   ];
+  const [grupo, setGrupo] = useState<Grupo>(
+    () =>
+      (['alterados', 'novos', 'removidos'] as const).find((g) => imp.resumo[g] > 0) ?? 'alterados',
+  );
+  const titulo = anexo
+    ? `Anexo V do contrato ${imp.contratoNumero ?? '—'}`
+    : `SINAPI de ${mesBr(imp.referencia)}`;
+  const contraQue = anexo
+    ? imp.versaoBase
+      ? `comparado com a versão ${imp.versaoBase}, a vigente`
+      : 'primeira importação deste contrato'
+    : imp.comparadoCom
+      ? `comparado com ${mesBr(imp.comparadoCom)}, o mês mais recente (só para leitura)`
+      : 'primeiro mês importado';
+  const linhas = imp.revisao?.[grupo] ?? [];
+  const total = imp.resumo[grupo];
+  const semMudanca =
+    grupo === 'novos' ? (anexo ? R.entra : R.novoNoMes) : anexo ? R.sai : R.foraDoMes;
 
   return (
     <section
       aria-labelledby={`rev-${imp.id}`}
-      className="space-y-3 rounded-2xl border border-indigo-300/60 bg-indigo-50/40 p-4 dark:border-indigo-700/50 dark:bg-indigo-950/20"
+      className={cn(CARTAO_CADASTRO, 'overflow-hidden border-indigo-200 dark:border-indigo-800/60')}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 id={`rev-${imp.id}`} className="text-sm font-semibold">
-          Revisão: {titulo}
-        </h3>
-        <Badge variant="outline">
-          {imp.estado === 'aplicando' ? 'Aplicação parada' : 'Pendente'}
-        </Badge>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {imp.arquivoNome} · enviado por {imp.enviadaPor} em {dataHora(imp.criadaEm)} · {contraQue}.
-        {imp.estado === 'pendente' && ` Expira sem aplicar em ${dataHora(imp.expiraEm)}.`}
-      </p>
-      <p className="text-sm">
-        {imp.resumo.total} linhas · {imp.resumo.novos} novos · {imp.resumo.alterados} alterados ·{' '}
-        {imp.resumo.removidos} {imp.tipo === 'anexo_v' ? 'removidos' : 'fora deste mês'}
-      </p>
-      {imp.estado === 'aplicando' ? (
-        <p className="flex items-center gap-2 text-sm text-amber-900 dark:text-amber-100">
-          <AlertTriangle className="h-4 w-4" aria-hidden="true" />A aplicação parou no meio. Aplicar
-          de novo continua de onde parou, sem duplicar nada.
-        </p>
-      ) : null}
-      {grupos.map((g) =>
-        g.total === 0 ? null : (
-          <details key={g.chave} className="rounded-xl border border-border/60 bg-background p-3">
-            <summary className="cursor-pointer text-sm font-medium">
-              {g.titulo} ({g.total}){g.total > g.linhas.length && ` · mostrando ${g.linhas.length}`}
-            </summary>
-            <ul className="mt-2 space-y-1 text-xs">
-              {g.linhas.map((l) => (
-                <li key={l.chave}>
-                  <span className="font-mono">{l.chave}</span> · {l.descricao}
-                  {l.mudancas && (
-                    <span className="text-muted-foreground">
-                      {' '}
-                      ·{' '}
-                      {l.mudancas
-                        .map(
-                          (m) =>
-                            `${ROTULO_CAMPO[m.campo] ?? m.campo}: de ${valorCampo(m.campo, m.antes)} para ${valorCampo(m.campo, m.depois)}`,
-                        )
-                        .join('; ')}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </details>
-        ),
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          disabled={pendente}
-          className="gap-2"
-          onClick={() =>
-            executar(
-              () => aplicarImportacaoAction({ importacaoId: imp.id }),
-              imp.tipo === 'anexo_v' ? 'Anexo V aplicado.' : 'Mês do SINAPI aplicado.',
-            )
-          }
-        >
-          {pendente ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : imp.estado === 'aplicando' ? (
-            <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          ) : null}
-          {imp.estado === 'aplicando' ? 'Retomar a aplicação' : 'Aplicar'}
-        </Button>
-        {imp.estado === 'pendente' && (
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 bg-indigo-50/60 px-4 py-4 dark:bg-indigo-950/20 sm:px-5">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 id={`rev-${imp.id}`} className="text-[15px] font-semibold">
+              {R.titulo}: {titulo}
+            </h3>
+            <Badge variant="outline">
+              {imp.estado === 'aplicando' ? 'Aplicação parada' : 'Pendente'}
+            </Badge>
+          </div>
+          <p className="text-[13px] text-muted-foreground">
+            {imp.arquivoNome} · enviado por {imp.enviadaPor} em {dataHora(imp.criadaEm)} ·{' '}
+            {contraQue}.
+            {imp.estado === 'pendente' && ` Expira sem aplicar em ${dataHora(imp.expiraEm)}.`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {imp.estado === 'pendente' && (
+            <Button
+              variant="ghost"
+              disabled={pendente}
+              onClick={() =>
+                executar(() => descartarImportacaoAction({ importacaoId: imp.id }), TR.descartada)
+              }
+            >
+              {TR.descartar}
+            </Button>
+          )}
           <Button
-            variant="outline"
+            variant="gradiente"
             disabled={pendente}
+            className="gap-2"
             onClick={() =>
               executar(
-                () => descartarImportacaoAction({ importacaoId: imp.id }),
-                'Importação descartada.',
+                () => aplicarImportacaoAction({ importacaoId: imp.id }),
+                anexo ? TR.aplicadoAnexo : TR.aplicadoSinapi,
               )
             }
           >
-            Descartar
+            {pendente ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : imp.estado === 'aplicando' ? (
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            ) : null}
+            {imp.estado === 'aplicando' ? TR.retomar : anexo ? TR.aplicarAnexo : TR.aplicarSinapi}
           </Button>
-        )}
+        </div>
       </div>
+
+      {imp.estado === 'aplicando' && (
+        <p className="flex items-center gap-2 px-4 pt-4 text-sm text-orange-900 dark:text-orange-100 sm:px-5">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {TR.parada}
+        </p>
+      )}
+
+      <div
+        role="group"
+        aria-label={R.filtros}
+        className="grid grid-cols-3 gap-2 px-4 py-4 sm:gap-3 sm:px-5"
+      >
+        {grupos.map((g) => (
+          <button
+            key={g.chave}
+            type="button"
+            aria-pressed={grupo === g.chave}
+            onClick={() => setGrupo(g.chave)}
+            className={cn(
+              'flex min-h-11 flex-col items-start gap-0.5 rounded-xl border bg-card p-3 text-left transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              grupo === g.chave
+                ? 'border-indigo-400 ring-1 ring-indigo-400 dark:border-indigo-500 dark:ring-indigo-500'
+                : 'border-border/60 hover:bg-muted/50',
+            )}
+          >
+            <span className="text-xs text-muted-foreground">{g.titulo}</span>
+            <span
+              className={cn(
+                'text-xl font-bold tabular-nums sm:text-2xl',
+                g.chave === 'removidos' && g.total > 0 && 'text-orange-800 dark:text-orange-300',
+              )}
+            >
+              {g.total}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {total === 0 ? (
+        <p className="px-4 pb-4 text-sm text-muted-foreground sm:px-5">{R.vazio}</p>
+      ) : (
+        <>
+          <CaixaRolavel rotulo={grupos.find((g) => g.chave === grupo)!.titulo}>
+            <Table className="min-w-[36rem]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-24 pl-4 sm:pl-5">{anexo ? R.numero : R.codigo}</TableHead>
+                  <TableHead>{R.item}</TableHead>
+                  <TableHead>{R.oQueMuda}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {linhas.map((l) => (
+                  <TableRow key={l.chave}>
+                    <TableCell className="pl-4 font-mono text-[13px] sm:pl-5">{l.chave}</TableCell>
+                    <TableCell className="whitespace-normal">{l.descricao}</TableCell>
+                    <TableCell className="whitespace-normal text-sm">
+                      {l.mudancas?.length ? (
+                        l.mudancas.map((m) => <Mudanca key={m.campo} m={m} />)
+                      ) : (
+                        <span className="text-muted-foreground">{semMudanca}</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CaixaRolavel>
+          {total > linhas.length && (
+            <p className="px-4 py-3 text-xs text-muted-foreground sm:px-5">
+              {R.mostrando(linhas.length, total)}
+            </p>
+          )}
+        </>
+      )}
     </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Aba do Anexo V
+// Seção do Anexo V
 // ---------------------------------------------------------------------------
 
 type DialogoItem =
@@ -417,7 +488,7 @@ function ItensDoContrato({
 }) {
   const marcados = contrato.itens.filter((i) => i.automatica || i.manual).length;
   return (
-    <details className="rounded-2xl border border-border/50 p-4" open={contrato.itens.length <= 30}>
+    <details className={cn(CARTAO_CADASTRO, 'p-4 sm:p-5')} open={contrato.itens.length <= 30}>
       <summary className="cursor-pointer">
         <span className="font-medium">
           Contrato {contrato.numero} · {contrato.empresa}
@@ -433,100 +504,114 @@ function ItensDoContrato({
         {percentual}%; ela muda sozinha quando entra um mês novo. A marca do Admin fica até ser
         tirada.
       </p>
-      <div className="mt-3 overflow-x-auto rounded-xl border border-border/50">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">Nº</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead className="text-right">Qtd. estimada</TableHead>
-              <TableHead className="text-right">Preço</TableHead>
-              <TableHead>SINAPI</TableHead>
-              <TableHead>Conferência</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {contrato.itens.map((i) => {
-              const marca = textoMarcaAnomalia(i);
-              return (
-                <TableRow key={i.id}>
-                  <TableCell className="tabular-nums">{i.numero}</TableCell>
-                  <TableCell>
-                    <p>{i.descricao}</p>
-                    <p className="text-xs text-muted-foreground">{i.unidade}</p>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatarQuantidade(i.quantidadeEstimada)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatarReais(i.precoCentavos)}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {i.sinapiCodigo ? (
-                      <>
-                        <span className="font-mono">{i.sinapiCodigo}</span>
-                        <span className="block text-xs text-muted-foreground">
-                          {i.sinapiPrecoCentavos != null
-                            ? formatarReais(i.sinapiPrecoCentavos)
-                            : 'fora do mês mais recente'}
+      <div className="mt-3 overflow-hidden rounded-xl border border-border/50">
+        <CaixaRolavel rotulo={`Itens do contrato ${contrato.numero}`}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">{TI.tabela.numero}</TableHead>
+                <TableHead>{TI.tabela.descricao}</TableHead>
+                <TableHead className="text-right">{TI.tabela.quantidade}</TableHead>
+                <TableHead className="text-right">{TI.tabela.preco}</TableHead>
+                <TableHead>{TI.tabela.sinapi}</TableHead>
+                <TableHead>{TI.tabela.conferencia}</TableHead>
+                <TableHead className="text-right">{TI.tabela.acoes}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contrato.itens.map((i) => {
+                const marca = textoMarcaAnomalia(i);
+                return (
+                  <TableRow key={i.id}>
+                    <TableCell className="tabular-nums">{i.numero}</TableCell>
+                    <TableCell>
+                      <p>{i.descricao}</p>
+                      <p className="text-xs text-muted-foreground">{i.unidade}</p>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatarQuantidade(i.quantidadeEstimada)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatarReais(i.precoCentavos)}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {i.sinapiCodigo ? (
+                        <>
+                          <span className="font-mono">{i.sinapiCodigo}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {i.sinapiPrecoCentavos != null
+                              ? formatarReais(i.sinapiPrecoCentavos)
+                              : TI.tabela.foraDoMes}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-orange-800 dark:text-orange-300">
+                          {TI.tabela.semCodigo}
                         </span>
-                      </>
-                    ) : (
-                      <span className="text-amber-700 dark:text-amber-300">sem código</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {marca ? (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-300 text-amber-800 dark:text-amber-200"
-                        title={i.motivoManual ?? undefined}
-                      >
-                        {marca}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          onEditar({ tipo: 'marca', item: i, marcar: !i.manual, motivo: '' })
-                        }
-                      >
-                        {i.manual ? 'Desmarcar' : 'Marcar'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          onEditar({
-                            tipo: 'codigo',
-                            item: i,
-                            codigo: i.sinapiCodigo ?? '',
-                            motivo: '',
-                          })
-                        }
-                      >
-                        Código
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {marca ? (
+                        <Badge
+                          variant="outline"
+                          className="border-orange-300 text-orange-900 dark:text-orange-200"
+                          title={i.motivoManual ?? undefined}
+                        >
+                          {marca}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`${i.manual ? TT_I.desmarcar : TT_I.marcar} o item ${i.numero}`}
+                          onClick={() =>
+                            onEditar({ tipo: 'marca', item: i, marcar: !i.manual, motivo: '' })
+                          }
+                        >
+                          {i.manual ? TT_I.desmarcar : TT_I.marcar}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Código SINAPI do item ${i.numero}`}
+                          onClick={() =>
+                            onEditar({
+                              tipo: 'codigo',
+                              item: i,
+                              codigo: i.sinapiCodigo ?? '',
+                              motivo: '',
+                            })
+                          }
+                        >
+                          {TT_I.codigo}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CaixaRolavel>
       </div>
     </details>
   );
 }
 
-export function AbaAnexoV({ tabelas }: { tabelas: TabelasPreco }) {
+export function AbaAnexoV({
+  tabelas,
+  contratosSemAnexo,
+  itensSemCodigo,
+}: {
+  tabelas: TabelasPreco;
+  contratosSemAnexo: string[];
+  itensSemCodigo: ItemSemCodigo[];
+}) {
   const { pendente, executar } = useAcao();
   const [dialogo, setDialogo] = useState<DialogoItem | null>(null);
   const aberta = tabelas.abertas.find((a) => a.tipo === 'anexo_v');
@@ -542,7 +627,7 @@ export function AbaAnexoV({ tabelas }: { tabelas: TabelasPreco }) {
             marcada: dialogo.marcar,
             motivo: dialogo.motivo,
           }),
-        dialogo.marcar ? 'Item marcado para conferência.' : 'Marca tirada.',
+        dialogo.marcar ? TT_I.marcado : TT_I.desmarcado,
         () => setDialogo(null),
       );
     } else {
@@ -553,20 +638,39 @@ export function AbaAnexoV({ tabelas }: { tabelas: TabelasPreco }) {
             codigo: dialogo.codigo.trim() === '' ? null : dialogo.codigo,
             motivo: dialogo.motivo,
           }),
-        'Código SINAPI corrigido.',
+        TT_I.codigoCorrigido,
         () => setDialogo(null),
       );
     }
   }
 
   return (
-    <div className="space-y-4">
+    <section aria-label={ROTULO_SECAO_CADASTRO['anexo-v']} className="space-y-4">
+      <CabecalhoSecao
+        titulo={ROTULO_SECAO_CADASTRO['anexo-v']}
+        descricao="Os itens pactuados de cada contrato, com o preço e o código SINAPI de referência. Cada importação vira uma versão nova."
+      />
+      {contratosSemAnexo.map((n) => (
+        <Aviso key={n}>{TT.contratoSemAnexo(n)}</Aviso>
+      ))}
       {aberta && <RevisaoAberta imp={aberta} />}
       <EnviarCsv tipo="anexo_v" contratos={tabelas.contratos} bloqueado={!!aberta} />
+      {itensSemCodigo.length > 0 && (
+        <details className={cn(CARTAO_CADASTRO, 'p-4 text-sm sm:p-5')}>
+          <summary className="cursor-pointer font-medium">
+            {TT.semCodigoLista(itensSemCodigo.length)}
+          </summary>
+          <ul className="mt-2 list-disc space-y-0.5 pl-6 text-muted-foreground">
+            {itensSemCodigo.map((i) => (
+              <li key={`${i.contrato}-${i.numero}`}>
+                Contrato {i.contrato}, item {i.numero}: {i.descricao}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {comAnexo.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Nenhum contrato tem Anexo V carregado. Sem ele, a cotação não oferece o caminho 1.
-        </p>
+        <p className="text-sm text-muted-foreground">{TT.semAnexo}</p>
       ) : (
         comAnexo.map((c) => (
           <ItensDoContrato
@@ -584,20 +688,18 @@ export function AbaAnexoV({ tabelas }: { tabelas: TabelasPreco }) {
           <DialogHeader>
             <DialogTitle>
               {dialogo?.tipo === 'codigo'
-                ? `Código SINAPI do item ${dialogo.item.numero}`
+                ? TT_I.tituloCodigo(dialogo.item.numero)
                 : dialogo?.marcar
-                  ? `Marcar o item ${dialogo?.item.numero} para conferência`
-                  : `Tirar a marca do item ${dialogo?.item.numero}`}
+                  ? TT_I.tituloMarcar(dialogo.item.numero)
+                  : TT_I.tituloDesmarcar(dialogo?.item.numero ?? 0)}
             </DialogTitle>
             <DialogDescription>
-              {dialogo?.tipo === 'codigo'
-                ? 'O código antigo e o motivo ficam no histórico do item, e a marca automática é recalculada.'
-                : 'Com a marca, o fiscal só encaminha a cotação que usa este item depois de registrar a conferência. O motivo fica no histórico.'}
+              {dialogo?.tipo === 'codigo' ? TT_I.efeitoCodigo : TT_I.efeitoMarca}
             </DialogDescription>
           </DialogHeader>
           {dialogo?.tipo === 'codigo' && (
             <div className="space-y-1.5">
-              <Label htmlFor="codigo-sinapi">Código SINAPI (vazio tira o código)</Label>
+              <Label htmlFor="codigo-sinapi">{TT_I.campoCodigo}</Label>
               <Input
                 id="codigo-sinapi"
                 inputMode="numeric"
@@ -607,65 +709,81 @@ export function AbaAnexoV({ tabelas }: { tabelas: TabelasPreco }) {
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="motivo-item">Motivo</Label>
+            <Label htmlFor="motivo-item">{TT_I.motivo}</Label>
             <Textarea
               id="motivo-item"
               value={dialogo?.motivo ?? ''}
               maxLength={TEXTO_CURTO_MAX}
+              aria-describedby="motivo-item-ajuda"
               onChange={(e) => dialogo && setDialogo({ ...dialogo, motivo: e.target.value })}
             />
-            <p className="text-xs text-muted-foreground">
-              De {TEXTO_CURTO_MIN} a {TEXTO_CURTO_MAX} caracteres.
+            <p id="motivo-item-ajuda" className="text-xs text-muted-foreground">
+              {TT_I.tamanhoMotivo(TEXTO_CURTO_MIN, TEXTO_CURTO_MAX)}
             </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogo(null)} disabled={pendente}>
-              Voltar
+              {ROTULO_FECHAR_DIALOGO}
             </Button>
-            <Button onClick={confirmar} disabled={pendente}>
-              Confirmar
+            <Button variant="gradiente" onClick={confirmar} disabled={pendente}>
+              {TT_I.confirmar}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Aba do SINAPI
+// Seção do SINAPI
 // ---------------------------------------------------------------------------
 
-export function AbaSinapi({ tabelas }: { tabelas: TabelasPreco }) {
+export function AbaSinapi({ tabelas, atrasado }: { tabelas: TabelasPreco; atrasado: boolean }) {
   const aberta = tabelas.abertas.find((a) => a.tipo === 'sinapi');
   return (
-    <div className="space-y-4">
+    <section aria-label={ROTULO_SECAO_CADASTRO.sinapi} className="space-y-4">
+      <CabecalhoSecao
+        titulo={ROTULO_SECAO_CADASTRO.sinapi}
+        descricao="Os insumos da Caixa, um mês por importação. A cotação usa sempre o mês mais recente."
+      />
+      {atrasado && tabelas.mesMaisRecente && <Aviso>{TT.atrasado(tabelas.mesMaisRecente)}</Aviso>}
       {aberta && <RevisaoAberta imp={aberta} />}
       <EnviarCsv tipo="sinapi" bloqueado={!!aberta} />
-      <section aria-labelledby="meses-sinapi" className="space-y-2">
-        <h3 id="meses-sinapi" className="text-sm font-semibold">
+      <section aria-labelledby="meses-sinapi" className={cn(CARTAO_CADASTRO, 'px-4 py-2 sm:px-5')}>
+        <h3 id="meses-sinapi" className="sr-only">
           Meses importados
         </h3>
         {tabelas.meses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum mês importado. Sem SINAPI, a cotação não oferece o caminho 2.
-          </p>
+          <p className="py-3 text-sm text-muted-foreground">{TT.semMes}</p>
         ) : (
-          <ul className="space-y-1 text-sm">
+          <ul className="divide-y divide-border/50">
             {tabelas.meses.map((m) => (
-              <li key={m.referencia}>
-                <span className="font-medium">{mesBr(m.referencia)}</span> · {m.quantidade} insumos
-                · aplicado em {dataHora(m.em)}
-                {m.referencia === tabelas.mesMaisRecente && (
-                  <Badge variant="outline" className="ml-2">
-                    mais recente
-                  </Badge>
-                )}
+              <li
+                key={m.referencia}
+                className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <span className={cn(m.referencia === tabelas.mesMaisRecente && 'font-semibold')}>
+                    {mesCurto(m.referencia)}
+                  </span>
+                  {m.referencia === tabelas.mesMaisRecente && (
+                    <Badge
+                      variant="outline"
+                      className="border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200"
+                    >
+                      {TT.emUso}
+                    </Badge>
+                  )}
+                </span>
+                <span className="text-[13px] text-muted-foreground">
+                  {m.quantidade} insumos · aplicado em {dataHora(m.em)}
+                </span>
               </li>
             ))}
           </ul>
         )}
       </section>
-    </div>
+    </section>
   );
 }

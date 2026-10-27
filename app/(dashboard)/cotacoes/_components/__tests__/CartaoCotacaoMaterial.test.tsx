@@ -200,19 +200,8 @@ describe('CartaoCotacaoMaterial · versão por visão (spec 0021, AC-16)', () =>
       responder({
         podeCriar: false,
         acoes: null,
-        cotacao: {
-          id: 'c1',
-          numero: 'COT-2026-0001',
-          chamadoId: 'ch1',
-          situacao: 'autorizada',
-          emTramite: true,
-          versao: 3,
-          visao: 'solicitante',
-          criadaEm: '2026-10-15T12:00:00Z',
-          atualizadaEm: '2026-10-15T12:00:00Z',
-          ultimoMotivo: null,
-          fase,
-        },
+        // O que o servidor manda ao solicitante: só a fase (AC-24).
+        cotacao: { id: 'c1', visao: 'solicitante', fase },
       });
 
       // Act
@@ -223,7 +212,6 @@ describe('CartaoCotacaoMaterial · versão por visão (spec 0021, AC-16)', () =>
       const fases = screen.getByRole('list', { name: 'Fases da compra de material' });
       expect(fases.querySelector('[aria-current="step"]')).toHaveTextContent(atual);
       expect(screen.queryByText(/R\$/)).not.toBeInTheDocument();
-      expect(screen.queryByText('COT-2026-0001')).not.toBeInTheDocument();
     },
   );
 
@@ -232,13 +220,7 @@ describe('CartaoCotacaoMaterial · versão por visão (spec 0021, AC-16)', () =>
     responder({
       podeCriar: false,
       acoes: null,
-      cotacao: {
-        ...cartao.cotacao,
-        visao: 'solicitante',
-        situacao: 'reprovada',
-        fase: 'encerrada',
-        itens: undefined,
-      },
+      cotacao: { id: 'c1', visao: 'solicitante', fase: 'encerrada' },
     });
 
     // Act

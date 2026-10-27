@@ -155,9 +155,10 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange, recolhido }
   }, [data, rejectObs, fetchCotacoes, onChange]);
 
   // Recolhido, a maioria dos chamados não tem cotação antiga: sem esqueleto piscando à toa.
-  if (loading && recolhido) return null;
+  // Na recarga (depois de aprovar ou recusar), o bloco já lido fica na tela.
+  if (loading && recolhido && !data) return null;
 
-  if (loading) {
+  if (loading && !recolhido) {
     return (
       <Card className="rounded-2xl border-border/50">
         <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
@@ -347,7 +348,11 @@ export function CotacaoApprovalCard({ ticketId, canReview, onChange, recolhido }
   return (
     <details
       open={aberto ?? active != null}
-      onToggle={(e) => setAberto(e.currentTarget.open)}
+      onToggle={(e) => {
+        // O navegador também dispara `toggle` ao montar aberto: igual ao padrão, não é escolha de ninguém.
+        const open = e.currentTarget.open;
+        setAberto((atual) => (atual === null && open === (active != null) ? null : open));
+      }}
       className="group rounded-2xl border border-border/60 bg-card"
     >
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden">
