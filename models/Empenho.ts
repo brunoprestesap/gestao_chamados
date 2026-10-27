@@ -1,6 +1,8 @@
-import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
+import mongoose, { InferSchemaType, Model, Query, Schema, Types } from 'mongoose';
 
 import { TIPOS_MOVIMENTO_EMPENHO } from '@/shared/material/material.constants';
+
+import { EscritaProibidaError } from './_somente-inclusao';
 
 /**
  * Empenho de material (spec 0019). `comprometidoCentavos` é sempre a soma de
@@ -29,6 +31,17 @@ const ReservaSchema = new Schema(
   { _id: false },
 );
 
+/** Uma mudança de situação (spec 0022): só cresce, por `$push`. */
+const SituacaoSchema = new Schema(
+  {
+    ativo: { type: Boolean, required: true },
+    motivo: { type: String, required: true, trim: true, maxlength: 500 },
+    porUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    em: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const EmpenhoSchema = new Schema(
   {
     numero: { type: String, required: true, trim: true, maxlength: 40 },
@@ -41,10 +54,54 @@ const EmpenhoSchema = new Schema(
     comprometidoCentavos: { type: Number, required: true, default: 0, min: 0 },
     vigenciaFim: { type: String, default: null, match: /^\d{4}-\d{2}-\d{2}$/ },
     ativo: { type: Boolean, required: true, default: true },
+    historicoSituacao: { type: [SituacaoSchema], default: [] },
     criadoPorUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true },
 );
+
+/**
+ * `historicoSituacao` só recebe `$push` (spec 0022, AC-4). O empenho não usa
+ * `somenteInclusao`, porque reservas e movimentos precisam de `$pull` e `$inc`:
+ * este hook recusa só as escritas que mudariam ou tirariam um item do histórico.
+ */
+const OPERADORES_QUE_ALTERAM = ['$set', '$unset', '$pull', '$pullAll', '$pop', '$rename'];
+const tocaHistorico = (chave: unknown) =>
+  typeof chave === 'string' && chave.startsWith('historicoSituacao');
+
+function alteraHistorico(update: Record<string, unknown>): boolean {
+  for (const [chave, valor] of Object.entries(update)) {
+    // Chave solta no topo vira `$set` no Mongoose.
+    if (!chave.startsWith('$')) {
+      if (tocaHistorico(chave)) return true;
+      continue;
+    }
+    if (!valor || typeof valor !== 'object') continue;
+    const campos = valor as Record<string, unknown>;
+    if (OPERADORES_QUE_ALTERAM.includes(chave)) {
+      if (Object.keys(campos).some(tocaHistorico)) return true;
+      if (chave === '$rename' && Object.values(campos).some(tocaHistorico)) return true;
+    }
+    // `$push` com `$slice` cortaria o histórico.
+    if (chave === '$push') {
+      const push = campos.historicoSituacao;
+      if (push && typeof push === 'object' && '$slice' in push) return true;
+    }
+  }
+  return false;
+}
+
+for (const op of ['updateOne', 'updateMany', 'findOneAndUpdate'] as const) {
+  EmpenhoSchema.pre(op, function (this: Query<unknown, unknown>) {
+    const update = (this.getUpdate() ?? {}) as Record<string, unknown>;
+    if (alteraHistorico(update)) throw new EscritaProibidaError('Empenho.historicoSituacao', op);
+  });
+}
+for (const op of ['replaceOne', 'findOneAndReplace'] as const) {
+  EmpenhoSchema.pre(op, function () {
+    throw new EscritaProibidaError('Empenho', op);
+  });
+}
 
 EmpenhoSchema.index({ numero: 1 }, { unique: true });
 EmpenhoSchema.index({ 'reservas.cotacaoId': 1 });

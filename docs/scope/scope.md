@@ -40,7 +40,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 31  | Cotação e fornecimento de material                 | Material      | done     |
 | 32  | IMR do contrato: indicadores 3 e 4                 | Material      | planned  |
 | 33  | Repaginação das telas da cotação de material       | Material      | done     |
-| 34  | Motivo e histórico no cadastro de material         | Material      | planned  |
+| 34  | Motivo e histórico no cadastro de material         | Material      | done     |
 | 29  | Correções de integridade do chamado                | Ciclo de vida | done     |
 | 20  | Aviso de chamado duplicado                         | Slice 4       | done     |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
@@ -420,12 +420,20 @@ spec [0021](../specs/0021-redesign-cotacao-material/index.md) · code in `app/(d
 - [x] Verify it: `/check verify repaginação das telas da cotação de material`
 - [x] Test it: `/test repaginação das telas da cotação de material`
 
-### 34. Motivo e histórico no cadastro de material · needs a decision
+### 34. Motivo e histórico no cadastro de material · done
 
 Revogar designação, desativar faixa e inativar empenho passam a pedir motivo e a deixar histórico; hoje a confirmação da 0021 evita o clique errado, mas não registra o porquê. Muda schemas e actions de `lib/material`, por isso spec própria. from spec 0021
 **Done when:** cada um dos três atos exige motivo; o histórico mostra quem fez, quando e por quê, só para o lado TRF1; nada já gravado muda de sentido.
+spec [0022](../specs/0022-motivo-historico-cadastro-material/index.md) · code in `lib/material/cadastro.ts`, `models/DesignacaoMaterial.ts`, `models/FaixaCompetencia.ts`, `models/Empenho.ts`, `app/(dashboard)/configuracoes/material/`, `shared/material/`
 
-- [ ] Design it (spec): `/architect motivo e histórico no cadastro de material`
+- [x] Design it (spec): `/architect motivo e histórico no cadastro de material`
+- [x] Build it: `/develop motivo e histórico no cadastro de material`
+  - [x] Designação de ponta a ponta: motivo no diálogo, na escrita e na linha, com a revogação automática (fatia 1) · AC-1, AC-4, AC-5, AC-6, AC-7
+  - [x] Faixa com data, autor e motivo (fatia 2) · AC-2, AC-4, AC-6, AC-7
+  - [x] Empenho com histórico protegido, corrida e linha do tempo única (fatia 3) · AC-3, AC-4, AC-5, AC-6, AC-7
+  - [x] Varredura de visibilidade, permissão e axe (fechamento) · AC-8, AC-9
+- [x] Verify it: `/check verify motivo e histórico no cadastro de material`
+- [x] Test it: `/test motivo e histórico no cadastro de material`
 
 ## Slice 3: fechamento
 
@@ -490,6 +498,7 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Variante `gradiente` do `Button` no Sigma inteiro**: trocar os usos caso a caso fora do módulo de material · from spec 0021
 - **Visão do Admin sem designação e cotação reprovada ou cancelada**: desenhar no canvas; hoje seguem o padrão do detalhe com o "Sua vez" dizendo quem age · from spec 0021
 - **Miniatura das evidências da cotação**: pede servir o arquivo inline e decidir quem vê; decidir junto com Fotos no chat (19) · from spec 0021
+- **Seção Histórico única no cadastro de material**: juntar numa seção só as revogações, desativações e mudanças de situação que a 0022 guarda em cada documento, se a auditoria pedir · from spec 0022
 - **Aviso de reatribuição de técnico**: `reatribuicao_tecnico` não emite nenhum evento hoje; se o solicitante precisar saber quando o técnico muda, cobrir numa fatia futura · from spec 0005
 - **Viés de concordância no acerto de serviço**: o Preposto vê a sugestão de serviço pré preenchida na classificação, então o número medido mede concordância, não um julgamento independente; considerar esconder a sugestão também na classificação se o viés atrapalhar a calibração · from spec 0006
 - **Unificar a escolha de técnico manual e automática**: `findBestTechnician`, as duas rotas `eligible-technicians` e as cópias à mão de `ACTIVE_STATUSES` passam a usar o critério novo (desempate justo) e `CHAMADO_STATUS_CARGA_TECNICO` · from spec 0008

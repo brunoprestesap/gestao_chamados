@@ -12,6 +12,7 @@ import { EmpenhoModel } from '@/models/Empenho';
 import { FaixaCompetenciaModel } from '@/models/FaixaCompetencia';
 import { ImportacaoMaterialModel } from '@/models/ImportacaoMaterial';
 import { UserModel } from '@/models/user.model';
+import type { MovimentoDoEmpenho, SituacaoDoEmpenho } from '@/shared/material/cadastro';
 import type {
   CriarDesignacaoInput,
   CriarEmpenhoInput,
@@ -23,6 +24,11 @@ import {
   PERFIS_POR_PAPEL,
   SINAPI_MESES_DE_ATRASO_ACEITOS,
 } from '@/shared/material/material.constants';
+import {
+  ERRO_EMPENHO_JA_NA_SITUACAO,
+  MOTIVO_REVOGACAO_AUTOMATICA,
+  TEXTO_HISTORICO_CADASTRO,
+} from '@/shared/material/mensagens';
 
 import { filtroVigente } from './papeis';
 import { mesSinapiMaisRecente } from './precos';
@@ -67,12 +73,40 @@ export async function movimentarEmpenho(
     : { ok: false, error: 'Empenho não encontrado.' };
 }
 
+/**
+ * Inativa ou reativa com motivo (spec 0022, AC-3): a troca e o item do
+ * histórico saem numa escrita só, condicional à situação de antes. Quem
+ * perde a corrida não grava nada.
+ */
 export async function alterarSituacaoEmpenho(
+  adminId: string,
   empenhoId: string,
   ativo: boolean,
+  motivo: string,
 ): Promise<Resultado> {
-  const r = await EmpenhoModel.updateOne({ _id: empenhoId }, { $set: { ativo } });
-  return r.matchedCount ? { ok: true } : { ok: false, error: 'Empenho não encontrado.' };
+  const _id = new Types.ObjectId(empenhoId);
+  const r = await EmpenhoModel.updateOne(
+    { _id, ativo: !ativo },
+    {
+      $set: { ativo },
+      $push: {
+        historicoSituacao: {
+          ativo,
+          motivo,
+          porUserId: new Types.ObjectId(adminId),
+          em: new Date(),
+        },
+      },
+    },
+  );
+  if (r.matchedCount) return { ok: true };
+  if (await EmpenhoModel.exists({ _id })) {
+    return {
+      ok: false,
+      error: ativo ? ERRO_EMPENHO_JA_NA_SITUACAO.ativo : ERRO_EMPENHO_JA_NA_SITUACAO.inativo,
+    };
+  }
+  return { ok: false, error: 'Empenho não encontrado.' };
 }
 
 export async function criarFaixa(adminId: string, f: CriarFaixaInput): Promise<Resultado> {
@@ -85,11 +119,22 @@ export async function criarFaixa(adminId: string, f: CriarFaixaInput): Promise<R
   return { ok: true };
 }
 
-/** A única escrita permitida numa faixa: `ativa: false`. */
-export async function desativarFaixa(faixaId: string): Promise<Resultado> {
+/** A única escrita permitida numa faixa: `ativa: false`, com data, autor e motivo (spec 0022). */
+export async function desativarFaixa(
+  adminId: string,
+  faixaId: string,
+  motivo: string,
+): Promise<Resultado> {
   const r = await FaixaCompetenciaModel.updateOne(
     { _id: new Types.ObjectId(faixaId), ativa: true },
-    { $set: { ativa: false } },
+    {
+      $set: {
+        ativa: false,
+        desativadaEm: new Date(),
+        desativadaPorUserId: new Types.ObjectId(adminId),
+        desativadaMotivo: motivo,
+      },
+    },
     OPCAO_ESCRITA_PROPRIA,
   );
   return r.modifiedCount
@@ -160,7 +205,13 @@ export async function criarDesignacao(
   if (cruzaAlguma(anteriores)) {
     await DesignacaoMaterialModel.updateOne(
       { _id: criada._id, revogadaEm: null },
-      { $set: { revogadaEm: new Date(), revogadaPorUserId: new Types.ObjectId(adminId) } },
+      {
+        $set: {
+          revogadaEm: new Date(),
+          revogadaPorUserId: new Types.ObjectId(adminId),
+          revogadaMotivo: MOTIVO_REVOGACAO_AUTOMATICA,
+        },
+      },
       OPCAO_ESCRITA_PROPRIA,
     );
     return { ok: false, error: MSG_DESIGNACAO_SOBREPOSTA };
@@ -168,11 +219,21 @@ export async function criarDesignacao(
   return { ok: true };
 }
 
-/** Revogar grava a data, nunca apaga. */
-export async function revogarDesignacao(adminId: string, designacaoId: string): Promise<Resultado> {
+/** Revogar grava a data, o autor e o motivo (spec 0022), nunca apaga. */
+export async function revogarDesignacao(
+  adminId: string,
+  designacaoId: string,
+  motivo: string,
+): Promise<Resultado> {
   const r = await DesignacaoMaterialModel.updateOne(
     { _id: new Types.ObjectId(designacaoId), revogadaEm: null },
-    { $set: { revogadaEm: new Date(), revogadaPorUserId: new Types.ObjectId(adminId) } },
+    {
+      $set: {
+        revogadaEm: new Date(),
+        revogadaPorUserId: new Types.ObjectId(adminId),
+        revogadaMotivo: motivo,
+      },
+    },
     OPCAO_ESCRITA_PROPRIA,
   );
   return r.modifiedCount
@@ -197,10 +258,21 @@ export type EmpenhoLinha = {
   elegivel: boolean;
   /** A projeção de esgotamento pelo saldo de agora; só no empenho elegível (spec 0021, AC-20). */
   projecao: Projecao | null;
-  movimentos: { tipo: string; valorCentavos: number; ato: string; em: string }[];
+  movimentos: MovimentoDoEmpenho[];
+  /** As mudanças de situação na ordem gravada (spec 0022); a tela junta com os movimentos. */
+  situacoes: SituacaoDoEmpenho[];
 };
 
-export type FaixaLinha = { id: string; nome: string; limiteCentavos: number; ativa: boolean };
+export type FaixaLinha = {
+  id: string;
+  nome: string;
+  limiteCentavos: number;
+  ativa: boolean;
+  /** Spec 0022: `null` também na faixa desativada antes do registro (AC-7). */
+  desativadaEm: string | null;
+  desativadaPorNome: string | null;
+  desativadaMotivo: string | null;
+};
 
 export type DesignacaoLinha = {
   id: string;
@@ -213,6 +285,9 @@ export type DesignacaoLinha = {
   vigenciaFim: string | null;
   ato: string;
   revogadaEm: string | null;
+  revogadaPorNome: string | null;
+  /** `null` na revogada antes da spec 0022 (AC-7). */
+  revogadaMotivo: string | null;
   vigente: boolean;
 };
 
@@ -395,13 +470,25 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
   const vigenteIds = new Set(vigentes.map((v) => String(v._id)));
   const nomeFaixa = new Map(faixas.map((f) => [String(f._id), f.nome]));
   const nomeUser = new Map(usuarios.map((u) => [String(u._id), u.name as string]));
-  const faltaUser = designacoes.filter((d) => !nomeUser.has(String(d.userId))).map((d) => d.userId);
+  // Designados e autores dos atos (spec 0022), sem filtro de `isActive`:
+  // quem saiu continua aparecendo pelo nome.
+  const ids = [
+    ...designacoes.flatMap((d) => [d.userId, d.revogadaPorUserId]),
+    ...faixas.map((f) => f.desativadaPorUserId),
+    ...empenhos.flatMap((e) => [
+      ...e.movimentos.map((m) => m.porUserId),
+      ...(e.historicoSituacao ?? []).map((s) => s.porUserId),
+    ]),
+  ];
+  const faltaUser = [...new Set(ids.filter((id) => id && !nomeUser.has(String(id))).map(String))];
   if (faltaUser.length) {
     const outros = await UserModel.find({ _id: { $in: faltaUser } })
       .select('name')
       .lean();
     for (const u of outros) nomeUser.set(String(u._id), u.name as string);
   }
+  const autor = (id: unknown) =>
+    nomeUser.get(String(id)) ?? TEXTO_HISTORICO_CADASTRO.usuarioRemovido;
 
   return {
     ...pendencias,
@@ -422,6 +509,13 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
         valorCentavos: m.valorCentavos,
         ato: m.ato,
         em: m.em.toISOString(),
+        porNome: autor(m.porUserId),
+      })),
+      situacoes: (e.historicoSituacao ?? []).map((s) => ({
+        ativo: s.ativo,
+        motivo: s.motivo,
+        porNome: autor(s.porUserId),
+        em: s.em.toISOString(),
       })),
     })),
     faixas: faixas.map((f) => ({
@@ -429,6 +523,9 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
       nome: f.nome,
       limiteCentavos: f.limiteCentavos,
       ativa: f.ativa,
+      desativadaEm: f.desativadaEm ? f.desativadaEm.toISOString() : null,
+      desativadaPorNome: f.desativadaPorUserId ? autor(f.desativadaPorUserId) : null,
+      desativadaMotivo: f.desativadaMotivo || null,
     })),
     designacoes: designacoes.map((d) => ({
       id: String(d._id),
@@ -441,6 +538,8 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
       vigenciaFim: d.vigenciaFim ?? null,
       ato: d.ato,
       revogadaEm: d.revogadaEm ? d.revogadaEm.toISOString() : null,
+      revogadaPorNome: d.revogadaPorUserId ? autor(d.revogadaPorUserId) : null,
+      revogadaMotivo: d.revogadaMotivo || null,
       vigente: vigenteIds.has(String(d._id)),
     })),
     usuarios: usuarios.map((u) => ({

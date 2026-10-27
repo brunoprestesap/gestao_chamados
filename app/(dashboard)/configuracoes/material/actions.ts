@@ -58,6 +58,18 @@ function primeiroErro(issues: { message: string }[]): Resultado {
   return { ok: false, error: issues[0]?.message ?? 'Dados inválidos.' };
 }
 
+/** A recusa de um ato com motivo; `campo` diz à tela que o erro vai no campo de motivo (spec 0022, AC-5). */
+export type ResultadoComMotivo = { ok: true } | { ok: false; error: string; campo?: 'motivo' };
+
+function erroDoAto(issues: { message: string; path: PropertyKey[] }[]): ResultadoComMotivo {
+  const primeiro = issues[0];
+  return {
+    ok: false,
+    error: primeiro?.message ?? 'Dados inválidos.',
+    ...(primeiro?.path[0] === 'motivo' ? { campo: 'motivo' as const } : {}),
+  };
+}
+
 export async function criarEmpenhoAction(raw: unknown): Promise<Resultado> {
   const sessao = await sessaoAdmin();
   if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
@@ -74,12 +86,13 @@ export async function movimentarEmpenhoAction(raw: unknown): Promise<Resultado> 
   return executar('movimentar empenho', () => movimentarEmpenho(sessao.userId, p.data));
 }
 
-export async function alterarSituacaoEmpenhoAction(raw: unknown): Promise<Resultado> {
-  if (!(await sessaoAdmin())) return { ok: false, error: ERRO_SEM_PERMISSAO };
+export async function alterarSituacaoEmpenhoAction(raw: unknown): Promise<ResultadoComMotivo> {
+  const sessao = await sessaoAdmin();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
   const p = SituacaoEmpenhoSchema.safeParse(raw);
-  if (!p.success) return primeiroErro(p.error.issues);
+  if (!p.success) return erroDoAto(p.error.issues);
   return executar('situação do empenho', () =>
-    alterarSituacaoEmpenho(p.data.empenhoId, p.data.ativo),
+    alterarSituacaoEmpenho(sessao.userId, p.data.empenhoId, p.data.ativo, p.data.motivo),
   );
 }
 
@@ -91,11 +104,14 @@ export async function criarFaixaAction(raw: unknown): Promise<Resultado> {
   return executar('criar faixa', () => criarFaixa(sessao.userId, p.data));
 }
 
-export async function desativarFaixaAction(raw: unknown): Promise<Resultado> {
-  if (!(await sessaoAdmin())) return { ok: false, error: ERRO_SEM_PERMISSAO };
+export async function desativarFaixaAction(raw: unknown): Promise<ResultadoComMotivo> {
+  const sessao = await sessaoAdmin();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
   const p = DesativarFaixaSchema.safeParse(raw);
-  if (!p.success) return primeiroErro(p.error.issues);
-  return executar('desativar faixa', () => desativarFaixa(p.data.faixaId));
+  if (!p.success) return erroDoAto(p.error.issues);
+  return executar('desativar faixa', () =>
+    desativarFaixa(sessao.userId, p.data.faixaId, p.data.motivo),
+  );
 }
 
 export async function criarDesignacaoAction(raw: unknown): Promise<Resultado> {
@@ -167,12 +183,12 @@ export async function corrigirCodigoSinapiAction(raw: unknown): Promise<Resultad
   return executar('corrigir código SINAPI', () => corrigirCodigoSinapi(sessao.userId, p.data));
 }
 
-export async function revogarDesignacaoAction(raw: unknown): Promise<Resultado> {
+export async function revogarDesignacaoAction(raw: unknown): Promise<ResultadoComMotivo> {
   const sessao = await sessaoAdmin();
   if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
   const p = RevogarDesignacaoSchema.safeParse(raw);
-  if (!p.success) return primeiroErro(p.error.issues);
+  if (!p.success) return erroDoAto(p.error.issues);
   return executar('revogar designação', () =>
-    revogarDesignacao(sessao.userId, p.data.designacaoId),
+    revogarDesignacao(sessao.userId, p.data.designacaoId, p.data.motivo),
   );
 }

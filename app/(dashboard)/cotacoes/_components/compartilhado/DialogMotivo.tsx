@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -51,6 +51,11 @@ export function DialogMotivo({
   const [texto, setTexto] = useState('');
   const [tentou, setTentou] = useState(false);
   const [editadoDepoisDoErro, setEditadoDepoisDoErro] = useState(false);
+
+  // A recusa do servidor devolve o foco ao campo (spec 0022, AC-5).
+  useEffect(() => {
+    if (erroServidor) campo.current?.focus();
+  }, [erroServidor]);
 
   const curto = texto.trim().length < min;
   const erro =

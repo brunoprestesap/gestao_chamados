@@ -186,7 +186,7 @@ rodar('cadastro e designações do material, contra o Mongo', () => {
     it('designação revogada não bloqueia uma nova no mesmo período', async () => {
       await designar(u.adm, 'fiscal');
       const d = await Designacao.findOne({ userId: new Types.ObjectId(u.adm) }).lean();
-      await cadastro.revogarDesignacao(admin, String(d!._id));
+      await cadastro.revogarDesignacao(admin, String(d!._id), 'Motivo de teste do cadastro');
       expect((await designar(u.adm, 'fiscal')).ok).toBe(true);
     });
   });
@@ -198,7 +198,7 @@ rodar('cadastro e designações do material, contra o Mongo', () => {
       await designar(u.prep, 'responsavel_tecnico', { vigenciaFim: '2026-10-14' }); // ontem
       await designar(u.tec, 'responsavel_tecnico');
       const tec = await Designacao.findOne({ userId: new Types.ObjectId(u.tec) }).lean();
-      await cadastro.revogarDesignacao(admin, String(tec!._id));
+      await cadastro.revogarDesignacao(admin, String(tec!._id), 'Motivo de teste do cadastro');
 
       const p = await papeis.papeisDe(u.adm, 'Admin');
       expect(p.tem('fiscal')).toBe(true);
@@ -239,7 +239,7 @@ rodar('cadastro e designações do material, contra o Mongo', () => {
         'Xavier',
       ]);
 
-      await cadastro.desativarFaixa(grande);
+      await cadastro.desativarFaixa(admin, grande, 'Motivo de teste do cadastro');
       expect(await papeis.aprovadoresQueCobrem(20_00)).toEqual([]);
       expect(papeis.limiteDoAprovador(await papeis.papeisDe(u.adm, 'Admin'))).toBeNull();
     });

@@ -1619,6 +1619,38 @@ export const TEXTO_CONFIRMACAO_CADASTRO = {
   },
 } as const;
 
+/**
+ * O motivo gravado pela revogação automática de `criarDesignacao`, quando
+ * dois cadastros simultâneos se sobrepõem (spec 0022, AC-1).
+ */
+export const MOTIVO_REVOGACAO_AUTOMATICA =
+  'Revogada automaticamente: cadastro simultâneo com período sobreposto.';
+
+/** As recusas da corrida na situação do empenho (spec 0022, AC-3). */
+export const ERRO_EMPENHO_JA_NA_SITUACAO = {
+  inativo: 'O empenho já está inativo. Recarregue.',
+  ativo: 'O empenho já está ativo. Recarregue.',
+} as const;
+
+/** O histórico de cada linha do cadastro (spec 0022, AC-6 e AC-7). */
+export const TEXTO_HISTORICO_CADASTRO = {
+  historico: 'Histórico',
+  motivo: 'Motivo',
+  motivoNaoRegistrado: 'Motivo não registrado',
+  usuarioRemovido: 'Usuário removido',
+  revogada: (data: string, nome: string) => `Revogada em ${data} por ${nome}`,
+  desativada: (data: string, nome: string) => `Desativada em ${data} por ${nome}`,
+  faixaAntiga: 'Desativada antes do registro do motivo',
+  empenhoAntigo: 'Inativado antes do registro do motivo',
+  inativado: 'Inativado',
+  reativado: 'Reativado',
+  reforco: (valor: string) => `Reforço de ${valor}`,
+  anulacao: (valor: string) => `Anulação de ${valor}`,
+  quemQuando: (data: string, nome: string) => `${data} · ${nome}`,
+  ato: (ato: string) => `Ato: ${ato}`,
+  vazio: 'Nenhum movimento nem mudança de situação.',
+} as const;
+
 /** Anexo V, SINAPI e a revisão da importação (AC-22), sem "caminho 1" nem "caminho 2". */
 export const TEXTO_CADASTRO_TABELAS = {
   semAnexo:

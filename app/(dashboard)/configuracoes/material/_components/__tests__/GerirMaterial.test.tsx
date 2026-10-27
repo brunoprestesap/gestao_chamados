@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * empenhos em cartões, as designações por papel, a escada de faixas e a
  * confirmação que diz o efeito antes de agir.
  *
- * covers: AC-18, AC-19, AC-20, AC-21
+ * covers: AC-18, AC-19, AC-20, AC-21 (spec 0021); AC-1, AC-5, AC-6, AC-7 (spec 0022)
  */
 
 const m = vi.hoisted(() => ({
@@ -59,6 +59,14 @@ import type { SecaoCadastro } from '@/shared/material/cadastro';
 
 import { GerirMaterial } from '../GerirMaterial';
 
+const SEM_DESATIVACAO = { desativadaEm: null, desativadaPorNome: null, desativadaMotivo: null };
+const MOTIVO = 'Fim do contrato de apoio';
+
+/** O motivo vai antes de confirmar (spec 0022, AC-5). */
+async function escreverMotivo(user: ReturnType<typeof userEvent.setup>, dialogo: HTMLElement) {
+  await user.type(within(dialogo).getByLabelText('Motivo'), MOTIVO);
+}
+
 const painel: PainelMaterial = {
   primeiraCotacao: [
     { chave: 'empenho', secao: 'empenhos', pronto: true, elegiveis: 1 },
@@ -90,6 +98,7 @@ const painel: PainelMaterial = {
       elegivel: true,
       projecao: null,
       movimentos: [],
+      situacoes: [],
     },
     {
       id: 'e2',
@@ -104,11 +113,12 @@ const painel: PainelMaterial = {
       elegivel: false,
       projecao: null,
       movimentos: [],
+      situacoes: [],
     },
   ],
   faixas: [
-    { id: 'f1', nome: 'Faixa I', limiteCentavos: 5_000_00, ativa: true },
-    { id: 'f2', nome: 'Faixa II', limiteCentavos: 20_000_00, ativa: true },
+    { id: 'f1', nome: 'Faixa I', limiteCentavos: 5_000_00, ativa: true, ...SEM_DESATIVACAO },
+    { id: 'f2', nome: 'Faixa II', limiteCentavos: 20_000_00, ativa: true, ...SEM_DESATIVACAO },
   ],
   designacoes: [
     {
@@ -122,6 +132,8 @@ const painel: PainelMaterial = {
       vigenciaFim: null,
       ato: 'Portaria 112/2026',
       revogadaEm: null,
+      revogadaPorNome: null,
+      revogadaMotivo: null,
       vigente: true,
     },
     {
@@ -135,6 +147,8 @@ const painel: PainelMaterial = {
       vigenciaFim: null,
       ato: 'Portaria 113/2026',
       revogadaEm: null,
+      revogadaPorNome: null,
+      revogadaMotivo: null,
       vigente: true,
     },
   ],
@@ -245,12 +259,14 @@ describe('GerirMaterial', () => {
     expect(dialogo).toHaveTextContent('deixa de receber reservas');
     expect(m.acoes.alterarSituacaoEmpenhoAction).not.toHaveBeenCalled();
 
+    await escreverMotivo(user, dialogo);
     await user.click(within(dialogo).getByRole('button', { name: 'Inativar empenho' }));
 
     await waitFor(() =>
       expect(m.acoes.alterarSituacaoEmpenhoAction).toHaveBeenCalledWith({
         empenhoId: 'e1',
         ativo: false,
+        motivo: MOTIVO,
       }),
     );
     expect(m.toast.success).toHaveBeenCalledWith('Empenho inativado.');
@@ -303,10 +319,11 @@ describe('GerirMaterial', () => {
     await user.click(screen.getByRole('button', { name: 'Desativar a faixa Faixa II' }));
     const dialogo = screen.getByRole('dialog', { name: 'Desativar a faixa Faixa II?' });
     expect(dialogo).toHaveTextContent('1 aprovador vigente deixa de aprovar por ela');
+    await escreverMotivo(user, dialogo);
     await user.click(within(dialogo).getByRole('button', { name: 'Desativar faixa' }));
 
     await waitFor(() =>
-      expect(m.acoes.desativarFaixaAction).toHaveBeenCalledWith({ faixaId: 'f2' }),
+      expect(m.acoes.desativarFaixaAction).toHaveBeenCalledWith({ faixaId: 'f2', motivo: MOTIVO }),
     );
   });
 
@@ -317,12 +334,14 @@ describe('GerirMaterial', () => {
     const cartao = screen.getByRole('article', { name: '2025NE000412' });
     await user.click(within(cartao).getByRole('button', { name: 'Reativar…' }));
     const dialogo = screen.getByRole('dialog', { name: 'Reativar o empenho 2025NE000412?' });
+    await escreverMotivo(user, dialogo);
     await user.click(within(dialogo).getByRole('button', { name: 'Reativar empenho' }));
 
     await waitFor(() =>
       expect(m.acoes.alterarSituacaoEmpenhoAction).toHaveBeenCalledWith({
         empenhoId: 'e2',
         ativo: true,
+        motivo: MOTIVO,
       }),
     );
     expect(m.toast.success).toHaveBeenCalledWith('Empenho reativado.');
@@ -339,6 +358,7 @@ describe('GerirMaterial', () => {
 
     await user.click(screen.getByRole('button', { name: 'Revogar a designação de Marina Costa' }));
     const dialogo = screen.getByRole('dialog', { name: 'Revogar a designação de Marina Costa?' });
+    await escreverMotivo(user, dialogo);
     await user.click(within(dialogo).getByRole('button', { name: 'Revogar designação' }));
 
     await waitFor(() =>
@@ -347,6 +367,7 @@ describe('GerirMaterial', () => {
     expect(
       screen.getByRole('dialog', { name: 'Revogar a designação de Marina Costa?' }),
     ).toBeVisible();
+    expect(within(dialogo).getByLabelText('Motivo')).toHaveValue(MOTIVO);
     expect(m.toast.success).not.toHaveBeenCalled();
     expect(m.refresh).not.toHaveBeenCalled();
   });
@@ -360,5 +381,142 @@ describe('GerirMaterial', () => {
     const dialogo = screen.getByRole('dialog', { name: 'Desativar a faixa Faixa II?' });
     expect(within(dialogo).getByRole('button', { name: 'Fechar' })).toBeInTheDocument();
     expect(within(dialogo).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+  });
+
+  // Spec 0022: motivo no diálogo e histórico na linha.
+
+  it('sem o mínimo de caracteres, o diálogo não envia e mostra o erro no campo (AC-5)', async () => {
+    const user = userEvent.setup();
+    abrir('faixas');
+
+    await user.click(screen.getByRole('button', { name: 'Desativar a faixa Faixa II' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Desativar a faixa Faixa II?' });
+    const campo = within(dialogo).getByLabelText('Motivo');
+    await user.type(campo, 'curto');
+    expect(within(dialogo).getByText('5 de 500')).toBeInTheDocument();
+    await user.click(within(dialogo).getByRole('button', { name: 'Desativar faixa' }));
+
+    expect(m.acoes.desativarFaixaAction).not.toHaveBeenCalled();
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    expect(campo).toHaveFocus();
+  });
+
+  it('motivo só de espaços também é recusado no campo, sem enviar (AC-1, AC-5)', async () => {
+    const user = userEvent.setup();
+    abrir('designacoes');
+
+    await user.click(screen.getByRole('button', { name: 'Revogar a designação de Marina Costa' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Revogar a designação de Marina Costa?' });
+    const campo = within(dialogo).getByLabelText('Motivo');
+    await user.type(campo, ' '.repeat(12));
+    await user.click(within(dialogo).getByRole('button', { name: 'Revogar designação' }));
+
+    expect(m.acoes.revogarDesignacaoAction).not.toHaveBeenCalled();
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    expect(campo).toHaveFocus();
+  });
+
+  it('o motivo digitado vai para o servidor junto do id (AC-1)', async () => {
+    const user = userEvent.setup();
+    abrir('designacoes');
+
+    await user.click(screen.getByRole('button', { name: 'Revogar a designação de Marina Costa' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Revogar a designação de Marina Costa?' });
+    await escreverMotivo(user, dialogo);
+    await user.click(within(dialogo).getByRole('button', { name: 'Revogar designação' }));
+
+    await waitFor(() =>
+      expect(m.acoes.revogarDesignacaoAction).toHaveBeenCalledWith(
+        expect.objectContaining({ motivo: MOTIVO }),
+      ),
+    );
+  });
+
+  it('fechar e reabrir o diálogo traz o campo de motivo vazio (AC-5)', async () => {
+    const user = userEvent.setup();
+    abrir('faixas');
+
+    await user.click(screen.getByRole('button', { name: 'Desativar a faixa Faixa II' }));
+    let dialogo = screen.getByRole('dialog', { name: 'Desativar a faixa Faixa II?' });
+    await user.type(within(dialogo).getByLabelText('Motivo'), 'texto que fica para trás');
+    await user.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Desativar a faixa Faixa II' }));
+    dialogo = screen.getByRole('dialog', { name: 'Desativar a faixa Faixa II?' });
+    expect(within(dialogo).getByLabelText('Motivo')).toHaveValue('');
+    expect(within(dialogo).getByText('0 de 500')).toBeInTheDocument();
+  });
+
+  it('a recusa do servidor ao motivo aparece no campo, além do toast (AC-5)', async () => {
+    const user = userEvent.setup();
+    m.acoes.revogarDesignacaoAction.mockResolvedValue({
+      ok: false,
+      error: 'Até 500 caracteres.',
+      campo: 'motivo',
+    });
+    abrir('designacoes');
+
+    await user.click(screen.getByRole('button', { name: 'Revogar a designação de Marina Costa' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Revogar a designação de Marina Costa?' });
+    await escreverMotivo(user, dialogo);
+    await user.click(within(dialogo).getByRole('button', { name: 'Revogar designação' }));
+
+    const campo = within(dialogo).getByLabelText('Motivo');
+    await waitFor(() => expect(campo).toHaveAccessibleDescription(/Até 500 caracteres\./));
+    expect(m.toast.error).toHaveBeenCalledWith('Até 500 caracteres.');
+    expect(campo).toHaveFocus();
+  });
+
+  it('o histórico mostra quem, quando e por quê, e as frases do ato antigo (AC-6, AC-7)', () => {
+    const p = structuredClone(painel);
+    p.designacoes.push({
+      ...p.designacoes[0]!,
+      id: 'd9',
+      nome: 'Pedro Antigo',
+      revogadaEm: '2026-05-04T15:30:00.000Z',
+      revogadaPorNome: 'Carla Admin',
+      revogadaMotivo: null,
+      vigente: false,
+    });
+    p.faixas.push({
+      id: 'f9',
+      nome: 'Faixa velha',
+      limiteCentavos: 1_00,
+      ativa: false,
+      ...SEM_DESATIVACAO,
+    });
+    p.empenhos[1]!.situacoes = [];
+    p.empenhos[0]!.situacoes = [
+      {
+        ativo: false,
+        motivo: 'Saldo bloqueado',
+        porNome: 'Carla Admin',
+        em: '2026-06-01T12:00:00.000Z',
+      },
+      {
+        ativo: true,
+        motivo: 'Saldo liberado',
+        porNome: 'Carla Admin',
+        em: '2026-06-02T12:00:00.000Z',
+      },
+    ];
+    const { unmount } = render(
+      <GerirMaterial secao="empenhos" painel={p} tabelas={null} parametros={null} />,
+    );
+
+    const ativo = screen.getByRole('article', { name: '2026NE000184' });
+    const itens = within(ativo).getAllByRole('listitem');
+    expect(itens[0]).toHaveTextContent('Reativado');
+    expect(itens[0]).toHaveTextContent('02/06/2026');
+    expect(itens[0]).toHaveTextContent('Motivo: Saldo liberado');
+    expect(itens[1]).toHaveTextContent('Inativado');
+    expect(within(ativo).queryByText('Inativado antes do registro do motivo')).toBeNull();
+    const inativo = screen.getByRole('article', { name: '2025NE000412' });
+    expect(within(inativo).getByText('Inativado antes do registro do motivo')).toBeInTheDocument();
+    unmount();
+
+    render(<GerirMaterial secao="faixas" painel={p} tabelas={null} parametros={null} />);
+    expect(screen.getByText('Desativada antes do registro do motivo')).toBeInTheDocument();
   });
 });

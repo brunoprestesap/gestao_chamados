@@ -6,6 +6,7 @@ import {
   CorrigirCodigoSinapiSchema,
   CriarCotacaoSchema,
   CriarDesignacaoSchema,
+  DesativarFaixaSchema,
   EncaminharSchema,
   ExecutarSchema,
   ImportacaoMaterialIdSchema,
@@ -14,7 +15,9 @@ import {
   NotaFiscalSchema,
   RecebimentoSchema,
   referenciaSinapi,
+  RevogarDesignacaoSchema,
   SalvarRascunhoSchema,
+  SituacaoEmpenhoSchema,
   TransicaoComMotivoSchema,
 } from '../cotacao.schemas';
 import { MAX_ITENS_COTACAO } from '../material.constants';
@@ -23,7 +26,7 @@ import { MAX_ITENS_COTACAO } from '../material.constants';
  * As entradas das actions da cotação de material (spec 0019). O servidor
  * confere aqui o formato antes de qualquer regra.
  *
- * covers: AC-1, AC-5, AC-10, AC-19, AC-21, AC-22
+ * covers: AC-1, AC-5, AC-10, AC-19, AC-21, AC-22 (spec 0019); AC-1, AC-2, AC-3 (spec 0022)
  */
 
 const ID = 'a'.repeat(24);
@@ -168,6 +171,39 @@ describe('TransicaoComMotivoSchema (AC-5)', () => {
   it('aceita motivo suficiente e tira os espaços das pontas', () => {
     const r = TransicaoComMotivoSchema.safeParse({ id: ID, versao: 2, motivo: '  Preço alto  ' });
     expect(r.success && r.data.motivo).toBe('Preço alto');
+  });
+});
+
+describe('motivo dos atos do cadastro (spec 0022, AC-1, AC-2, AC-3)', () => {
+  const atos = [
+    ['RevogarDesignacaoSchema', RevogarDesignacaoSchema, { designacaoId: ID }],
+    ['DesativarFaixaSchema', DesativarFaixaSchema, { faixaId: ID }],
+    ['SituacaoEmpenhoSchema', SituacaoEmpenhoSchema, { empenhoId: ID, ativo: false }],
+  ] as const;
+
+  it.each(atos)('%s grava o motivo sem os espaços das pontas', (_, schema, base) => {
+    const r = schema.safeParse({ ...base, motivo: '  Fim do contrato  ' });
+    expect(r.success && r.data.motivo).toBe('Fim do contrato');
+  });
+
+  it.each(atos)('%s aceita exatamente 10 e exatamente 500 caracteres', (_, schema, base) => {
+    expect(schema.safeParse({ ...base, motivo: 'a'.repeat(10) }).success).toBe(true);
+    expect(schema.safeParse({ ...base, motivo: 'a'.repeat(500) }).success).toBe(true);
+  });
+
+  it.each(atos)('%s recusa motivo ausente, curto, só de espaços ou longo', (_, schema, base) => {
+    for (const motivo of [undefined, '', 'a'.repeat(9), ' '.repeat(20), `  ${'a'.repeat(9)}  `]) {
+      const r = schema.safeParse({ ...base, motivo });
+      expect(r.success).toBe(false);
+      expect(!r.success && r.error.issues[0]?.path).toEqual(['motivo']);
+    }
+    const longo = schema.safeParse({ ...base, motivo: 'a'.repeat(501) });
+    expect(!longo.success && longo.error.issues[0]?.message).toBe('Até 500 caracteres.');
+  });
+
+  it.each(atos)('%s diz o mínimo e o máximo na recusa do motivo curto', (_, schema, base) => {
+    const r = schema.safeParse({ ...base, motivo: 'curto' });
+    expect(!r.success && r.error.issues[0]?.message).toMatch(/de 10 a 500 caracteres/);
   });
 });
 

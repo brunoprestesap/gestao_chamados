@@ -6,7 +6,8 @@ import { somenteInclusao } from './_somente-inclusao';
 
 /**
  * Designação para um papel no fluxo de material (spec 0019, AC-19). Só
- * inclusão: revogar grava a data por `revogarDesignacao`, nunca apaga.
+ * inclusão: revogar grava a data, o autor e o motivo por `revogarDesignacao`
+ * (spec 0022), nunca apaga. A revogada antes da 0022 fica sem motivo.
  * Vigente: sem `revogadaEm` e hoje (Belém) entre início e fim.
  */
 const DesignacaoMaterialSchema = new Schema({
@@ -20,6 +21,7 @@ const DesignacaoMaterialSchema = new Schema({
   em: { type: Date, required: true },
   revogadaEm: { type: Date, default: null },
   revogadaPorUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  revogadaMotivo: { type: String, trim: true, maxlength: 500, default: null },
 });
 
 DesignacaoMaterialSchema.pre('validate', function () {
@@ -37,6 +39,7 @@ DesignacaoMaterialSchema.index({ papel: 1, revogadaEm: 1 });
 somenteInclusao(DesignacaoMaterialSchema, 'DesignacaoMaterial', [
   'revogadaEm',
   'revogadaPorUserId',
+  'revogadaMotivo',
 ]);
 
 export type DesignacaoMaterial = InferSchemaType<typeof DesignacaoMaterialSchema>;

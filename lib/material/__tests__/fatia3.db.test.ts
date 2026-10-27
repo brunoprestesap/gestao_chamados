@@ -909,7 +909,13 @@ rodar('fatia 3 da cotação de material, contra o Mongo', () => {
       expect(await designacoes()).toMatchObject({ pronto: true, faltam: [] });
 
       const aprovador = await M.Designacao.findOne({ papel: 'aprovador' }).lean();
-      expect(await cad.revogarDesignacao(ids.admin, String(aprovador!._id))).toEqual({ ok: true });
+      expect(
+        await cad.revogarDesignacao(
+          ids.admin,
+          String(aprovador!._id),
+          'Motivo de teste do cadastro',
+        ),
+      ).toEqual({ ok: true });
 
       expect(await designacoes()).toMatchObject({ pronto: false, faltam: ['aprovador'] });
       const p = await cad.lerPendenciasMaterial();
@@ -944,7 +950,7 @@ rodar('fatia 3 da cotação de material, contra o Mongo', () => {
         criadoPorUserId: new Types.ObjectId(),
       });
       const fiscal2 = await M.Designacao.findOne({ userId: new Types.ObjectId(ids.outroFiscal) });
-      await cad.revogarDesignacao(ids.admin, String(fiscal2!._id));
+      await cad.revogarDesignacao(ids.admin, String(fiscal2!._id), 'Motivo de teste do cadastro');
 
       const painel = await cad.lerPainelMaterial();
       const ne1 = painel.empenhos.find((e) => e.numero === 'NE1')!;

@@ -345,7 +345,11 @@ export const MovimentoEmpenhoSchema = z.object({
 });
 export type MovimentoEmpenhoInput = z.infer<typeof MovimentoEmpenhoSchema>;
 
-export const SituacaoEmpenhoSchema = z.object({ empenhoId: objectId, ativo: z.boolean() });
+export const SituacaoEmpenhoSchema = z.object({
+  empenhoId: objectId,
+  ativo: z.boolean(),
+  motivo: textoCurto('Escreva o motivo'),
+});
 
 export const CriarFaixaSchema = z.object({
   nome: z.string().trim().min(2, 'Dê um nome à faixa.').max(80),
@@ -353,7 +357,10 @@ export const CriarFaixaSchema = z.object({
 });
 export type CriarFaixaInput = z.infer<typeof CriarFaixaSchema>;
 
-export const DesativarFaixaSchema = z.object({ faixaId: objectId });
+export const DesativarFaixaSchema = z.object({
+  faixaId: objectId,
+  motivo: textoCurto('Escreva o motivo'),
+});
 
 export const CriarDesignacaoSchema = z
   .object({
@@ -374,7 +381,10 @@ export const CriarDesignacaoSchema = z
   });
 export type CriarDesignacaoInput = z.infer<typeof CriarDesignacaoSchema>;
 
-export const RevogarDesignacaoSchema = z.object({ designacaoId: objectId });
+export const RevogarDesignacaoSchema = z.object({
+  designacaoId: objectId,
+  motivo: textoCurto('Escreva o motivo'),
+});
 
 // ---------------------------------------------------------------------------
 // Anexo V e SINAPI (fatia 3, só Admin)
