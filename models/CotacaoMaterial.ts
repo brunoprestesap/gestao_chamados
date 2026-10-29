@@ -184,6 +184,9 @@ const CotacaoMaterialSchema = new Schema(
     valorAutorizadoCentavos: { type: Number, default: null, min: 0 },
     autorizadoEm: { type: Date, default: null },
     autorizadoPorUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    // Spec 0023 (AC-6): prazo de fornecimento do indicador 4, gravado na primeira
+    // autorização; o `alterar` só limpa antes de vencer, e vencido nunca muda.
+    fornecimentoAte: { type: Date, default: null },
     executadoEm: { type: Date, default: null },
     executadoPorUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     valorExecutadoCentavos: { type: Number, default: null, min: 0 },
@@ -210,6 +213,9 @@ CotacaoMaterialSchema.index({ situacao: 1, updatedAt: -1 });
 CotacaoMaterialSchema.index({ ativoId: 1, autorizadoEm: -1 });
 CotacaoMaterialSchema.index({ localizacaoId: 1, autorizadoEm: -1 });
 CotacaoMaterialSchema.index({ chamadoId: 1, createdAt: -1 });
+// Os dois ramos da leitura do indicador 4 (spec 0023): o prazo gravado no mês,
+// e o prazo nulo com a autorização na janela da estimativa.
+CotacaoMaterialSchema.index({ fornecimentoAte: 1, autorizadoEm: 1 });
 
 export type CotacaoMaterial = InferSchemaType<typeof CotacaoMaterialSchema>;
 export type ItemCotacao = InferSchemaType<typeof ItemSchema> & { _id: Types.ObjectId };

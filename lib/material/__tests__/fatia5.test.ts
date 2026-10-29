@@ -243,6 +243,7 @@ describe('schemas da fatia 5', () => {
     percentualSinapi: 10,
     janelaDias: 90,
     parcelaRelevantePercentual: 20,
+    prazoFornecimentoDiasUteis: 5,
     raizCnpjContratada: '03543374',
   };
 
@@ -255,6 +256,10 @@ describe('schemas da fatia 5', () => {
       { janelaDias: 366 },
       { parcelaRelevantePercentual: 0 },
       { parcelaRelevantePercentual: 101 },
+      // spec 0023, AC-6: prazo de fornecimento de 1 a 30 dias úteis
+      { prazoFornecimentoDiasUteis: 0 },
+      { prazoFornecimentoDiasUteis: 31 },
+      { prazoFornecimentoDiasUteis: 2.5 },
       { raizCnpjContratada: '1234567' },
       { janelaDias: 1.5 },
     ]) {

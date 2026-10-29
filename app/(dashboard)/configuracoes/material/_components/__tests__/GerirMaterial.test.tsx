@@ -167,6 +167,7 @@ const parametros: ParametrosComHistorico = {
   percentualSinapi: 10,
   janelaDias: 90,
   parcelaRelevantePercentual: 20,
+  prazoFornecimentoDiasUteis: 5,
   raizCnpjContratada: '03543374',
   historico: [],
 };

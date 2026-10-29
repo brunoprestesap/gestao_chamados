@@ -20,6 +20,7 @@ import {
   PackageSearch,
   ReceiptText,
   Repeat,
+  Scale,
   Settings,
   Sparkles,
   Tags,
@@ -155,6 +156,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Relatório de material',
     href: '/relatorios/material',
     icon: BarChart3,
+    group: 'Material',
+    allowedRoles: ['Admin'],
+  },
+  // IMR do contrato (spec 0023): fiscal e gestor só existem para Admin, então basta o perfil
+  {
+    label: 'IMR do contrato',
+    href: '/relatorios/imr-contrato',
+    icon: Scale,
     group: 'Material',
     allowedRoles: ['Admin'],
   },

@@ -175,6 +175,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **RelatorioContratoEmissao** (spec 0016): cada PDF do relatório por contrato entregue, com o SHA-256 dos bytes; só é criado
 - **Custo do chamado** (spec 0018): `Chamado.materiaisForaCotacao` (material fora de cotação, até 50 itens) e `Cotacao.valorFinal`/`valorFinalPorUserId`/`valorFinalEm`; só saem em endpoint de gestão, nunca para solicitante nem técnico. O custo do ativo nunca é gravado: sai na leitura de `lib/ativos/custo.ts`
 - **CotacaoMaterial** e companhia (spec 0019): `CotacaoMaterial`, `CotacaoMaterialEvento` (trilha), `ArquivoCotacao`, `Empenho`, `DesignacaoMaterial`, `FaixaCompetencia`, `MaterialConfig` e `CotacaoMaterialPdfEmissao` (fatia 2), todos com nome de coleção explícito. Trilha, designações, faixas, emissões de PDF e tentativas de envio (`CotacaoMaterialTentativa`, fatia 5) são só de inclusão (`models/_somente-inclusao.ts`). O valor executado entra no custo do chamado e do ativo por `lerCustosDosChamados`. A `Cotacao` antiga não recebe mais envio (`submitCotacaoAction` recusa); as `enviada` ainda são aprovadas ou recusadas pelo cartão da gestão. A fatia 3 traz `AnexoVItem` (versões por contrato), `AnexoVVigencia` (o ponteiro da versão vigente), `SinapiInsumo`, `SinapiReferencia` (o mês só existe com ela) e `ImportacaoMaterial` (uma aberta por tipo, a pendente expira em 7 dias). A fatia 5 traz `CotacaoMaterialTentativa`, `projecaoNoAto` no evento e `janelaDias`/`parcelaRelevantePercentual` em `MaterialConfig`, editados com histórico na aba Parâmetros. Regras em `lib/material/AGENTS.md`
+- **IMR do contrato** (spec 0023): `ImrMarcacao`, `ImrFechamento`, `ImrReabertura` e `ImrFechamentoPdfEmissao`, todos só de inclusão e com nome de coleção explícito (`imr_*`); `CotacaoMaterial.fornecimentoAte` e `MaterialConfig.prazoFornecimentoDiasUteis` alimentam o indicador 4. Regras em `lib/imr-contrato/AGENTS.md`
 
 ### Relatório IMR (Índice de Medição de Resultados)
 
@@ -197,6 +198,13 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - Spec 0016: o Admin cadastra contratos em `/configuracoes/contratos` e vê, por contrato e mês, corretivos, preventivas, MTBF, MTTR, reincidência e SLA por ativo e por categoria; o resumo sai de `calcularFiltro` e bate com a aba Ativos do IMR
 - O PDF sai de `POST /api/relatorios/contrato/pdf` (`@react-pdf/renderer`), que grava a emissão com o hash antes de entregar o arquivo, uma geração por vez no processo
 - Regras e detalhes do PDF: `lib/contratos/AGENTS.md`
+
+### IMR do contrato (`/relatorios/imr-contrato`)
+
+- Spec 0023: os indicadores 3 (tempo de resposta) e 4 (fornecimento de material) por contrato e mês, com as marcações do fiscal e do gestor, o fechamento com foto imutável (soma de quatro indicadores em 100 pontos, faixa e reincidência), a reabertura com motivo e o PDF do fechamento
+- Lê Admin, fiscal e gestor; escreve só quem tem designação vigente de `fiscal` ou `gestor` (o Admin sem designação só lê e emite o PDF). Item "IMR do contrato" no grupo Material do menu
+- A prévia e o fechamento usam a mesma `apurarMes`; o PDF sai só da foto, com a trava de um PDF por vez dividida com o relatório por contrato e a cotação de material
+- Regras: `lib/imr-contrato/AGENTS.md`
 
 ### IA local (`lib/llm`)
 
@@ -348,6 +356,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Relatório por contrato           | `lib/contratos/` (cálculo, cadastro e PDF), `shared/contratos/`, `app/(dashboard)/relatorios/contrato/`, `app/(dashboard)/configuracoes/contratos/`, `app/api/relatorios/contrato/pdf/route.ts`, `docs/specs/0016-relatorio-mensal-contrato-ativo/`                                                                                                                                                    |
 | Aviso de chamado duplicado       | `lib/assistente/duplicados.ts` (`buscarDuplicados`), `lib/chamados/interessados.ts` (interesse e aviso de fim), `models/ChamadoInteressado.ts`, `app/(dashboard)/conversas/_lib/acompanhar.ts` e `acompanhamento.ts`, `app/(dashboard)/conversas/_components/AvisoDuplicados.tsx`, `docs/specs/0017-aviso-chamado-duplicado/`                                                                          |
 | Cotação de material              | `lib/material/` (ver `lib/material/AGENTS.md`), `shared/material/`, `models/CotacaoMaterial*.ts`, `models/Empenho.ts`, `models/DesignacaoMaterial.ts`, `app/(dashboard)/cotacoes/`, `app/(dashboard)/configuracoes/material/`, `app/(dashboard)/relatorios/material/`, `app/api/cotacoes/`, `app/api/material/importacoes/`, `app/api/cron/material-conciliacao/`, `docs/specs/0019-cotacao-material/` |
+| IMR do contrato                  | `lib/imr-contrato/` (ver `lib/imr-contrato/AGENTS.md`), `shared/imr-contrato/`, `lib/dias-uteis/` (prazos em dias úteis), `models/Imr*.ts`, `app/(dashboard)/relatorios/imr-contrato/`, `app/api/relatorios/imr-contrato/pdf/route.ts`, `docs/specs/0023-imr-contrato-indicadores/`                                                                                                                    |
 
 ## CI/CD
 
@@ -429,3 +438,4 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - [lib/ativos/AGENTS.md](lib/ativos/AGENTS.md): a gestão de ativos, com árvore de locais, cadastro e histórico, regras do seletor, carga do Tier A e leitura de etiqueta
 - [lib/contratos/AGENTS.md](lib/contratos/AGENTS.md): contratos e o relatório mensal por contrato, com a paridade com o IMR, a emissão do PDF e a skill `react-pdf`
 - [lib/material/AGENTS.md](lib/material/AGENTS.md): a cotação e o fornecimento de material, com a máquina de estados, o saldo do empenho sem transação, as designações, a visibilidade e os ganchos no ciclo do chamado
+- [lib/imr-contrato/AGENTS.md](lib/imr-contrato/AGENTS.md): o IMR do contrato (indicadores 3 e 4), com a apuração única, as marcações, o fechamento com foto imutável, a reabertura e o PDF

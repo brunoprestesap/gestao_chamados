@@ -452,6 +452,7 @@ export const ROTULO_PARAMETRO = {
   percentualSinapi: 'Percentual admitido sobre o SINAPI',
   janelaDias: 'Janela do fracionamento e da reincidência',
   parcelaRelevantePercentual: 'Parcela relevante do saldo',
+  prazoFornecimentoDiasUteis: 'Prazo de fornecimento do material',
   raizCnpjContratada: 'Raiz do CNPJ da contratada',
 } as const;
 
@@ -460,6 +461,7 @@ export const UNIDADE_PARAMETRO = {
   percentualSinapi: '%',
   janelaDias: 'dias',
   parcelaRelevantePercentual: '%',
+  prazoFornecimentoDiasUteis: 'dias úteis',
   raizCnpjContratada: null,
 } as const;
 
@@ -1692,6 +1694,8 @@ export const TEXTO_PARAMETROS = {
       `Quantos dias para trás contam no fracionamento e na reincidência. De ${min} a ${max}.`,
     parcelaRelevantePercentual: (min: number, max: number) =>
       `A partir de que parte do saldo do empenho o aprovador vê a projeção de esgotamento. De ${min} a ${max}.`,
+    prazoFornecimentoDiasUteis: (min: number, max: number) =>
+      `Quantos dias úteis depois da autorização a contratada tem para fornecer o material, no indicador 4 do IMR do contrato. De ${min} a ${max}.`,
     raizCnpjContratada: () =>
       'Os 8 primeiros dígitos do CNPJ da contratada: orçamento com essa raiz é recusado.',
   },

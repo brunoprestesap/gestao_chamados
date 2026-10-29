@@ -24,10 +24,15 @@ export function SeletorContratoMes({
   opcoes,
   contratoId,
   mes,
+  action = '/relatorios/contrato',
+  rotuloBotao = 'Ver relatório',
 }: {
   opcoes: OpcaoContrato[];
   contratoId?: string;
   mes?: string;
+  /** Destino do GET; o IMR do contrato (spec 0023) usa o mesmo seletor. */
+  action?: string;
+  rotuloBotao?: string;
 }) {
   const inicial = opcoes.find((o) => o.id === contratoId) ?? opcoes[0];
   const [escolhido, setEscolhido] = useState(inicial?.id ?? '');
@@ -35,7 +40,7 @@ export function SeletorContratoMes({
   const mesInicial = escolhido === contratoId && mes && meses.includes(mes) ? mes : meses[0];
 
   return (
-    <form method="GET" action="/relatorios/contrato" className="flex flex-wrap items-end gap-4">
+    <form method="GET" action={action} className="flex flex-wrap items-end gap-4">
       <div className="w-full space-y-2 sm:w-[22rem]">
         <Label htmlFor="contratoId" className="text-xs">
           Contrato
@@ -75,7 +80,7 @@ export function SeletorContratoMes({
         </select>
       </div>
       <Button type="submit" disabled={meses.length === 0}>
-        Ver relatório
+        {rotuloBotao}
       </Button>
       {meses.length === 0 ? (
         <p id="mes-vazio" className="w-full text-sm text-muted-foreground">

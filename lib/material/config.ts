@@ -8,6 +8,7 @@ export type ParametrosMaterial = {
   percentualSinapi: number;
   janelaDias: number;
   parcelaRelevantePercentual: number;
+  prazoFornecimentoDiasUteis: number;
 };
 
 /**
@@ -17,7 +18,9 @@ export type ParametrosMaterial = {
  */
 export async function lerMaterialConfig(): Promise<ParametrosMaterial> {
   const doc = await MaterialConfigModel.findOne({ chave: MATERIAL_CONFIG_CHAVE })
-    .select('raizCnpjContratada percentualSinapi janelaDias parcelaRelevantePercentual')
+    .select(
+      'raizCnpjContratada percentualSinapi janelaDias parcelaRelevantePercentual prazoFornecimentoDiasUteis',
+    )
     .lean();
   return {
     raizCnpjContratada: doc?.raizCnpjContratada ?? MATERIAL_CONFIG_PADRAO.raizCnpjContratada,
@@ -25,5 +28,7 @@ export async function lerMaterialConfig(): Promise<ParametrosMaterial> {
     janelaDias: doc?.janelaDias ?? MATERIAL_CONFIG_PADRAO.janelaDias,
     parcelaRelevantePercentual:
       doc?.parcelaRelevantePercentual ?? MATERIAL_CONFIG_PADRAO.parcelaRelevantePercentual,
+    prazoFornecimentoDiasUteis:
+      doc?.prazoFornecimentoDiasUteis ?? MATERIAL_CONFIG_PADRAO.prazoFornecimentoDiasUteis,
   };
 }

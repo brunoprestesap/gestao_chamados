@@ -50,6 +50,7 @@ function paraTexto(p: ParametrosComHistorico): Valores {
     percentualSinapi: String(p.percentualSinapi),
     janelaDias: String(p.janelaDias),
     parcelaRelevantePercentual: String(p.parcelaRelevantePercentual),
+    prazoFornecimentoDiasUteis: String(p.prazoFornecimentoDiasUteis),
     raizCnpjContratada: p.raizCnpjContratada,
   };
 }
@@ -97,6 +98,7 @@ export function AbaParametros({ parametros }: { parametros: ParametrosComHistori
     percentualSinapi: parametros.percentualSinapi,
     janelaDias: parametros.janelaDias,
     parcelaRelevantePercentual: parametros.parcelaRelevantePercentual,
+    prazoFornecimentoDiasUteis: parametros.prazoFornecimentoDiasUteis,
     raizCnpjContratada: parametros.raizCnpjContratada,
   };
 
@@ -105,6 +107,7 @@ export function AbaParametros({ parametros }: { parametros: ParametrosComHistori
       percentualSinapi: Number(valores.percentualSinapi),
       janelaDias: Number(valores.janelaDias),
       parcelaRelevantePercentual: Number(valores.parcelaRelevantePercentual),
+      prazoFornecimentoDiasUteis: Number(valores.prazoFornecimentoDiasUteis),
       raizCnpjContratada: valores.raizCnpjContratada.trim(),
     };
     iniciar(async () => {

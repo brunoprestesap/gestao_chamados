@@ -424,7 +424,7 @@ const inteiroEntre = (rotulo: string, min: number, max: number) =>
     .min(min, `${rotulo}: de ${min} a ${max}.`)
     .max(max, `${rotulo}: de ${min} a ${max}.`);
 
-/** Os quatro parâmetros (AC-42), com os limites de cada um. */
+/** Os parâmetros (AC-42 da 0019 e AC-6 da 0023), com os limites de cada um. */
 export const ParametrosMaterialSchema = z.object({
   percentualSinapi: inteiroEntre(
     'Percentual sobre o SINAPI',
@@ -440,6 +440,11 @@ export const ParametrosMaterialSchema = z.object({
     'Parcela relevante',
     LIMITES_PARAMETROS.parcelaRelevantePercentual.min,
     LIMITES_PARAMETROS.parcelaRelevantePercentual.max,
+  ),
+  prazoFornecimentoDiasUteis: inteiroEntre(
+    'Prazo de fornecimento',
+    LIMITES_PARAMETROS.prazoFornecimentoDiasUteis.min,
+    LIMITES_PARAMETROS.prazoFornecimentoDiasUteis.max,
   ),
   raizCnpjContratada: z
     .string()
@@ -457,6 +462,7 @@ const ParametrosLidosSchema = z.object({
   percentualSinapi: z.number().int().min(0),
   janelaDias: z.number().int().min(0),
   parcelaRelevantePercentual: z.number().int().min(0),
+  prazoFornecimentoDiasUteis: z.number().int().min(0),
   raizCnpjContratada: z.string(),
 });
 
