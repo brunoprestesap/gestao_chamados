@@ -14,6 +14,13 @@ export type CalendarioDiasUteis = {
 };
 
 const OFFSET_BELEM = '-03:00';
+
+/**
+ * Até onde a contagem de dias úteis procura, em dias corridos. Quem lê o
+ * calendário para um prazo cobre a mesma janela, para nenhum feriado do
+ * caminho ficar de fora.
+ */
+export const LIMITE_DIAS_CORRIDOS = 400;
 const DIA_MS = 24 * 60 * 60 * 1000;
 const OFFSET_MS = 3 * 60 * 60 * 1000;
 
@@ -45,8 +52,8 @@ export function prazoEmDiasUteis(inicio: Date, n: number, cal: CalendarioDiasUte
   if (cal.weekdays.length === 0) return null;
   let dia = diaEmBelem(inicio);
   let contados = 0;
-  // 400 dias cobrem qualquer N do parâmetro (até 30) com feriados seguidos.
-  for (let i = 0; i < 400 && contados < n; i += 1) {
+  // Cobre qualquer N do parâmetro (até 30), mesmo com expediente curto e feriados seguidos.
+  for (let i = 0; i < LIMITE_DIAS_CORRIDOS && contados < n; i += 1) {
     dia = diaSeguinte(dia);
     if (ehDiaUtil(dia, cal)) contados += 1;
   }

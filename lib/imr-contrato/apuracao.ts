@@ -5,6 +5,7 @@
 
 import type { ChamadoStatus } from '@/shared/chamados/chamado.constants';
 import {
+  INICIO_PRAZO_GRAVADO,
   N_PRAZO_ESTIMADO,
   type PapelImr,
   pontosDaEscala,
@@ -83,6 +84,8 @@ export type EntradaApuracao = {
   cotacoes: CotacaoLidaI4[];
   marcacoes?: MarcacaoLida[];
   intervalosFechados?: IntervaloFechado[];
+  /** N atual de `MaterialConfig`, para o prazo estimado da cotação nova sem prazo; padrão 5. */
+  prazoFornecimentoDiasUteis?: number;
 };
 
 type Familia = 'desconsiderar' | 'nao_atendimento';
@@ -250,16 +253,19 @@ function apurarI3(e: EntradaApuracao, vigentes: Vigentes): ApuradoI3 {
 }
 
 /**
- * O prazo de fornecimento da cotação (AC-6): o gravado; sem ele, a cotação
- * autorizada antes da spec 0023 tem o prazo estimado com N = 5.
+ * O prazo de fornecimento da cotação (AC-6): o gravado; sem ele, o prazo é
+ * estimado com N = 5 para a cotação autorizada antes da spec 0023, e com o N
+ * atual do parâmetro para a autorizada depois (o cálculo falhou na autorização).
  */
 export function prazoDeFornecimento(
   c: Pick<CotacaoLidaI4, 'fornecimentoAte' | 'autorizadoEm'>,
   cal: CalendarioImr,
+  nAtual: number = N_PRAZO_ESTIMADO,
 ): { prazo: Date; estimado: boolean } | null {
   if (c.fornecimentoAte) return { prazo: c.fornecimentoAte, estimado: false };
   if (!c.autorizadoEm) return null;
-  const prazo = prazoEmDiasUteis(c.autorizadoEm, N_PRAZO_ESTIMADO, cal);
+  const n = c.autorizadoEm >= INICIO_PRAZO_GRAVADO ? nAtual : N_PRAZO_ESTIMADO;
+  const prazo = prazoEmDiasUteis(c.autorizadoEm, n, cal);
   return prazo ? { prazo, estimado: true } : null;
 }
 
@@ -274,7 +280,7 @@ function apurarI4(e: EntradaApuracao, vigentes: Vigentes): ApuradoI4 {
   let prazosEstimados = 0;
 
   for (const c of e.cotacoes) {
-    const p = prazoDeFornecimento(c, e.calendario);
+    const p = prazoDeFornecimento(c, e.calendario, e.prazoFornecimentoDiasUteis);
     if (!p || p.prazo < inicio || p.prazo >= fim) continue;
     const { prazo, estimado } = p;
 

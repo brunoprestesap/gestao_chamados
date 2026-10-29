@@ -64,12 +64,12 @@ describe('calcularFornecimentoAte', () => {
     expect(await calcularFornecimentoAte(quinta, 1)).toEqual(new Date('2026-09-04T20:00:00Z'));
   });
 
-  it('lê os feriados de 120 dias corridos a partir da autorização, folga para N até 30', async () => {
+  it('lê os feriados da mesma janela da contagem (400 dias corridos) a partir da autorização', async () => {
     await calcularFornecimentoAte(quinta, 30);
 
     const [de, ate, tz] = getActiveHolidaysForRange.mock.calls[0]!;
     expect(de).toEqual(quinta);
-    expect(ate.getTime() - quinta.getTime()).toBe(120 * 24 * 60 * 60 * 1000);
+    expect(ate.getTime() - quinta.getTime()).toBe(400 * 24 * 60 * 60 * 1000);
     expect(tz).toBe('America/Belem');
   });
 
@@ -78,6 +78,15 @@ describe('calcularFornecimentoAte', () => {
 
     // 30 dias úteis de 04/09 em diante, sem 07/09 e 12/10: segunda, 19/10.
     expect(await calcularFornecimentoAte(quinta, 30)).toEqual(new Date('2026-10-19T21:00:00Z'));
+  });
+
+  it('com expediente de um dia por semana e N = 30, o feriado depois do dia 120 ainda é pulado', async () => {
+    // Só às segundas: o 30º dia útil cai mais de 200 dias depois da autorização.
+    calendario.cfg = { ...calendario.cfg, weekdays: [1] };
+    calendario.feriados = new Set(['2027-03-01']);
+
+    // Segundas de 07/09/2026 em diante, sem 01/03/2027: a 30ª é 05/04/2027.
+    expect(await calcularFornecimentoAte(quinta, 30)).toEqual(new Date('2027-04-05T21:00:00Z'));
   });
 
   it('sem nenhum dia útil na semana, devolve null em vez de girar para sempre', async () => {

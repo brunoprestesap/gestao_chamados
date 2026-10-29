@@ -1,6 +1,7 @@
 'use client';
 
 import { LockKeyhole, LockKeyholeOpen } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
@@ -20,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatarMes } from '@/shared/contratos/janela';
 import {
   faixaDoTotal,
+  MENSAGENS_FECHAMENTO,
   MOTIVO_IMR_MAX,
   MOTIVO_IMR_MIN,
   OBSERVACAO_IMR_MAX,
@@ -101,6 +103,7 @@ function CampoIndicador({
 
 /** AC-10: os pontos dos indicadores 1 e 2, com a soma e a faixa ao vivo. */
 export function FecharMes({ mes, i3, i4 }: { mes: Mes; i3: number; i4: number }) {
+  const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [i1, setI1] = useState('');
   const [i2, setI2] = useState('');
@@ -140,6 +143,8 @@ export function FecharMes({ mes, i3, i4 }: { mes: Mes; i3: number; i4: number })
       if (!r.ok) {
         setErro(r.error);
         toast.error(r.error);
+        // A apuração mudou: traz o I3 e o I4 novos sem fechar o diálogo, com o I1 e o I2 digitados.
+        if (r.error === MENSAGENS_FECHAMENTO.previaMudou) router.refresh();
         return;
       }
       toast.success(`Mês fechado na versão ${r.versao}.`);

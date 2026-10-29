@@ -41,6 +41,13 @@ export const DIAS_ANTES_DO_MES = 30;
  */
 export const N_PRAZO_ESTIMADO = 5;
 
+/**
+ * Desde este instante (o merge da spec 0023, 29/10/2026), a autorização grava
+ * `fornecimentoAte`. Cotação autorizada depois dele e ainda sem prazo teve
+ * falha no cálculo, e o prazo estimado usa o N atual do parâmetro, não o 5.
+ */
+export const INICIO_PRAZO_GRAVADO = new Date('2026-10-29T14:19:09.000Z');
+
 /** Quantos dias antes do fim do mês a autorização antiga pode ter, para o prazo estimado cair nele. */
 export const DIAS_AUTORIZACAO_ESTIMADA = 60;
 
