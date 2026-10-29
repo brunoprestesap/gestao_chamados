@@ -20,6 +20,9 @@ import { MSG_CONCLUSAO_COM_COTACAO, MSG_RETOMADA_COM_COTACAO } from '@/shared/ma
 
 const MOTIVO_PAUSA = 'falta_peca_aprovacao_cliente';
 
+/** Cotações em trâmite lidas por vez na rodada diária. */
+const LOTE_RODADA_DIARIA = 200;
+
 /**
  * Pausa o chamado no envio da cotação, quando ele está `em atendimento`.
  * Devolve o `PauseLog` aberto, ou `null` quando o chamado já estava pausado
@@ -284,27 +287,50 @@ export async function cancelarCotacaoPeloChamado(params: {
  * cotação em trâmite e a reserva presa no empenho. A rodada diária do cron
  * cancela a cotação em trâmite de todo chamado cancelado ou recusado, com
  * autor `sistema` (quem encerrou o chamado não fica no chamado).
+ *
+ * Anda em lotes pelo `chamadoId` crescente (o chamado mais antigo primeiro),
+ * pelo índice parcial `uma_em_tramite_por_chamado`: a memória e o `$in` não
+ * crescem com o volume em trâmite, e a ordem é a mesma em toda rodada. O
+ * cursor é o último `chamadoId` lido, então cancelar no meio do caminho (a
+ * cotação sai de `emTramite`) não pula nem repete ninguém.
  */
-export async function cancelarCotacoesDeChamadosEncerrados(): Promise<{
+export async function cancelarCotacoesDeChamadosEncerrados(
+  tamanhoLote = LOTE_RODADA_DIARIA,
+): Promise<{
   verificadas: number;
   canceladas: number;
 }> {
-  const emTramite = await CotacaoMaterialModel.find({ emTramite: true }).select('chamadoId').lean();
-  if (emTramite.length === 0) return { verificadas: 0, canceladas: 0 };
-  const encerrados = await ChamadoModel.find({
-    _id: { $in: emTramite.map((c) => c.chamadoId) },
-    status: { $in: ['cancelado', 'recusado'] },
-  })
-    .select('status')
-    .lean();
+  let verificadas = 0;
   let canceladas = 0;
-  for (const ch of encerrados) {
-    const ok = await cancelarCotacaoPeloChamado({
-      chamadoId: String(ch._id),
-      userId: null,
-      motivo: ch.status === 'recusado' ? 'chamado_recusado' : 'chamado_cancelado',
-    });
-    if (ok) canceladas++;
+  let depoisDe: Types.ObjectId | null = null;
+  for (;;) {
+    const lote: { chamadoId: Types.ObjectId }[] = await CotacaoMaterialModel.find({
+      emTramite: true,
+      ...(depoisDe ? { chamadoId: { $gt: depoisDe } } : {}),
+    })
+      .sort({ chamadoId: 1 })
+      .limit(tamanhoLote)
+      .select('chamadoId')
+      .lean();
+    if (lote.length === 0) break;
+    depoisDe = lote[lote.length - 1].chamadoId;
+    const encerrados = await ChamadoModel.find({
+      _id: { $in: lote.map((c) => c.chamadoId) },
+      status: { $in: ['cancelado', 'recusado'] },
+    })
+      .sort({ _id: 1 })
+      .select('status')
+      .lean();
+    verificadas += encerrados.length;
+    for (const ch of encerrados) {
+      const ok = await cancelarCotacaoPeloChamado({
+        chamadoId: String(ch._id),
+        userId: null,
+        motivo: ch.status === 'recusado' ? 'chamado_recusado' : 'chamado_cancelado',
+      });
+      if (ok) canceladas++;
+    }
+    if (lote.length < tamanhoLote) break;
   }
-  return { verificadas: encerrados.length, canceladas };
+  return { verificadas, canceladas };
 }
