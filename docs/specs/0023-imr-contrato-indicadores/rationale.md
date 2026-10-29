@@ -81,3 +81,9 @@ Depois da revisão de código feita por outro modelo (`docs/reviews/2026-10-29-m
 - **Dias úteis num módulo neutro.** O núcleo de transições do material importava `lib/imr-contrato/`. A conta e a leitura do calendário foram para `lib/dias-uteis/`, e o prazo de fornecimento para `lib/material/fornecimento.ts`.
 - **Prazo nulo.** Antes, a falta de prazo era silenciosa e um erro na leitura dos feriados derrubava a autorização. Agora há aviso no log, e a autorização segue; a leitura do I4 já estima o prazo com N = 5.
 - **Índice.** O índice esparso em `fornecimentoAte` não excluía nada (o campo tem padrão null) e não atendia o ramo do prazo nulo; virou o composto `{ fornecimentoAte: 1, autorizadoEm: 1 }`.
+
+Na checagem cruzada da spec atualizada (outro modelo, mesmo dia), três pontos viraram código e o resto virou texto:
+
+- **Tela depois de `previaMudou`.** O diálogo ficava com o I3 e o I4 antigos, e um novo clique falhava de novo até recarregar a página à mão. Agora a tela chama `router.refresh()` e mantém o I1 e o I2 digitados.
+- **N da estimativa.** A cotação autorizada depois da spec e sem prazo (o cálculo falhou) era medida com N = 5 mesmo com outro N configurado. Agora usa o N atual; o 5 ficou só para a cotação anterior a `INICIO_PRAZO_GRAVADO`. Gravar o N por cotação foi descartado: a falha é rara e o N atual é o que a contratada conhece.
+- **Janela de feriados.** O prazo lia feriados de 120 dias, e a contagem vai até 400; com expediente curto e N alto, feriados depois do dia 120 eram ignorados. A leitura passou a cobrir a mesma janela da contagem.

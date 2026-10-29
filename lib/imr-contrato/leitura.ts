@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 import { hojeEmBelem } from '@/lib/ativos/documentos/situacao';
 import { lerContrato } from '@/lib/contratos/relatorio';
 import { dbConnect } from '@/lib/db';
+import { lerMaterialConfig } from '@/lib/material/config';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
@@ -327,12 +328,13 @@ export async function montarPreviaImr(params: {
     return { ok: false, motivo: 'mes_fora_da_vigencia' };
   }
   await dbConnect();
-  const [calendario, chamados, cotacoes, marcacoes, estado] = await Promise.all([
+  const [calendario, chamados, cotacoes, marcacoes, estado, material] = await Promise.all([
     lerCalendario(params.competencia),
     lerChamados(contrato, params.competencia),
     lerCotacoes(contrato, params.competencia),
     lerMarcacoes(params.contratoId, params.competencia),
     lerEstadoDoMes(params.contratoId, params.competencia),
+    lerMaterialConfig(),
   ]);
   const r = apurarComBase({
     competencia: params.competencia,
@@ -342,6 +344,7 @@ export async function montarPreviaImr(params: {
     cotacoes,
     marcacoes,
     intervalosFechados: estado.intervalos,
+    prazoFornecimentoDiasUteis: material.prazoFornecimentoDiasUteis,
   });
   return { ok: true, contrato, estado, ...r };
 }

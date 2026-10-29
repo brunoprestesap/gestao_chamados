@@ -255,6 +255,25 @@ describe('apurarMes, indicador 4 (AC-5, AC-6)', () => {
   });
 
   // covers: AC-6
+  it('cotação antiga sem fornecimentoAte fica com N = 5 mesmo com outro N no parâmetro', () => {
+    const antiga = cotacao({ fornecimentoAte: null, autorizadoEm: b('2026-09-10T09:00') });
+    expect(prazoDeFornecimento(antiga, cal(), 10)).toEqual({
+      prazo: b('2026-09-17T18:00'),
+      estimado: true,
+    });
+  });
+
+  // covers: AC-6
+  it('cotação autorizada depois da spec 0023 e sem prazo (cálculo falhou) usa o N atual', () => {
+    // Quinta, 05/11/2026, 09:00: com N = 10, o 10º dia útil é quinta, 19/11.
+    const nova = cotacao({ fornecimentoAte: null, autorizadoEm: b('2026-11-05T09:00') });
+    expect(prazoDeFornecimento(nova, cal(), 10)).toEqual({
+      prazo: b('2026-11-19T18:00'),
+      estimado: true,
+    });
+  });
+
+  // covers: AC-6
   it('cotação antiga sem fornecimentoAte entra com N = 5 e prazo estimado', () => {
     const antiga = cotacao({ fornecimentoAte: null, autorizadoEm: b('2026-09-10T09:00') });
     expect(prazoDeFornecimento(antiga, cal())).toEqual({
