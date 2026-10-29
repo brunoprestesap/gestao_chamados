@@ -502,7 +502,6 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Leitor de tela de verdade no AC-18**: o `/check verify` da 0004 conferiu a região ao vivo programaticamente (o texto que ela recebe bate com o esperado), mas sem NVDA ou outro leitor de tela instalado nesta máquina para ouvir o anúncio de verdade; rodar quando houver um leitor de tela disponível · from spec 0004
 - **Cotação, observação de material e pausa por terceiros na conversa**: hoje ficam fora do sinal ao vivo de `/conversas`; considerar se a gestão sentir falta · from spec 0005
 - **Simplificação dos caminhos 1 e 2 do material**: análise e aprovação num ato único para cotação só com itens do Anexo V e do SINAPI, quando o fiscal decidir a pendência 5 · from spec 0019
-- **Lote e ordem na rodada diária do material**: dividir em lotes o cancelamento da conciliação se o volume de cotações em trâmite crescer · from spec 0019
 - **Campo `situacaoDesde` na cotação**: gravar na transição se as cotações em trâmite passarem de algumas centenas e "Mais tempo na etapa" ficar lento · from spec 0021
 - **Variante `gradiente` do `Button` no Sigma inteiro**: trocar os usos caso a caso fora do módulo de material · from spec 0021
 - **Visão do Admin sem designação e cotação reprovada ou cancelada**: desenhar no canvas; hoje seguem o padrão do detalhe com o "Sua vez" dizendo quem age · from spec 0021

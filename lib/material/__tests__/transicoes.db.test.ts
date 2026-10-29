@@ -895,6 +895,38 @@ rodar('transições da cotação de material, contra o Mongo', () => {
       expect(segunda.canceladas).toBe(1);
       expect((await M.Empenho.findById(c.empenhoId).lean())?.comprometidoCentavos).toBe(0);
     });
+
+    it('a rodada diária anda em lotes pelo chamado mais antigo e não pula ninguém entre os lotes (AC-12)', async () => {
+      const { cancelarCotacoesDeChamadosEncerrados } = await import('../chamado');
+      const cots: Awaited<ReturnType<typeof enviada>>[] = [];
+      for (let i = 0; i < 5; i++) cots.push(await enviada());
+      // Encerrados nas pontas e no meio, para cruzar a divisa de todo lote de 2.
+      for (const [i, status] of [
+        [0, 'cancelado'],
+        [2, 'recusado'],
+        [3, 'cancelado'],
+        [4, 'recusado'],
+      ] as const) {
+        await M.Chamado.collection.updateOne(
+          { _id: new Types.ObjectId(cots[i]!.chamadoId) },
+          { $set: { status } },
+        );
+      }
+
+      const r = await cancelarCotacoesDeChamadosEncerrados(2);
+
+      expect(r).toEqual({ verificadas: 4, canceladas: 4 });
+      const situacoes = await Promise.all(
+        cots.map(async (c) => (await M.Cotacao.findById(c.id).lean())?.situacao),
+      );
+      expect(situacoes).toEqual(['cancelada', 'enviada', 'cancelada', 'cancelada', 'cancelada']);
+      const eventos = await M.Evento.find({ acao: 'cancelar' }).sort({ _id: 1 }).lean();
+      expect(eventos.map((e) => String(e.cotacaoId))).toEqual([0, 2, 3, 4].map((i) => cots[i]!.id));
+      expect(await cancelarCotacoesDeChamadosEncerrados(2)).toEqual({
+        verificadas: 0,
+        canceladas: 0,
+      });
+    });
   });
 
   describe('análise (AC-5)', () => {
