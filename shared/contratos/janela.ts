@@ -21,7 +21,8 @@ export function limitesDoMes(mes: string): { primeiro: string; ultimo: string } 
   return { primeiro: `${mes}-01`, ultimo };
 }
 
-function mesAnterior(mes: string): string {
+/** O mês (`YYYY-MM`) anterior. */
+export function mesAnterior(mes: string): string {
   const [ano, m] = mes.split('-').map(Number) as [number, number];
   return m === 1 ? `${ano - 1}-12` : `${ano}-${String(m - 1).padStart(2, '0')}`;
 }

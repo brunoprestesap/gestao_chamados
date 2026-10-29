@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 
 import { hojeEmBelem } from '@/lib/ativos/documentos/situacao';
 import { lerMaterialConfig } from '@/lib/material/config';
+import { calcularFornecimentoAte } from '@/lib/material/fornecimento';
 import { ArquivoCotacaoModel } from '@/models/ArquivoCotacao';
 import { AtivoModel } from '@/models/Ativo';
 import { ChamadoModel } from '@/models/Chamado';
@@ -277,6 +278,7 @@ async function lerCotacao(id: string) {
     valorExecutadoCentavos: number | null;
     empenhoId: Types.ObjectId | null;
     autorizadoEm: Date | null;
+    fornecimentoAte?: Date | null;
     recebimentoProvisorio: { porUserId: Types.ObjectId; em: Date } | null;
     recebimentoDefinitivo: { porUserId: Types.ObjectId; em: Date } | null;
     notaFiscal: { numero: string } | null;
@@ -852,6 +854,8 @@ export async function transicionar(e: EntradaTransicao): Promise<
 
   const set: Record<string, unknown> = {};
   const unset: Record<string, 1> = {};
+  /** A condição do `fornecimentoAte` na gravação (spec 0023, AC-6). */
+  const filtroDoPrazo: Record<string, unknown> = {};
   const advertencias: CodigoControle[] = [];
   /** As confirmações do orçamento vencido feitas neste encaminhar (AC-34). */
   const confirmadas: { orcamentoId: string }[] = [];
@@ -1236,6 +1240,15 @@ export async function transicionar(e: EntradaTransicao): Promise<
       set.valorAutorizadoCentavos = cot.valorTotalCentavos;
       set.autorizadoEm = agora;
       set.autorizadoPorUserId = new Types.ObjectId(userId!);
+      // Prazo de fornecimento do IMR do contrato (spec 0023, AC-6): só a primeira
+      // autorização grava; um prazo já vencido e mantido pelo `alterar` fica.
+      if (!cot.fornecimentoAte) {
+        const prazo = await calcularFornecimentoAte(agora, parametros.prazoFornecimentoDiasUteis);
+        if (prazo) {
+          set.fornecimentoAte = prazo;
+          filtroDoPrazo.fornecimentoAte = null;
+        }
+      }
       valorEvento = cot.valorTotalCentavos;
       empenhoEvento = e.empenhoId;
       break;
@@ -1246,6 +1259,12 @@ export async function transicionar(e: EntradaTransicao): Promise<
       set.autorizadoEm = null;
       set.autorizadoPorUserId = null;
       set.fiscalUserId = null;
+      // O prazo de fornecimento só é limpo antes de vencer, com a condição no
+      // filtro da gravação; vencido, nunca é apagado (spec 0023, AC-6).
+      if (cot.fornecimentoAte && cot.fornecimentoAte > agora) {
+        set.fornecimentoAte = null;
+        filtroDoPrazo.fornecimentoAte = { $gt: agora };
+      }
       break;
     case 'executar': {
       // Chamado encerrado não recebe material, mesmo com a cotação ainda autorizada (AC-12).
@@ -1435,7 +1454,7 @@ export async function transicionar(e: EntradaTransicao): Promise<
   const update: Record<string, unknown> = { $set: set, $inc: { versao: 1 } };
   if (Object.keys(unset).length) update.$unset = unset;
   const gravada = await CotacaoMaterialModel.findOneAndUpdate(
-    { _id: cot._id, situacao: de, versao: cot.versao },
+    { _id: cot._id, situacao: de, versao: cot.versao, ...filtroDoPrazo },
     update,
     { returnDocument: 'after' },
   ).lean<NonNullable<CotacaoLida>>();

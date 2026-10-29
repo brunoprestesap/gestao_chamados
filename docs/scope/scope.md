@@ -38,7 +38,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 28  | Relatório mensal por contrato com ativo            | Ativos        | done     |
 | 30  | Custo acumulado por ativo                          | Ativos        | done     |
 | 31  | Cotação e fornecimento de material                 | Material      | done     |
-| 32  | IMR do contrato: indicadores 3 e 4                 | Material      | planned  |
+| 32  | IMR do contrato: indicadores 3 e 4                 | Material      | done     |
 | 33  | Repaginação das telas da cotação de material       | Material      | done     |
 | 34  | Motivo e histórico no cadastro de material         | Material      | done     |
 | 29  | Correções de integridade do chamado                | Ciclo de vida | done     |
@@ -398,12 +398,21 @@ spec [0019](../specs/0019-cotacao-material/index.md) · code in `lib/material/`,
 - [x] Verify it: `/check verify cotação e fornecimento de material`
 - [x] Test it: `/test cotação e fornecimento de material`
 
-### 32. IMR do contrato: indicadores 3 e 4 · needs a decision
+### 32. IMR do contrato: indicadores 3 e 4 · done
 
 Os indicadores 3 (tempo de resposta, até o dia útil seguinte) e 4 (fornecimento de material) do IMR do contrato, com pontuação, soma de quatro indicadores em 100 pontos e efeito na glosa. from spec 0019
 **Done when:** o fiscal vê por mês as ocorrências de cada indicador e a pontuação, com o defeito aritmético do TR corrigido (RN-50 do funcional da 0019).
+spec [0023](../specs/0023-imr-contrato-indicadores/index.md) · code in `lib/imr-contrato/`, `shared/imr-contrato/`, `app/(dashboard)/relatorios/imr-contrato/`
 
-- [ ] Design it (spec): `/architect IMR do contrato indicadores 3 e 4`
+- [x] Design it (spec): `/architect IMR do contrato indicadores 3 e 4`
+- [x] Build it: `/develop IMR do contrato indicadores 3 e 4`
+  - [x] Indicador 3 em prévia de ponta a ponta: prazo, base, tela, acesso e menu · AC-1, AC-2, AC-3, AC-4, AC-14, AC-16
+  - [x] Indicador 4: parâmetro N, `fornecimentoAte` na autorização e cartão · AC-5, AC-6
+  - [x] Marcações do fiscal e do gestor · AC-7, AC-8, AC-9 (a recusa com o mês fechado e os intervalos fechados vêm com o fechamento)
+  - [x] Fechamento, reabertura, indicadores 1 e 2, soma, faixa e reincidência · AC-10, AC-11, AC-12, AC-15, AC-17, AC-18
+  - [x] PDF do fechamento e testes de banco real e axe · AC-13, AC-14, AC-18
+- [x] Verify it: `/check verify IMR do contrato indicadores 3 e 4`
+- [x] Test it: `/test IMR do contrato indicadores 3 e 4`
 
 ### 33. Repaginação das telas da cotação de material · done
 
@@ -511,6 +520,7 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Aviso de cron parado**: indicador para o Admin com a contagem de chamados `concluído` de prazo vencido há mais de 1 hora, sinal de que o container `cron` parou · from spec 0010
 - **Reincidências no chamado anterior**: mostrar no chamado anterior a lista dos chamados abertos por "O problema voltou" (o índice `chamadoAnteriorId` já existe) · from spec 0010
 - **Reincidência no IMR ou no painel**: quantos chamados nasceram de "O problema voltou", por serviço e unidade · from spec 0010
+- **Aviso de mês do IMR sem fechamento**: avisar fiscal e gestor quando um mês terminou e o IMR do contrato ainda não foi fechado · from spec 0023
 - **48 horas corridas ou úteis**: reavaliar o prazo para avaliar depois de um mês de uso, se vencer em fim de semana gerar reclamação · from spec 0010
 - **TLS na produção**: ligar `nginx/default.tls.conf` e `AUTH_COOKIE_SECURE=true`; sem HTTPS a câmera de `/ativos/ler` não funciona (já está na auditoria de 25/05/2026) · from spec 0011
 - **Reativar local ou categoria de ativo**: hoje uma localização ou categoria desativada só volta pelo banco · from spec 0011

@@ -1159,6 +1159,80 @@ rodar('transições da cotação de material, contra o Mongo', () => {
 
   // ── execução (AC-10) ───────────────────────────────────────────────
 
+  // ── prazo de fornecimento do IMR do contrato (spec 0023) ──────────
+
+  describe('prazo de fornecimento (spec 0023, AC-6)', () => {
+    async function lida(id: string) {
+      return M.Cotacao.findById(id).lean();
+    }
+
+    /** De `devolvida` de volta a `autorizada`, pelo reenvio. */
+    async function reautorizar(id: string, versao: number, empenhoId: string) {
+      let v = versao;
+      for (const acao of ['enviar', 'assumir', 'encaminhar', 'aprovar'] as const) {
+        const ator =
+          acao === 'enviar'
+            ? rt()
+            : acao === 'aprovar'
+              ? usuario(ids.aprovador, 'Admin')
+              : fiscal();
+        const r = await t.transicionar({ cotacaoId: id, acao, versao: v, ator, empenhoId });
+        if (!r.ok) throw new Error(`${acao}: ${r.error}`);
+        v = r.versao;
+      }
+      return v;
+    }
+
+    // covers: AC-6
+    it('aprovar grava o fim do expediente do N-ésimo dia útil, com o N dos parâmetros', async () => {
+      const { calcularFornecimentoAte } = await import('@/lib/material/fornecimento');
+      const c = await ate(['assumir', 'encaminhar', 'aprovar']);
+      const cot = await lida(c.id);
+      expect(cot?.fornecimentoAte).toBeInstanceOf(Date);
+      expect(cot?.fornecimentoAte).toEqual(await calcularFornecimentoAte(cot!.autorizadoEm!, 5));
+      expect(cot!.fornecimentoAte!.getTime()).toBeGreaterThan(cot!.autorizadoEm!.getTime());
+    });
+
+    // covers: AC-6
+    it('alterar antes do prazo limpa, e a nova autorização recalcula', async () => {
+      const c = await ate(['assumir', 'encaminhar', 'aprovar']);
+      const a = await t.transicionar({
+        cotacaoId: c.id,
+        acao: 'alterar',
+        versao: c.versao,
+        ator: rt(),
+      });
+      expect(a.ok).toBe(true);
+      expect((await lida(c.id))?.fornecimentoAte).toBeNull();
+
+      await reautorizar(c.id, a.ok ? a.versao : 0, c.empenhoId!);
+      const cot = await lida(c.id);
+      expect(cot?.situacao).toBe('autorizada');
+      expect(cot?.fornecimentoAte).toBeInstanceOf(Date);
+    });
+
+    // covers: AC-6
+    it('alterar depois do prazo mantém o prazo vencido, e a nova autorização não o substitui', async () => {
+      const c = await ate(['assumir', 'encaminhar', 'aprovar']);
+      const vencido = new Date(Date.now() - 60_000);
+      await M.Cotacao.collection.updateOne(
+        { _id: new Types.ObjectId(c.id) },
+        { $set: { fornecimentoAte: vencido } },
+      );
+      const a = await t.transicionar({
+        cotacaoId: c.id,
+        acao: 'alterar',
+        versao: c.versao,
+        ator: rt(),
+      });
+      expect(a.ok).toBe(true);
+      expect((await lida(c.id))?.fornecimentoAte).toEqual(vencido);
+
+      await reautorizar(c.id, a.ok ? a.versao : 0, c.empenhoId!);
+      expect((await lida(c.id))?.fornecimentoAte).toEqual(vencido);
+    });
+  });
+
   describe('execução (AC-10)', () => {
     it('executar antes de autorizar é recusado', async () => {
       const c = await ate(['assumir', 'encaminhar']);

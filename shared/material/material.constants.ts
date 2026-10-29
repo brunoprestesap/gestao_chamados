@@ -271,6 +271,7 @@ export const CAMPOS_PARAMETROS = [
   'percentualSinapi',
   'janelaDias',
   'parcelaRelevantePercentual',
+  'prazoFornecimentoDiasUteis',
   'raizCnpjContratada',
 ] as const;
 export type CampoParametro = (typeof CAMPOS_PARAMETROS)[number];
@@ -278,6 +279,8 @@ export const LIMITES_PARAMETROS = {
   percentualSinapi: { min: 0, max: 100 },
   janelaDias: { min: 1, max: 365 },
   parcelaRelevantePercentual: { min: 1, max: 100 },
+  // Spec 0023 (AC-6): prazo de fornecimento do indicador 4 do IMR do contrato.
+  prazoFornecimentoDiasUteis: { min: 1, max: 30 },
 } as const;
 
 /** O período do relatório de material vai até 366 dias (AC-41). */
@@ -290,5 +293,6 @@ export const MATERIAL_CONFIG_PADRAO = {
   percentualSinapi: 10,
   janelaDias: 90,
   parcelaRelevantePercentual: 20,
+  prazoFornecimentoDiasUteis: 5,
   raizCnpjContratada: '03543374',
 } as const;

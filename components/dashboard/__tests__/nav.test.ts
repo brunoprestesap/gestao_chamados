@@ -197,6 +197,24 @@ describe('NAV_ITEMS · Relatório de material', () => {
   it('vem depois das cotações e do cadastro de material', () => {
     const ordem = NAV_ITEMS.filter((i) => i.group === 'Material').map((i) => i.href);
 
-    expect(ordem).toEqual(['/cotacoes', '/configuracoes/material', '/relatorios/material']);
+    expect(ordem).toEqual([
+      '/cotacoes',
+      '/configuracoes/material',
+      '/relatorios/material',
+      '/relatorios/imr-contrato',
+    ]);
+  });
+});
+
+// ── IMR do contrato (spec 0023) ──────────────────
+
+describe('NAV_ITEMS · IMR do contrato', () => {
+  // covers: AC-14 (fiscal e gestor só existem para o Admin, então o item é só do Admin)
+  it('fica no grupo Material, só para o Admin', () => {
+    expect(NAV_ITEMS.find((i) => i.href === '/relatorios/imr-contrato')).toMatchObject({
+      label: 'IMR do contrato',
+      group: 'Material',
+      allowedRoles: ['Admin'],
+    });
   });
 });

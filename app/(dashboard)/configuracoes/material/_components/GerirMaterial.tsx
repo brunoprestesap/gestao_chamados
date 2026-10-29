@@ -194,6 +194,7 @@ export function GerirMaterial({
                 parametros.percentualSinapi,
                 parametros.janelaDias,
                 parametros.parcelaRelevantePercentual,
+                parametros.prazoFornecimentoDiasUteis,
                 parametros.raizCnpjContratada,
               ])}
               parametros={parametros}

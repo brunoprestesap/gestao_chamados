@@ -44,6 +44,14 @@ const MaterialConfigSchema = new Schema(
       min: LIMITES_PARAMETROS.parcelaRelevantePercentual.min,
       max: LIMITES_PARAMETROS.parcelaRelevantePercentual.max,
     },
+    // Spec 0023 (AC-6): N dias úteis do prazo de fornecimento do indicador 4.
+    prazoFornecimentoDiasUteis: {
+      type: Number,
+      required: true,
+      default: MATERIAL_CONFIG_PADRAO.prazoFornecimentoDiasUteis,
+      min: LIMITES_PARAMETROS.prazoFornecimentoDiasUteis.min,
+      max: LIMITES_PARAMETROS.prazoFornecimentoDiasUteis.max,
+    },
     historico: {
       type: [
         new Schema(

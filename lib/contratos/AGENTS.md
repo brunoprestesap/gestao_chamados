@@ -26,7 +26,7 @@ Fora daqui: `shared/contratos/` (schemas Zod, CNPJ, janela do mês, formatação
 - **Custo (spec 0018)** sai de `lerCustosDosChamados`/`custoPorAtivo` (`lib/ativos/custo.ts`), só dos chamados abertos dentro do mês (a leitura começa antes por causa da reincidência). Sem `catch`: a falha da leitura de custo derruba o relatório, para nunca sair PDF com custo zerado. O PDF traz "Custos lançados até" com a hora de Belém da geração.
 - **Server Actions do cadastro** seguem o padrão das telas de configuração (`verifySession` mais `isAdmin`, retorno `{ ok: false, error }`), não `requireAdmin()`, que redireciona por exceção.
 - **A trava de PDF é em memória**: vale enquanto o Next roda numa instância só, como os limites de `lib/llm`.
-- **A trava é dividida com o PDF da cotação de material** (`lib/material/pdf/gerar.tsx`, spec 0019): enquanto um gera, o outro responde 429. Um render travado prende os dois até reiniciar o processo.
+- **A trava é dividida com o PDF da cotação de material** (`lib/material/pdf/gerar.tsx`, spec 0019) **e com o do IMR do contrato** (`lib/imr-contrato/pdf/gerar.tsx`, spec 0023): enquanto um gera, os outros respondem 429. Um render travado prende todos até reiniciar o processo.
 
 ## PDF (`@react-pdf/renderer`)
 
