@@ -459,6 +459,8 @@ O sistema adota a **soma de quatro indicadores, totalizando 100 pontos**, confor
 | CA-29 | Autorização que consuma parcela relevante do saldo apresenta a projeção de esgotamento antes de confirmar     |
 | CA-30 | O relatório de gestão apresenta a diferença entre valor autorizado a preços do Anexo V e o equivalente SINAPI |
 
+> **Nota sobre o CA-24:** o sistema mede o indicador 3 pela regra do AC-3 da [spec 0023](../0023-imr-contrato-indicadores/index.md): o atraso conta pela primeira atribuição ao técnico (`sla.responseStartedAt`), não pela conclusão do atendimento.
+
 ---
 
 ## 18. Pendências

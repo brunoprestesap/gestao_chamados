@@ -196,7 +196,7 @@ Tracer Bullet: cada fatia funciona de ponta a ponta antes da próxima. O fio fin
 ## Follow-up
 
 - [ ] Comunicar formalmente a divergência aritmética do TR (RN-50) e o N = 5 do indicador 4 ao gestor do contrato, para constar do processo.
-- [ ] Atualizar o CA-24 em `docs/specs/0019-cotacao-material/funcional.md` com uma nota apontando para o AC-3 desta spec.
+- [x] Atualizar o CA-24 em `docs/specs/0019-cotacao-material/funcional.md` com uma nota apontando para o AC-3 desta spec.
 - [ ] Aviso aos designados quando o mês terminar e ainda não estiver fechado (fora desta spec).
 - [ ] Levar ao novo TR: prazo de fornecimento explícito e marco de "início do atendimento" definido (recomendações 4 e 6 do funcional, seção 19).
 

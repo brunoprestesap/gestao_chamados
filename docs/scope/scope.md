@@ -43,6 +43,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 34  | Motivo e histórico no cadastro de material         | Material      | done     |
 | 29  | Correções de integridade do chamado                | Ciclo de vida | done     |
 | 20  | Aviso de chamado duplicado                         | Slice 4       | done     |
+| 35  | Decisões do contrato para operar a cotação         | Material      | planned  |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
 | 19  | Fotos no chat                                      | Slice 4       | planned  |
 | 21  | Entrada por voz                                    | Slice 4       | planned  |
@@ -442,7 +443,29 @@ spec [0022](../specs/0022-motivo-historico-cadastro-material/index.md) · code i
   - [x] Empenho com histórico protegido, corrida e linha do tempo única (fatia 3) · AC-3, AC-4, AC-5, AC-6, AC-7
   - [x] Varredura de visibilidade, permissão e axe (fechamento) · AC-8, AC-9
 - [x] Verify it: `/check verify motivo e histórico no cadastro de material`
+  - [ ] Dois passos manuais ainda abertos no `verify.md`: o nome do Admin desativado no histórico (AC-6) e nenhum ato do cadastro na cotação, no cartão, na fila e no PDF (AC-8)
 - [x] Test it: `/test motivo e histórico no cadastro de material`
+
+### 35. Decisões do contrato para operar a cotação
+
+O código da cotação está pronto, mas o uso real depende de respostas do gestor e do fiscal e do cadastro inicial. Sem código novo, salvo se a pendência 5 pedir o ato único (ver Deferred). As pendências estão na seção 18 do [funcional da 0019](../specs/0019-cotacao-material/funcional.md). from spec 0019, spec 0023
+**Done when:** empenho, faixas e designações estão cadastrados em produção e uma cotação real pode ser aprovada; o Anexo V foi importado depois de conferidos o item 74 e a repactuação; cada decisão do gestor está registrada no processo.
+
+- [ ] Cadastro em `/configuracoes/material`, para aprovar a primeira cotação
+  - [ ] Pendência 3: faixas de alçada e titulares da delegação (sem isso, nada é aprovado)
+  - [ ] Pendência 4: número, valor e saldo do empenho do exercício (sem empenho elegível, a cotação não é encaminhada nem aprovada)
+- [ ] Antes da primeira importação do Anexo V
+  - [ ] Pendência 2: conferir o item 74 (R$ 432,00/m contra R$ 3,54/m estimados), ou marcá-lo na lista de anomalia
+  - [ ] Pendência 7: confirmar se houve repactuação dos preços nos aditivos
+- [ ] Decisões do gestor e do fiscal
+  - [ ] Pendência 1: qual base prevalece, Anexo V ou SINAPI (enquanto não houver, o fiscal escolhe e justifica)
+  - [ ] Pendência 9: confirmar a regra de urgência antes de usar em produção (é proposta da spec, não do TR)
+  - [ ] Pendência 5: análise e aprovação em ato único nos caminhos 1 e 2, ou manter as duas etapas
+  - [ ] Pendências 6 e 8: confirmar o percentual sobre o SINAPI (hoje 10%) e a janela de fracionamento (hoje 90 dias)
+  - [ ] Comunicar ao gestor a divergência aritmética do TR (RN-50) e o N = 5 do indicador 4, para constar do processo
+- [ ] Próxima contratação (o contrato vence em 28/02/2027)
+  - [ ] Pendência 10: estágio da instrução da nova contratação, que decide se o fluxo segue no próximo contrato
+  - [ ] Levar ao novo TR o prazo de fornecimento explícito e o marco de início do atendimento
 
 ## Slice 3: fechamento
 
