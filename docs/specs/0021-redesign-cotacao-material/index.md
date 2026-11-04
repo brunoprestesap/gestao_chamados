@@ -202,9 +202,9 @@ Abordagem do projeto: Tracer Bullet. A fatia 1 leva as peças compartilhadas de 
 
 ## Follow-up
 
-- [ ] Motivo e histórico em revogar designação, desativar faixa e inativar empenho: spec própria, porque muda schemas e actions.
+- [x] Motivo e histórico em revogar designação, desativar faixa e inativar empenho: spec própria, porque muda schemas e actions. Feita na spec 0022.
 - [ ] Se a contagem de cotações em trâmite passar de algumas centenas, avaliar o campo `situacaoDesde` gravado na transição.
 - [ ] Variante de gradiente no `Button` para o Sigma inteiro, substituindo os usos caso a caso.
 - [ ] A visão do Admin sem designação (só leitura) e das situações reprovada e cancelada não foi desenhada no canvas; seguir o padrão do detalhe com o painel "Sua vez" informando quem age.
 - [ ] Miniatura de imagem nas evidências: pede servir o arquivo inline e decidir o controle de quem vê; fica para depois.
-- [ ] Depois de `@axe-core/playwright` instalado, registrar o uso na seção de testes do `AGENTS.md` (o `/sync` faz).
+- [x] Depois de `@axe-core/playwright` instalado, registrar o uso na seção de testes do `AGENTS.md` (o `/sync` faz).

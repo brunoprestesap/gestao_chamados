@@ -138,5 +138,5 @@ Tracer Bullet: a designação passa primeiro por todas as camadas (modelo, schem
 
 ## Follow-up
 
-- [ ] A spec 0019 (AC-15) ainda diz que o solicitante vê "só a situação"; a 0021 (AC-24) mudou para "só a fase". Fica registrado aqui porque a 0019 não é desta spec.
+- [x] A spec 0019 (AC-15) ainda diz que o solicitante vê "só a situação"; a 0021 (AC-24) mudou para "só a fase". Nota acrescentada no AC-15 da 0019. Fica registrado aqui porque a 0019 não é desta spec.
 - [ ] Se a auditoria pedir uma visão única do cadastro, avaliar uma seção Histórico que junte as três leituras (opção 2 do rationale), sem mudar o que esta spec grava.
