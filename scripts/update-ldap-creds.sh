@@ -80,6 +80,7 @@ echo
 # ── 4. Recria o container ──────────────────────────────────────
 echo "Recriando o container '$SERVICE' para aplicar as variáveis..."
 docker compose up -d --no-deps "$SERVICE"
+docker compose exec -T nginx nginx -s reload || echo "AVISO: recarregue o nginx, senão o site pode ficar em 502: docker compose exec nginx nginx -s reload" >&2
 echo
 
 # ── 5. Validação dentro do container ───────────────────────────

@@ -137,6 +137,7 @@ Se necessário, conectar via SSH na VPS e rodar:
 cd /opt/severino
 git pull origin main
 docker compose up -d --build
+docker compose exec -T nginx nginx -s reload
 ```
 
 O `--build` reconstrói apenas as imagens que mudaram (next-app e/ou socket-server). O MongoDB e Nginx não são afetados.
@@ -473,7 +474,7 @@ Antes de começar, você precisa de duas respostas de fora daqui:
 Passos:
 
 1. No `.env` da VPS, acrescente `COMPOSE_PROFILES=sicam`, `SICAM_GATEWAY_SECRET` (um segredo novo), `SICAM_ORACLE_USER`, `SICAM_ORACLE_PASSWORD` e `SICAM_ORACLE_CONNECT_STRING`. Se a conta tiver senha em formato novo, deixe `SICAM_ORACLE_INSTANT_CLIENT_DIR=` vazio para rodar em modo Thin.
-2. Suba: `sudo docker compose up -d --build sicam-gateway next-app`. O `next-app` precisa ser recriado para ler o segredo.
+2. Suba: `sudo docker compose up -d --build sicam-gateway next-app && sudo docker compose exec -T nginx nginx -s reload`. O `next-app` precisa ser recriado para ler o segredo, e o nginx precisa recarregar: ele guarda o IP do `next-app` de quando carregou, e sem isso o site fica em 502.
 3. Confira de dentro do `next-app`, sem expor nada: `sudo docker compose exec next-app wget -qO- http://sicam-gateway:3002/healthz` deve responder `{"ok":true}`. O serviço não publica porta fora da rede `sigma`.
 4. Confira a rede até o Oracle, antes de ligar a etapa. O Docker pode dar à rede `sigma`, ou a outra rede da máquina, uma faixa que contém o IP do Oracle: aí o tráfego fica dentro do Docker e nunca chega ao banco. O `/healthz` do passo 3 responde normalmente nesse caso, porque não toca no Oracle, e toda checagem cai no registro manual, com `NJS-040` no log do serviço.
    - Veja as faixas em uso: `sudo docker network inspect $(sudo docker network ls -q) -f '{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}}'`. Nenhuma pode conter o IP do Oracle, que está em `SICAM_ORACLE_CONNECT_STRING`.
