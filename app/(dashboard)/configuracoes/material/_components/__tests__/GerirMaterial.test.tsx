@@ -168,6 +168,8 @@ const parametros: ParametrosComHistorico = {
   janelaDias: 90,
   parcelaRelevantePercentual: 20,
   prazoFornecimentoDiasUteis: 5,
+  prazoChecagemDiasUteis: 1,
+  checagemAlmoxarifadoAtiva: false,
   raizCnpjContratada: '03543374',
   historico: [],
 };
@@ -282,6 +284,14 @@ describe('GerirMaterial', () => {
     expect(aprovadores).toHaveTextContent('desde 01/03/2026');
     expect(aprovadores).toHaveTextContent('Portaria 113/2026');
     expect(screen.getByRole('region', { name: 'Gestor do contrato' })).toHaveTextContent(
+      'Ninguém designado.',
+    );
+  });
+
+  it('o almoxarifado tem o seu grupo na lista de designações (spec 0024, AC-14)', () => {
+    abrir('designacoes');
+
+    expect(screen.getByRole('region', { name: 'Almoxarifado' })).toHaveTextContent(
       'Ninguém designado.',
     );
   });

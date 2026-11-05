@@ -5,6 +5,7 @@ npm-debug.log*
 
 # Socket-server (build separado, tem seu próprio Dockerfile)
 socket-server
+sicam-gateway
 
 # Dev e ambiente
 .env*

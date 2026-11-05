@@ -65,6 +65,7 @@ export function CabecalhoCotacao({
                   {T.ativo} {chamado.ativo}
                 </span>
               )}
+              {chamado.local && <span>{chamado.local}</span>}
               {c.montadoPorNome && (
                 <span>
                   {T.montadaPor}{' '}
@@ -94,6 +95,7 @@ export function CabecalhoCotacao({
           situacao={c.situacao}
           situacaoAnterior={situacaoAnteriorDaTrilha(c.trilha ?? [])}
           datas={datas}
+          temChecagem={c.temChecagem}
         />
       </header>
     </div>

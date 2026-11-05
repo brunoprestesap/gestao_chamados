@@ -72,6 +72,7 @@ function custoDe(extra: Partial<CustoDeChamado>): CustoDeChamado {
     preventiva: false,
     cotacoesCentavos: 0,
     materialCentavos: 0,
+    almoxarifadoCentavos: 0,
     totalCentavos: 0,
     ...extra,
   };

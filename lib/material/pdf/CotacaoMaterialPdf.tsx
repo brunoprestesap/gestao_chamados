@@ -19,6 +19,7 @@ import {
   ROTULO_PAPEL,
   ROTULO_PAPEL_REFERENCIA,
   ROTULO_SITUACAO,
+  TEXTO_CHECAGEM,
   textoDoMotivo,
   textoProjecao,
 } from '@/shared/material/mensagens';
@@ -382,6 +383,61 @@ export function CotacaoMaterialPdf({ detalhe, emissaoId, geradoEm, geradoPorNome
       </Page>
 
       <Page size="A4" style={s.page}>
+        {(c.checagem?.entradas.length ?? 0) > 0 && (
+          <>
+            <Text style={s.secao}>Checagem do almoxarifado</Text>
+            <Text style={s.explica}>
+              O material pedido foi conferido contra o estoque do SICAM antes da cotação. Cada linha
+              é uma decisão, com o saldo visto e a hora da consulta. Quando o SICAM não respondeu, a
+              linha indica registro manual.
+            </Text>
+            <Tabela
+              linhas={c.checagem!.entradas}
+              colunas={[
+                {
+                  titulo: 'Item',
+                  flex: 2.2,
+                  valor: (e) =>
+                    `${e.descricao}\n${formatarQuantidade(e.quantidadePedida)} ${e.unidade}`,
+                },
+                {
+                  titulo: 'Resultado',
+                  flex: 2,
+                  valor: (e) =>
+                    TEXTO_CHECAGEM.resultado[e.resultado] +
+                    (e.origem === 'manual' ? ` (${TEXTO_CHECAGEM.origemManual})` : '') +
+                    (e.motivo ? `\n${e.motivo}` : ''),
+                },
+                {
+                  titulo: 'Material no SICAM',
+                  flex: 2.2,
+                  valor: (e) =>
+                    e.materialDescricao ? `${e.coMat ?? ''} ${e.materialDescricao}`.trim() : '—',
+                },
+                {
+                  titulo: 'Saldo visto',
+                  flex: 0.9,
+                  valor: (e) => (e.saldoVisto != null ? formatarQuantidade(e.saldoVisto) : '—'),
+                },
+                {
+                  titulo: 'Atendido e valor',
+                  flex: 1.2,
+                  valor: (e) =>
+                    e.resultado === 'usar'
+                      ? `${formatarQuantidade(e.quantidadeAtendida ?? 0)} ${e.unidade}\n${formatarReais(e.valorCentavos ?? 0)}`
+                      : '—',
+                },
+                {
+                  titulo: 'Autor e hora',
+                  flex: 1.6,
+                  valor: (e) =>
+                    `${e.porNome ?? ROTULO_PAPEL[e.papel]}\n${dataHora(e.consultadoEm)}`,
+                },
+              ]}
+            />
+          </>
+        )}
+
         <Text style={s.secao}>Trilha de atos</Text>
         <Text style={s.explica}>
           Cada linha é um ato registrado no Sigma, na ordem em que aconteceu. A trilha não pode ser

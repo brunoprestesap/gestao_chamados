@@ -16,10 +16,11 @@ import {
 } from '@/lib/material/cadastro';
 import { aplicarImportacao } from '@/lib/material/importacao/aplicar';
 import { descartarImportacao } from '@/lib/material/importacao/pendente';
-import { salvarParametros } from '@/lib/material/parametros';
+import { salvarChecagemAtiva, salvarParametros } from '@/lib/material/parametros';
 import { corrigirCodigoSinapi, marcarAnomalia } from '@/lib/material/tabelas';
 import { ERRO_SEM_PERMISSAO } from '@/shared/ativos/ativo.constants';
 import {
+  ChecagemAtivaSchema,
   CorrigirCodigoSinapiSchema,
   CriarDesignacaoSchema,
   CriarEmpenhoSchema,
@@ -126,6 +127,17 @@ export async function criarDesignacaoAction(raw: unknown): Promise<Resultado> {
  * Grava os parâmetros (AC-42), condicional aos valores lidos ao abrir a tela.
  * `aviso` quando a gravação passou e o recálculo da anomalia falhou.
  */
+/** Liga ou desliga a checagem do almoxarifado (spec 0024, AC-1). */
+export async function salvarChecagemAtivaAction(raw: unknown): Promise<Resultado> {
+  const sessao = await sessaoAdmin();
+  if (!sessao) return { ok: false, error: ERRO_SEM_PERMISSAO };
+  const p = ChecagemAtivaSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return executar('salvar checagem do almoxarifado', () =>
+    salvarChecagemAtiva(sessao.userId, p.data),
+  );
+}
+
 export async function salvarParametrosAction(
   raw: unknown,
 ): Promise<{ ok: true; aviso?: string } | { ok: false; error: string }> {

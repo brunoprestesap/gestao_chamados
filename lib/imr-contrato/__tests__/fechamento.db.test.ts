@@ -254,7 +254,13 @@ rodar('fechamento do IMR do contrato contra o Mongo', () => {
   it('ignora a marcação gravada com o mês fechado, mesmo depois de reabrir (AC-9)', async () => {
     const id = await contrato();
     const chamadoId = await chamadoAtrasado('CHM-2026-00001');
-    await fechamento.fecharMesImr(entrada(id), AUTOR, AGORA);
+    // O `fechadoEm` nunca fica antes do relógio real: sem fixar, a marcação de 03/11 cai antes dele.
+    const relogio = vi.spyOn(Date, 'now').mockReturnValue(AGORA.getTime());
+    try {
+      await fechamento.fecharMesImr(entrada(id), AUTOR, AGORA);
+    } finally {
+      relogio.mockRestore();
+    }
     // Corrida rara: a marcação entra enquanto o mês está fechado.
     await M.Marcacao.collection.insertOne({
       contratoId: new Types.ObjectId(id),

@@ -32,6 +32,7 @@ function papeis(...lista: { papel: string; limite?: number }[]): Papeis {
     tem,
     ladoTrf1: ['fiscal', 'gestor', 'aprovador'].some(tem),
     leitorAdmin: false,
+    almoxarifado: tem('almoxarifado'),
     contratada: tem('responsavel_tecnico'),
   };
 }

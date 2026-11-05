@@ -30,6 +30,7 @@ import {
   TEXTO_HISTORICO_CADASTRO,
 } from '@/shared/material/mensagens';
 
+import { lerMaterialConfig } from './config';
 import { filtroVigente } from './papeis';
 import { mesSinapiMaisRecente } from './precos';
 import { type Projecao, projecoesDosEmpenhos } from './projecao';
@@ -371,7 +372,14 @@ export async function lerPendenciasMaterial(): Promise<PendenciasMaterial> {
     ]);
 
   const papeisVigentes = new Set(vigentes.map((v) => v.papel));
-  const faltam = PAPEIS_DA_PRIMEIRA_COTACAO.filter((p) => !papeisVigentes.has(p));
+  const faltam: PapelDesignacao[] = PAPEIS_DA_PRIMEIRA_COTACAO.filter(
+    (p) => !papeisVigentes.has(p),
+  );
+  // Com a checagem ligada, a falta do almoxarifado aparece aqui; os fiscais cobrem (spec 0024, AC-15).
+  const { checagemAlmoxarifadoAtiva } = await lerMaterialConfig();
+  if (checagemAlmoxarifadoAtiva && !papeisVigentes.has('almoxarifado')) {
+    faltam.push('almoxarifado');
+  }
 
   const ponteiroDe = new Map(ponteiros.map((p) => [String(p.contratoId), p]));
   const comItens = ponteiros.length
@@ -442,6 +450,9 @@ export async function lerPendenciasMaterial(): Promise<PendenciasMaterial> {
   };
 }
 
+/** Quem aparece no formulário: todo perfil que algum papel aceita, da mesma lista que o servidor confere. */
+const PERFIS_DESIGNAVEIS = [...new Set(Object.values(PERFIS_POR_PAPEL).flat())];
+
 export async function lerPainelMaterial(): Promise<PainelMaterial> {
   const hoje = hojeEmBelem();
   const [empenhos, elegiveis, faixas, designacoes, vigentes, usuarios, pendencias] =
@@ -451,7 +462,7 @@ export async function lerPainelMaterial(): Promise<PainelMaterial> {
       FaixaCompetenciaModel.find().sort({ limiteCentavos: 1 }).lean(),
       DesignacaoMaterialModel.find().sort({ em: -1 }).limit(500).lean(),
       DesignacaoMaterialModel.find(filtroVigente(hoje)).select('_id papel').lean(),
-      UserModel.find({ isActive: true, role: { $in: ['Admin', 'Preposto', 'Técnico'] } })
+      UserModel.find({ isActive: true, role: { $in: PERFIS_DESIGNAVEIS } })
         .select('name role')
         .sort({ name: 1 })
         .lean(),

@@ -80,6 +80,7 @@ export default defineConfig([
     'coverage/**',
     'next-env.d.ts',
     'socket-server/dist/**',
+    'sicam-gateway/dist/**',
     // Skills instaladas pelo `npx skills`: conteúdo de terceiro, como no .prettierignore.
     '.agents/skills/**',
     '.claude/skills/react-pdf/**',

@@ -104,6 +104,7 @@ export function EditorContratada({
     cotacaoId: cotacao.id,
     raizContratada: cotacao.raizCnpjContratada ?? '',
     urgencia: emUrgencia,
+    checagem: cotacao.resultadoChecagem ? { itens: cotacao.resultadoChecagem } : null,
   });
   const lista = (
     <ProntaParaEnviar
@@ -112,6 +113,7 @@ export function EditorContratada({
         resultado,
         emUrgencia,
         pedindoAgora ? { cotacaoId: cotacao.id, justificativa: justificativaUrgencia } : null,
+        !!cotacao.resultadoChecagem,
       )}
       resultado={resultado}
       total={totalPeloMenorPreco(estado)}

@@ -4,11 +4,12 @@ import { NextResponse } from 'next/server';
 import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { papeisDe } from '@/lib/material/papeis';
-import { visaoDe } from '@/lib/material/serializar';
+import { type CotacaoBruta, visaoDe } from '@/lib/material/serializar';
 import { ChamadoModel } from '@/models/Chamado';
 import { type CotacaoDoc, CotacaoModel } from '@/models/Cotacao';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { UserModel } from '@/models/user.model';
+import { almoxarifadoDoChamadoCentavos } from '@/shared/material/checagem';
 import {
   type SituacaoCotacao,
   SITUACOES_JA_AUTORIZADAS,
@@ -108,7 +109,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       chamadoId: new Types.ObjectId(id),
       situacao: { $in: [...SITUACOES_NO_CUSTO] },
     })
-      .select('numero valorExecutadoCentavos situacao emTramite updatedAt notaFiscal urgencia')
+      .select(
+        'numero valorExecutadoCentavos situacao emTramite updatedAt notaFiscal urgencia checagem',
+      )
       .sort({ createdAt: 1 })
       .lean();
     // O link para `/cotacoes/[id]` só para quem a tela deixa abrir (o Preposto
@@ -133,6 +136,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             updatedAt: c.updatedAt,
             notaFiscal: c.notaFiscal ?? null,
             urgencia: c.urgencia ?? null,
+            checagem: c.checagem as CotacaoBruta['checagem'],
           },
         ) !== null,
     }));
@@ -156,9 +160,25 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     );
   }
 
+  // O material do almoxarifado (spec 0024, AC-22): só para a gestão, com a regra do custo.
+  let almoxarifadoCentavos: number | undefined;
+  if (canManage) {
+    const checadas = await CotacaoMaterialModel.find({
+      chamadoId: new Types.ObjectId(id),
+      'checagem.itens.resultado': 'usar',
+    })
+      .select('checagem.itens.resultado checagem.itens.valorCentavos')
+      .lean();
+    almoxarifadoCentavos = almoxarifadoDoChamadoCentavos(
+      chamado.status,
+      checadas.flatMap((c) => c.checagem?.itens ?? []),
+    );
+  }
+
   return NextResponse.json({
     active,
     history: normalized,
+    ...(almoxarifadoCentavos !== undefined ? { almoxarifadoCentavos } : {}),
     ...(materialExecutado ? { materialExecutado } : {}),
     ...(jaCotados ? { jaCotados } : {}),
   });

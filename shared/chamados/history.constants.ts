@@ -38,6 +38,8 @@ export const CHAMADO_HISTORY_ACTIONS = [
   'cotacao_material_autorizada',
   'cotacao_material_reprovada',
   'cotacao_material_cancelada',
+  'cotacao_material_em_checagem',
+  'cotacao_material_atendida_almoxarifado',
 ] as const;
 
 export type ChamadoHistoryAction = (typeof CHAMADO_HISTORY_ACTIONS)[number];
@@ -111,4 +113,6 @@ export const CHAMADO_HISTORY_ACTION_LABELS: Record<ChamadoHistoryAction, string>
   cotacao_material_autorizada: 'Cotação de material autorizada',
   cotacao_material_reprovada: 'Cotação de material reprovada',
   cotacao_material_cancelada: 'Cotação de material cancelada',
+  cotacao_material_em_checagem: 'Checagem do almoxarifado da cotação de material',
+  cotacao_material_atendida_almoxarifado: 'Cotação de material atendida pelo almoxarifado',
 };

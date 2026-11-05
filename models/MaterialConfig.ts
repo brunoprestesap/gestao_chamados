@@ -1,6 +1,10 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
-import { LIMITES_PARAMETROS, MATERIAL_CONFIG_PADRAO } from '@/shared/material/material.constants';
+import {
+  CHECAGEM_ATIVA_PADRAO,
+  LIMITES_PARAMETROS,
+  MATERIAL_CONFIG_PADRAO,
+} from '@/shared/material/material.constants';
 
 /**
  * Parâmetros do fluxo de material (spec 0019), documento único de chave
@@ -51,6 +55,15 @@ const MaterialConfigSchema = new Schema(
       default: MATERIAL_CONFIG_PADRAO.prazoFornecimentoDiasUteis,
       min: LIMITES_PARAMETROS.prazoFornecimentoDiasUteis.min,
       max: LIMITES_PARAMETROS.prazoFornecimentoDiasUteis.max,
+    },
+    // Spec 0024: o interruptor da checagem do almoxarifado (AC-1) e o prazo dela (AC-16).
+    checagemAlmoxarifadoAtiva: { type: Boolean, required: true, default: CHECAGEM_ATIVA_PADRAO },
+    prazoChecagemDiasUteis: {
+      type: Number,
+      required: true,
+      default: MATERIAL_CONFIG_PADRAO.prazoChecagemDiasUteis,
+      min: LIMITES_PARAMETROS.prazoChecagemDiasUteis.min,
+      max: LIMITES_PARAMETROS.prazoChecagemDiasUteis.max,
     },
     historico: {
       type: [

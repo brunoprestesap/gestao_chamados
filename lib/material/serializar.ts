@@ -2,9 +2,12 @@ import 'server-only';
 
 import type { Types } from 'mongoose';
 
+import { itensNaoChecados, ultimaEntradaPorItem } from '@/shared/material/checagem';
 import { type EtapaJornada, etapasDaTrilha } from '@/shared/material/jornada';
 import {
+  type OrigemChecagem,
   type PapelEvento,
+  type ResultadoChecagem,
   type SituacaoCotacao,
   type SituacaoProjecao,
   type TipoArquivoCotacao,
@@ -18,6 +21,7 @@ import {
 import { quemAgeAgora } from '@/shared/material/quem-age';
 import { valorProvisorio } from '@/shared/material/valores';
 
+import type { ChecagemDoc, EntradaChecagem } from './checagem';
 import type { Papeis } from './papeis';
 import { notaFiscalPendente, pesquisaDaUrgenciaPendente, visivelParaContratada } from './pendencia';
 import { type PrazoAteste, prazoDoAteste } from './prazos';
@@ -30,11 +34,14 @@ import type { MarcaAnomalia } from './precos';
  * - `contratada`: responsável técnico, sem empenho, saldo, limites,
  *   advertências de preço nem confrontos de base;
  * - `tecnico`: o técnico atribuído, só itens, valores, situação e motivos;
+ * - `almoxarifado` (spec 0024, AC-25): só as cotações com checagem, com os itens,
+ *   o chamado, o local e a checagem, nunca orçamento, preço da cotação, empenho,
+ *   faixa ou arquivo;
  * - `solicitante`: só a fase, em palavras simples (spec 0021, AC-24), por
  *   `serializarParaSolicitante`.
  */
 
-export type Visao = 'trf1' | 'contratada' | 'tecnico' | 'solicitante';
+export type Visao = 'trf1' | 'almoxarifado' | 'contratada' | 'tecnico' | 'solicitante';
 
 /** As visões que recebem a cotação inteira, filtrada por `serializarCotacao`. */
 export type VisaoDoFluxo = Exclude<Visao, 'solicitante'>;
@@ -43,6 +50,7 @@ export type CotacaoBruta = {
   _id: Types.ObjectId;
   numero: string;
   chamadoId: Types.ObjectId;
+  localizacaoId?: Types.ObjectId | null;
   situacao: SituacaoCotacao;
   emTramite: boolean;
   versao: number;
@@ -127,6 +135,8 @@ export type CotacaoBruta = {
     confirmadaPorUserId?: Types.ObjectId | null;
     em?: Date;
   }[];
+  /** Spec 0024: null nas antigas e com o interruptor desligado (AC-1). */
+  checagem?: ChecagemDoc | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -145,6 +155,8 @@ export type EventoBruto = {
   advertenciasNoAto: string[];
   /** Fatia 5: a projeção mostrada ao aprovador (AC-38), só no `aprovar` com a parcela relevante. */
   projecaoNoAto?: ProjecaoNoAto | null;
+  /** Spec 0024 (AC-10): as entradas da checagem daquele ato. */
+  checagemNoAto?: EntradaChecagem[] | null;
   em: Date;
 };
 
@@ -253,6 +265,8 @@ export type EventoDTO = {
   valorCentavos?: number | null;
   advertencias?: string[];
   projecao?: ProjecaoNoAto | null;
+  /** Só TRF1 e almoxarifado. */
+  checagem?: EntradaChecagemDTO[];
 };
 
 export type ArquivoDTO = {
@@ -262,6 +276,55 @@ export type ArquivoDTO = {
   tamanho: number;
   em: string;
   meu: boolean;
+};
+
+/** Uma entrada inteira da checagem: só TRF1 e almoxarifado (spec 0024, AC-24). */
+export type EntradaChecagemDTO = {
+  itemId: string;
+  descricao: string;
+  unidade: string;
+  quantidadePedida: number;
+  resultado: ResultadoChecagem;
+  automatico: boolean;
+  palavrasBuscadas: string[];
+  origem: OrigemChecagem;
+  consultadoEm: string;
+  coMat: string | null;
+  materialDescricao: string | null;
+  materialUnidade: string | null;
+  saldoVisto: number | null;
+  reservadoVisto: number | null;
+  quantidadeAtendida: number | null;
+  quantidadeSaida: number | null;
+  quantidadeLiberada: number;
+  precoUnitarioCentavos: number | null;
+  valorCentavos: number | null;
+  precoOrigem: OrigemChecagem | null;
+  motivo: string | null;
+  porNome: string | null;
+  papel: PapelEvento;
+  em: string;
+};
+
+export type ChecagemDTO = {
+  prazoAte: string | null;
+  entradas: EntradaChecagemDTO[];
+  /** Os itens que ainda pedem decisão (AC-5). */
+  itensEmAberto: string[];
+};
+
+/**
+ * O que contratada e técnico veem de cada item (AC-24): a última decisão, sem
+ * saldo, preço, motivo, nome nem material do SICAM.
+ */
+export type ResultadoChecagemDTO = {
+  itemId: string;
+  descricao: string;
+  unidade: string;
+  /** `atendido` também vale para o parcial, com o resto na cotação. */
+  resultado: 'atendido' | 'segue';
+  quantidadeAtendida: number | null;
+  quantidadeLiberada: number;
 };
 
 /** Um ato do ateste: quem e quando (AC-21, AC-22). A contratada recebe só o quando. */
@@ -352,6 +415,12 @@ export type CotacaoDTO = {
    * a lista "Pronta para enviar?" rodar `impedimentosDeEnvio` no navegador.
    */
   raizCnpjContratada?: string;
+  /** Spec 0024: todos menos o solicitante; decide a etapa a mais na jornada (AC-27). */
+  temChecagem?: boolean;
+  /** Spec 0024: só TRF1 e almoxarifado. */
+  checagem?: ChecagemDTO | null;
+  /** Spec 0024: só contratada e técnico; é o que o editor usa nos impedimentos (AC-24). */
+  resultadoChecagem?: ResultadoChecagemDTO[] | null;
 };
 
 export type ContextoLeitura = {
@@ -364,13 +433,18 @@ export type ContextoLeitura = {
 /** A visão de quem lê, ou `null` quando não pode ver esta cotação. */
 export function visaoDe(
   ctx: ContextoLeitura,
-  cot: Pick<CotacaoBruta, 'situacao' | 'emTramite' | 'updatedAt' | 'notaFiscal' | 'urgencia'>,
+  cot: Pick<
+    CotacaoBruta,
+    'situacao' | 'emTramite' | 'updatedAt' | 'notaFiscal' | 'urgencia' | 'checagem'
+  >,
   agora: Date = new Date(),
 ): Visao | null {
   // O rascunho é da contratada e do técnico: o lado TRF1 só vê a partir do envio (AC-1).
   if ((ctx.papeis.ladoTrf1 || ctx.papeis.leitorAdmin) && cot.situacao !== 'rascunho') {
     return 'trf1';
   }
+  // Depois do TRF1 e antes da contratada; só as cotações que passaram pela checagem (AC-25).
+  if (ctx.papeis.almoxarifado && cot.checagem) return 'almoxarifado';
   if (ctx.papeis.contratada) {
     // Em trâmite, encerrada há até 90 dias ou devendo a nota fiscal (AC-15).
     if (visivelParaContratada(cot, agora)) return 'contratada';
@@ -384,6 +458,7 @@ export function visaoDe(
 export function podeBaixar(visao: Visao, tipo: TipoArquivoCotacao): boolean {
   if (visao === 'trf1' || visao === 'contratada') return true;
   if (visao === 'tecnico') return tipo === 'evidencia';
+  // Almoxarifado e solicitante não baixam arquivo (spec 0024, AC-25).
   return false;
 }
 
@@ -408,6 +483,16 @@ const ACOES_SEM_AUTOR_FORA_DO_TRF1 = new Set([
   'referencia_acrescentada',
   'referencia_retirada',
   'urgencia_recusada',
+  // Spec 0024 (AC-24): quem decidiu no almoxarifado não sai para contratada e técnico.
+  'concluir_checagem',
+]);
+
+/** Atos que aparecem para a visão do almoxarifado (AC-25): nada de preço nem de análise. */
+const ACOES_DA_TRILHA_DO_ALMOXARIFADO = new Set([
+  'criar',
+  'concluir_checagem',
+  'reenviar_checagem',
+  'cancelar',
 ]);
 
 /** Atos da pesquisa de preços que o técnico não vê na trilha (fatia 4). */
@@ -418,6 +503,62 @@ const ACOES_FORA_DA_TRILHA_DO_TECNICO = new Set([
 ]);
 
 const ymdDe = (d: Date) => d.toISOString().slice(0, 10);
+
+function entradaParaDTO(e: EntradaChecagem): EntradaChecagemDTO {
+  return {
+    itemId: String(e.itemId),
+    descricao: e.descricao,
+    unidade: e.unidade,
+    quantidadePedida: e.quantidadePedida,
+    resultado: e.resultado,
+    automatico: !!e.automatico,
+    palavrasBuscadas: e.palavrasBuscadas ?? [],
+    origem: e.origem,
+    consultadoEm: new Date(e.consultadoEm).toISOString(),
+    coMat: e.coMat ?? null,
+    materialDescricao: e.materialDescricao ?? null,
+    materialUnidade: e.materialUnidade ?? null,
+    saldoVisto: e.saldoVisto ?? null,
+    reservadoVisto: e.reservadoVisto ?? null,
+    quantidadeAtendida: e.quantidadeAtendida ?? null,
+    quantidadeSaida: e.quantidadeSaida ?? null,
+    quantidadeLiberada: e.quantidadeLiberada,
+    precoUnitarioCentavos: e.precoUnitarioCentavos ?? null,
+    valorCentavos: e.valorCentavos ?? null,
+    precoOrigem: e.precoOrigem ?? null,
+    motivo: e.motivo ?? null,
+    porNome: e.porNome ?? null,
+    papel: e.papel,
+    em: new Date(e.em).toISOString(),
+  };
+}
+
+/** A checagem inteira, para quem pode ver saldo e preço (AC-24). */
+function checagemParaDTO(cot: CotacaoBruta): ChecagemDTO | null {
+  if (!cot.checagem) return null;
+  const entradas = cot.checagem.itens ?? [];
+  return {
+    prazoAte: iso(cot.checagem.prazoAte),
+    entradas: entradas.map(entradaParaDTO),
+    itensEmAberto:
+      cot.situacao === 'em_checagem'
+        ? itensNaoChecados(cot.itens, entradas, (i) => String(i._id)).map((i) => String(i._id))
+        : [],
+  };
+}
+
+/** Só o resultado por item: "A última vale" (AC-21, AC-24). */
+function resultadoParaDTO(cot: CotacaoBruta): ResultadoChecagemDTO[] | null {
+  if (!cot.checagem) return null;
+  return [...ultimaEntradaPorItem(cot.checagem.itens ?? []).values()].map((e) => ({
+    itemId: String(e.itemId),
+    descricao: e.descricao,
+    unidade: e.unidade,
+    resultado: e.resultado === 'usar' ? 'atendido' : 'segue',
+    quantidadeAtendida: e.resultado === 'usar' ? (e.quantidadeAtendida ?? null) : null,
+    quantidadeLiberada: e.quantidadeLiberada,
+  }));
+}
 
 /** A cotação para o solicitante: só a fase (spec 0021, AC-16, AC-24). */
 export function serializarParaSolicitante(
@@ -441,6 +582,8 @@ export function serializarCotacao(
     empenho?: EmpenhoDoDetalheDTO;
     /** Só a contratada: a raiz do próprio CNPJ, lida quando ela monta (spec 0021, fatia 5). */
     raizCnpjContratada?: string;
+    /** Spec 0024 (AC-15): sem almoxarifado vigente, a vez da checagem é dos fiscais. */
+    semAlmoxarifado?: boolean;
   } = {},
 ): CotacaoDTO {
   const eventos = extra.eventos ?? [];
@@ -464,7 +607,46 @@ export function serializarCotacao(
     criadaEm: cot.createdAt.toISOString(),
     atualizadaEm: cot.updatedAt.toISOString(),
     ultimoMotivo: ultimo?.motivo ?? null,
+    temChecagem: !!cot.checagem,
   };
+
+  // Spec 0024 (AC-25): a visão do almoxarifado monta só o que ela pode ver e sai aqui.
+  if (visao === 'almoxarifado') {
+    base.itens = cot.itens.map((i) => ({
+      id: String(i._id),
+      descricao: i.descricao,
+      unidade: i.unidade,
+      quantidade: i.quantidade,
+      motivo: '',
+      doDiagnostico: i.doDiagnostico,
+      precoAplicadoCentavos: null,
+      quantidadeExecutada: null,
+      valorExecutadoCentavos: null,
+    }));
+    base.checagem = checagemParaDTO(cot);
+    base.ultimoMotivo = null;
+    const quemAlmox = quemAgeAgora(cot.situacao, {
+      fiscalAssumiu: !!cot.fiscalUserId,
+      notaFiscalPendente: notaFiscalPendente(cot),
+      semAlmoxarifado: extra.semAlmoxarifado,
+    });
+    base.quemAgeAgora = quemAlmox ? { papel: quemAlmox.papel, nome: null } : null;
+    base.trilha = eventos
+      .filter((ev) => ACOES_DA_TRILHA_DO_ALMOXARIFADO.has(ev.acao))
+      .map((ev) => ({
+        id: String(ev._id),
+        de: ev.de,
+        para: ev.para,
+        acao: ev.acao,
+        autorNome: ev.autorNome,
+        papel: ev.papel,
+        motivo: null,
+        em: ev.em.toISOString(),
+        checagem: (ev.checagemNoAto ?? []).map(entradaParaDTO),
+      }));
+    base.etapas = etapasDaTrilha(base.trilha, true);
+    return base;
+  }
 
   base.itens = cot.itens.map((i) => ({
     id: String(i._id),
@@ -500,6 +682,7 @@ export function serializarCotacao(
   const quem = quemAgeAgora(cot.situacao, {
     fiscalAssumiu: !!cot.fiscalUserId,
     notaFiscalPendente: notaFiscalPendente(cot),
+    semAlmoxarifado: extra.semAlmoxarifado,
   });
   base.quemAgeAgora = quem
     ? {
@@ -527,6 +710,7 @@ export function serializarCotacao(
         };
       });
     base.ultimoMotivo = ultimoDoTecnico?.motivo ?? null;
+    base.resultadoChecagem = resultadoParaDTO(cot);
     return base;
   }
 
@@ -623,7 +807,8 @@ export function serializarCotacao(
         motivo: ev.motivo,
         em: ev.em.toISOString(),
       }));
-    base.etapas = etapasDaTrilha(base.trilha);
+    base.etapas = etapasDaTrilha(base.trilha, !!cot.checagem);
+    base.resultadoChecagem = resultadoParaDTO(cot);
     base.advertencias = cot.advertencias
       .map((a) => a.codigo as CodigoControle)
       .filter((c) => CONTROLES[c]?.ve === 'todos');
@@ -678,8 +863,10 @@ export function serializarCotacao(
     valorCentavos: ev.valorCentavos,
     advertencias: ev.advertenciasNoAto,
     projecao: ev.projecaoNoAto ?? null,
+    checagem: (ev.checagemNoAto ?? []).map(entradaParaDTO),
   }));
-  base.etapas = etapasDaTrilha(base.trilha);
+  base.checagem = checagemParaDTO(cot);
+  base.etapas = etapasDaTrilha(base.trilha, !!cot.checagem);
   if (extra.empenho) base.empenho = extra.empenho;
   return base;
 }

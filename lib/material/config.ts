@@ -1,7 +1,10 @@
 import 'server-only';
 
 import { MATERIAL_CONFIG_CHAVE, MaterialConfigModel } from '@/models/MaterialConfig';
-import { MATERIAL_CONFIG_PADRAO } from '@/shared/material/material.constants';
+import {
+  CHECAGEM_ATIVA_PADRAO,
+  MATERIAL_CONFIG_PADRAO,
+} from '@/shared/material/material.constants';
 
 export type ParametrosMaterial = {
   raizCnpjContratada: string;
@@ -9,6 +12,8 @@ export type ParametrosMaterial = {
   janelaDias: number;
   parcelaRelevantePercentual: number;
   prazoFornecimentoDiasUteis: number;
+  prazoChecagemDiasUteis: number;
+  checagemAlmoxarifadoAtiva: boolean;
 };
 
 /**
@@ -19,7 +24,7 @@ export type ParametrosMaterial = {
 export async function lerMaterialConfig(): Promise<ParametrosMaterial> {
   const doc = await MaterialConfigModel.findOne({ chave: MATERIAL_CONFIG_CHAVE })
     .select(
-      'raizCnpjContratada percentualSinapi janelaDias parcelaRelevantePercentual prazoFornecimentoDiasUteis',
+      'raizCnpjContratada percentualSinapi janelaDias parcelaRelevantePercentual prazoFornecimentoDiasUteis prazoChecagemDiasUteis checagemAlmoxarifadoAtiva',
     )
     .lean();
   return {
@@ -30,5 +35,8 @@ export async function lerMaterialConfig(): Promise<ParametrosMaterial> {
       doc?.parcelaRelevantePercentual ?? MATERIAL_CONFIG_PADRAO.parcelaRelevantePercentual,
     prazoFornecimentoDiasUteis:
       doc?.prazoFornecimentoDiasUteis ?? MATERIAL_CONFIG_PADRAO.prazoFornecimentoDiasUteis,
+    prazoChecagemDiasUteis:
+      doc?.prazoChecagemDiasUteis ?? MATERIAL_CONFIG_PADRAO.prazoChecagemDiasUteis,
+    checagemAlmoxarifadoAtiva: doc?.checagemAlmoxarifadoAtiva ?? CHECAGEM_ATIVA_PADRAO,
   };
 }

@@ -74,6 +74,8 @@ const CotacaoMaterialEventoSchema = new Schema({
   // Fatia 5: a projeção de esgotamento mostrada ao aprovador, só no `aprovar` em que
   // a cotação consome a parcela relevante do saldo (AC-38).
   projecaoNoAto: { type: Schema.Types.Mixed, default: null },
+  // Spec 0024 (AC-10): as entradas da checagem daquele ato, inclusive as automáticas.
+  checagemNoAto: { type: [Schema.Types.Mixed], default: undefined },
   em: { type: Date, required: true },
 });
 

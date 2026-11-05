@@ -9,6 +9,7 @@ import { CaixaRolavel } from '@/app/(dashboard)/cotacoes/_components/detalhe/Cai
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -33,10 +34,45 @@ import {
   UNIDADE_PARAMETRO,
 } from '@/shared/material/mensagens';
 
-import { salvarParametrosAction } from '../actions';
+import { salvarChecagemAtivaAction, salvarParametrosAction } from '../actions';
 import { CabecalhoSecao, CARTAO_CADASTRO } from './CabecalhoSecao';
 
 type Valores = Record<CampoParametro, string>;
+
+/** O interruptor da checagem (spec 0024, AC-1): gravação própria, condicional ao valor lido. */
+function InterruptorChecagem({ ativa }: { ativa: boolean }) {
+  const router = useRouter();
+  const [pendente, iniciar] = useTransition();
+  return (
+    <div className={cn(CARTAO_CADASTRO, 'flex items-start justify-between gap-4 p-4 sm:p-5')}>
+      <div className="space-y-1">
+        <Label htmlFor="param-checagem">{T.checagem.titulo}</Label>
+        <p id="param-checagem-ajuda" className="text-xs text-muted-foreground">
+          {T.checagem.ajuda}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">
+          {ativa ? T.checagem.ligada : T.checagem.desligada}
+        </span>
+        <Switch
+          id="param-checagem"
+          checked={ativa}
+          disabled={pendente}
+          aria-describedby="param-checagem-ajuda"
+          onCheckedChange={(novo) =>
+            iniciar(async () => {
+              const r = await salvarChecagemAtivaAction({ lido: ativa, novo });
+              if (!r.ok) toast.error(r.error);
+              else toast.success(T.checagem.gravada);
+              router.refresh();
+            })
+          }
+        />
+      </div>
+    </div>
+  );
+}
 
 function ajuda(campo: CampoParametro): string {
   const limites = (LIMITES_PARAMETROS as Partial<Record<string, { min: number; max: number }>>)[
@@ -51,13 +87,15 @@ function paraTexto(p: ParametrosComHistorico): Valores {
     janelaDias: String(p.janelaDias),
     parcelaRelevantePercentual: String(p.parcelaRelevantePercentual),
     prazoFornecimentoDiasUteis: String(p.prazoFornecimentoDiasUteis),
+    prazoChecagemDiasUteis: String(p.prazoChecagemDiasUteis),
     raizCnpjContratada: p.raizCnpjContratada,
   };
 }
 
 /** O valor do histórico com a unidade do campo, quando houver. */
-function comUnidade(campo: string, v: string | number | null): string {
+function comUnidade(campo: string, v: string | number | boolean | null): string {
   if (v == null || v === '') return '—';
+  if (typeof v === 'boolean') return v ? T.checagem.ligada : T.checagem.desligada;
   const unidade = (UNIDADE_PARAMETRO as Record<string, string | null>)[campo];
   return unidade ? `${v} ${unidade}` : String(v);
 }
@@ -99,6 +137,7 @@ export function AbaParametros({ parametros }: { parametros: ParametrosComHistori
     janelaDias: parametros.janelaDias,
     parcelaRelevantePercentual: parametros.parcelaRelevantePercentual,
     prazoFornecimentoDiasUteis: parametros.prazoFornecimentoDiasUteis,
+    prazoChecagemDiasUteis: parametros.prazoChecagemDiasUteis,
     raizCnpjContratada: parametros.raizCnpjContratada,
   };
 
@@ -108,6 +147,7 @@ export function AbaParametros({ parametros }: { parametros: ParametrosComHistori
       janelaDias: Number(valores.janelaDias),
       parcelaRelevantePercentual: Number(valores.parcelaRelevantePercentual),
       prazoFornecimentoDiasUteis: Number(valores.prazoFornecimentoDiasUteis),
+      prazoChecagemDiasUteis: Number(valores.prazoChecagemDiasUteis),
       raizCnpjContratada: valores.raizCnpjContratada.trim(),
     };
     iniciar(async () => {
@@ -125,6 +165,7 @@ export function AbaParametros({ parametros }: { parametros: ParametrosComHistori
   return (
     <section aria-label={ROTULO_SECAO_CADASTRO.parametros} className="space-y-4">
       <CabecalhoSecao titulo={ROTULO_SECAO_CADASTRO.parametros} descricao={T.noAto} />
+      <InterruptorChecagem ativa={parametros.checagemAlmoxarifadoAtiva} />
       <form
         className="space-y-4"
         onSubmit={(e) => {

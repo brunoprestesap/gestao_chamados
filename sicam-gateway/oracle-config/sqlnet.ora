@@ -1,0 +1,9 @@
+# Sigma: configuracao isolada do Oracle Client, sem depender de TNS_ADMIN do sistema.
+# Aponte SICAM_ORACLE_CONFIG_DIR para esta pasta (modo Thick).
+
+# Aceita o formato Easy Connect "host:porta/servico" de SICAM_ORACLE_CONNECT_STRING.
+NAMES.DIRECTORY_PATH=(EZCONNECT,TNSNAMES)
+
+# O Next corta em 4 s e o callTimeout em 3 s; estes so seguram o que passar disso.
+SQLNET.RECV_TIMEOUT=10
+SQLNET.SEND_TIMEOUT=10

@@ -6,8 +6,11 @@ import {
   FASES_ORCAMENTO,
   MAX_ITENS_COTACAO,
   MAX_ORCAMENTOS_COTACAO,
+  ORIGENS_CHECAGEM,
   ORIGENS_ITEM,
+  PAPEIS_EVENTO,
   PAPEIS_REFERENCIA,
+  RESULTADOS_CHECAGEM,
   SITUACOES_COTACAO,
   TIPOS_REFERENCIA,
 } from '@/shared/material/material.constants';
@@ -150,6 +153,53 @@ const NotaFiscalSchema = new Schema(
   { _id: false },
 );
 
+/**
+ * Uma decisão da checagem do almoxarifado (spec 0024). `checagem.itens` só
+ * acrescenta, sempre gravada por `$set` da `checagem` inteira, e o `itemId`
+ * continua valendo depois de o item sair de `itens`.
+ */
+const EntradaChecagemSchema = new Schema(
+  {
+    itemId: { type: Schema.Types.ObjectId, required: true },
+    descricao: { type: String, required: true },
+    unidade: { type: String, required: true },
+    quantidadePedida: { type: Number, required: true },
+    resultado: { type: String, enum: RESULTADOS_CHECAGEM, required: true },
+    automatico: { type: Boolean, required: true, default: false },
+    palavrasBuscadas: { type: [String], default: [] },
+    origem: { type: String, enum: ORIGENS_CHECAGEM, required: true },
+    consultadoEm: { type: Date, required: true },
+    coMat: { type: String, default: null },
+    materialDescricao: { type: String, default: null, maxlength: 300 },
+    materialUnidade: { type: String, default: null },
+    saldoVisto: { type: Number, default: null },
+    reservadoVisto: { type: Number, default: null },
+    quantidadeAtendida: { type: Number, default: null },
+    quantidadeSaida: { type: Number, default: null },
+    quantidadeLiberada: { type: Number, required: true },
+    precoUnitarioCentavos: { type: Number, default: null },
+    valorCentavos: { type: Number, default: null },
+    precoOrigem: { type: String, enum: [...ORIGENS_CHECAGEM, null], default: null },
+    motivo: { type: String, default: null, maxlength: 500 },
+    porUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    porNome: { type: String, default: null },
+    papel: { type: String, enum: PAPEIS_EVENTO, required: true },
+    em: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
+// Null nas cotações antigas e nas criadas com o interruptor desligado (AC-1).
+const ChecagemSchema = new Schema(
+  {
+    prazoAte: { type: Date, default: null },
+    voltarPara: { type: String, enum: ['rascunho', 'devolvida', null], default: null },
+    abriuPausa: { type: Boolean, required: true, default: false },
+    itens: { type: [EntradaChecagemSchema], default: [] },
+  },
+  { _id: false },
+);
+
 const CotacaoMaterialSchema = new Schema(
   {
     numero: { type: String, required: true },
@@ -163,7 +213,13 @@ const CotacaoMaterialSchema = new Schema(
     itens: {
       type: [ItemSchema],
       validate: {
-        validator: (v: unknown[]) => v.length >= 1 && v.length <= MAX_ITENS_COTACAO,
+        // Só `atendida_almoxarifado` fica sem item (spec 0024, AC-11). Numa escrita por
+        // query o `this` não tem `situacao`, e a lista vazia continua recusada.
+        validator(this: unknown, v: unknown[]) {
+          if (v.length > MAX_ITENS_COTACAO) return false;
+          if (v.length >= 1) return true;
+          return (this as { situacao?: string } | null)?.situacao === 'atendida_almoxarifado';
+        },
         message: `A cotação precisa de 1 a ${MAX_ITENS_COTACAO} itens.`,
       },
     },
@@ -196,6 +252,7 @@ const CotacaoMaterialSchema = new Schema(
     pauseLogId: { type: Schema.Types.ObjectId, ref: 'PauseLog', default: null },
     advertencias: { type: [AdvertenciaSchema], default: [] },
     urgencia: { type: UrgenciaSchema, default: null },
+    checagem: { type: ChecagemSchema, default: null },
   },
   { timestamps: true },
 );

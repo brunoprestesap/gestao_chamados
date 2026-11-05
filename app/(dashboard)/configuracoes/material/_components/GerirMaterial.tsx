@@ -772,6 +772,7 @@ const ORDEM_PAPEIS: readonly PapelDesignacao[] = [
   'gestor',
   'aprovador',
   'responsavel_tecnico',
+  'almoxarifado',
 ];
 
 function iniciais(nome: string): string {

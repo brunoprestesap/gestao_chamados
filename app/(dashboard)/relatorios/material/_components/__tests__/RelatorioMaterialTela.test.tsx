@@ -30,6 +30,7 @@ const vazio: RelatorioMaterial = {
   devolvidas: { numerador: 0, denominador: 0 },
   impedimentoPrimeiraTentativa: { numerador: 0, denominador: 0 },
   custoPorAtivo: { ativos: [], totalCentavos: 0, semAtivoCentavos: 0 },
+  almoxarifado: { atendidas: 0, valorCentavos: 0 },
   divergencia: { cotacoes: 0, comDiferenca: 0, diferencaCentavos: 0 },
   urgencias: [],
   fracionamento: [],

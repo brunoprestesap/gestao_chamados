@@ -38,6 +38,8 @@ export type Papeis = {
   /** Admin sem designação: lê o lado TRF1, sem ações. */
   leitorAdmin: boolean;
   contratada: boolean;
+  /** Spec 0024: nunca entra em `ladoTrf1` e não dá acesso a preço da cotação. */
+  almoxarifado: boolean;
 };
 
 /** Filtro de vigência no dia `hoje` (`YYYY-MM-DD`, Belém). */
@@ -94,7 +96,21 @@ async function carregarPapeis(userId: string, roleDaSessao: string): Promise<Pap
     ladoTrf1,
     leitorAdmin: role === 'Admin' && !ladoTrf1,
     contratada: tem('responsavel_tecnico'),
+    almoxarifado: tem('almoxarifado'),
   };
+}
+
+/**
+ * Quem conclui a checagem naquela situação (spec 0024, AC-15, AC-26): o
+ * almoxarifado vigente ou o fiscal vigente. Pura, para `papelDoAto`,
+ * `acoesDisponiveis` e a rota de busca dizerem a mesma coisa.
+ */
+export function podeConcluirChecagem(
+  situacao: string,
+  papeis: Pick<Papeis, 'tem'> | null | undefined,
+): boolean {
+  if (situacao !== 'em_checagem' || !papeis) return false;
+  return papeis.tem('almoxarifado') || papeis.tem('fiscal');
 }
 
 /** Memorizado por request, como o `verifySession`. */

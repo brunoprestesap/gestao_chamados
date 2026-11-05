@@ -22,6 +22,7 @@ import {
   BuscarItensPrecoSchema,
   ClassificarItemSchema,
   CompletarPesquisaSchema,
+  ConcluirChecagemSchema,
   CriarCotacaoSchema,
   EncaminharSchema,
   EnviarSchema,
@@ -163,6 +164,20 @@ export async function completarPesquisaAction(raw: unknown): Promise<ResultadoTr
   if (!p.success) return primeiroErro(p.error.issues);
   const { orcamentos, ...resto } = p.data;
   return transicao('pesquisa_completada', { ...resto, orcamentosNovos: orcamentos });
+}
+
+/** Conclui a checagem do almoxarifado (spec 0024, AC-6); a recusa não grava nada. */
+export async function concluirChecagemAction(raw: unknown): Promise<ResultadoTransicao> {
+  const p = ConcluirChecagemSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return transicao('concluir_checagem', p.data);
+}
+
+/** Roda de novo a busca só nos itens não checados (spec 0024, AC-17). */
+export async function reenviarChecagemAction(raw: unknown): Promise<ResultadoTransicao> {
+  const p = TransicaoSchema.safeParse(raw);
+  if (!p.success) return primeiroErro(p.error.issues);
+  return transicao('reenviar_checagem', p.data);
 }
 
 export async function assumirAction(raw: unknown): Promise<ResultadoTransicao> {

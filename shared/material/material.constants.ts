@@ -5,6 +5,8 @@
  */
 
 export const SITUACOES_COTACAO = [
+  // Spec 0024: a checagem do almoxarifado, antes do rascunho, e o fim sem cotar nada.
+  'em_checagem',
   'rascunho',
   'enviada',
   'em_analise',
@@ -15,11 +17,13 @@ export const SITUACOES_COTACAO = [
   'atestada',
   'reprovada',
   'cancelada',
+  'atendida_almoxarifado',
 ] as const;
 export type SituacaoCotacao = (typeof SITUACOES_COTACAO)[number];
 
 /** De `rascunho` até `autorizada`: no máximo uma por chamado (AC-3). */
 export const SITUACOES_EM_TRAMITE: readonly SituacaoCotacao[] = [
+  'em_checagem',
   'rascunho',
   'enviada',
   'em_analise',
@@ -65,11 +69,20 @@ export const ACOES_COTACAO = [
   'referencia_retirada',
   'urgencia_recusada',
   'pesquisa_completada',
+  // Spec 0024: a decisão do almoxarifado e a nova busca do item acrescentado.
+  'concluir_checagem',
+  'reenviar_checagem',
 ] as const;
 export type AcaoCotacao = (typeof ACOES_COTACAO)[number];
 
 /** Papéis por designação (`DesignacaoMaterial`). */
-export const PAPEIS_DESIGNACAO = ['responsavel_tecnico', 'fiscal', 'gestor', 'aprovador'] as const;
+export const PAPEIS_DESIGNACAO = [
+  'responsavel_tecnico',
+  'fiscal',
+  'gestor',
+  'aprovador',
+  'almoxarifado',
+] as const;
 export type PapelDesignacao = (typeof PAPEIS_DESIGNACAO)[number];
 
 /** Papéis que aparecem na trilha: os designados, o técnico atribuído e o sistema. */
@@ -89,6 +102,8 @@ export const PERFIS_POR_PAPEL: Record<PapelDesignacao, readonly string[]> = {
   fiscal: ['Admin'],
   gestor: ['Admin'],
   aprovador: ['Admin'],
+  // Spec 0024 (AC-14): servidor do almoxarifado; nunca entra em `PAPEIS_TRF1`.
+  almoxarifado: ['Admin', 'Solicitante'],
 };
 
 /** A taxa de administração sobre material é zero, sem campo de edição (AC-20, CA-18). */
@@ -272,6 +287,7 @@ export const CAMPOS_PARAMETROS = [
   'janelaDias',
   'parcelaRelevantePercentual',
   'prazoFornecimentoDiasUteis',
+  'prazoChecagemDiasUteis',
   'raizCnpjContratada',
 ] as const;
 export type CampoParametro = (typeof CAMPOS_PARAMETROS)[number];
@@ -281,6 +297,8 @@ export const LIMITES_PARAMETROS = {
   parcelaRelevantePercentual: { min: 1, max: 100 },
   // Spec 0023 (AC-6): prazo de fornecimento do indicador 4 do IMR do contrato.
   prazoFornecimentoDiasUteis: { min: 1, max: 30 },
+  // Spec 0024 (AC-16): prazo da checagem do almoxarifado.
+  prazoChecagemDiasUteis: { min: 1, max: 30 },
 } as const;
 
 /** O período do relatório de material vai até 366 dias (AC-41). */
@@ -294,5 +312,39 @@ export const MATERIAL_CONFIG_PADRAO = {
   janelaDias: 90,
   parcelaRelevantePercentual: 20,
   prazoFornecimentoDiasUteis: 5,
+  prazoChecagemDiasUteis: 1,
   raizCnpjContratada: '03543374',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Spec 0024: checagem do almoxarifado
+// ---------------------------------------------------------------------------
+
+/** O interruptor fica fora de `CAMPOS_PARAMETROS`, que é todo de texto e número. */
+export const CHECAGEM_ATIVA_PADRAO = false;
+
+export const RESULTADOS_CHECAGEM = [
+  'sem_candidato',
+  'usar',
+  'cotar_mesmo_assim',
+  'sem_correspondente',
+] as const;
+export type ResultadoChecagem = (typeof RESULTADOS_CHECAGEM)[number];
+
+/** O que uma pessoa decide; `sem_candidato` é só do sistema. */
+export const DECISOES_CHECAGEM = ['usar', 'cotar_mesmo_assim', 'sem_correspondente'] as const;
+export type DecisaoChecagem = (typeof DECISOES_CHECAGEM)[number];
+
+export const ORIGENS_CHECAGEM = ['sicam', 'manual'] as const;
+export type OrigemChecagem = (typeof ORIGENS_CHECAGEM)[number];
+
+/** Motivo do registro manual e do `cotar_mesmo_assim`: 10 a 500 caracteres (AC-6, AC-12). */
+export const MOTIVO_CHECAGEM_MIN = TEXTO_CURTO_MIN;
+export const MOTIVO_CHECAGEM_MAX = TEXTO_CURTO_MAX;
+/** Candidatos mostrados por item (AC-5) e resultados da busca manual. */
+export const MAX_CANDIDATOS_CHECAGEM = 10;
+export const MAX_RESULTADOS_BUSCA_CHECAGEM = 25;
+export const BUSCA_CHECAGEM_MIN_LETRAS = 3;
+/** Prazos das chamadas ao serviço (AC-2, AC-12), em milissegundos. */
+export const PRAZO_SICAM_LOTE_MS = 6_000;
+export const PRAZO_SICAM_MS = 4_000;

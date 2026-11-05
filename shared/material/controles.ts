@@ -1,4 +1,5 @@
 import { cnpjValido } from '@/shared/contratos/cnpj';
+import { itensNaoChecados } from '@/shared/material/checagem';
 import {
   JACCARD_ITEM_PARECIDO,
   MIN_COTACOES_REINCIDENCIA,
@@ -26,6 +27,8 @@ import {
  */
 
 export type AdvertenciaDeItem = { codigo: CodigoControle; itemId: string };
+
+type EntradaDaChecagem = { itemId: unknown; quantidadeLiberada: number };
 
 type ItemParaControle = {
   _id: unknown;
@@ -122,12 +125,19 @@ export function defeitoDoCnpj(
  * 3 raízes ficam para a pesquisa depois da autorização.
  */
 export function impedimentosDeEnvio(c: {
-  itens: readonly ItemDoCaminho3[];
+  itens: readonly (ItemDoCaminho3 & { quantidade?: number })[];
   orcamentos: readonly OrcamentoParaControle[];
   raizContratada: string;
   urgencia?: boolean;
+  /** Spec 0024 (AC-17): só existe com `checagem` diferente de null. */
+  checagem?: { itens: readonly EntradaDaChecagem[] } | null;
 }): CodigoControle[] {
   const out = new Set<CodigoControle>();
+  if (c.checagem) {
+    const comQuantidade = c.itens.map((i) => ({ ...i, quantidade: i.quantidade ?? 0 }));
+    const faltam = itensNaoChecados(comQuantidade, c.checagem.itens, (i) => String(i._id));
+    if (faltam.length > 0) out.add('item_sem_checagem');
+  }
   const envio = c.orcamentos.filter(daFaseEnvio);
   for (const o of envio) {
     const defeito = defeitoDoCnpj(o.cnpj, c.raizContratada);

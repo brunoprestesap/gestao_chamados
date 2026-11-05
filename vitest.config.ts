@@ -38,7 +38,7 @@ export default defineConfig({
     // arquivo, num comentário `@vitest-environment jsdom` no topo dele, para
     // o resto da suíte continuar rodando em Node, que é mais rápido.
     include: ['**/__tests__/**/*.test.ts?(x)', '**/*.test.ts?(x)'],
-    exclude: ['node_modules', '.next', 'socket-server', 'e2e'],
+    exclude: ['node_modules', '.next', 'socket-server', 'sicam-gateway', 'e2e'],
     coverage: {
       provider: 'v8',
       include: ['lib/**/*.ts', 'shared/**/*.ts'],

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   type DesvioJornada,
   type EtapaJornada,
-  ETAPAS_JORNADA,
+  etapasDaJornada,
   posicaoNaJornada,
 } from '@/shared/material/jornada';
 import type { SituacaoCotacao } from '@/shared/material/material.constants';
@@ -20,6 +20,7 @@ const COR_DESVIO: Record<DesvioJornada, string> = {
   devolvida: 'bg-orange-500',
   reprovada: 'bg-rose-600',
   cancelada: 'bg-zinc-400',
+  atendida_almoxarifado: 'bg-lime-600',
 };
 
 const dataCurta = (iso: string) =>
@@ -34,6 +35,7 @@ export function JornadaCotacao({
   situacaoAnterior,
   variante = 'mini',
   datas,
+  temChecagem = false,
   className,
 }: {
   situacao: SituacaoCotacao;
@@ -42,14 +44,17 @@ export function JornadaCotacao({
   variante?: 'mini' | 'grande';
   /** Só `grande`: quando cada etapa foi alcançada. */
   datas?: Partial<Record<EtapaJornada, string>>;
+  /** Spec 0024: a etapa de checagem só em cotação que passou por ela (AC-27). */
+  temChecagem?: boolean;
   className?: string;
 }) {
-  const { indice, desvio } = posicaoNaJornada(situacao, situacaoAnterior);
+  const { indice, desvio } = posicaoNaJornada(situacao, situacaoAnterior, temChecagem);
+  const etapas = etapasDaJornada(temChecagem);
 
   if (variante === 'mini') {
     return (
       <span aria-hidden="true" className={cn('flex gap-[3px]', className)}>
-        {ETAPAS_JORNADA.map((etapa, i) => (
+        {etapas.map((etapa, i) => (
           <span
             key={etapa}
             className={cn(
@@ -68,7 +73,7 @@ export function JornadaCotacao({
 
   return (
     <ol aria-label="Jornada da cotação" className={cn('flex flex-wrap gap-y-3', className)}>
-      {ETAPAS_JORNADA.map((etapa, i) => {
+      {etapas.map((etapa, i) => {
         const vencida = i < indice || (i === indice && etapa === 'atestada' && !desvio);
         const atual = i === indice;
         const data = datas?.[etapa];
@@ -97,7 +102,7 @@ export function JornadaCotacao({
                 aria-hidden="true"
                 className={cn(
                   'h-0.5 flex-1 rounded-full',
-                  i < ETAPAS_JORNADA.length - 1 ? 'bg-border' : 'bg-transparent',
+                  i < etapas.length - 1 ? 'bg-border' : 'bg-transparent',
                   i < indice && 'bg-indigo-600 dark:bg-indigo-400',
                 )}
               />

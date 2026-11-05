@@ -71,6 +71,7 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
   const editavel = custoEditavel(status);
   const [cotacoes, setCotacoes] = useState<CotacaoDaGestao[] | null>(null);
   const [materialCotado, setMaterialCotado] = useState<MaterialExecutado[]>([]);
+  const [almoxarifadoCentavos, setAlmoxarifadoCentavos] = useState(0);
   /** Item fora de cotação → número da cotação de material com a mesma descrição. */
   const [jaCotados, setJaCotados] = useState<Record<string, string>>({});
   const [erroCotacoes, setErroCotacoes] = useState(false);
@@ -88,11 +89,13 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
       const json = (await res.json()) as {
         history: CotacaoDaGestao[];
         materialExecutado?: MaterialExecutado[];
+        almoxarifadoCentavos?: number;
         jaCotados?: Record<string, string>;
       };
       const aprovadas = json.history.filter((c) => c.status === 'aprovada');
       setCotacoes(aprovadas);
       setMaterialCotado(json.materialExecutado ?? []);
+      setAlmoxarifadoCentavos(json.almoxarifadoCentavos ?? 0);
       setJaCotados(json.jaCotados ?? {});
       setValoresFinais(
         Object.fromEntries(
@@ -176,9 +179,13 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
     cotacoes: cotacoes ?? [],
     materiais,
     cotacoesMaterialCentavos: materialCotado.map((m) => m.valorExecutadoCentavos),
+    almoxarifadoCentavos,
   });
   const semCusto =
-    (cotacoes?.length ?? 0) === 0 && materiais.length === 0 && materialCotado.length === 0;
+    (cotacoes?.length ?? 0) === 0 &&
+    materiais.length === 0 &&
+    materialCotado.length === 0 &&
+    almoxarifadoCentavos === 0;
 
   return (
     <section aria-labelledby={`${ids}-titulo`}>
@@ -457,7 +464,7 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
       {semCusto ? (
         <p className="text-sm text-muted-foreground">Nenhum custo lançado neste chamado.</p>
       ) : (
-        <dl className="grid grid-cols-3 gap-2 text-sm">
+        <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-xs text-muted-foreground">Cotações</dt>
             <dd>{formatarReais(total.cotacoesCentavos)}</dd>
@@ -465,6 +472,10 @@ export function CustoChamadoSecao({ chamadoId, status, temAtivo, materiais, onAl
           <div>
             <dt className="text-xs text-muted-foreground">Material</dt>
             <dd>{formatarReais(total.materialCentavos)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Almoxarifado</dt>
+            <dd>{formatarReais(total.almoxarifadoCentavos)}</dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Total do chamado</dt>

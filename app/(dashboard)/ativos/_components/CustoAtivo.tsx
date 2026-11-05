@@ -57,6 +57,9 @@ export function CustoAtivo({ custo }: { custo: CustoDaFichaComLinks | null }) {
               <th scope="col" className="py-2 pr-3 text-right font-medium">
                 Material
               </th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">
+                Almoxarifado
+              </th>
               <th scope="col" className="py-2 text-right font-medium">
                 Total
               </th>
@@ -78,6 +81,7 @@ export function CustoAtivo({ custo }: { custo: CustoDaFichaComLinks | null }) {
                 <td className="py-2 pr-3">{c.preventiva ? 'Preventiva' : 'Corretivo'}</td>
                 <td className="py-2 pr-3 text-right">{formatarReais(c.cotacoesCentavos)}</td>
                 <td className="py-2 pr-3 text-right">{formatarReais(c.materialCentavos)}</td>
+                <td className="py-2 pr-3 text-right">{formatarReais(c.almoxarifadoCentavos)}</td>
                 <td className="py-2 text-right font-medium">{formatarReais(c.totalCentavos)}</td>
               </tr>
             ))}

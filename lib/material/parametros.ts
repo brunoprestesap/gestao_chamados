@@ -8,6 +8,7 @@ import type { ParametrosInput } from '@/shared/material/cotacao.schemas';
 import {
   type CampoParametro,
   CAMPOS_PARAMETROS,
+  CHECAGEM_ATIVA_PADRAO,
   MATERIAL_CONFIG_PADRAO,
 } from '@/shared/material/material.constants';
 import { ERROS_PARAMETROS } from '@/shared/material/mensagens';
@@ -23,9 +24,9 @@ import { recalcularAnomalia } from './importacao/anomalia';
  */
 
 export type HistoricoParametro = {
-  campo: CampoParametro;
-  de: string | number | null;
-  para: string | number | null;
+  campo: CampoParametro | 'checagemAlmoxarifadoAtiva';
+  de: string | number | boolean | null;
+  para: string | number | boolean | null;
   porNome: string | null;
   em: string;
 };
@@ -49,9 +50,9 @@ export async function lerParametros(): Promise<ParametrosComHistorico> {
   return {
     ...vigentes,
     historico: [...historico].reverse().map((h) => ({
-      campo: h.campo as CampoParametro,
-      de: (h.de as string | number | null) ?? null,
-      para: (h.para as string | number | null) ?? null,
+      campo: h.campo as HistoricoParametro['campo'],
+      de: (h.de as HistoricoParametro['de']) ?? null,
+      para: (h.para as HistoricoParametro['para']) ?? null,
       porNome: nomes.get(String(h.porUserId)) ?? null,
       em: h.em.toISOString(),
     })),
@@ -109,6 +110,56 @@ export async function salvarParametros(
       console.error('[material] recálculo da anomalia depois dos parâmetros falhou:', e);
       return { ok: true, aviso: ERROS_PARAMETROS.recalculo_falhou };
     }
+  }
+  return { ok: true };
+}
+
+/**
+ * Liga ou desliga a checagem do almoxarifado (spec 0024, AC-1). Vale só para as
+ * cotações novas: nada aqui mexe nas que já estão em `em_checagem`. A gravação é
+ * condicional ao valor lido, e o campo ausente casa com o padrão (desligado).
+ */
+export async function salvarChecagemAtiva(
+  adminId: string,
+  entrada: { lido: boolean; novo: boolean },
+  agora: Date = new Date(),
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { lido, novo } = entrada;
+  if (lido === novo) return { ok: false, error: ERROS_PARAMETROS.nada_mudou };
+  const condicao =
+    lido === CHECAGEM_ATIVA_PADRAO
+      ? {
+          $or: [
+            { checagemAlmoxarifadoAtiva: lido },
+            { checagemAlmoxarifadoAtiva: { $exists: false } },
+          ],
+        }
+      : { checagemAlmoxarifadoAtiva: lido };
+  try {
+    const r = await MaterialConfigModel.updateOne(
+      { chave: MATERIAL_CONFIG_CHAVE, ...condicao },
+      {
+        $set: { checagemAlmoxarifadoAtiva: novo },
+        $push: {
+          historico: {
+            campo: 'checagemAlmoxarifadoAtiva',
+            de: lido,
+            para: novo,
+            porUserId: new Types.ObjectId(adminId),
+            em: agora,
+          },
+        },
+      },
+      { upsert: true, runValidators: true },
+    );
+    if (r.matchedCount === 0 && r.upsertedCount === 0) {
+      return { ok: false, error: ERROS_PARAMETROS.mudou };
+    }
+  } catch (e) {
+    if ((e as { code?: number }).code === 11000) {
+      return { ok: false, error: ERROS_PARAMETROS.mudou };
+    }
+    throw e;
   }
   return { ok: true };
 }

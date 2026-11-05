@@ -12,6 +12,7 @@ import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { EmpenhoModel } from '@/models/Empenho';
 import { LocalizacaoModel } from '@/models/Localizacao';
 import { UserModel } from '@/models/user.model';
+import { itensNaoChecados } from '@/shared/material/checagem';
 import {
   type PapelEvento,
   type SituacaoCotacao,
@@ -24,9 +25,11 @@ import { itensComVariacaoAcima, orcamentosVencidos, pesquisaCompleta } from './c
 import {
   aprovadoresQueCobrem,
   type Designado,
+  designadosVigentes,
   limiteDoAprovador,
   type Papeis,
   papeisDe,
+  podeConcluirChecagem,
 } from './papeis';
 import {
   FILTRO_NOTA_FISCAL_PENDENTE,
@@ -82,6 +85,10 @@ export type Acoes = {
   recusarUrgencia: boolean;
   /** Fatia 4: a contratada completa a pesquisa da urgência aceita (AC-35). */
   completarPesquisa: boolean;
+  /** Spec 0024: o almoxarifado ou o fiscal vigente decide a checagem (AC-15). */
+  concluirChecagem: boolean;
+  /** Spec 0024: há item acrescentado ou acima da quantidade liberada (AC-17). */
+  reenviarChecagem: boolean;
 };
 
 export function acoesDisponiveis(
@@ -95,7 +102,8 @@ export function acoesDisponiveis(
     | 'notaFiscal'
     | 'fiscalUserId'
     | 'urgencia'
-  >,
+  > &
+    Partial<Pick<CotacaoBruta, 'checagem' | 'itens'>>,
   papeis: Papeis,
   ehTecnicoAtribuido: boolean,
 ): Acoes {
@@ -107,7 +115,14 @@ export function acoesDisponiveis(
   const montei = !!cot.montadoPorUserId && String(cot.montadoPorUserId) === papeis.userId;
   const fiscalQueAssumiu =
     fiscal && s === 'em_analise' && String(cot.fiscalUserId ?? '') === papeis.userId;
+  const rascunhoSoDoTecnico = ehTecnicoAtribuido && !cot.montadoPorUserId;
   return {
+    concluirChecagem: podeConcluirChecagem(s, papeis),
+    reenviarChecagem:
+      !!cot.checagem &&
+      SITUACOES_EDITAVEIS.includes(s) &&
+      (rt || (s === 'rascunho' && rascunhoSoDoTecnico)) &&
+      itensNaoChecados(cot.itens ?? [], cot.checagem.itens ?? [], (i) => String(i._id)).length > 0,
     referenciasDoFiscal: fiscalQueAssumiu,
     recusarUrgencia: fiscalQueAssumiu && !!cot.urgencia?.pedida && !cot.urgencia.decisao,
     completarPesquisa: rt && pesquisaDaUrgenciaPendente(cot),
@@ -131,7 +146,7 @@ export function acoesDisponiveis(
     alterar: rt && s === 'autorizada',
     cancelar:
       ((rt || papeis.tem('gestor')) && cot.emTramite) ||
-      (ehTecnicoAtribuido && s === 'rascunho' && !cot.montadoPorUserId),
+      ((s === 'rascunho' || s === 'em_checagem') && rascunhoSoDoTecnico),
     executar: ehTecnicoAtribuido && s === 'autorizada',
     receberProvisorio: papeis.tem('gestor') && s === 'executada' && !cot.recebimentoProvisorio,
     // A urgência só é atestada com a pesquisa completa (AC-35); o servidor confere de novo.
@@ -186,7 +201,15 @@ async function extras(cot: CotacaoBruta) {
 export type DetalheCotacao = {
   cotacao: CotacaoDTO;
   acoes: Acoes;
-  chamado: { id: string; numero: string; titulo: string; status: string; ativo: string | null };
+  chamado: {
+    id: string;
+    numero: string;
+    titulo: string;
+    status: string;
+    ativo: string | null;
+    /** Spec 0024: o caminho do local, para o almoxarifado saber onde o material vai. */
+    local?: string | null;
+  };
   /** Os papéis de quem lê nesta cotação (designações e o técnico atribuído), para o painel "Sua vez". */
   papeis: PapelEvento[];
   /** Só TRF1. */
@@ -237,6 +260,34 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
     cot,
   );
   if (!visao || visao === 'solicitante') return null;
+
+  // Spec 0024 (AC-25): a visão do almoxarifado não passa por empenho, faixa nem arquivo.
+  if (visao === 'almoxarifado') {
+    const [ativoDoChamado, local, eventos] = await Promise.all([
+      chamado.ativoId
+        ? AtivoModel.findById(chamado.ativoId).select('codigo descricao').lean()
+        : null,
+      cot.localizacaoId
+        ? LocalizacaoModel.findById(cot.localizacaoId).select('caminho').lean()
+        : null,
+      CotacaoMaterialEventoModel.find({ cotacaoId: cot._id })
+        .sort({ em: 1, _id: 1 })
+        .lean<EventoBruto[]>(),
+    ]);
+    return {
+      cotacao: serializarCotacao(cot, visao, sessao, { eventos }),
+      acoes: acoesDisponiveis(cot, papeis, false),
+      chamado: {
+        id: String(chamado._id),
+        numero: chamado.ticket_number,
+        titulo: chamado.titulo,
+        status: chamado.status,
+        ativo: ativoDoChamado ? `${ativoDoChamado.codigo} · ${ativoDoChamado.descricao}` : null,
+        local: (local?.caminho as string | undefined) ?? null,
+      },
+      papeis: papeis.designacoes.map((d) => d.papel),
+    };
+  }
 
   const ativo = chamado.ativoId
     ? await AtivoModel.findById(chamado.ativoId).select('codigo descricao').lean()
@@ -330,6 +381,8 @@ export async function lerDetalhe(id: string, sessao: Sessao): Promise<DetalheCot
       marcas,
       empenho,
       raizCnpjContratada,
+      semAlmoxarifado:
+        cot.situacao === 'em_checagem' && (await designadosVigentes('almoxarifado')).length === 0,
     }),
   };
 }
@@ -451,9 +504,11 @@ export async function cartaoDoChamado(
 
   const visao = visaoDe({ userId: sessao.userId, papeis, ehTecnicoAtribuido, ehSolicitante }, cot);
   if (!visao) return { cotacao: null, acoes: null, podeCriar };
-  if (visao === 'solicitante') {
+  // Ter o papel de almoxarifado não amplia o que o solicitante vê no próprio chamado (AC-25).
+  if (visao === 'solicitante' || (visao === 'almoxarifado' && ehSolicitante)) {
     return { cotacao: serializarParaSolicitante(cot), acoes: null, podeCriar };
   }
+  if (visao === 'almoxarifado') return { cotacao: null, acoes: null, podeCriar };
   return {
     cotacao: serializarCotacao(cot, visao, sessao, await extras(cot)),
     acoes: acoesDisponiveis(cot, papeis, ehTecnicoAtribuido),
@@ -467,9 +522,15 @@ export type AbaFila = (typeof ABAS_FILA)[number];
 /** A contratada não analisa nem aprova: as abas dela são estas (AC-21). */
 export const ABAS_FILA_CONTRATADA: readonly AbaFila[] = ['minhas', 'ateste', 'todas'];
 
+/** O almoxarifado só tem o que decidir e o que já passou por ele (spec 0024, AC-27). */
+export const ABAS_FILA_ALMOXARIFADO: readonly AbaFila[] = ['minhas', 'todas'];
+
+export type LadoFila = 'trf1' | 'contratada' | 'almoxarifado';
+
 /** As abas que cada lado vê; aba fora da lista cai em `minhas`. */
-export function abasDaFila(trf1: boolean): readonly AbaFila[] {
-  return trf1 ? ABAS_FILA : ABAS_FILA_CONTRATADA;
+export function abasDaFila(lado: LadoFila): readonly AbaFila[] {
+  if (lado === 'trf1') return ABAS_FILA;
+  return lado === 'almoxarifado' ? ABAS_FILA_ALMOXARIFADO : ABAS_FILA_CONTRATADA;
 }
 
 /** Spec 0021, AC-3: páginas de 25. */
@@ -512,6 +573,8 @@ export type LinhaFila = {
   notaFiscalPendente: boolean;
   /** A urgência aceita ainda sem os 3 orçamentos por item (AC-35). */
   pesquisaPendente: boolean;
+  /** Spec 0024: a jornada ganha a etapa de checagem (AC-27). */
+  temChecagem: boolean;
 };
 
 export type PedidoFila = { aba?: string; q?: string; urgente?: boolean; pagina?: number };
@@ -519,6 +582,7 @@ export type PedidoFila = { aba?: string; q?: string; urgente?: boolean; pagina?:
 export type Fila = {
   linhas: LinhaFila[];
   trf1: boolean;
+  lado: LadoFila;
   papeis: string[];
   aba: AbaFila;
   abas: readonly AbaFila[];
@@ -532,8 +596,12 @@ export type Fila = {
 };
 
 /** O que espera cada papel, para a aba "Minhas ações". */
-function filtroDoQueEspera(papeis: Papeis): Record<string, unknown> {
+function filtroDoQueEspera(papeis: Papeis, semAlmoxarifado: boolean): Record<string, unknown> {
   const out = new Set<SituacaoCotacao>();
+  // A fila aponta para o almoxarifado; sem almoxarifado vigente, para os fiscais (AC-15).
+  if (papeis.tem('almoxarifado') || (papeis.tem('fiscal') && semAlmoxarifado)) {
+    out.add('em_checagem');
+  }
   if (papeis.tem('responsavel_tecnico')) {
     out.add('rascunho');
     out.add('devolvida');
@@ -554,11 +622,13 @@ function filtroDoQueEspera(papeis: Papeis): Record<string, unknown> {
 function condicoesDaAba(
   aba: AbaFila,
   papeis: Papeis,
-  trf1: boolean,
+  lado: LadoFila,
   agora: Date,
+  semAlmoxarifado = false,
 ): Record<string, unknown>[] {
+  const trf1 = lado === 'trf1';
   const e: Record<string, unknown>[] = [];
-  if (aba === 'minhas') e.push(filtroDoQueEspera(papeis));
+  if (aba === 'minhas') e.push(filtroDoQueEspera(papeis, semAlmoxarifado));
   if (aba === 'analise') e.push({ situacao: { $in: ['enviada', 'em_analise'] } });
   if (aba === 'aprovacao') e.push({ situacao: 'em_aprovacao' });
   if (aba === 'ateste') {
@@ -567,10 +637,16 @@ function condicoesDaAba(
     else e.push({ $or: [{ situacao: 'executada' }, { ...FILTRO_NOTA_FISCAL_PENDENTE }] });
   }
   if (trf1 && !papeis.contratada && (aba === 'minhas' || aba === 'todas')) {
-    // O rascunho não aparece para fiscal, aprovador nem gestor (AC-1).
-    e.push({ situacao: { $ne: 'rascunho' } });
+    // O rascunho não aparece para fiscal, aprovador nem gestor (AC-1). O Admin que é
+    // também almoxarifado vê o rascunho que passou pela checagem (spec 0024, AC-25).
+    e.push(
+      papeis.almoxarifado
+        ? { $or: [{ situacao: { $ne: 'rascunho' } }, { checagem: { $ne: null } }] }
+        : { situacao: { $ne: 'rascunho' } },
+    );
   }
-  if (!trf1) {
+  if (lado === 'almoxarifado') e.push({ checagem: { $ne: null } });
+  if (lado === 'contratada') {
     // Contratada: em trâmite, encerradas nos últimos 90 dias (AC-15) e a atestada
     // que ainda deve a nota fiscal, por mais velha que seja (AC-22). Mesma regra de `visaoDe`.
     e.push(filtroVisivelParaContratada(agora));
@@ -628,7 +704,7 @@ async function desdeDaEtapa(ids: Types.ObjectId[]): Promise<Map<string, DesdeDaE
 }
 
 const CAMPOS_DA_LINHA =
-  'numero itens chamadoId ativoId localizacaoId situacao valorTotalCentavos executadoEm recebimentoProvisorio recebimentoDefinitivo notaFiscal urgencia createdAt';
+  'numero itens chamadoId ativoId localizacaoId situacao valorTotalCentavos executadoEm recebimentoProvisorio recebimentoDefinitivo notaFiscal urgencia checagem createdAt';
 
 type DocDaLinha = Pick<
   CotacaoBruta,
@@ -640,6 +716,7 @@ type DocDaLinha = Pick<
   | 'recebimentoProvisorio'
   | 'notaFiscal'
   | 'urgencia'
+  | 'checagem'
 > & {
   numero: string;
   ativoId?: Types.ObjectId | null;
@@ -713,6 +790,7 @@ async function montarLinhas(
         situacao: d.situacao,
         urgencia: d.urgencia,
       }),
+      temChecagem: !!d.checagem,
     };
   });
 }
@@ -726,6 +804,19 @@ function normalizarPedido(pedido: AbaFila | PedidoFila): Required<PedidoFila> {
     urgente: !!p.urgente,
     pagina: Math.max(1, pagina),
   };
+}
+
+/** De que lado a pessoa lê a fila; `null` sem acesso. */
+function ladoDaFila(papeis: Papeis): LadoFila | null {
+  if (papeis.ladoTrf1 || papeis.leitorAdmin) return 'trf1';
+  if (papeis.contratada) return 'contratada';
+  return papeis.almoxarifado ? 'almoxarifado' : null;
+}
+
+/** O fiscal só vê a checagem como dele quando não há almoxarifado vigente (AC-15). */
+async function fiscalCuidaDaChecagem(papeis: Papeis): Promise<boolean> {
+  if (!papeis.tem('fiscal')) return false;
+  return (await designadosVigentes('almoxarifado')).length === 0;
 }
 
 /**
@@ -742,15 +833,17 @@ export async function listarFila(
 ): Promise<Fila | null> {
   const papeis = await papeisDe(sessao.userId, sessao.role);
   const trf1 = papeis.ladoTrf1 || papeis.leitorAdmin;
-  if (!trf1 && !papeis.contratada) return null;
+  const lado = ladoDaFila(papeis);
+  if (!lado) return null;
+  const semAlmoxarifado = await fiscalCuidaDaChecagem(papeis);
   const p = normalizarPedido(pedido);
-  const abas = abasDaFila(trf1);
+  const abas = abasDaFila(lado);
   const aba: AbaFila = (abas as readonly string[]).includes(p.aba) ? (p.aba as AbaFila) : 'minhas';
 
   const busca = await condicaoDaBusca(p.q);
   const urgente = p.urgente ? { 'urgencia.pedida': true } : null;
   const filtroDe = (a: AbaFila) =>
-    juntar([...condicoesDaAba(a, papeis, trf1, agora), busca, urgente]);
+    juntar([...condicoesDaAba(a, papeis, lado, agora, semAlmoxarifado), busca, urgente]);
 
   const contagens: Partial<Record<AbaFila, number>> = Object.fromEntries(
     await Promise.all(
@@ -793,6 +886,7 @@ export async function listarFila(
 
   return {
     trf1,
+    lado,
     aba,
     abas,
     q: p.q,
@@ -815,7 +909,8 @@ export type ResumoFila =
       /** `null` sem empenho elegível: a tela não mostra zero no lugar. */
       saldoElegivelCentavos: number | null;
     }
-  | { lado: 'contratada'; esperandoVoce: number; devolvidas: number; nfPendente: number };
+  | { lado: 'contratada'; esperandoVoce: number; devolvidas: number; nfPendente: number }
+  | { lado: 'almoxarifado'; esperandoVoce: number; atendidas: number };
 
 /**
  * O resumo do topo da fila (spec 0021, AC-2), global por papel: ignora a
@@ -825,15 +920,24 @@ export type ResumoFila =
  */
 export async function resumoDaFila(sessao: Sessao, agora: Date = new Date()): Promise<ResumoFila> {
   const papeis = await papeisDe(sessao.userId, sessao.role);
-  const trf1 = papeis.ladoTrf1 || papeis.leitorAdmin;
-  if (!trf1 && !papeis.contratada) {
+  const lado = ladoDaFila(papeis);
+  if (!lado) {
     return { lado: 'contratada', esperandoVoce: 0, devolvidas: 0, nfPendente: 0 };
   }
+  const trf1 = lado === 'trf1';
+  const semAlmoxarifado = await fiscalCuidaDaChecagem(papeis);
   const visivel = (extra: Record<string, unknown>) =>
-    juntar([...condicoesDaAba('todas', papeis, trf1, agora), extra]);
+    juntar([...condicoesDaAba('todas', papeis, lado, agora), extra]);
   const esperandoVoce = CotacaoMaterialModel.countDocuments(
-    juntar(condicoesDaAba('minhas', papeis, trf1, agora)),
+    juntar(condicoesDaAba('minhas', papeis, lado, agora, semAlmoxarifado)),
   );
+  if (lado === 'almoxarifado') {
+    const [esperando, atendidas] = await Promise.all([
+      esperandoVoce,
+      CotacaoMaterialModel.countDocuments(visivel({ situacao: 'atendida_almoxarifado' })),
+    ]);
+    return { lado: 'almoxarifado', esperandoVoce: esperando, atendidas };
+  }
   if (!trf1) {
     const [esperando, devolvidas, nfPendente] = await Promise.all([
       esperandoVoce,

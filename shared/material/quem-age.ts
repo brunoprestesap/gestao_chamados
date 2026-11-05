@@ -14,10 +14,13 @@ export type QuemAge = {
 
 export function quemAgeAgora(
   situacao: SituacaoCotacao,
-  cot: { fiscalAssumiu: boolean; notaFiscalPendente?: boolean },
+  cot: { fiscalAssumiu: boolean; notaFiscalPendente?: boolean; semAlmoxarifado?: boolean },
 ): QuemAge | null {
   const papel = (p: PapelEvento): QuemAge => ({ papel: p, doFiscalQueAssumiu: false });
   switch (situacao) {
+    case 'em_checagem':
+      // Sem almoxarifado vigente, a checagem fica com os fiscais (spec 0024, AC-15).
+      return papel(cot.semAlmoxarifado ? 'fiscal' : 'almoxarifado');
     case 'rascunho':
     case 'devolvida':
       return papel('responsavel_tecnico');
@@ -36,6 +39,7 @@ export function quemAgeAgora(
       return cot.notaFiscalPendente ? papel('responsavel_tecnico') : null;
     case 'reprovada':
     case 'cancelada':
+    case 'atendida_almoxarifado':
       return null;
   }
 }

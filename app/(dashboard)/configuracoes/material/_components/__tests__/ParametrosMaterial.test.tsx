@@ -31,6 +31,8 @@ const vigentes: ParametrosComHistorico = {
   janelaDias: 90,
   parcelaRelevantePercentual: 20,
   prazoFornecimentoDiasUteis: 5,
+  prazoChecagemDiasUteis: 1,
+  checagemAlmoxarifadoAtiva: false,
   raizCnpjContratada: '03543374',
   historico: [],
 };
@@ -39,6 +41,7 @@ const lidos = {
   janelaDias: 90,
   parcelaRelevantePercentual: 20,
   prazoFornecimentoDiasUteis: 5,
+  prazoChecagemDiasUteis: 1,
   raizCnpjContratada: '03543374',
 };
 

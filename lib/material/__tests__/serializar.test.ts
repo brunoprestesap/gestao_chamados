@@ -27,6 +27,7 @@ function papeis(over: Partial<Papeis> = {}): Papeis {
     ladoTrf1: false,
     leitorAdmin: false,
     contratada: false,
+    almoxarifado: false,
     ...over,
   };
 }

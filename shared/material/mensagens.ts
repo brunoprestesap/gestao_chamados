@@ -19,6 +19,8 @@ import type {
  */
 
 export const ROTULO_SITUACAO: Record<SituacaoCotacao, string> = {
+  em_checagem: 'Em checagem',
+  atendida_almoxarifado: 'Atendida pelo almoxarifado',
   rascunho: 'Rascunho',
   enviada: 'Enviada',
   em_analise: 'Em análise',
@@ -52,6 +54,8 @@ export const ROTULO_ACAO: Record<AcaoCotacao | 'conciliar', string> = {
   referencia_retirada: 'Referência de preço retirada pelo fiscal',
   urgencia_recusada: 'Urgência recusada',
   pesquisa_completada: 'Orçamentos acrescentados à pesquisa da urgência',
+  concluir_checagem: 'Checagem do almoxarifado concluída',
+  reenviar_checagem: 'Checagem do almoxarifado refeita',
 };
 
 /** Quem informou a referência de preço (AC-32), como a tela e o PDF mostram. */
@@ -145,6 +149,8 @@ export const ROTULO_SINAL = {
 
 export const TEXTO_RESUMO_FILA = {
   rotulo: 'Resumo',
+  atendidas: 'Atendidas pelo almoxarifado',
+  atendidasAjuda: 'sem precisar cotar',
   esperandoVoce: 'Esperando você',
   emAprovacao: 'Em aprovação',
   aReservar: (valor: string) => `${valor} a reservar`,
@@ -182,6 +188,7 @@ export const ROTULO_PAPEL: Record<PapelEvento, string> = {
   fiscal: 'Fiscal',
   gestor: 'Gestor',
   aprovador: 'Aprovador',
+  almoxarifado: 'Almoxarifado',
   tecnico: 'Técnico',
   sistema: 'Sistema',
 };
@@ -191,6 +198,7 @@ export const ROTULO_PAPEL_DESIGNACAO: Record<PapelDesignacao, string> = {
   fiscal: 'Fiscal',
   gestor: 'Gestor do contrato',
   aprovador: 'Aprovador',
+  almoxarifado: 'Almoxarifado',
 };
 
 export const TEXTO_MOTIVO_FIXO: Record<MotivoFixo, string> = {
@@ -238,6 +246,8 @@ export const CODIGOS_CONTROLE = [
   'consumo_acima_estimado',
   'item_parecido',
   'projecao_esgotamento',
+  // Spec 0024
+  'item_sem_checagem',
 ] as const;
 export type CodigoControle = (typeof CODIGOS_CONTROLE)[number];
 
@@ -250,6 +260,12 @@ export const CONTROLES: Record<
   CodigoControle,
   { tipo: TipoControle; ve: VisibilidadeControle; texto: string }
 > = {
+  item_sem_checagem: {
+    tipo: 'impedimento',
+    ve: 'todos',
+    texto:
+      'Há item acrescentado ou com quantidade acima da liberada: confira de novo no almoxarifado antes de enviar.',
+  },
   orcamentos_insuficientes: {
     tipo: 'impedimento',
     ve: 'todos',
@@ -449,6 +465,8 @@ export const ERROS_PARAMETROS = {
 } as const;
 
 export const ROTULO_PARAMETRO = {
+  prazoChecagemDiasUteis: 'Prazo da checagem do almoxarifado',
+  checagemAlmoxarifadoAtiva: 'Checagem do almoxarifado',
   percentualSinapi: 'Percentual admitido sobre o SINAPI',
   janelaDias: 'Janela do fracionamento e da reincidência',
   parcelaRelevantePercentual: 'Parcela relevante do saldo',
@@ -462,6 +480,7 @@ export const UNIDADE_PARAMETRO = {
   janelaDias: 'dias',
   parcelaRelevantePercentual: '%',
   prazoFornecimentoDiasUteis: 'dias úteis',
+  prazoChecagemDiasUteis: 'dias úteis',
   raizCnpjContratada: null,
 } as const;
 
@@ -600,6 +619,8 @@ export function tituloAvisoCotacao(
     return `URGENTE: cotação ${numero} aguarda aprovação`;
   }
   const frases: Record<SituacaoCotacao, string> = {
+    em_checagem: `Material a conferir no almoxarifado: cotação ${numero}`,
+    atendida_almoxarifado: `Cotação ${numero} atendida pelo almoxarifado`,
     rascunho: `Material registrado pelo técnico: cotação ${numero}`,
     enviada: `Cotação ${numero} enviada para análise`,
     em_analise: `Cotação ${numero} em análise`,
@@ -672,6 +693,7 @@ export function textoJaCotado(numero: string): string {
 
 /** O título curto de cada controle, para o painel "Sua vez" (AC-6, AC-27). */
 export const TITULO_CONTROLE: Record<CodigoControle, string> = {
+  item_sem_checagem: 'Item sem checagem do almoxarifado',
   orcamentos_insuficientes: 'Orçamentos insuficientes',
   saldo_insuficiente: 'Sem saldo no empenho',
   competencia_insuficiente: 'Faixa sem competência',
@@ -721,6 +743,7 @@ export function textoDoControleSemRotulo(codigo: CodigoControle): string {
  * diálogo de registro direto do painel (fatia 3).
  */
 export const ACOES_DA_VEZ = [
+  'concluirChecagem',
   'aprovar',
   'encaminhar',
   'assumir',
@@ -735,6 +758,7 @@ export const ACOES_DA_VEZ = [
 export type AcaoDaVez = (typeof ACOES_DA_VEZ)[number];
 
 export const TEXTO_ACAO_DA_VEZ: Record<AcaoDaVez, { titulo: string; botao: string }> = {
+  concluirChecagem: { titulo: 'Conferir o material no estoque', botao: 'Ir para a checagem' },
   aprovar: { titulo: 'Aprovar e reservar o saldo', botao: 'Aprovar' },
   encaminhar: { titulo: 'Analisar e encaminhar', botao: 'Encaminhar para aprovação' },
   assumir: { titulo: 'Assumir a análise', botao: 'Assumir análise' },
@@ -761,6 +785,7 @@ export const ROTULO_ACAO_SECUNDARIA = {
   alterar: 'Pedir alteração',
   cancelar: 'Cancelar cotação',
   descartar: 'Descartar rascunho',
+  reenviarChecagem: 'Conferir de novo no almoxarifado',
 } as const;
 
 export const TEXTO_SUA_VEZ = {
@@ -1164,6 +1189,7 @@ export const TEXTO_EDITOR = {
   linhaPronta: 'Pronto:',
   linhaFalta: 'Falta:',
   prontaFormulario: 'Campos preenchidos',
+  prontaChecagem: 'Itens conferidos no almoxarifado',
   prontaCnpj: 'CNPJ válido em cada orçamento, nenhum da contratada',
   prontaUrgencia: 'Justificativa da urgência',
   prontaValidade: 'Validade em cada orçamento',
@@ -1198,6 +1224,8 @@ export const FASES_SOLICITANTE = ['pedido', 'aprovacao', 'instalacao'] as const;
 export type FaseSolicitante = (typeof FASES_SOLICITANTE)[number] | 'encerrada';
 
 export const FASE_DA_SITUACAO: Record<SituacaoCotacao, FaseSolicitante> = {
+  em_checagem: 'pedido',
+  atendida_almoxarifado: 'encerrada',
   rascunho: 'pedido',
   enviada: 'pedido',
   em_analise: 'pedido',
@@ -1252,6 +1280,7 @@ export const TEXTO_CARTAO = {
   motivo: (situacao: string, motivo: string) => `${situacao}: ${motivo}`,
   /** A dica da próxima ação, abaixo do título curto de `TEXTO_ACAO_DA_VEZ`. */
   dica: {
+    concluirChecagem: 'Veja o que há em estoque antes de a cotação seguir para a contratada.',
     executar: 'Depois de aplicar, informe as quantidades e anexe as fotos ou o PDF.',
     editarDiagnostico: 'A contratada ainda não começou a montar: você pode corrigir os itens.',
     montar: 'Escolha o preço de cada item e envie para a análise do fiscal.',
@@ -1351,6 +1380,7 @@ const PAPEL_MINUSCULO: Record<PapelDesignacao, string> = {
   fiscal: 'fiscal',
   gestor: 'gestor',
   aprovador: 'aprovador',
+  almoxarifado: 'almoxarifado',
 };
 
 /** A navegação lateral e a lista "Para aprovar a primeira cotação" (AC-18, AC-19). */
@@ -1422,7 +1452,7 @@ export const TEXTO_CADASTRO_SECOES = {
   },
   designacoes: {
     descricao:
-      'Quem age em cada papel. Fiscal, gestor e aprovador são usuários Admin; o responsável técnico é Preposto ou Técnico da contratada.',
+      'Quem age em cada papel. Fiscal, gestor e aprovador são usuários Admin; o responsável técnico é Preposto ou Técnico da contratada; o almoxarifado é Admin ou Solicitante.',
     mostrarRevogadas: 'Mostrar revogadas',
     nova: 'Nova designação',
     vazioPapel: 'Ninguém designado.',
@@ -1431,6 +1461,7 @@ export const TEXTO_CADASTRO_SECOES = {
       gestor: 'recebe o material',
       aprovador: 'cada um até o limite da sua faixa',
       responsavel_tecnico: 'contratada · monta e envia',
+      almoxarifado: 'confere o estoque antes de cotar',
     } satisfies Record<PapelDesignacao, string>,
     vigencia: (inicio: string, fim: string | null) =>
       fim ? `${inicio} a ${fim}` : `desde ${inicio}`,
@@ -1490,7 +1521,7 @@ export const TEXTO_FORMULARIOS_CADASTRO = {
   },
   designacao: {
     descricao:
-      'Fiscal, gestor e aprovador só podem ser Admin; responsável técnico, Preposto ou Técnico. Mudar um limite é criar faixa nova e designar de novo.',
+      'Fiscal, gestor e aprovador só podem ser Admin; responsável técnico, Preposto ou Técnico; almoxarifado, Admin ou Solicitante. Mudar um limite é criar faixa nova e designar de novo.',
     papel: 'Papel',
     pessoa: 'Pessoa',
     faixa: 'Faixa',
@@ -1696,6 +1727,8 @@ export const TEXTO_PARAMETROS = {
       `A partir de que parte do saldo do empenho o aprovador vê a projeção de esgotamento. De ${min} a ${max}.`,
     prazoFornecimentoDiasUteis: (min: number, max: number) =>
       `Quantos dias úteis depois da autorização a contratada tem para fornecer o material, no indicador 4 do IMR do contrato. De ${min} a ${max}.`,
+    prazoChecagemDiasUteis: (min: number, max: number) =>
+      `Em quantos dias úteis o almoxarifado deve conferir o material. Só serve para avisar os gestores; nada é liberado sozinho. De ${min} a ${max}.`,
     raizCnpjContratada: () =>
       'Os 8 primeiros dígitos do CNPJ da contratada: orçamento com essa raiz é recusado.',
   },
@@ -1707,6 +1740,14 @@ export const TEXTO_PARAMETROS = {
     'Cada ato da cotação guarda na trilha os valores vigentes naquele momento: mudar aqui não muda o que já foi registrado.',
   historico: (n: number) => `Histórico de mudanças (${n})`,
   semHistorico: 'Nenhuma mudança registrada: valem os padrões.',
+  checagem: {
+    titulo: 'Checagem do almoxarifado',
+    ajuda:
+      'Ligada, o material registrado pelo técnico é conferido contra o estoque do SICAM antes de ir para a contratada. Vale só para as cotações novas.',
+    ligada: 'Ligada',
+    desligada: 'Desligada',
+    gravada: 'Checagem do almoxarifado atualizada.',
+  },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -1738,6 +1779,9 @@ export const TEXTO_RELATORIO = {
     devolvidasAjuda: (n: number, total: number) =>
       `${n} de ${total} enviadas pela primeira vez no período`,
     impedimento: 'Impedimento na primeira tentativa',
+    almoxarifado: 'Atendido pelo almoxarifado',
+    almoxarifadoAjuda: (n: number) =>
+      n === 1 ? '1 cotação atendida por inteiro' : `${n} cotações atendidas por inteiro`,
     divergencia: 'Divergência entre autorizado e executado',
     divergenciaAjuda: (n: number, total: number) =>
       `${n} de ${plural(total, 'executada', 'executadas')} com diferença`,
@@ -1811,3 +1855,118 @@ export const TEXTO_RELATORIO = {
     vazio: 'Nenhum item do Anexo V consumido até agora.',
   },
 } as const;
+
+// ---------------------------------------------------------------------------
+// Spec 0024: checagem do almoxarifado
+// ---------------------------------------------------------------------------
+
+/** Recusas de `concluir_checagem`, por código. Nada é gravado em nenhuma delas (AC-6). */
+export const ERROS_CHECAGEM = {
+  falta_decisao: 'Decida cada item ainda em aberto antes de concluir.',
+  item_repetido: 'Há mais de uma decisão para o mesmo item.',
+  item_fora_da_checagem: 'Uma decisão cita item que não está em aberto. Recarregue a página.',
+  material_ausente: 'Escolha o material do almoxarifado.',
+  material_sumiu: (coMat: string) =>
+    `O material ${coMat} não está mais disponível no SICAM. Escolha outro.`,
+  motivo_cotar: 'Diga por que cotar mesmo havendo saldo.',
+  motivo_manual: 'No registro manual, o motivo é obrigatório.',
+  motivo_tamanho: 'O motivo precisa ter de 10 a 500 letras.',
+  saldo_manual: 'No registro manual, informe o saldo que você conferiu.',
+  quantidade_ausente: 'Informe a quantidade atendida pelo almoxarifado.',
+  acima_do_pedido: (descricao: string) => `${descricao}: a quantidade atendida passa da pedida.`,
+  saida_ausente: (descricao: string) =>
+    `${descricao}: as unidades são diferentes, informe também a saída na unidade do SICAM.`,
+  preco_ausente: (descricao: string) => `${descricao}: informe o preço unitário.`,
+  saldo_insuficiente: (descricao: string, disponivel: number) =>
+    `${descricao}: o saldo mudou. Disponível agora: ${disponivel.toLocaleString('pt-BR')}.`,
+  sicam_voltou: 'O SICAM voltou a responder. Refaça a decisão escolhendo o material.',
+  sicam_fora: 'O SICAM não respondeu. Use o registro manual para concluir.',
+  sem_checagem: 'Esta cotação não passou pela checagem do almoxarifado.',
+  nada_a_conferir: 'Nenhum item precisa de nova checagem.',
+} as const;
+
+/** A tela da checagem. */
+export const TEXTO_CHECAGEM = {
+  titulo: 'Checagem do almoxarifado',
+  subtitulo:
+    'Veja o que há em estoque para cada item e decida antes de a cotação seguir para a contratada.',
+  prazo: (data: string) => `Prazo para conferir: ${data}`,
+  carregando: 'Consultando o estoque no SICAM...',
+  sicamFora:
+    'O SICAM não respondeu. Você pode concluir pelo registro manual, com o saldo que conferiu na prateleira.',
+  tentarDeNovo: 'Consultar de novo',
+  pedido: (quantidade: string, unidade: string) => `Pedido: ${quantidade} ${unidade}`,
+  semCandidatos: 'Nenhum material parecido com saldo. Busque abaixo, se quiser.',
+  candidatos: 'Materiais parecidos com saldo',
+  buscaRotulo: 'Buscar no estoque, por texto ou código',
+  buscar: 'Buscar',
+  buscaCurta: 'Digite ao menos 3 letras.',
+  semResultado: 'Nada encontrado.',
+  resultados: 'Resultado da busca',
+  colunaMaterial: 'Material',
+  colunaSaldo: 'Saldo',
+  colunaReservado: 'Reservado',
+  colunaDisponivel: 'Disponível',
+  colunaPreco: 'Preço médio',
+  semPreco: 'sem preço',
+  consultadoEm: (hora: string) => `Consultado às ${hora}`,
+  decisao: 'Decisão',
+  decisaoOpcoes: {
+    usar: 'Usar o estoque',
+    cotar_mesmo_assim: 'Cotar mesmo assim',
+    sem_correspondente: 'Não há material correspondente',
+  },
+  materialEscolhido: (descricao: string) => `Escolhido: ${descricao}`,
+  escolhaMaterial: 'Escolha um material na lista acima.',
+  escolher: 'Escolher',
+  escolhido: 'Escolhido',
+  quantidadeAtendida: (unidade: string) => `Quantidade atendida (em ${unidade})`,
+  quantidadeSaida: (unidade: string) => `Saída no SICAM (em ${unidade})`,
+  unidadesDiferentes: 'O pedido e o SICAM usam unidades diferentes: informe as duas quantidades.',
+  restante: (quantidade: string, unidade: string) =>
+    `Continuam na cotação: ${quantidade} ${unidade}.`,
+  motivo: 'Motivo',
+  motivoAjuda: 'De 10 a 500 letras. Fica registrado na trilha.',
+  precoManual: 'Preço unitário (R$)',
+  precoSemValor: 'O SICAM não tem o valor deste material: informe o preço unitário.',
+  manualSaldo: 'Saldo conferido',
+  manualDescricao: 'Descrição do material (opcional)',
+  manualCodigo: 'Código no SICAM (opcional)',
+  manualUnidade: 'Unidade no SICAM (opcional)',
+  concluir: 'Concluir checagem',
+  concluida: 'Checagem concluída.',
+  emAberto: (n: number) => (n === 1 ? 'Falta decidir 1 item.' : `Faltam decidir ${n} itens.`),
+  resolvidos: 'Já resolvidos',
+  resultado: {
+    sem_candidato: 'Sem material parecido no estoque',
+    usar: 'Atendido pelo almoxarifado',
+    cotar_mesmo_assim: 'Cotar mesmo havendo saldo',
+    sem_correspondente: 'Sem material correspondente',
+  },
+  resumoTitulo: 'Resultado da checagem do almoxarifado',
+  resumoAtendido: (quantidade: string, unidade: string) =>
+    `Atendido pelo almoxarifado: ${quantidade} ${unidade}`,
+  resumoSegue: 'Segue para cotação',
+  origemManual: 'registro manual',
+  precoDigitado: 'preço digitado',
+  retirar: 'Retire estes itens no almoxarifado:',
+  reenviada: 'Busca refeita.',
+  semFalta: 'Sem almoxarifado designado: o aviso vai para os fiscais.',
+} as const;
+
+/** Aviso ao técnico (AC-20): só descrição, quantidade e unidade, nunca valor. */
+export function tituloAvisoRetirada(numero: string): string {
+  return `Material liberado no almoxarifado: cotação ${numero}`;
+}
+
+export function corpoAvisoRetirada(
+  itens: readonly { descricao: string; quantidade: number; unidade: string }[],
+): string {
+  return itens
+    .map((i) => `${i.descricao}: ${i.quantidade.toLocaleString('pt-BR')} ${i.unidade}`)
+    .join('; ');
+}
+
+export function tituloAvisoChecagemAtrasada(numero: string): string {
+  return `Checagem do almoxarifado com prazo vencido na cotação ${numero}`;
+}

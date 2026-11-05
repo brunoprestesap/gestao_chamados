@@ -13,7 +13,11 @@ vi.mock('@/lib/material/saldo', () => ({ conciliarReservas: conciliar }));
 const encerrar = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/material/chamado', () => ({ cancelarCotacoesDeChamadosEncerrados: encerrar }));
 const avisarAtrasadas = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/material/avisos', () => ({ avisarPesquisasAtrasadas: avisarAtrasadas }));
+const avisarChecagens = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/material/avisos', () => ({
+  avisarPesquisasAtrasadas: avisarAtrasadas,
+  avisarChecagensAtrasadas: avisarChecagens,
+}));
 
 import { GET, POST } from '../route';
 
@@ -32,6 +36,7 @@ beforeEach(() => {
   conciliar.mockResolvedValue({ verificadas: 4, liberadas: 1 });
   encerrar.mockResolvedValue({ verificadas: 2, canceladas: 2 });
   avisarAtrasadas.mockResolvedValue({ avisadas: 1 });
+  avisarChecagens.mockResolvedValue({ avisadas: 2 });
 });
 
 afterEach(() => {
@@ -60,6 +65,7 @@ describe('POST /api/cron/material-conciliacao', () => {
       liberadas: 1,
       cotacoesCanceladas: 2,
       pesquisasAtrasadas: 1,
+      checagensAtrasadas: 2,
     });
   });
 
@@ -89,6 +95,7 @@ describe('POST /api/cron/material-conciliacao', () => {
       liberadas: 1,
       cotacoesCanceladas: null,
       pesquisasAtrasadas: 1,
+      checagensAtrasadas: 2,
     });
   });
 

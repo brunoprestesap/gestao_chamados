@@ -372,6 +372,23 @@ rodar('motivo e histórico no cadastro de material, contra o Mongo', () => {
       ]);
     });
 
+    it('o painel oferece o Solicitante, que o papel almoxarifado aceita (spec 0024, AC-14)', async () => {
+      const servidor = new Types.ObjectId();
+      await M.User.create({
+        _id: servidor,
+        username: 'almox-painel',
+        name: 'Rita Almoxarifado',
+        role: 'Solicitante',
+        isActive: true,
+      });
+      const p = await cadastro.lerPainelMaterial();
+      expect(p.usuarios).toContainEqual({
+        id: String(servidor),
+        nome: 'Rita Almoxarifado',
+        role: 'Solicitante',
+      });
+    });
+
     it('os atos de antes da spec aparecem sem motivo, sem migração', async () => {
       const agora = new Date();
       const admin = new Types.ObjectId(ids.admin);

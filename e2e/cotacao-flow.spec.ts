@@ -42,6 +42,12 @@ import {
 } from './fixtures/navigation';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
 import { abrirPauseDialogNaDetalhe, selecionarMotivoPausa } from './fixtures/pause-dialog';
+import {
+  definirChecagem,
+  designarAlmoxarifado,
+  revogarAlmoxarifado,
+  subirSicamFalso,
+} from './fixtures/sicam-falso';
 
 // ---------------------------------------------------------------------------
 // Helpers locais
@@ -466,6 +472,107 @@ const SECOES_CADASTRO_E2E = [
   ['sinapi', 'SINAPI'],
   ['parametros', 'Parâmetros'],
 ] as const;
+
+// ---------------------------------------------------------------------------
+// A checagem do almoxarifado (spec 0024), com o `sicam-gateway` falso
+// ---------------------------------------------------------------------------
+
+test.describe.serial('Cotação de material: a checagem do almoxarifado', () => {
+  let titulo = '';
+  let numero = '';
+  let sicam: Awaited<ReturnType<typeof subirSicamFalso>>;
+
+  test.beforeAll(async () => {
+    await garantirCadastroMaterial();
+    sicam = await subirSicamFalso();
+    await definirChecagem(true);
+    await designarAlmoxarifado();
+  });
+
+  test.afterAll(async () => {
+    await definirChecagem(false);
+    await revogarAlmoxarifado();
+    await new Promise((ok) => sicam.close(ok));
+  });
+
+  test('o técnico registra, e a busca acha candidato: a cotação nasce em checagem (AC-2, AC-4)', async ({
+    page,
+  }) => {
+    test.slow();
+    titulo = await criarChamadoEmAtendimento(page, 'Checagem');
+    await abrirChamadoDoTecnico(page, titulo);
+    const cartao = cartaoMaterial(page);
+    await cartao.getByRole('button', { name: 'Registrar material' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Descrição').fill('Torneira de lavatório');
+    await dialog.getByLabel('Unidade').fill('UN');
+    await dialog.getByLabel('Quantidade').fill('10');
+    await dialog.getByLabel('Para que serve').fill('Trocar a torneira do banheiro');
+    await dialog.getByRole('button', { name: 'Registrar' }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 15000 });
+    await expect(cartao.getByText('Em checagem').first()).toBeVisible({ timeout: 15000 });
+    numero = (await cartao.getByText(/^COT-\d{4}-\d{4}$/).innerText()).trim();
+  });
+
+  test('o almoxarifado vê o estoque e usa parte, sem preço da cotação e sem violação no axe (AC-5, AC-7, AC-25, AC-27)', async ({
+    page,
+  }) => {
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'solicitante');
+    await page.goto('/cotacoes');
+    await expect(page.getByRole('tab', { name: /Análise/ })).toHaveCount(0);
+    await page.getByRole('link', { name: numero }).click();
+    await page.waitForURL(/\/cotacoes\/[a-f\d]{24}$/, { timeout: 30000 });
+
+    const painel = page.getByRole('region', { name: 'Checagem do almoxarifado' });
+    await expect(painel.getByText('TORNEIRA DE LAVATÓRIO CROMADA')).toBeVisible({ timeout: 15000 });
+    await expect(seloDoDetalhe(page)).toHaveAttribute('data-situacao', 'em_checagem');
+    await expect(page.getByRole('list', { name: 'Jornada da cotação' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: /valor/i })).toHaveCount(0);
+    await semViolacaoNoAxe(page);
+
+    await painel.getByRole('button', { name: /Escolher: TORNEIRA/ }).click();
+    await painel.getByRole('radio', { name: 'Usar o estoque' }).click();
+    await painel.getByLabel(/Quantidade atendida/).fill('4');
+    await expect(painel.getByText(/Continuam na cotação: 6/)).toBeVisible();
+    await semViolacaoNoAxe(page);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const largura = await page.evaluate(() => ({
+      conteudo: document.documentElement.scrollWidth,
+      janela: document.documentElement.clientWidth,
+    }));
+    expect(largura.conteudo).toBeLessThanOrEqual(largura.janela);
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    await painel.getByRole('button', { name: 'Concluir checagem' }).click();
+    await expect(seloDoDetalhe(page)).toHaveAttribute('data-situacao', 'rascunho', {
+      timeout: 15000,
+    });
+    await expect(page.getByText(/Atendido pelo almoxarifado: 4/)).toBeVisible();
+    await semViolacaoNoAxe(page);
+  });
+
+  test('a contratada recebe o resto, sem saldo nem preço do estoque (AC-7, AC-24)', async ({
+    page,
+  }) => {
+    test.skip(!numero, 'material não registrado');
+    await login(page, 'preposto');
+    await abrirCotacaoNaFila(page, numero);
+    await expect(page.getByText(/Atendido pelo almoxarifado: 4/)).toBeVisible();
+    await expect(page.getByText('TORNEIRA DE LAVATÓRIO CROMADA')).toHaveCount(0);
+    await expect(page.getByText(/Saldo:/)).toHaveCount(0);
+  });
+
+  test('o interruptor mora na aba Parâmetros, ligado nesta suíte (AC-1)', async ({ page }) => {
+    await login(page, 'admin');
+    await page.goto('/configuracoes/material?secao=parametros');
+    await expect(page.getByRole('switch', { name: 'Checagem do almoxarifado' })).toBeChecked({
+      timeout: 15000,
+    });
+    await semViolacaoNoAxe(page);
+  });
+});
 
 test.describe.serial('Cotação de material: o cadastro em seções', () => {
   test('a seção vai no endereço e sobrevive ao recarregar; desativar faixa pede confirmação (spec 0021, AC-18, AC-19, AC-21)', async ({
