@@ -5,12 +5,15 @@ import { somenteDigitosCnpj } from '@/shared/contratos/cnpj';
 import {
   BASES_DE_AMBAS,
   BUSCA_PRECO_MIN_LETRAS,
+  DECISOES_CHECAGEM,
   FONTE_REFERENCIA_MAX,
   FONTE_REFERENCIA_MIN,
   LIMITES_PARAMETROS,
   MAX_ITENS_COTACAO,
   MAX_ORCAMENTOS_COTACAO,
   MAX_REFERENCIAS_POR_PAPEL,
+  MOTIVO_CHECAGEM_MAX,
+  MOTIVO_CHECAGEM_MIN,
   MOTIVO_MAX,
   MOTIVO_MIN,
   PAPEIS_DESIGNACAO,
@@ -19,6 +22,7 @@ import {
   TEXTO_CURTO_MIN,
   TIPOS_MOVIMENTO_EMPENHO,
 } from './material.constants';
+import { ERROS_CHECAGEM } from './mensagens';
 import { normalizarCodigoSinapi } from './valores';
 
 /** Entradas das actions da cotação de material (spec 0019). Dinheiro chega em centavos. */
@@ -180,6 +184,44 @@ export const TransicaoSchema = z.object({
 export type TransicaoInput = z.infer<typeof TransicaoSchema>;
 
 export const TransicaoComMotivoSchema = TransicaoSchema.extend({ motivo: motivoObrigatorio });
+
+/** Uma decisão da checagem (spec 0024, AC-6). O servidor confere de novo com o saldo relido. */
+export const DecisaoChecagemSchema = z
+  .object({
+    itemId: objectId,
+    resultado: z.enum(DECISOES_CHECAGEM),
+    coMat: z
+      .string()
+      .regex(/^\d{1,30}$/, 'Código de material inválido.')
+      .optional(),
+    quantidadeAtendida: quantidade.optional(),
+    quantidadeSaida: quantidade.optional(),
+    motivo: z
+      .string()
+      .trim()
+      .min(MOTIVO_CHECAGEM_MIN, ERROS_CHECAGEM.motivo_tamanho)
+      .max(MOTIVO_CHECAGEM_MAX, ERROS_CHECAGEM.motivo_tamanho)
+      .optional(),
+    /** Só no registro manual, com o SICAM fora (AC-12). */
+    manual: z.boolean().optional(),
+    saldoManual: z.number().min(0, 'Saldo inválido.').max(1_000_000_000).optional(),
+    materialDescricao: z.string().trim().min(2).max(300).optional(),
+    materialUnidade: z.string().trim().min(1).max(20).optional(),
+    /** Registro manual, ou `VL_ATU` vazio no SICAM (AC-13). */
+    precoUnitarioCentavos: centavos.optional(),
+  })
+  .strict();
+export type DecisaoChecagemInput = z.infer<typeof DecisaoChecagemSchema>;
+
+export const ConcluirChecagemSchema = TransicaoSchema.extend({
+  decisoes: z
+    .array(DecisaoChecagemSchema)
+    .min(1, ERROS_CHECAGEM.falta_decisao)
+    .max(MAX_ITENS_COTACAO),
+});
+
+/** O interruptor da checagem, condicional ao valor lido ao abrir a tela. */
+export const ChecagemAtivaSchema = z.object({ lido: z.boolean(), novo: z.boolean() }).strict();
 export type TransicaoComMotivoInput = z.infer<typeof TransicaoComMotivoSchema>;
 
 const textoCurto = (vazio: string) =>
@@ -446,6 +488,11 @@ export const ParametrosMaterialSchema = z.object({
     LIMITES_PARAMETROS.prazoFornecimentoDiasUteis.min,
     LIMITES_PARAMETROS.prazoFornecimentoDiasUteis.max,
   ),
+  prazoChecagemDiasUteis: inteiroEntre(
+    'Prazo da checagem do almoxarifado',
+    LIMITES_PARAMETROS.prazoChecagemDiasUteis.min,
+    LIMITES_PARAMETROS.prazoChecagemDiasUteis.max,
+  ),
   raizCnpjContratada: z
     .string()
     .trim()
@@ -463,6 +510,7 @@ const ParametrosLidosSchema = z.object({
   janelaDias: z.number().int().min(0),
   parcelaRelevantePercentual: z.number().int().min(0),
   prazoFornecimentoDiasUteis: z.number().int().min(0),
+  prazoChecagemDiasUteis: z.number().int().min(0),
   raizCnpjContratada: z.string(),
 });
 

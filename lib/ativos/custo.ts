@@ -16,6 +16,10 @@ import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { custoDoChamado } from '@/shared/chamados/custo';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 import type { TipoServico } from '@/shared/chamados/tipo-servico';
+import {
+  almoxarifadoDoChamadoCentavos,
+  STATUS_COM_CUSTO_DE_ALMOXARIFADO,
+} from '@/shared/material/checagem';
 import { SITUACOES_NO_CUSTO } from '@/shared/material/material.constants';
 
 /**
@@ -30,6 +34,8 @@ export const PROJECAO_CUSTO = {
   ativoId: 1,
   createdAt: 1,
   originTemplateId: 1,
+  // Spec 0024 (AC-21): o material do almoxarifado só conta em chamado concluído ou encerrado.
+  status: 1,
   'materiaisForaCotacao.quantidade': 1,
   'materiaisForaCotacao.valorUnitario': 1,
 } as const;
@@ -39,6 +45,7 @@ export type ChamadoParaCusto = {
   ativoId?: Types.ObjectId | null;
   createdAt: Date;
   originTemplateId?: Types.ObjectId | null;
+  status?: string;
   materiaisForaCotacao?: { quantidade: number; valorUnitario: number }[];
 };
 
@@ -50,6 +57,7 @@ export type CustoDeChamado = {
   preventiva: boolean;
   cotacoesCentavos: number;
   materialCentavos: number;
+  almoxarifadoCentavos: number;
   totalCentavos: number;
 };
 
@@ -106,12 +114,41 @@ export async function lerCustosDosChamados(
       c.valorExecutadoCentavos ?? 0,
     ]);
   }
+  // Material do almoxarifado (spec 0024, AC-21), em qualquer situação da cotação.
+  const comStatus = chamados.filter((c) =>
+    STATUS_COM_CUSTO_DE_ALMOXARIFADO.includes(c.status ?? ''),
+  );
+  const dasChecagens = comStatus.length
+    ? await CotacaoMaterialModel.find({
+        chamadoId: { $in: comStatus.map((c) => c._id) },
+        'checagem.itens.resultado': 'usar',
+      })
+        .select('chamadoId checagem.itens.resultado checagem.itens.valorCentavos')
+        .lean<
+          {
+            chamadoId: Types.ObjectId;
+            checagem?: { itens?: { resultado: string; valorCentavos?: number | null }[] } | null;
+          }[]
+        >()
+    : [];
+  const entradasPorChamado = new Map<
+    string,
+    { resultado: string; valorCentavos?: number | null }[]
+  >();
+  for (const c of dasChecagens) {
+    const k = String(c.chamadoId);
+    entradasPorChamado.set(k, [...(entradasPorChamado.get(k) ?? []), ...(c.checagem?.itens ?? [])]);
+  }
   return chamados.map((c) => {
     const id = String(c._id);
     const conta = custoDoChamado({
       cotacoes: porChamado.get(id) ?? [],
       materiais: c.materiaisForaCotacao ?? [],
       cotacoesMaterialCentavos: materialPorChamado.get(id) ?? [],
+      almoxarifadoCentavos: almoxarifadoDoChamadoCentavos(
+        c.status,
+        entradasPorChamado.get(id) ?? [],
+      ),
     });
     return {
       chamadoId: id,
@@ -148,6 +185,7 @@ export type ChamadoComCusto = {
   preventiva: boolean;
   cotacoesCentavos: number;
   materialCentavos: number;
+  almoxarifadoCentavos: number;
   totalCentavos: number;
 };
 
@@ -192,6 +230,7 @@ export async function custoDaFicha(
       preventiva: c.preventiva,
       cotacoesCentavos: c.cotacoesCentavos,
       materialCentavos: c.materialCentavos,
+      almoxarifadoCentavos: c.almoxarifadoCentavos,
       totalCentavos: c.totalCentavos,
     }));
   return { doze, totalGeralCentavos, chamados: lista };

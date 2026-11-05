@@ -215,6 +215,7 @@ function TabelaFila({
                 <JornadaCotacao
                   situacao={l.situacao}
                   situacaoAnterior={l.situacaoAnterior}
+                  temChecagem={l.temChecagem}
                   className="mt-2"
                 />
               </TableCell>

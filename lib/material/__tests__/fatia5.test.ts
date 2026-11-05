@@ -244,6 +244,7 @@ describe('schemas da fatia 5', () => {
     janelaDias: 90,
     parcelaRelevantePercentual: 20,
     prazoFornecimentoDiasUteis: 5,
+    prazoChecagemDiasUteis: 1,
     raizCnpjContratada: '03543374',
   };
 

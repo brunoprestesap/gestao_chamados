@@ -273,6 +273,33 @@ describe('linhas da lista e total', () => {
     expect(linhas.map((l) => l.chave)).toEqual(['formulario', 'tabela']);
   });
 
+  it('cotação que passou pela checagem: a lista aponta o item sem checagem (spec 0024, AC-17)', () => {
+    const e = estadoBase();
+    const r = prontaParaEnviar(e, {
+      cotacaoId: COTACAO,
+      raizContratada: RAIZ_CONTRATADA,
+      urgencia: false,
+      checagem: { itens: [{ itemId: id(1), quantidadeLiberada: 100 }] },
+    });
+    const linha = linhasDaLista(e, r, false, null, true).find((l) => l.chave === 'checagem')!;
+    expect(linha.codigos).toEqual(['item_sem_checagem']);
+    expect(linhaPassa(linha, r)).toBe(false);
+  });
+
+  it('com tudo checado a linha passa, e cotação antiga nem tem a linha (spec 0024, AC-1)', () => {
+    const e = estadoBase();
+    const r = prontaParaEnviar(e, {
+      cotacaoId: COTACAO,
+      raizContratada: RAIZ_CONTRATADA,
+      urgencia: false,
+      checagem: { itens: e.itens.map((i) => ({ itemId: i.id, quantidadeLiberada: 100 })) },
+    });
+    const linha = linhasDaLista(e, r, false, null, true).find((l) => l.chave === 'checagem')!;
+    expect(linha.codigos).toEqual([]);
+    expect(linhaPassa(linha, r)).toBe(true);
+    expect(linhasDaLista(e, naTela(e), false).some((l) => l.chave === 'checagem')).toBe(false);
+  });
+
   it('total pelo menor preço de cada item, em centavos', () => {
     const e = estadoBase();
     // Disjuntor: menor 11,00 × 2,5 = 27,50; Lâmpada: 25,00 × 4 = 100,00.

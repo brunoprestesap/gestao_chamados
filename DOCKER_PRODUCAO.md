@@ -460,3 +460,26 @@ ls -lhtr /opt/severino/backups/
 # Espaço em disco usado por backups
 du -sh /opt/severino/backups/
 ```
+
+## Checagem do almoxarifado (spec 0024)
+
+O código sobe com o interruptor desligado, e sem o container: nada muda até os passos abaixo. O serviço `sicam-gateway` fica no perfil `sicam` do `docker-compose.yml`, então o deploy normal não baixa o Instant Client.
+
+Antes de começar, você precisa de duas respostas de fora daqui:
+
+- A conta de serviço do DBA, com `SELECT` só em `SICAM.MATERIAL` e `SICAM.ALMOXARIFADO_MATERIAL`.
+- A rota de rede da VPS até o host e a porta do Oracle, e se o build na VPS alcança `download.oracle.com`. Se não alcançar, baixe o zip do Instant Client antes e copie para o contexto da imagem.
+
+Passos:
+
+1. No `.env` da VPS, acrescente `COMPOSE_PROFILES=sicam`, `SICAM_GATEWAY_SECRET` (um segredo novo), `SICAM_ORACLE_USER`, `SICAM_ORACLE_PASSWORD` e `SICAM_ORACLE_CONNECT_STRING`. Se a conta tiver senha em formato novo, deixe `SICAM_ORACLE_INSTANT_CLIENT_DIR=` vazio para rodar em modo Thin.
+2. Suba: `sudo docker compose up -d --build sicam-gateway next-app`. O `next-app` precisa ser recriado para ler o segredo.
+3. Confira de dentro do `next-app`, sem expor nada: `sudo docker compose exec next-app wget -qO- http://sicam-gateway:3002/healthz` deve responder `{"ok":true}`. O serviço não publica porta fora da rede `sigma`.
+4. Confira a rede até o Oracle, antes de ligar a etapa. O Docker pode dar à rede `sigma`, ou a outra rede da máquina, uma faixa que contém o IP do Oracle: aí o tráfego fica dentro do Docker e nunca chega ao banco. O `/healthz` do passo 3 responde normalmente nesse caso, porque não toca no Oracle, e toda checagem cai no registro manual, com `NJS-040` no log do serviço.
+   - Veja as faixas em uso: `sudo docker network inspect $(sudo docker network ls -q) -f '{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}}'`. Nenhuma pode conter o IP do Oracle, que está em `SICAM_ORACLE_CONNECT_STRING`.
+   - Teste de dentro do serviço, que deve imprimir `ok`: `sudo docker compose exec sicam-gateway node -e "const [h,p]=process.env.SICAM_ORACLE_CONNECT_STRING.split('/')[0].split(':');require('net').connect(+p,h).on('connect',()=>{console.log('ok');process.exit(0)}).on('error',(e)=>{console.log(e.code);process.exit(1)}).setTimeout(5000,()=>{console.log('sem resposta');process.exit(1)})"`
+   - Se houver conflito, fixe a faixa da rede `sigma` no `docker-compose.yml` (`ipam.config.subnet`) ou recrie a rede que ocupa a faixa.
+5. Em `/configuracoes/material`, designe o servidor do almoxarifado (seção Designações).
+6. Na aba Parâmetros, ligue "Checagem do almoxarifado". Só as cotações novas passam pela etapa.
+
+Para voltar atrás, desligue o interruptor. As cotações já em checagem continuam até alguém concluir, com registro manual se o serviço estiver fora.

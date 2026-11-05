@@ -16,13 +16,26 @@ export const ETAPAS_JORNADA = [
   'executada',
   'atestada',
 ] as const satisfies readonly SituacaoCotacao[];
-export type EtapaJornada = (typeof ETAPAS_JORNADA)[number];
+export type EtapaJornada = (typeof ETAPAS_JORNADA)[number] | 'em_checagem';
 
-export const DESVIOS_JORNADA = ['devolvida', 'reprovada', 'cancelada'] as const;
+/**
+ * As etapas da jornada: a checagem do almoxarifado (spec 0024, AC-27) só aparece
+ * em cotação que passou por ela; a antiga segue com as 7 etapas.
+ */
+export function etapasDaJornada(temChecagem = false): readonly EtapaJornada[] {
+  return temChecagem ? ['em_checagem', ...ETAPAS_JORNADA] : ETAPAS_JORNADA;
+}
+
+export const DESVIOS_JORNADA = [
+  'devolvida',
+  'reprovada',
+  'cancelada',
+  'atendida_almoxarifado',
+] as const;
 export type DesvioJornada = (typeof DESVIOS_JORNADA)[number];
 
 export type PosicaoJornada = {
-  /** Índice em `ETAPAS_JORNADA` da etapa atual (ou da etapa em que o desvio ocorreu). */
+  /** Índice em `etapasDaJornada` da etapa atual (ou da etapa em que o desvio ocorreu). */
   indice: number;
   desvio: DesvioJornada | null;
 };
@@ -39,13 +52,17 @@ function ehDesvio(s: SituacaoCotacao): s is DesvioJornada {
 export function posicaoNaJornada(
   situacao: SituacaoCotacao,
   de?: SituacaoCotacao | null,
+  temChecagem = false,
 ): PosicaoJornada {
+  const etapas = etapasDaJornada(temChecagem);
   if (!ehDesvio(situacao)) {
-    return { indice: ETAPAS_JORNADA.indexOf(situacao as EtapaJornada), desvio: null };
+    return { indice: etapas.indexOf(situacao as EtapaJornada), desvio: null };
   }
-  const daOrigem = de ? ETAPAS_JORNADA.indexOf(de as EtapaJornada) : -1;
+  const daOrigem = de ? etapas.indexOf(de as EtapaJornada) : -1;
   // Cancelar uma devolvida marca o desvio onde a devolução tinha parado: na análise.
-  const indice = daOrigem >= 0 ? daOrigem : situacao === 'devolvida' || de === 'devolvida' ? 2 : 0;
+  const analise = etapas.indexOf('em_analise');
+  const indice =
+    daOrigem >= 0 ? daOrigem : situacao === 'devolvida' || de === 'devolvida' ? analise : 0;
   return { indice, desvio: situacao };
 }
 
@@ -61,12 +78,14 @@ const isoDe = (em: string | Date) => (typeof em === 'string' ? em : em.toISOStri
  */
 export function etapasDaTrilha(
   eventos: readonly EventoDaJornada[],
+  temChecagem = false,
 ): { situacao: EtapaJornada; em: string }[] {
   const mudancas = eventos.filter((e) => e.de !== e.para);
   const reenvio = mudancas.findLastIndex((e) => e.de === 'devolvida');
   const desdeReenvio = reenvio >= 0 ? mudancas.slice(reenvio) : mudancas;
-  return ETAPAS_JORNADA.flatMap((etapa) => {
-    const ev = (etapa === 'rascunho' ? mudancas : desdeReenvio).find((e) => e.para === etapa);
+  return etapasDaJornada(temChecagem).flatMap((etapa) => {
+    const comoCriacao = etapa === 'rascunho' || etapa === 'em_checagem';
+    const ev = (comoCriacao ? mudancas : desdeReenvio).find((e) => e.para === etapa);
     return ev ? [{ situacao: etapa, em: isoDe(ev.em) }] : [];
   });
 }

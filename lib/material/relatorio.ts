@@ -12,6 +12,7 @@ import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
 import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { CotacaoMaterialTentativaModel } from '@/models/CotacaoMaterialTentativa';
 import { EmpenhoModel } from '@/models/Empenho';
+import { STATUS_COM_CUSTO_DE_ALMOXARIFADO } from '@/shared/material/checagem';
 import type { PeriodoRelatorioMaterial } from '@/shared/material/cotacao.schemas';
 import {
   RELATORIO_MATERIAL_MAX_ATIVOS,
@@ -45,6 +46,8 @@ export type RelatorioMaterial = {
     semAtivoCentavos: number;
   };
   divergencia: { cotacoes: number; comDiferenca: number; diferencaCentavos: number };
+  /** Spec 0024 (AC-28): o valor segue a regra do custo, para bater com ele. */
+  almoxarifado: { atendidas: number; valorCentavos: number };
   urgencias: {
     id: string;
     numero: string;
@@ -185,6 +188,43 @@ async function consumoDoAnexoV(): Promise<RelatorioMaterial['consumoAnexoV']> {
     .sort((a, b) => b.consumida / b.estimada - a.consumida / a.estimada);
 }
 
+/**
+ * As cotações atendidas por inteiro pelo almoxarifado, e o valor das entradas
+ * `usar` decididas no período, só de chamado concluído ou encerrado (AC-21, AC-28):
+ * o que foi cancelado não soma.
+ */
+async function lerAlmoxarifadoDoPeriodo(de: Date, ate: Date) {
+  const entre = { $gte: de, $lt: ate };
+  const [atendidas, comUso] = await Promise.all([
+    CotacaoMaterialModel.countDocuments({
+      situacao: 'atendida_almoxarifado',
+      updatedAt: entre,
+    }),
+    CotacaoMaterialModel.find({
+      'checagem.itens': { $elemMatch: { resultado: 'usar', em: entre } },
+    })
+      .select('chamadoId checagem.itens.resultado checagem.itens.valorCentavos checagem.itens.em')
+      .lean(),
+  ]);
+  const chamados = comUso.length
+    ? await ChamadoModel.find({
+        _id: { $in: comUso.map((c) => c.chamadoId) },
+        status: { $in: [...STATUS_COM_CUSTO_DE_ALMOXARIFADO] },
+      })
+        .select('_id')
+        .lean()
+    : [];
+  const contam = new Set(chamados.map((c) => String(c._id)));
+  let valorCentavos = 0;
+  for (const c of comUso) {
+    if (!contam.has(String(c.chamadoId))) continue;
+    for (const e of c.checagem?.itens ?? []) {
+      if (e.resultado === 'usar' && e.em >= de && e.em < ate) valorCentavos += e.valorCentavos ?? 0;
+    }
+  }
+  return { atendidas, valorCentavos };
+}
+
 export async function lerRelatorioMaterial(
   periodo: PeriodoRelatorioMaterial,
   agora: Date = new Date(),
@@ -225,6 +265,7 @@ export async function lerRelatorioMaterial(
       .sort({ exercicio: -1, numero: 1 })
       .lean(),
   ]);
+  const almoxarifado = await lerAlmoxarifadoDoPeriodo(de, ate);
 
   // Tempo entre o primeiro envio e a autorização, pela data da autorização.
   const tempos = autorizadas
@@ -360,6 +401,7 @@ export async function lerRelatorioMaterial(
       semAtivoCentavos,
     },
     divergencia: { cotacoes: executadas.length, comDiferenca, diferencaCentavos },
+    almoxarifado,
     urgencias: urgentes.map((u) => ({
       id: String(u._id),
       numero: u.numero,

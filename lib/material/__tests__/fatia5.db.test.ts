@@ -744,6 +744,7 @@ rodar('fatia 5 da cotação de material, contra o Mongo', () => {
       janelaDias: 90,
       parcelaRelevantePercentual: 20,
       prazoFornecimentoDiasUteis: 5,
+      prazoChecagemDiasUteis: 1,
       raizCnpjContratada: '03543374',
     };
 
@@ -848,7 +849,12 @@ rodar('fatia 5 da cotação de material, contra o Mongo', () => {
       const id = await cotacao({ situacao: 'enviada', itens: [disjuntor(10_00)] });
       await assumir(id);
       const ev = await M.Evento.findOne({ cotacaoId: id, acao: 'assumir' }).lean();
-      expect(ev?.parametrosNoAto).toEqual({ ...padrao, percentualSinapi: 30, janelaDias: 15 });
+      expect(ev?.parametrosNoAto).toEqual({
+        ...padrao,
+        percentualSinapi: 30,
+        janelaDias: 15,
+        checagemAlmoxarifadoAtiva: false,
+      });
     });
   });
 

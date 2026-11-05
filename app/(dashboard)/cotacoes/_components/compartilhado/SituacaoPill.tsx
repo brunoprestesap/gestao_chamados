@@ -9,6 +9,14 @@ import { ROTULO_SITUACAO } from '@/shared/material/mensagens';
  */
 
 const COR: Record<SituacaoCotacao, { fundo: string; ponto: string }> = {
+  em_checagem: {
+    fundo: 'bg-cyan-100 text-cyan-900 dark:bg-cyan-500/15 dark:text-cyan-200',
+    ponto: 'bg-cyan-600',
+  },
+  atendida_almoxarifado: {
+    fundo: 'bg-lime-100 text-lime-900 dark:bg-lime-500/15 dark:text-lime-200',
+    ponto: 'bg-lime-700 dark:bg-lime-300',
+  },
   rascunho: {
     fundo: 'bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-200',
     ponto: 'bg-slate-400',

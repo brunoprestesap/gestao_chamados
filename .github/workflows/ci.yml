@@ -113,6 +113,35 @@ jobs:
         run: npm run build
 
   # ---------------------------------------------------------------------------
+  # Build e testes do sicam-gateway (spec 0024)
+  # ---------------------------------------------------------------------------
+  build-sicam-gateway:
+    name: Build SICAM Gateway
+    runs-on: ubuntu-latest
+    needs: static-checks
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: sicam-gateway/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sicam-gateway
+        run: npm ci
+
+      - name: Build
+        working-directory: sicam-gateway
+        run: npm run build
+
+      - name: Test
+        working-directory: sicam-gateway
+        run: npm test
+
+  # ---------------------------------------------------------------------------
   # Testes unitários (Vitest) com cobertura
   # ---------------------------------------------------------------------------
   unit-tests:
@@ -203,6 +232,9 @@ jobs:
       LDAP_BIND_DN: ''
       LDAP_BIND_PASSWORD: ''
       E2E_BASE_URL: http://localhost:3000
+      # O `sicam-gateway` falso do E2E da checagem (spec 0024).
+      SICAM_GATEWAY_URL: http://localhost:3902
+      SICAM_GATEWAY_SECRET: e2e-sicam
       # mongosh pelo npm, sem repositório apt; versão travada.
       MONGOSH: npx -y mongosh@2.3.8
 

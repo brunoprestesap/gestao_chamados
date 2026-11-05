@@ -52,7 +52,12 @@ describe('custo do chamado (spec 0018, AC-9)', () => {
       cotacoes: [{ status: 'aprovada', valorEstimado: 300, valorFinal: 280 }],
       materiais: [{ quantidade: 2.5, valorUnitario: 10 }],
     });
-    expect(r).toEqual({ cotacoesCentavos: 28000, materialCentavos: 2500, totalCentavos: 30500 });
+    expect(r).toEqual({
+      cotacoesCentavos: 28000,
+      materialCentavos: 2500,
+      almoxarifadoCentavos: 0,
+      totalCentavos: 30500,
+    });
   });
 
   it('arredonda valor estimado antigo com mais de 2 casas', () => {
@@ -202,6 +207,7 @@ describe('conta em centavos, mais casos (AC-9)', () => {
     expect(custoDoChamado({ cotacoes: [], materiais: [] })).toEqual({
       cotacoesCentavos: 0,
       materialCentavos: 0,
+      almoxarifadoCentavos: 0,
       totalCentavos: 0,
     });
   });

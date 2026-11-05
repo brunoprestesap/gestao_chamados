@@ -29,6 +29,7 @@ import {
   ROTULO_SITUACAO,
   TEXTO_ACAO_DA_VEZ,
   TEXTO_APROVAR,
+  TEXTO_CHECAGEM,
   TEXTO_DETALHE as T,
   TEXTO_DIALOGO_MOTIVO,
   TEXTO_ENCAMINHAR,
@@ -45,11 +46,14 @@ import {
   devolverAction,
   encaminharAction,
   recusarUrgenciaAction,
+  reenviarChecagemAction,
   reprovarAction,
   retirarReferenciaAction,
 } from '../actions';
 import { AtesteCotacao, atesteVisivel, type PedidoAteste } from './AtesteCotacao';
 import { BotaoPdfCotacao } from './BotaoPdfCotacao';
+import { PainelChecagem } from './checagem/PainelChecagem';
+import { ResultadoChecagem } from './checagem/ResultadoChecagem';
 import { DialogMotivo } from './compartilhado/DialogMotivo';
 import {
   type AcaoDoPainel,
@@ -205,6 +209,7 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
     registrarNotaFiscal: () => setPedidoAteste('nota_fiscal'),
   };
   const ancoraPrincipal: Partial<Record<NonNullable<typeof principal>, string>> = {
+    concluirChecagem: '#checagem',
     completarPesquisa: '#pesquisa',
     montar: '#montagem',
   };
@@ -231,6 +236,11 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
         rotulo: ROTULO_ACAO_SECUNDARIA.alterar,
         onClick: () =>
           agir(() => alterarAction(base), 'Cotação reaberta para alteração. O saldo foi liberado.'),
+      },
+      acoes.reenviarChecagem && {
+        chave: 'reenviarChecagem',
+        rotulo: ROTULO_ACAO_SECUNDARIA.reenviarChecagem,
+        onClick: () => agir(() => reenviarChecagemAction(base), TEXTO_CHECAGEM.reenviada),
       },
       acoes.editarDiagnostico &&
         principal !== 'editarDiagnostico' && {
@@ -403,6 +413,19 @@ export function DetalheCotacaoView({ detalhe }: { detalhe: DetalheCotacao }) {
               />
             </div>
           )}
+
+          {acoes.concluirChecagem && c.checagem && (
+            <PainelChecagem
+              key={c.versao}
+              cotacaoId={c.id}
+              versao={c.versao}
+              itens={(c.itens ?? []).filter((i) => c.checagem?.itensEmAberto.includes(i.id))}
+              prazoAte={c.checagem.prazoAte}
+              onAlterado={() => router.refresh()}
+            />
+          )}
+
+          <ResultadoChecagem cotacao={c} />
 
           {conteudo}
 

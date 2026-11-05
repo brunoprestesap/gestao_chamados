@@ -1,0 +1,23 @@
+{
+  "name": "sicam-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "node --import tsx --test src/__tests__/*.test.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "oracledb": "6.10.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^24",
+    "@types/oracledb": "6.10.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}

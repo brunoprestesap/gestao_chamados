@@ -38,6 +38,8 @@ export function AbaItens({
   const trf1 = c.visao === 'trf1';
   const mostraOrigem = trf1 || c.visao === 'contratada';
   const colunas = 4 + (mostraOrigem ? 1 : 0);
+  // O almoxarifado não vê preço da cotação (spec 0024, AC-25).
+  const semPreco = c.visao === 'almoxarifado';
 
   return (
     <CaixaRolavel rotulo={T.tabelaItens}>
@@ -47,8 +49,8 @@ export function AbaItens({
             <TableHead className="pl-5">{T.colunaItem}</TableHead>
             {mostraOrigem && <TableHead>{T.colunaOrigem}</TableHead>}
             <TableHead className="text-right">{T.colunaQuantidade}</TableHead>
-            <TableHead className="text-right">{T.colunaUnitario}</TableHead>
-            <TableHead className="text-right">{T.colunaValor}</TableHead>
+            {!semPreco && <TableHead className="text-right">{T.colunaUnitario}</TableHead>}
+            {!semPreco && <TableHead className="text-right">{T.colunaValor}</TableHead>}
             {c.executadoEm && <TableHead className="pr-5 text-right">{T.colunaAplicado}</TableHead>}
           </TableRow>
         </TableHeader>
@@ -99,15 +101,19 @@ export function AbaItens({
                 <TableCell className="text-right tabular-nums">
                   {formatarQuantidade(i.quantidade)} {i.unidade}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {preco != null ? formatarReais(preco) : '—'}
-                  {i.valorProvisorio && preco != null && (
-                    <span className="block text-xs text-muted-foreground">{T.provisorio}</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right font-semibold tabular-nums">
-                  {preco != null ? formatarReais(valorDaLinhaCentavos(i.quantidade, preco)) : '—'}
-                </TableCell>
+                {!semPreco && (
+                  <TableCell className="text-right tabular-nums">
+                    {preco != null ? formatarReais(preco) : '—'}
+                    {i.valorProvisorio && preco != null && (
+                      <span className="block text-xs text-muted-foreground">{T.provisorio}</span>
+                    )}
+                  </TableCell>
+                )}
+                {!semPreco && (
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {preco != null ? formatarReais(valorDaLinhaCentavos(i.quantidade, preco)) : '—'}
+                  </TableCell>
+                )}
                 {c.executadoEm && (
                   <TableCell className="pr-5 text-right tabular-nums">
                     {formatarQuantidade(i.quantidadeExecutada ?? 0)} ·{' '}
@@ -118,21 +124,23 @@ export function AbaItens({
             );
           })}
         </TableBody>
-        <TableFooter className="bg-transparent">
-          <TableRow className="hover:bg-transparent">
-            <TableCell colSpan={colunas - 1} className="text-right font-semibold">
-              {T.total}
-            </TableCell>
-            <TableCell className="text-right font-bold tabular-nums">
-              {formatarReais(c.valorTotalCentavos ?? 0)}
-            </TableCell>
-            {c.executadoEm && (
-              <TableCell className="pr-5 text-right font-bold tabular-nums">
-                {formatarReais(c.valorExecutadoCentavos ?? 0)}
+        {!semPreco && (
+          <TableFooter className="bg-transparent">
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={colunas - 1} className="text-right font-semibold">
+                {T.total}
               </TableCell>
-            )}
-          </TableRow>
-        </TableFooter>
+              <TableCell className="text-right font-bold tabular-nums">
+                {formatarReais(c.valorTotalCentavos ?? 0)}
+              </TableCell>
+              {c.executadoEm && (
+                <TableCell className="pr-5 text-right font-bold tabular-nums">
+                  {formatarReais(c.valorExecutadoCentavos ?? 0)}
+                </TableCell>
+              )}
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     </CaixaRolavel>
   );

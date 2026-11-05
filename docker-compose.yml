@@ -38,6 +38,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-sigma@ap.trf1.gov.br}
+      # Checagem do almoxarifado (spec 0024). Sem o segredo, o SICAM conta como fora do ar.
+      SICAM_GATEWAY_URL: ${SICAM_GATEWAY_URL:-http://sicam-gateway:3002}
+      SICAM_GATEWAY_SECRET: ${SICAM_GATEWAY_SECRET:-}
     volumes:
       # Bind mount: o diretório no host DEVE pertencer a 1001:1001 (uid do
       # usuário nextjs no container), senão /api/upload falha com EACCES.
@@ -80,6 +83,40 @@ services:
           'node',
           '-e',
           "require('net').connect(3001,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Leitura do saldo no Oracle do SICAM (spec 0024). Sem `ports`: só a rede `sigma`
+  # alcança. Fica no perfil `sicam` para o deploy normal não baixar o Instant Client
+  # antes da hora: ligue com COMPOSE_PROFILES=sicam no `.env` (DOCKER_PRODUCAO.md).
+  sicam-gateway:
+    profiles: ['sicam']
+    build:
+      context: ./sicam-gateway
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      SICAM_GATEWAY_PORT: 3002
+      SICAM_GATEWAY_SECRET: ${SICAM_GATEWAY_SECRET:-}
+      SICAM_ORACLE_USER: ${SICAM_ORACLE_USER:-}
+      SICAM_ORACLE_PASSWORD: ${SICAM_ORACLE_PASSWORD:-}
+      SICAM_ORACLE_CONNECT_STRING: ${SICAM_ORACLE_CONNECT_STRING:-}
+      # Vazio roda em modo Thin (conta com senha em formato novo).
+      SICAM_ORACLE_INSTANT_CLIENT_DIR: ${SICAM_ORACLE_INSTANT_CLIENT_DIR-/opt/oracle/instantclient_23_8}
+      SICAM_ORACLE_CONFIG_DIR: ${SICAM_ORACLE_CONFIG_DIR-/opt/oracle-config}
+    networks:
+      - sigma
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3002/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s

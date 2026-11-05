@@ -189,7 +189,13 @@ export type ResultadoPronta =
  */
 export function prontaParaEnviar(
   e: EstadoDoFormulario,
-  ctx: { cotacaoId: string; raizContratada: string; urgencia: boolean },
+  ctx: {
+    cotacaoId: string;
+    raizContratada: string;
+    urgencia: boolean;
+    /** Spec 0024 (AC-17): só com a cotação que passou pela checagem. */
+    checagem?: { itens: readonly { itemId: string; quantidadeLiberada: number }[] } | null;
+  },
 ): ResultadoPronta {
   const antes = erroAntesDeSalvar(e);
   if (antes) return { ok: false, erro: antes };
@@ -211,7 +217,12 @@ export function prontaParaEnviar(
       valorUnitarioCentavos: r.valorUnitarioCentavos,
       retiradaEm: r.retirada ? new Date(0) : null,
     }));
-    return { _id: i.id, origem: f.origem, referencias: [...daContratada, ...doFiscal] };
+    return {
+      _id: i.id,
+      origem: f.origem,
+      quantidade: i.quantidade,
+      referencias: [...daContratada, ...doFiscal],
+    };
   });
   const orcamentos = (p.data.orcamentos ?? []).map((o) => ({
     _id: o.id,
@@ -227,6 +238,7 @@ export function prontaParaEnviar(
       orcamentos,
       raizContratada: ctx.raizContratada,
       urgencia: ctx.urgencia,
+      checagem: ctx.checagem,
     }),
   };
 }
@@ -262,6 +274,8 @@ export function linhasDaLista(
   urgencia: boolean,
   /** A urgência pedida agora; na já pedida, vale a justificativa gravada. */
   pedido?: { cotacaoId: string; justificativa: string } | null,
+  /** Spec 0024 (AC-17): só a cotação que passou pela checagem tem esta linha. */
+  temChecagem = false,
 ): LinhaPronta[] {
   const imp = new Set(r.ok ? r.impedimentos : []);
   const com = (codigos: CodigoControle[]) => codigos.filter((c) => imp.has(c));
@@ -269,6 +283,13 @@ export function linhasDaLista(
   const linhas: LinhaPronta[] = [];
   if (!r.ok) linhas.push({ chave: 'formulario', rotulo: r.erro, codigos: [] });
   else linhas.push({ chave: 'formulario', rotulo: TEXTO_EDITOR.prontaFormulario, codigos: [] });
+  if (temChecagem) {
+    linhas.push({
+      chave: 'checagem',
+      rotulo: TEXTO_EDITOR.prontaChecagem,
+      codigos: com(['item_sem_checagem']),
+    });
+  }
   if (e.orcamentos.length > 0) {
     linhas.push(
       {

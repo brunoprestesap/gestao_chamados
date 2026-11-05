@@ -57,7 +57,17 @@ export function ResumoFila({ resumo }: { resumo: Resumo }) {
   return (
     <section aria-label={T.rotulo}>
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {resumo.lado === 'trf1' ? (
+        {resumo.lado === 'almoxarifado' ? (
+          <>
+            <Bloco
+              destaque
+              titulo={T.esperandoVoce}
+              valor={String(resumo.esperandoVoce)}
+              ajuda={T.esperandoVoceAjuda}
+            />
+            <Bloco titulo={T.atendidas} valor={String(resumo.atendidas)} ajuda={T.atendidasAjuda} />
+          </>
+        ) : resumo.lado === 'trf1' ? (
           <>
             <Bloco
               destaque

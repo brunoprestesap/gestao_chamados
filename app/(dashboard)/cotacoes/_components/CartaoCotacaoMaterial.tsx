@@ -24,6 +24,7 @@ import {
 } from '@/shared/material/mensagens';
 
 import { SeloUrgencia } from './apoio';
+import { ResultadoChecagem } from './checagem/ResultadoChecagem';
 import { JornadaCotacao } from './compartilhado/JornadaCotacao';
 import { acaoPrincipal } from './compartilhado/PainelSuaVez';
 import { SituacaoPill } from './compartilhado/SituacaoPill';
@@ -212,8 +213,10 @@ function CorpoTecnico({
       <JornadaCotacao
         situacao={c.situacao}
         situacaoAnterior={situacaoAnteriorDaTrilha(c.trilha ?? [])}
+        temChecagem={c.temChecagem}
         className="w-full [&>span]:flex-1"
       />
+      <ResultadoChecagem cotacao={c} />
       {acao ? (
         <ProximaAcao acao={acao}>
           <div className="flex flex-wrap gap-2">

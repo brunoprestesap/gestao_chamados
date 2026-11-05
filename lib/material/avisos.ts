@@ -6,6 +6,7 @@ import { enviarEmailCotacao } from '@/lib/email/aviso-cotacao';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { ChamadoModel } from '@/models/Chamado';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
+import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { NotificationModel } from '@/models/Notification';
 import { UserModel } from '@/models/user.model';
 import {
@@ -13,10 +14,13 @@ import {
   type SituacaoCotacao,
 } from '@/shared/material/material.constants';
 import {
+  corpoAvisoRetirada,
+  tituloAvisoChecagemAtrasada,
   tituloAvisoCotacao,
   tituloAvisoNotaFiscal,
   tituloAvisoPesquisaAtrasada,
   tituloAvisoPesquisaCompleta,
+  tituloAvisoRetirada,
 } from '@/shared/material/mensagens';
 import type { MaterialCotacaoSituacaoPayload } from '@/shared/socket';
 
@@ -45,6 +49,12 @@ async function destinatarios(
 ): Promise<{ userId: string; destino: Destino }[]> {
   const fila = (ids: string[]) => ids.map((userId) => ({ userId, destino: 'cotacoes' as const }));
   switch (situacao) {
+    case 'em_checagem': {
+      // Sem almoxarifado vigente, o aviso vai para os fiscais (spec 0024, AC-15).
+      const almoxarifado = await designadosVigentes('almoxarifado');
+      const quem = almoxarifado.length ? almoxarifado : await designadosVigentes('fiscal');
+      return fila(quem.map((d) => d.userId));
+    }
     case 'rascunho':
       return fila((await designadosVigentes('responsavel_tecnico')).map((d) => d.userId));
     case 'enviada':
@@ -58,7 +68,8 @@ async function destinatarios(
     case 'devolvida':
     case 'reprovada':
     case 'autorizada':
-    case 'cancelada': {
+    case 'cancelada':
+    case 'atendida_almoxarifado': {
       const out: { userId: string; destino: Destino }[] = [];
       if (cot.montadoPorUserId) {
         out.push({ userId: String(cot.montadoPorUserId), destino: 'cotacoes' });
@@ -181,6 +192,85 @@ export async function avisarPesquisasAtrasadas(agora = new Date()): Promise<{ av
 }
 
 /**
+ * O técnico pode retirar o material no almoxarifado (spec 0024, AC-20). A lista
+ * vai no `data` e no corpo: descrição, quantidade e unidade, nunca valor. A
+ * tela só recarrega, sem toast de situação, como os outros avisos com marca.
+ */
+export async function avisarRetirada(
+  cotacaoId: string,
+  itens: readonly { descricao: string; quantidade: number; unidade: string }[],
+  autorUserId: string | null,
+): Promise<void> {
+  try {
+    if (itens.length === 0) return;
+    const cot = await CotacaoMaterialModel.findById(cotacaoId)
+      .select('numero chamadoId situacao')
+      .lean();
+    if (!cot) return;
+    const chamado = await ChamadoModel.findById(cot.chamadoId).select('assignedToUserId').lean();
+    if (!chamado?.assignedToUserId) return;
+    await entregar(
+      cot,
+      cot.situacao as SituacaoCotacao,
+      [{ userId: String(chamado.assignedToUserId), destino: 'chamado' }],
+      autorUserId,
+      tituloAvisoRetirada(cot.numero),
+      { aviso: 'retirar_almoxarifado' },
+      { corpo: corpoAvisoRetirada(itens), dados: { itens: [...itens] } },
+    );
+  } catch (e) {
+    console.error('[material] aviso de retirada falhou:', e);
+  }
+}
+
+/**
+ * Rodada diária (spec 0024, AC-16): a checagem de prazo vencido avisa os gestores
+ * uma vez por entrada; a `Notification` já gravada depois da entrada na etapa
+ * impede o segundo aviso, sem campo novo. Nada é liberado sozinho por prazo.
+ */
+export async function avisarChecagensAtrasadas(agora = new Date()): Promise<{ avisadas: number }> {
+  const vencidas = await CotacaoMaterialModel.find({
+    situacao: 'em_checagem',
+    'checagem.prazoAte': { $ne: null, $lte: agora },
+  })
+    .select('_id numero chamadoId situacao')
+    .lean();
+  if (vencidas.length === 0) return { avisadas: 0 };
+  const gestores = (await designadosVigentes('gestor')).map((d) => ({
+    userId: d.userId,
+    destino: 'cotacoes' as const,
+  }));
+  if (gestores.length === 0) return { avisadas: 0 };
+  let avisadas = 0;
+  for (const cot of vencidas) {
+    // A entrada atual na etapa: o último evento da trilha que chegou a `em_checagem`.
+    const entrada = await CotacaoMaterialEventoModel.findOne({
+      cotacaoId: cot._id,
+      para: 'em_checagem',
+    })
+      .sort({ em: -1, _id: -1 })
+      .select('em')
+      .lean();
+    const jaAvisada = await NotificationModel.exists({
+      type: 'material:cotacao',
+      'data.cotacaoId': String(cot._id),
+      'data.aviso': 'checagem_atrasada',
+      ...(entrada ? { createdAt: { $gte: entrada.em } } : {}),
+    });
+    if (jaAvisada) continue;
+    try {
+      await entregar(cot, 'em_checagem', gestores, null, tituloAvisoChecagemAtrasada(cot.numero), {
+        aviso: 'checagem_atrasada',
+      });
+      avisadas++;
+    } catch (e) {
+      console.error('[material] aviso de checagem atrasada falhou:', e);
+    }
+  }
+  return { avisadas };
+}
+
+/**
  * A nota fiscal chegou (AC-22): avisa os gestores vigentes, sem valor. A
  * situação não muda (continua `atestada`), por isso o aviso é próprio.
  */
@@ -211,6 +301,7 @@ async function entregar(
   autorUserId: string | null,
   titulo: string,
   marca: Pick<MaterialCotacaoSituacaoPayload, 'aviso'> = {},
+  extra: { corpo?: string; dados?: Record<string, unknown> } = {},
 ): Promise<void> {
   const cotacaoId = String(cot._id);
   const lista = destinos.filter((d) => d.userId !== autorUserId);
@@ -235,8 +326,8 @@ async function entregar(
       userId: new Types.ObjectId(userId),
       type: 'material:cotacao',
       title: titulo,
-      body: '',
-      data: { ...data, destino },
+      body: extra.corpo ?? '',
+      data: { ...data, ...extra.dados, destino },
       readAt: null,
     })),
   );

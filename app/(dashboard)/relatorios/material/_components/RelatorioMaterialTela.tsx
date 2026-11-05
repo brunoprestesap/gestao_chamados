@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Clock,
   type LucideIcon,
+  PackageCheck,
   RotateCcw,
   Scale,
   ShieldAlert,
@@ -294,6 +295,12 @@ export function RelatorioMaterialTela({
               : undefined
           }
           icon={Scale}
+        />
+        <Numero
+          title={T.numeros.almoxarifado}
+          value={formatarReais(r.almoxarifado.valorCentavos)}
+          helper={T.numeros.almoxarifadoAjuda(r.almoxarifado.atendidas)}
+          icon={PackageCheck}
         />
       </section>
 

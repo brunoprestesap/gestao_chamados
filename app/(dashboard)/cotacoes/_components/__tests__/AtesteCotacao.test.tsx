@@ -95,6 +95,8 @@ const semAcao: Acoes = {
   referenciasDoFiscal: false,
   recusarUrgencia: false,
   completarPesquisa: false,
+  concluirChecagem: false,
+  reenviarChecagem: false,
 };
 
 const base: CotacaoDTO = {

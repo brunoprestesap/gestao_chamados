@@ -18,6 +18,8 @@ export type MaterialParaCusto = {
 export type CustoDoChamado = {
   cotacoesCentavos: number;
   materialCentavos: number;
+  /** Spec 0024 (AC-21): o material usado do almoxarifado, só de chamado concluído ou encerrado. */
+  almoxarifadoCentavos: number;
   totalCentavos: number;
 };
 
@@ -50,12 +52,20 @@ export function custoDoChamado(entrada: {
    * centavos e só das `executada` ou `atestada`. Soma na parte de cotações.
    */
   cotacoesMaterialCentavos?: readonly number[];
+  /** Spec 0024 (AC-21): quem chama já aplicou a regra do status do chamado. */
+  almoxarifadoCentavos?: number;
 }): CustoDoChamado {
   const cotacoesCentavos =
     entrada.cotacoes.reduce((s, c) => s + valorDaCotacaoCentavos(c), 0) +
     (entrada.cotacoesMaterialCentavos ?? []).reduce((s, v) => s + v, 0);
   const materialCentavos = entrada.materiais.reduce((s, i) => s + valorDoItemCentavos(i), 0);
-  return { cotacoesCentavos, materialCentavos, totalCentavos: cotacoesCentavos + materialCentavos };
+  const almoxarifadoCentavos = entrada.almoxarifadoCentavos ?? 0;
+  return {
+    cotacoesCentavos,
+    materialCentavos,
+    almoxarifadoCentavos,
+    totalCentavos: cotacoesCentavos + materialCentavos + almoxarifadoCentavos,
+  };
 }
 
 const FORMATO_REAIS = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });

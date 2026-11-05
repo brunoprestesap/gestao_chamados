@@ -192,16 +192,22 @@ export async function registrarNoChamado(params: {
     | 'cotacao_material_autorizada'
     | 'cotacao_material_reprovada'
     | 'cotacao_material_cancelada'
+    | 'cotacao_material_em_checagem'
+    | 'cotacao_material_atendida_almoxarifado'
   >;
   numeroCotacao: string;
   statusAnterior?: string;
   statusNovo?: string;
+  /** A frase quando o mesmo código serve a mais de um momento (a saída da checagem). */
+  texto?: string;
 }): Promise<void> {
   const textos = {
     cotacao_material_enviada: 'enviada para análise',
     cotacao_material_autorizada: 'autorizada',
     cotacao_material_reprovada: 'reprovada',
     cotacao_material_cancelada: 'cancelada',
+    cotacao_material_em_checagem: 'em checagem no almoxarifado',
+    cotacao_material_atendida_almoxarifado: 'atendida pelo almoxarifado',
   } as const;
   await ChamadoHistoryModel.create({
     chamadoId: new Types.ObjectId(params.chamadoId),
@@ -212,7 +218,7 @@ export async function registrarNoChamado(params: {
     ...(params.statusAnterior && params.statusNovo && params.statusAnterior !== params.statusNovo
       ? { statusAnterior: params.statusAnterior, statusNovo: params.statusNovo }
       : {}),
-    observacoes: `Cotação de material ${params.numeroCotacao} ${textos[params.action]}.`,
+    observacoes: `Cotação de material ${params.numeroCotacao} ${params.texto ?? textos[params.action]}.`,
   });
 }
 

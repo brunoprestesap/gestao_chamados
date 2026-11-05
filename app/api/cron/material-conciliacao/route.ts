@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { dbConnect } from '@/lib/db';
-import { avisarPesquisasAtrasadas } from '@/lib/material/avisos';
+import { avisarChecagensAtrasadas, avisarPesquisasAtrasadas } from '@/lib/material/avisos';
 import { cancelarCotacoesDeChamadosEncerrados } from '@/lib/material/chamado';
 import { conciliarReservas } from '@/lib/material/saldo';
 
@@ -34,7 +34,20 @@ async function handler(request: Request) {
     } catch (e) {
       console.error('[cron] aviso de pesquisa atrasada falhou:', e);
     }
-    return NextResponse.json({ ok: true, ...resumo, cotacoesCanceladas, pesquisasAtrasadas });
+    // Spec 0024 (AC-16): a checagem de prazo vencido, só aviso, nada é liberado.
+    let checagensAtrasadas: number | null = null;
+    try {
+      checagensAtrasadas = (await avisarChecagensAtrasadas()).avisadas;
+    } catch (e) {
+      console.error('[cron] aviso de checagem atrasada falhou:', e);
+    }
+    return NextResponse.json({
+      ok: true,
+      ...resumo,
+      cotacoesCanceladas,
+      pesquisasAtrasadas,
+      checagensAtrasadas,
+    });
   } catch (e) {
     console.error('[cron] conciliação de material falhou:', e);
     return NextResponse.json({ ok: false }, { status: 500 });

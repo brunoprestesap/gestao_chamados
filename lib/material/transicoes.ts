@@ -14,8 +14,10 @@ import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { CotacaoMaterialTentativaModel } from '@/models/CotacaoMaterialTentativa';
 import { EmpenhoModel } from '@/models/Empenho';
 import { UserModel } from '@/models/user.model';
+import { itensNaoChecados } from '@/shared/material/checagem';
 import {
   type CriarCotacaoInput,
+  type DecisaoChecagemInput,
   idsRepetidosDoRascunho,
   type OrcamentoRascunhoInput,
   type ReferenciaEntrada,
@@ -39,6 +41,7 @@ import {
   CODIGOS_ADVERTENCIA_DO_ATO,
   CONTROLES,
   erroCnpjDoOrcamento,
+  ERROS_CHECAGEM,
   ERROS_FATIA4,
   ERROS_NOTA_FISCAL,
   MSG_APROVACAO_EM_ANDAMENTO,
@@ -53,13 +56,20 @@ import {
 } from '@/shared/material/valores';
 
 import { advertenciasDoAto } from './advertencias';
-import { avisarNotaFiscal, avisarPesquisaCompleta, avisarSituacao } from './avisos';
+import { avisarNotaFiscal, avisarPesquisaCompleta, avisarRetirada, avisarSituacao } from './avisos';
 import {
   desfazerPausa,
   pausarPelaCotacao,
   registrarNoChamado,
   retomarPelaCotacao,
 } from './chamado';
+import {
+  buscarParaChecagem,
+  type ChecagemDoc,
+  decidirChecagem,
+  type EntradaChecagem,
+  prazoDaChecagem,
+} from './checagem';
 import {
   advertenciasDePreco,
   daFaseEnvio,
@@ -73,7 +83,7 @@ import {
   orcamentosVencidos,
   pesquisaCompleta,
 } from './controles';
-import { limiteDoAprovador, type Papeis, papeisDe } from './papeis';
+import { limiteDoAprovador, type Papeis, papeisDe, podeConcluirChecagem } from './papeis';
 import {
   carregarTabelas,
   codigosDosItens,
@@ -135,6 +145,8 @@ const DE: Record<AcaoDeTransicao, readonly SituacaoCotacao[]> = {
   referencia_retirada: ['em_analise'],
   urgencia_recusada: ['em_analise'],
   pesquisa_completada: ['autorizada', 'executada'],
+  concluir_checagem: ['em_checagem'],
+  reenviar_checagem: ['rascunho', 'devolvida'],
 };
 
 /** Ações que mantêm a situação: o `PARA` delas é a própria situação de origem. */
@@ -164,6 +176,9 @@ const PARA: Record<AcaoDeTransicao, SituacaoCotacao> = {
   urgencia_recusada: 'devolvida',
   // Vale para `autorizada` e `executada`: ver `MANTEM_SITUACAO`.
   pesquisa_completada: 'autorizada',
+  // As duas da checagem têm destino variável, decidido dentro do `case` (spec 0024).
+  concluir_checagem: 'rascunho',
+  reenviar_checagem: 'em_checagem',
 };
 
 const MOTIVO_OBRIGATORIO: readonly AcaoDeTransicao[] = [
@@ -283,6 +298,7 @@ async function lerCotacao(id: string) {
     recebimentoDefinitivo: { porUserId: Types.ObjectId; em: Date } | null;
     notaFiscal: { numero: string } | null;
     pauseLogId: Types.ObjectId | null;
+    checagem?: ChecagemDoc | null;
   }>();
 }
 
@@ -326,6 +342,13 @@ function papelDoAto(
       if (tem('gestor')) return 'gestor';
       // O técnico atribuído descarta o rascunho enquanto ele é só dele, a mesma
       // janela em que edita o diagnóstico (AC-1).
+      return ehTecnicoAtribuido && rascunhoSoDoTecnico ? 'tecnico' : null;
+    case 'concluir_checagem':
+      // A trilha grava o papel de quem agiu: o fiscal conclui a qualquer momento (AC-15).
+      if (!podeConcluirChecagem(de, papeis)) return null;
+      return tem('almoxarifado') ? 'almoxarifado' : 'fiscal';
+    case 'reenviar_checagem':
+      if (tem('responsavel_tecnico')) return 'responsavel_tecnico';
       return ehTecnicoAtribuido && rascunhoSoDoTecnico ? 'tecnico' : null;
   }
 }
@@ -583,6 +606,26 @@ export async function criarCotacao(
   }
 
   const agora = new Date();
+  const parametros = await lerMaterialConfig();
+  const itens = entrada.itens.map((i) => ({
+    ...i,
+    _id: new Types.ObjectId(),
+    doDiagnostico: true,
+  }));
+  // Spec 0024: a busca roda antes de gravar, e com o interruptor desligado nada muda (AC-1).
+  let checagem: ChecagemDoc | null = null;
+  if (parametros.checagemAlmoxarifadoAtiva) {
+    const busca = await buscarParaChecagem(itens, agora);
+    checagem = {
+      prazoAte: busca.precisaDePessoa
+        ? await prazoDaChecagem(agora, parametros.prazoChecagemDiasUteis)
+        : null,
+      voltarPara: busca.precisaDePessoa ? 'rascunho' : null,
+      abriuPausa: false,
+      itens: busca.automaticas,
+    };
+  }
+  const situacaoInicial: SituacaoCotacao = checagem?.voltarPara ? 'em_checagem' : 'rascunho';
   const numero = await gerarNumero(agora);
   const localizacaoId = await localDoAtivo(chamado.ativoId as Types.ObjectId | null);
   let cot;
@@ -592,15 +635,16 @@ export async function criarCotacao(
       chamadoId: chamado._id,
       ativoId: chamado.ativoId ?? null,
       localizacaoId,
-      situacao: 'rascunho',
+      situacao: situacaoInicial,
       emTramite: true,
       versao: 1,
       cotacaoAnteriorId: entrada.cotacaoAnteriorId
         ? new Types.ObjectId(entrada.cotacaoAnteriorId)
         : null,
-      itens: entrada.itens.map((i) => ({ ...i, doDiagnostico: true })),
+      itens,
       diagnosticadoPorUserId: new Types.ObjectId(ator.userId),
       diagnosticadoEm: agora,
+      checagem,
     });
   } catch (e) {
     if ((e as { code?: number }).code === 11000) {
@@ -609,25 +653,58 @@ export async function criarCotacao(
     throw e;
   }
 
+  // Quem nasce em checagem sempre pausa: o chamado está em atendimento por construção (AC-18).
+  let pausa: { pauseLogId: string } | null | undefined = null;
+  if (situacaoInicial === 'em_checagem') {
+    pausa = await pausarPelaCotacao({
+      chamadoId: String(chamado._id),
+      userId: ator.userId,
+      numeroCotacao: numero,
+      agora,
+    });
+    if (pausa) {
+      await CotacaoMaterialModel.updateOne(
+        { _id: cot._id },
+        {
+          $set: {
+            pauseLogId: new Types.ObjectId(pausa.pauseLogId),
+            'checagem.abriuPausa': true,
+          },
+        },
+      );
+    }
+  }
+
   try {
     await CotacaoMaterialEventoModel.create({
       cotacaoId: cot._id,
       de: null,
-      para: 'rascunho',
+      para: situacaoInicial,
       acao: 'criar',
       autorUserId: new Types.ObjectId(ator.userId),
       autorNome: await nomeDe(ator.userId),
       papel: 'tecnico',
-      parametrosNoAto: await lerMaterialConfig(),
+      parametrosNoAto: parametros,
       itensNoAto: itensNoAto(cot.toObject().itens as NonNullable<CotacaoLida>['itens']),
+      ...(checagem ? { checagemNoAto: checagem.itens } : {}),
       em: agora,
     });
   } catch (e) {
+    if (pausa) await desfazerPausa(String(chamado._id), pausa.pauseLogId, agora);
     await CotacaoMaterialModel.deleteOne({ _id: cot._id, versao: 1 }).catch(() => {});
     throw e;
   }
 
-  void avisarSituacao(String(cot._id), 'rascunho', ator.userId);
+  if (situacaoInicial === 'em_checagem') {
+    await registrarNoChamado({
+      chamadoId: String(chamado._id),
+      userId: ator.userId,
+      action: 'cotacao_material_em_checagem',
+      numeroCotacao: numero,
+      ...(pausa ? { statusAnterior: 'em atendimento', statusNovo: 'aguardando_terceiros' } : {}),
+    }).catch((err) => console.error('[material] efeito no chamado falhou:', err));
+  }
+  void avisarSituacao(String(cot._id), situacaoInicial, ator.userId);
   return { ok: true, id: String(cot._id) };
 }
 
@@ -806,6 +883,8 @@ export type EntradaTransicao = {
   referenciaId?: string;
   /** Completar a pesquisa da urgência (AC-35): só orçamentos novos. */
   orcamentosNovos?: OrcamentoRascunhoInput[];
+  /** Concluir a checagem (spec 0024, AC-6): uma decisão por item em aberto. */
+  decisoes?: DecisaoChecagemInput[];
 };
 
 export async function transicionar(e: EntradaTransicao): Promise<
@@ -820,7 +899,7 @@ export async function transicionar(e: EntradaTransicao): Promise<
   const cot = await lerCotacao(e.cotacaoId);
   if (!cot) return { ok: false, error: 'Cotação não encontrada.' };
   const de = cot.situacao;
-  const para = MANTEM_SITUACAO.includes(e.acao) ? de : PARA[e.acao];
+  let para = MANTEM_SITUACAO.includes(e.acao) ? de : PARA[e.acao];
 
   // 1. Situação, versão, papel e impedimentos (só leitura).
   if (!DE[e.acao].includes(de)) {
@@ -839,7 +918,8 @@ export async function transicionar(e: EntradaTransicao): Promise<
   if (!chamado) return { ok: false, error: 'Chamado da cotação não encontrado.' };
   const ehTecnicoAtribuido = !!userId && String(chamado.assignedToUserId ?? '') === userId;
 
-  const rascunhoSoDoTecnico = de === 'rascunho' && !cot.montadoPorUserId;
+  // O técnico age na cotação só dele também em `em_checagem`, sem editar itens (AC-19).
+  const rascunhoSoDoTecnico = (de === 'rascunho' || de === 'em_checagem') && !cot.montadoPorUserId;
   const papel = papelDoAto(e.acao, de, e.ator, papeis, ehTecnicoAtribuido, rascunhoSoDoTecnico);
   if (!papel) {
     if (e.acao === 'aprovar') {
@@ -868,6 +948,9 @@ export async function transicionar(e: EntradaTransicao): Promise<
   let empenhoEvento: string | null = null;
   let completouPesquisa = false;
   let projecao: Projecao | null = null;
+  /** Spec 0024: as entradas deste ato e os itens que saíram da cotação. */
+  let entradasDoAto: EntradaChecagem[] = [];
+  let itensRemovidos: ReadonlySet<string> = new Set();
   const parametros = await lerMaterialConfig();
   const urgencia = cot.urgencia ?? null;
   const ehOFiscalQueAssumiu = !!userId && String(cot.fiscalUserId ?? '') === userId;
@@ -921,6 +1004,7 @@ export async function transicionar(e: EntradaTransicao): Promise<
           orcamentos: cot.orcamentos,
           raizContratada: parametros.raizCnpjContratada,
           urgencia: emUrgencia,
+          checagem: cot.checagem,
         }),
       ];
       if (imp.length) {
@@ -1356,7 +1440,59 @@ export async function transicionar(e: EntradaTransicao): Promise<
       };
       break;
     }
+    case 'concluir_checagem': {
+      const atual = cot.checagem;
+      if (!atual) return { ok: false, error: ERROS_CHECAGEM.sem_checagem };
+      const r = await decidirChecagem({
+        itens: cot.itens,
+        orcamentos: cot.orcamentos,
+        entradasAnteriores: atual.itens ?? [],
+        decisoes: e.decisoes ?? [],
+        autor: { userId: userId!, nome: await nomeDe(userId), papel },
+        agora,
+      });
+      if (!r.ok) return r;
+      entradasDoAto = r.entradas;
+      itensRemovidos = r.removidos;
+      para = r.itens.length > 0 ? (atual.voltarPara ?? 'rascunho') : 'atendida_almoxarifado';
+      set.itens = r.itens;
+      set.orcamentos = r.orcamentos;
+      set.valorTotalCentavos = r.valorTotalCentavos;
+      set.checagem = {
+        ...atual,
+        voltarPara: null,
+        abriuPausa: false,
+        itens: [...(atual.itens ?? []), ...r.entradas],
+      };
+      noEvento.checagemNoAto = r.entradas;
+      break;
+    }
+    case 'reenviar_checagem': {
+      const atual = cot.checagem;
+      if (!atual) return { ok: false, error: ERROS_CHECAGEM.sem_checagem };
+      // Só os itens não checados vão à busca; trocar a descrição não reabre (AC-17).
+      const faltam = itensNaoChecados(cot.itens, atual.itens ?? [], (i) => String(i._id));
+      if (faltam.length === 0) return { ok: false, error: ERROS_CHECAGEM.nada_a_conferir };
+      const busca = await buscarParaChecagem(faltam, agora);
+      entradasDoAto = busca.automaticas;
+      para = busca.precisaDePessoa ? 'em_checagem' : de;
+      set.checagem = {
+        ...atual,
+        prazoAte: busca.precisaDePessoa
+          ? await prazoDaChecagem(agora, parametros.prazoChecagemDiasUteis)
+          : atual.prazoAte,
+        voltarPara: busca.precisaDePessoa ? (de as 'rascunho' | 'devolvida') : null,
+        abriuPausa: false,
+        itens: [...(atual.itens ?? []), ...busca.automaticas],
+      };
+      noEvento.checagemNoAto = busca.automaticas;
+      break;
+    }
     case 'cancelar':
+      if (de === 'em_checagem' && cot.checagem) {
+        set.checagem = { ...cot.checagem, voltarPara: null, abriuPausa: false };
+      }
+      break;
     case 'reprovar':
       break;
   }
@@ -1388,7 +1524,8 @@ export async function transicionar(e: EntradaTransicao): Promise<
       !(e.acao === 'executar' && a.codigo === 'divergencia_execucao') &&
       !(refazConfirmacoes && a.codigo === 'orcamento_vencido') &&
       !(refazDoAto && CODIGOS_ADVERTENCIA_DO_ATO.includes(a.codigo as CodigoControle)) &&
-      !(e.acao === 'aprovar' && a.codigo === 'projecao_esgotamento'),
+      !(e.acao === 'aprovar' && a.codigo === 'projecao_esgotamento') &&
+      !(a.itemId && itensRemovidos.has(String(a.itemId))),
   );
   const todasAdvertencias = [
     ...mantidas,
@@ -1500,6 +1637,20 @@ export async function transicionar(e: EntradaTransicao): Promise<
 
   // 5. Só o vencedor aplica os efeitos no saldo e no chamado.
   await aplicarEfeitos({ e, cot, gravada, de, para, agora, papel });
+
+  // O técnico retira no almoxarifado o que foi decidido `usar` (AC-20), sem valor.
+  const usadas = entradasDoAto.filter((x) => x.resultado === 'usar');
+  if (usadas.length) {
+    void avisarRetirada(
+      String(cot._id),
+      usadas.map((x) => ({
+        descricao: x.descricao,
+        quantidade: x.quantidadeAtendida ?? 0,
+        unidade: x.unidade,
+      })),
+      userId,
+    );
+  }
 
   // 6. Avisos, fire and forget: quando a situação muda, e a nota fiscal e a pesquisa
   // completa da urgência para os gestores. O provisório não avisa: quem age na
@@ -1661,6 +1812,64 @@ async function aplicarEfeitos(p: {
 
   // Chamado: o envio pausa; autorizada, reprovada e cancelada retomam.
   try {
+    // A checagem refeita a partir do rascunho abre a própria pausa; a partir de `devolvida`,
+    // a do envio continua aberta e é ela que segue (spec 0024, AC-18).
+    if (e.acao === 'reenviar_checagem' && para === 'em_checagem') {
+      let pausa: { pauseLogId: string } | null | undefined = null;
+      if (p.de === 'rascunho' && !cot.pauseLogId) {
+        pausa = await pausarPelaCotacao({
+          chamadoId,
+          userId: userId!,
+          numeroCotacao: cot.numero,
+          agora,
+        });
+      }
+      if (pausa) {
+        const r = await CotacaoMaterialModel.updateOne(
+          { _id: cot._id, situacao: 'em_checagem', pauseLogId: null },
+          {
+            $set: {
+              pauseLogId: new Types.ObjectId(pausa.pauseLogId),
+              'checagem.abriuPausa': true,
+            },
+          },
+        );
+        if (r.modifiedCount === 0) await desfazerPausa(chamadoId, pausa.pauseLogId, agora);
+      }
+      await registrarNoChamado({
+        chamadoId,
+        userId,
+        action: 'cotacao_material_em_checagem',
+        numeroCotacao: cot.numero,
+        ...(pausa ? { statusAnterior: 'em atendimento', statusNovo: 'aguardando_terceiros' } : {}),
+      });
+    }
+
+    // A saída da checagem retoma só a pausa que ela mesma abriu; se o chamado já estava
+    // pausado por outro motivo, não mexe (AC-18). `atendida` retoma mais abaixo.
+    if (e.acao === 'concluir_checagem' && para !== 'atendida_almoxarifado') {
+      let retomou = false;
+      if (cot.checagem?.abriuPausa && cot.pauseLogId) {
+        retomou = await retomarPelaCotacao({
+          chamadoId,
+          pauseLogId: String(cot.pauseLogId),
+          userId,
+          agora,
+        });
+        await CotacaoMaterialModel.updateOne({ _id: cot._id }, { $set: { pauseLogId: null } });
+      }
+      await registrarNoChamado({
+        chamadoId,
+        userId,
+        action: 'cotacao_material_em_checagem',
+        numeroCotacao: cot.numero,
+        texto: 'conferida pelo almoxarifado',
+        ...(retomou
+          ? { statusAnterior: 'aguardando_terceiros', statusNovo: 'em atendimento' }
+          : {}),
+      });
+    }
+
     if (e.acao === 'enviar') {
       const chamadoAntes = await ChamadoModel.findById(chamadoId).select('status').lean();
       // Reenvio com a pausa da própria cotação ainda aberta: não pausa de novo.
@@ -1692,7 +1901,13 @@ async function aplicarEfeitos(p: {
     }
 
     // Só quando a situação muda: o complemento da pesquisa mantém a `autorizada`.
-    if (p.de !== para && (para === 'autorizada' || para === 'reprovada' || para === 'cancelada')) {
+    if (
+      p.de !== para &&
+      (para === 'autorizada' ||
+        para === 'reprovada' ||
+        para === 'cancelada' ||
+        para === 'atendida_almoxarifado')
+    ) {
       let retomou = false;
       if (cot.pauseLogId) {
         retomou = await retomarPelaCotacao({
@@ -1708,7 +1923,9 @@ async function aplicarEfeitos(p: {
           ? 'cotacao_material_autorizada'
           : para === 'reprovada'
             ? 'cotacao_material_reprovada'
-            : 'cotacao_material_cancelada';
+            : para === 'atendida_almoxarifado'
+              ? 'cotacao_material_atendida_almoxarifado'
+              : 'cotacao_material_cancelada';
       await registrarNoChamado({
         chamadoId,
         userId,

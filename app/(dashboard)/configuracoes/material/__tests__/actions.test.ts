@@ -222,6 +222,7 @@ describe('salvarParametrosAction (AC-42)', () => {
     janelaDias: 90,
     parcelaRelevantePercentual: 20,
     prazoFornecimentoDiasUteis: 5,
+    prazoChecagemDiasUteis: 1,
     raizCnpjContratada: '03543374',
   };
 

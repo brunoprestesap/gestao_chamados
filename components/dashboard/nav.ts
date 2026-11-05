@@ -142,7 +142,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: '/cotacoes',
     icon: ReceiptText,
     group: 'Material',
-    allowedRoles: ['Admin', 'Preposto', 'Técnico'],
+    // O Solicitante só com o papel de almoxarifado (spec 0024): a designação é que abre.
+    allowedRoles: ['Admin', 'Preposto', 'Técnico', 'Solicitante'],
     exigeDesignacaoMaterial: true,
   },
   {

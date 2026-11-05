@@ -253,7 +253,12 @@ export interface MaterialCotacaoSituacaoPayload {
    * AC-16 e AC-35), e a pesquisa da urgência atrasada (aviso da rodada
    * diária): a situação não muda, a tela só recarrega, sem toast.
    */
-  aviso?: 'nota_fiscal' | 'pesquisa_completa' | 'pesquisa_atrasada';
+  aviso?:
+    | 'nota_fiscal'
+    | 'pesquisa_completa'
+    | 'pesquisa_atrasada'
+    | 'retirar_almoxarifado'
+    | 'checagem_atrasada';
 }
 
 export interface ServerToClientEvents {

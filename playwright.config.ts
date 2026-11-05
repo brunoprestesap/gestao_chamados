@@ -35,6 +35,9 @@ export default defineConfig({
           LDAP_BASE_DN: '',
           LDAP_BIND_DN: '',
           LDAP_BIND_PASSWORD: '',
+          // O `sicam-gateway` falso do E2E da checagem (e2e/fixtures/sicam-falso.ts).
+          SICAM_GATEWAY_URL: 'http://localhost:3902',
+          SICAM_GATEWAY_SECRET: 'e2e-sicam',
         },
       },
 });
