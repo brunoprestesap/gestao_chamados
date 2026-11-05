@@ -33,4 +33,5 @@ fi
 echo "== Aplicando (up -d recarrega o .env; 'restart' NÃO recarrega) =="
 cd "$APP_DIR"
 docker compose up -d next-app
+docker compose exec -T nginx nginx -s reload || echo "AVISO: recarregue o nginx, senão o site pode ficar em 502: docker compose exec nginx nginx -s reload" >&2
 echo "== Concluído. Verifique: docker logs severino-next-app-1 --tail 20 =="

@@ -25,6 +25,9 @@ jobs:
           cd /opt/severino
           git pull origin main
           docker compose up -d --build
+          # O nginx guarda o IP do next-app de quando carregou: sem isto, um container
+          # recriado com outro IP deixa o site em 502 (visto em 05/11/2026).
+          docker compose exec -T nginx nginx -s reload
           docker image prune -f
 
       - name: Health check

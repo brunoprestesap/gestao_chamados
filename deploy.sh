@@ -120,6 +120,7 @@ chown -R 1001:1001 "$APP_DIR/uploads"
 
 echo "[6/6] Construindo e iniciando containers..."
 docker compose up -d --build
+docker compose exec -T nginx nginx -s reload || echo "AVISO: recarregue o nginx, senão o site pode ficar em 502: docker compose exec nginx nginx -s reload" >&2
 
 echo ""
 echo "=== Deploy concluído! ==="
