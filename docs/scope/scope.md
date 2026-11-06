@@ -45,7 +45,7 @@ _São recomendações para manter a construção organizada, não obrigações. 
 | 20  | Aviso de chamado duplicado                         | Slice 4       | done     |
 | 35  | Decisões do contrato para operar a cotação         | Material      | planned  |
 | 36  | Checagem do almoxarifado antes da cotação          | Material      | done     |
-| 37  | Pausa aberta quando a retomada pela cotação falha  | Material      | planned  |
+| 37  | Pausa aberta quando a retomada pela cotação falha  | Material      | done     |
 | 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
 | 19  | Fotos no chat                                      | Slice 4       | planned  |
 | 21  | Entrada por voz                                    | Slice 4       | planned  |
@@ -494,11 +494,11 @@ spec [0024](../specs/0024-checagem-almoxarifado-cotacao/index.md) · code in `si
 
 Quando `retomarPelaCotacao` devolve falso, o `pauseLogId` da cotação é limpo mesmo assim e o `PauseLog` do chamado fica aberto, congelando o SLA. Já existia, e a etapa de checagem da 0024 deixa mais frequente (chamado cancelado durante `em_checagem`). from spec 0024
 **Done when:** nenhuma transição da cotação limpa o `pauseLogId` sem a pausa do chamado ter sido fechada; o chamado cancelado ou recusado durante `em_checagem` não deixa pausa aberta; um teste de banco real prova o caso.
-code in `lib/material/transicoes.ts`
+code in `lib/material/chamado.ts` (`retomarPelaCotacao`, `soltarPausaDaCotacao`) e `lib/material/transicoes.ts`
 
-- [ ] Build it: `/develop pausa aberta quando a retomada pela cotação falha`
-- [ ] Verify it: `/check verify pausa aberta quando a retomada pela cotação falha`
-- [ ] Test it: `/test pausa aberta quando a retomada pela cotação falha`
+- [x] Build it: `/develop pausa aberta quando a retomada pela cotação falha`
+- [x] Verify it: `/check verify pausa aberta quando a retomada pela cotação falha`
+- [x] Test it: `/test pausa aberta quando a retomada pela cotação falha`
 
 ## Slice 3: fechamento
 

@@ -912,6 +912,308 @@ rodar('checagem do almoxarifado, contra o Mongo', () => {
       expect((await M.Cotacao.findById(id).lean())?.situacao).toBe('cancelada');
     });
 
+    // Item 37 do escopo: nenhuma transição solta o `pauseLogId` com a pausa do chamado aberta.
+    it.each(['cancelado', 'recusado'] as const)(
+      'chamado %s durante a checagem: a pausa fecha na hora da saída e a cotação a solta',
+      async (status) => {
+        const { id, chamadoId, cot } = await criar();
+        // Depois do início da pausa e antes do ato que encerra a cotação.
+        const saiu = new Date(cot.createdAt.getTime() + 1);
+        await M.Chamado.collection.updateOne({ _id: chamadoId }, { $set: { status } });
+        await M.History.collection.insertOne({
+          chamadoId,
+          action: status === 'cancelado' ? 'cancelamento' : 'recusa',
+          statusAnterior: 'aguardando_terceiros',
+          statusNovo: status,
+          createdAt: saiu,
+        });
+        await chamadoLib.cancelarCotacaoPeloChamado({
+          chamadoId: String(chamadoId),
+          userId: null,
+          motivo: status === 'cancelado' ? 'chamado_cancelado' : 'chamado_recusado',
+        });
+        const depois = (await M.Cotacao.findById(id).lean())!;
+        expect(depois.situacao).toBe('cancelada');
+        expect(depois.pauseLogId).toBeNull();
+        const log = (await M.PauseLog.findById(cot.pauseLogId).lean())!;
+        expect(log.resumedAt?.getTime()).toBe(saiu.getTime());
+      },
+    );
+
+    it('o chamado cancelado no meio da retomada da checagem não deixa a pausa aberta', async () => {
+      const { id, chamadoId, cot } = await criar();
+      // O solicitante cancela entre a leitura e a gravação condicional da retomada.
+      const original = M.Chamado.updateOne.bind(M.Chamado);
+      const espiao = vi
+        .spyOn(M.Chamado, 'updateOne')
+        .mockImplementationOnce(((...args: Parameters<typeof original>) =>
+          M.Chamado.collection
+            .updateOne({ _id: chamadoId }, { $set: { status: 'cancelado' } })
+            .then(() => original(...args))) as never);
+      try {
+        const r = await concluir(id, cot.versao, [
+          { itemId: String(cot.itens[0]!._id), resultado: 'sem_correspondente' },
+        ]);
+        expect(r).toMatchObject({ ok: true, situacao: 'rascunho' });
+      } finally {
+        espiao.mockRestore();
+      }
+      expect((await M.Chamado.findById(chamadoId).lean())?.status).toBe('cancelado');
+      const log = (await M.PauseLog.findById(cot.pauseLogId).lean())!;
+      expect(log.resumedAt).toBeInstanceOf(Date);
+      expect((await M.Cotacao.findById(id).lean())?.pauseLogId).toBeNull();
+    });
+
+    it('com a pausa ainda aberta, a cotação continua presa a ela', async () => {
+      const { id, cot } = await criar();
+      expect(await chamadoLib.soltarPausaDaCotacao(id, cot.pauseLogId!)).toBe(false);
+      expect(String((await M.Cotacao.findById(id).lean())?.pauseLogId)).toBe(
+        String(cot.pauseLogId),
+      );
+    });
+
+    describe('retomada pela cotação que falha (item 37 do escopo)', () => {
+      const agora = () => new Date();
+
+      it('o chamado que sumiu: a pausa da cotação fecha e a retomada devolve falso', async () => {
+        const { chamadoId, cot } = await criar();
+        await M.Chamado.collection.deleteOne({ _id: chamadoId });
+
+        const retomou = await chamadoLib.retomarPelaCotacao({
+          chamadoId: String(chamadoId),
+          pauseLogId: String(cot.pauseLogId),
+          userId: ids.almox,
+          agora: agora(),
+        });
+
+        expect(retomou).toBe(false);
+        const log = (await M.PauseLog.findById(cot.pauseLogId).lean())!;
+        expect(log.resumedAt).toBeInstanceOf(Date);
+        expect(String(log.resumedByUserId)).toBe(ids.almox);
+      });
+
+      it('o chamado pausado sem a marca slaPausedAt: a pausa fecha e o chamado fica como está', async () => {
+        const { chamadoId, cot } = await criar();
+        await M.Chamado.collection.updateOne({ _id: chamadoId }, { $unset: { slaPausedAt: 1 } });
+
+        const retomou = await chamadoLib.retomarPelaCotacao({
+          chamadoId: String(chamadoId),
+          pauseLogId: String(cot.pauseLogId),
+          userId: null,
+          agora: agora(),
+        });
+
+        expect(retomou).toBe(false);
+        expect((await M.PauseLog.findById(cot.pauseLogId).lean())?.resumedAt).toBeInstanceOf(Date);
+        expect((await M.Chamado.findById(chamadoId).lean())?.status).toBe('aguardando_terceiros');
+      });
+
+      it('a pausa já fechada: a retomada devolve falso sem regravar o registro', async () => {
+        const { chamadoId, cot } = await criar();
+        const fechadaEm = new Date('2026-01-01T12:00:00Z');
+        await M.PauseLog.collection.updateOne(
+          { _id: cot.pauseLogId! },
+          { $set: { resumedAt: fechadaEm, pausedMinutes: 7 } },
+        );
+
+        const retomou = await chamadoLib.retomarPelaCotacao({
+          chamadoId: String(chamadoId),
+          pauseLogId: String(cot.pauseLogId),
+          userId: ids.almox,
+          agora: agora(),
+        });
+
+        expect(retomou).toBe(false);
+        const log = (await M.PauseLog.findById(cot.pauseLogId).lean())!;
+        expect(log.resumedAt?.getTime()).toBe(fechadaEm.getTime());
+        expect(log.pausedMinutes).toBe(7);
+      });
+
+      it('cancelar a cotação no meio do cancelamento do chamado: a pausa fecha e a cotação a solta', async () => {
+        const { id, chamadoId, cot } = await criar();
+        const original = M.Chamado.updateOne.bind(M.Chamado);
+        const espiao = vi
+          .spyOn(M.Chamado, 'updateOne')
+          .mockImplementationOnce(((...args: Parameters<typeof original>) =>
+            M.Chamado.collection
+              .updateOne({ _id: chamadoId }, { $set: { status: 'cancelado' } })
+              .then(() => original(...args))) as never);
+        try {
+          const r = await t.transicionar({
+            cotacaoId: id,
+            acao: 'cancelar',
+            versao: cot.versao,
+            ator: tecnico,
+            motivo: 'Pedi errado',
+          });
+          expect(r).toMatchObject({ ok: true, situacao: 'cancelada' });
+        } finally {
+          espiao.mockRestore();
+        }
+
+        expect((await M.Chamado.findById(chamadoId).lean())?.status).toBe('cancelado');
+        expect((await M.PauseLog.findById(cot.pauseLogId).lean())?.resumedAt).toBeInstanceOf(Date);
+        expect((await M.Cotacao.findById(id).lean())?.pauseLogId).toBeNull();
+        // A linha do chamado não diz que ele voltou a `em atendimento`.
+        const linha = await M.History.findOne({
+          chamadoId,
+          action: 'cotacao_material_cancelada',
+        }).lean();
+        expect(linha?.statusNovo).toBeUndefined();
+      });
+
+      it('a gravação que perde sempre: desiste em 3 tentativas e a cotação continua presa à pausa', async () => {
+        const { id, chamadoId, cot } = await criar();
+        const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const espiao = vi
+          .spyOn(M.Chamado, 'updateOne')
+          .mockResolvedValue({ matchedCount: 0, modifiedCount: 0 } as never);
+        try {
+          const r = await t.transicionar({
+            cotacaoId: id,
+            acao: 'cancelar',
+            versao: cot.versao,
+            ator: tecnico,
+            motivo: 'Pedi errado',
+          });
+          expect(r).toMatchObject({ ok: true, situacao: 'cancelada' });
+          expect(espiao).toHaveBeenCalledTimes(3);
+          expect(erro).toHaveBeenCalledWith(expect.stringContaining('3 tentativas'));
+        } finally {
+          espiao.mockRestore();
+          erro.mockRestore();
+        }
+
+        expect((await M.Chamado.findById(chamadoId).lean())?.status).toBe('aguardando_terceiros');
+        expect((await M.PauseLog.findById(cot.pauseLogId).lean())?.resumedAt).toBeUndefined();
+        // Sem soltar: a pausa aberta não vira órfã, e a cotação ainda aponta para ela.
+        expect(String((await M.Cotacao.findById(id).lean())?.pauseLogId)).toBe(
+          String(cot.pauseLogId),
+        );
+      });
+    });
+
+    describe('fecharPausasDeCotacoesEncerradas (rodada diária, item 37)', () => {
+      /** A cotação cancelada pelo técnico com a retomada desistindo nas 3 tentativas. */
+      async function canceladaComPausaPresa() {
+        const criada = await criar();
+        const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const espiao = vi
+          .spyOn(M.Chamado, 'updateOne')
+          .mockResolvedValue({ matchedCount: 0, modifiedCount: 0 } as never);
+        try {
+          const r = await t.transicionar({
+            cotacaoId: criada.id,
+            acao: 'cancelar',
+            versao: criada.cot.versao,
+            ator: tecnico,
+            motivo: 'Pedi errado',
+          });
+          if (!r.ok) throw new Error(r.error);
+        } finally {
+          espiao.mockRestore();
+          erro.mockRestore();
+        }
+        return criada;
+      }
+
+      it('retoma o chamado com a hora do cancelamento da cotação e solta a pausa', async () => {
+        const { id, chamadoId, cot } = await canceladaComPausaPresa();
+        const ev = await M.Evento.findOne({ cotacaoId: id, para: 'cancelada' }).lean();
+
+        const r = await chamadoLib.fecharPausasDeCotacoesEncerradas(
+          200,
+          new Date(Date.now() + 86_400_000),
+        );
+
+        expect(r).toEqual({ verificadas: 1, fechadas: 1 });
+        expect((await M.Chamado.findById(chamadoId).lean())?.status).toBe('em atendimento');
+        const log = (await M.PauseLog.findById(cot.pauseLogId).lean())!;
+        expect(log.resumedAt?.getTime()).toBe(ev!.em.getTime());
+        expect((await M.Cotacao.findById(id).lean())?.pauseLogId).toBeNull();
+        const linha = await M.History.findOne({
+          chamadoId,
+          statusNovo: 'em atendimento',
+        }).lean();
+        expect(linha?.observacoes).toContain('conciliação diária');
+        expect(linha?.actorType).toBe('sistema');
+      });
+
+      it('com o chamado já cancelado, só fecha a pausa, sem dizer que ele voltou ao atendimento', async () => {
+        const { id, chamadoId, cot } = await canceladaComPausaPresa();
+        await M.Chamado.collection.updateOne({ _id: chamadoId }, { $set: { status: 'cancelado' } });
+
+        await chamadoLib.fecharPausasDeCotacoesEncerradas();
+
+        expect((await M.Chamado.findById(chamadoId).lean())?.status).toBe('cancelado');
+        expect((await M.PauseLog.findById(cot.pauseLogId).lean())?.resumedAt).toBeInstanceOf(Date);
+        expect((await M.Cotacao.findById(id).lean())?.pauseLogId).toBeNull();
+        expect(await M.History.countDocuments({ chamadoId, statusNovo: 'em atendimento' })).toBe(0);
+      });
+
+      it('não mexe na pausa de cotação ainda em checagem', async () => {
+        const { id, chamadoId, cot } = await criar();
+
+        const r = await chamadoLib.fecharPausasDeCotacoesEncerradas();
+
+        expect(r).toEqual({ verificadas: 0, fechadas: 0 });
+        expect((await M.Chamado.findById(chamadoId).lean())?.status).toBe('aguardando_terceiros');
+        expect((await M.PauseLog.findById(cot.pauseLogId).lean())?.resumedAt).toBeUndefined();
+        expect(String((await M.Cotacao.findById(id).lean())?.pauseLogId)).toBe(
+          String(cot.pauseLogId),
+        );
+      });
+
+      it('anda em lotes pelo cursor, sem pular nenhuma', async () => {
+        const a = await canceladaComPausaPresa();
+        const b = await canceladaComPausaPresa();
+
+        const r = await chamadoLib.fecharPausasDeCotacoesEncerradas(1);
+
+        expect(r).toEqual({ verificadas: 2, fechadas: 2 });
+        for (const { id } of [a, b]) {
+          expect((await M.Cotacao.findById(id).lean())?.pauseLogId).toBeNull();
+        }
+      });
+    });
+
+    describe('soltarPausaDaCotacao', () => {
+      it('com a pausa já fechada, limpa o pauseLogId', async () => {
+        const { id, cot } = await criar();
+        await M.PauseLog.collection.updateOne(
+          { _id: cot.pauseLogId! },
+          { $set: { resumedAt: new Date() } },
+        );
+
+        expect(await chamadoLib.soltarPausaDaCotacao(id, cot.pauseLogId!)).toBe(true);
+
+        expect((await M.Cotacao.findById(id).lean())?.pauseLogId).toBeNull();
+      });
+
+      it('com o registro da pausa apagado, limpa o pauseLogId', async () => {
+        const { id, cot } = await criar();
+        await M.PauseLog.collection.deleteOne({ _id: cot.pauseLogId! });
+
+        expect(await chamadoLib.soltarPausaDaCotacao(id, String(cot.pauseLogId))).toBe(true);
+
+        expect((await M.Cotacao.findById(id).lean())?.pauseLogId).toBeNull();
+      });
+
+      it('não apaga uma pausa nova que a cotação passou a apontar nesse meio', async () => {
+        const { id, cot } = await criar();
+        await M.PauseLog.collection.updateOne(
+          { _id: cot.pauseLogId! },
+          { $set: { resumedAt: new Date() } },
+        );
+        const nova = new Types.ObjectId();
+        await M.Cotacao.collection.updateOne({ _id: cot._id }, { $set: { pauseLogId: nova } });
+
+        await chamadoLib.soltarPausaDaCotacao(id, cot.pauseLogId!);
+
+        expect(String((await M.Cotacao.findById(id).lean())?.pauseLogId)).toBe(String(nova));
+      });
+    });
+
     it('o técnico cancela em checagem só sem montagem, e não edita', async () => {
       const a = await criar();
       expect(

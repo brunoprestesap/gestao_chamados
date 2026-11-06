@@ -11,7 +11,11 @@ const conciliar = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
 vi.mock('@/lib/material/saldo', () => ({ conciliarReservas: conciliar }));
 const encerrar = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/material/chamado', () => ({ cancelarCotacoesDeChamadosEncerrados: encerrar }));
+const fecharPausas = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/material/chamado', () => ({
+  cancelarCotacoesDeChamadosEncerrados: encerrar,
+  fecharPausasDeCotacoesEncerradas: fecharPausas,
+}));
 const avisarAtrasadas = vi.hoisted(() => vi.fn());
 const avisarChecagens = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/material/avisos', () => ({
@@ -35,6 +39,7 @@ beforeEach(() => {
   process.env.CRON_SECRET = SEGREDO;
   conciliar.mockResolvedValue({ verificadas: 4, liberadas: 1 });
   encerrar.mockResolvedValue({ verificadas: 2, canceladas: 2 });
+  fecharPausas.mockResolvedValue({ verificadas: 1, fechadas: 1 });
   avisarAtrasadas.mockResolvedValue({ avisadas: 1 });
   avisarChecagens.mockResolvedValue({ avisadas: 2 });
 });
@@ -64,6 +69,7 @@ describe('POST /api/cron/material-conciliacao', () => {
       verificadas: 4,
       liberadas: 1,
       cotacoesCanceladas: 2,
+      pausasFechadas: 1,
       pesquisasAtrasadas: 1,
       checagensAtrasadas: 2,
     });
@@ -83,6 +89,33 @@ describe('POST /api/cron/material-conciliacao', () => {
     expect(ordem).toEqual(['encerrar', 'conciliar']);
   });
 
+  it('fecha as pausas presas às cotações encerradas depois de cancelar e antes de conciliar (item 37)', async () => {
+    const ordem: string[] = [];
+    encerrar.mockImplementation(async () => {
+      ordem.push('encerrar');
+      return { verificadas: 0, canceladas: 0 };
+    });
+    fecharPausas.mockImplementation(async () => {
+      ordem.push('fecharPausas');
+      return { verificadas: 0, fechadas: 0 };
+    });
+    conciliar.mockImplementation(async () => {
+      ordem.push('conciliar');
+      return { verificadas: 0, liberadas: 0 };
+    });
+    await POST(requisicao(SEGREDO));
+    expect(ordem).toEqual(['encerrar', 'fecharPausas', 'conciliar']);
+  });
+
+  it('falha ao fechar as pausas presas não impede a conciliação do dia (item 37)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    fecharPausas.mockRejectedValue(new Error('mongo piscou'));
+    const r = await POST(requisicao(SEGREDO));
+    expect(conciliar).toHaveBeenCalledOnce();
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ ok: true, liberadas: 1, pausasFechadas: null });
+  });
+
   it('falha na rodada de cancelamento não impede a conciliação do dia (AC-8, AC-12)', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     encerrar.mockRejectedValue(new Error('mongo piscou'));
@@ -94,6 +127,7 @@ describe('POST /api/cron/material-conciliacao', () => {
       verificadas: 4,
       liberadas: 1,
       cotacoesCanceladas: null,
+      pausasFechadas: 1,
       pesquisasAtrasadas: 1,
       checagensAtrasadas: 2,
     });
