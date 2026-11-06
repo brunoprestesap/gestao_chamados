@@ -18,12 +18,21 @@ const banco = vi.hoisted(() => ({
   cotacoesLidas: 0,
   cotacoesMaterial: [] as object[],
   filtroCotacaoMaterial: null as unknown,
+  checadas: [] as object[],
+  filtroChecagem: null as unknown,
+  checagensLidas: 0,
 }));
 
 // Cotação de material (spec 0019): por padrão, nenhuma executada.
 vi.mock('@/models/CotacaoMaterial', () => ({
   CotacaoMaterialModel: {
-    find: (filtro: unknown) => {
+    find: (filtro: Record<string, unknown>) => {
+      // A busca das checagens com `usar` (spec 0024) é a outra leitura do mesmo modelo.
+      if ('checagem.itens.resultado' in filtro) {
+        banco.filtroChecagem = filtro;
+        banco.checagensLidas += 1;
+        return { select: () => ({ lean: async () => banco.checadas }) };
+      }
       banco.filtroCotacaoMaterial = filtro;
       return { select: () => ({ lean: async () => banco.cotacoesMaterial }) };
     },
@@ -106,6 +115,9 @@ beforeEach(() => {
   banco.filtroCotacao = null;
   banco.filtroChamado = null;
   banco.cotacoesLidas = 0;
+  banco.checadas = [];
+  banco.filtroChecagem = null;
+  banco.checagensLidas = 0;
   lerInfoDosAtivos.mockReset();
   lerInfoDosAtivos.mockResolvedValue(new Map());
 });
@@ -167,6 +179,90 @@ describe('custoPorAtivo (AC-10)', () => {
     ]);
     expect(r.get('a1')?.totalCentavos).toBe(5);
     expect(r.get('a2')?.totalCentavos).toBe(9);
+  });
+});
+
+describe('lerCustosDosChamados · material do almoxarifado (spec 0024, AC-21, AC-22)', () => {
+  const comStatus = (status: string, ativoId = new Types.ObjectId()) => ({
+    ...chamado({ ativoId }),
+    status,
+  });
+
+  it('soma as entradas `usar` só no chamado concluído ou encerrado, e no total', async () => {
+    // Arrange
+    const concluido = comStatus('concluído');
+    const encerrado = comStatus('encerrado');
+    const emAtendimento = comStatus('em atendimento');
+    banco.checadas = [
+      {
+        chamadoId: concluido._id,
+        checagem: {
+          itens: [
+            { resultado: 'usar', valorCentavos: 2000 },
+            { resultado: 'sem_correspondente', valorCentavos: null },
+          ],
+        },
+      },
+      // Duas cotações do mesmo chamado somam.
+      {
+        chamadoId: concluido._id,
+        checagem: { itens: [{ resultado: 'usar', valorCentavos: 500 }] },
+      },
+      {
+        chamadoId: encerrado._id,
+        checagem: { itens: [{ resultado: 'usar', valorCentavos: 700 }] },
+      },
+    ];
+
+    // Act
+    const r = await lerCustosDosChamados([concluido, encerrado, emAtendimento]);
+
+    // Assert
+    expect(r.map((c) => [c.almoxarifadoCentavos, c.totalCentavos])).toEqual([
+      [2500, 2500],
+      [700, 700],
+      [0, 0],
+    ]);
+  });
+
+  it('só busca checagens dos chamados que podem ter a parte', async () => {
+    const concluido = comStatus('concluído');
+    const cancelado = comStatus('cancelado');
+
+    await lerCustosDosChamados([concluido, cancelado]);
+
+    expect(banco.filtroChecagem).toMatchObject({
+      chamadoId: { $in: [concluido._id] },
+      'checagem.itens.resultado': 'usar',
+    });
+  });
+
+  it('sem chamado concluído ou encerrado, nem consulta as checagens', async () => {
+    await lerCustosDosChamados([comStatus('recusado'), comStatus('em atendimento')]);
+
+    expect(banco.checagensLidas).toBe(0);
+  });
+
+  it('a soma por ativo carrega a parte do almoxarifado, a mesma nos quatro lugares', async () => {
+    // Arrange: ficha, IMR, relatório e substituição passam por estas duas funções.
+    const ativo = new Types.ObjectId();
+    const c = {
+      ...comStatus('concluído', ativo),
+      materiaisForaCotacao: [{ quantidade: 1, valorUnitario: 10 }],
+    };
+    banco.checadas = [
+      { chamadoId: c._id, checagem: { itens: [{ resultado: 'usar', valorCentavos: 4200 }] } },
+    ];
+
+    // Act
+    const porAtivo = custoPorAtivo(await lerCustosDosChamados([c]));
+
+    // Assert
+    expect(porAtivo.get(String(ativo))).toEqual({
+      corretivoCentavos: 5200,
+      preventivaCentavos: 0,
+      totalCentavos: 5200,
+    });
   });
 });
 

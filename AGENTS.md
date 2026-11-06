@@ -132,6 +132,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - `documento:vencimento` e `preventiva:lote` (spec 0013) só existem em `Notification`, sem evento do Socket.IO: aparecem no sino na próxima leitura, e `getNotificationUrl`/`getNotificationMeta` precisam conhecer o tipo
 - `interesse:fim` (spec 0017) também só existe em `Notification`: avisa quem acompanha um chamado de outra pessoa quando ele termina, por `notificarFimAosInteressados` (`lib/chamados/interessados.ts`), chamado depois de gravar o status em toda ação que conclui, cancela ou recusa; reabertura chama `zerarAvisoDeFim`. Ação nova que encerra chamado precisa dos dois
 - `material:cotacao` (spec 0019) é o aviso da cotação de material, com evento Socket.IO próprio `material:cotacao_situacao` (`{ cotacaoId, numero, chamadoId, situacao, at, aviso? }`, sem valor; `aviso: 'nota_fiscal'` marca o registro da NF, `aviso: 'pesquisa_completa'` a pesquisa da urgência completa e `aviso: 'pesquisa_atrasada'` a pesquisa da urgência atrasada (rodada diária), que não mudam a situação e não mostram toast) e destino por pessoa no `data` (`cotacoes` ou `chamado`); quem recebe cada situação está em `lib/material/avisos.ts`
+- A checagem do almoxarifado (spec 0024) usa o mesmo evento com mais duas marcas: `aviso: 'retirar_almoxarifado'` (o técnico atribuído retira o material, com a lista de itens só na `Notification`, nunca valor) e `aviso: 'checagem_atrasada'` (os gestores, na rodada diária, uma vez por entrada vencida)
 
 ### SLA
 
@@ -175,6 +176,7 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 - **RelatorioContratoEmissao** (spec 0016): cada PDF do relatório por contrato entregue, com o SHA-256 dos bytes; só é criado
 - **Custo do chamado** (spec 0018): `Chamado.materiaisForaCotacao` (material fora de cotação, até 50 itens) e `Cotacao.valorFinal`/`valorFinalPorUserId`/`valorFinalEm`; só saem em endpoint de gestão, nunca para solicitante nem técnico. O custo do ativo nunca é gravado: sai na leitura de `lib/ativos/custo.ts`
 - **CotacaoMaterial** e companhia (spec 0019): `CotacaoMaterial`, `CotacaoMaterialEvento` (trilha), `ArquivoCotacao`, `Empenho`, `DesignacaoMaterial`, `FaixaCompetencia`, `MaterialConfig` e `CotacaoMaterialPdfEmissao` (fatia 2), todos com nome de coleção explícito. Trilha, designações, faixas, emissões de PDF e tentativas de envio (`CotacaoMaterialTentativa`, fatia 5) são só de inclusão (`models/_somente-inclusao.ts`). O valor executado entra no custo do chamado e do ativo por `lerCustosDosChamados`. A `Cotacao` antiga não recebe mais envio (`submitCotacaoAction` recusa); as `enviada` ainda são aprovadas ou recusadas pelo cartão da gestão. A fatia 3 traz `AnexoVItem` (versões por contrato), `AnexoVVigencia` (o ponteiro da versão vigente), `SinapiInsumo`, `SinapiReferencia` (o mês só existe com ela) e `ImportacaoMaterial` (uma aberta por tipo, a pendente expira em 7 dias). A fatia 5 traz `CotacaoMaterialTentativa`, `projecaoNoAto` no evento e `janelaDias`/`parcelaRelevantePercentual` em `MaterialConfig`, editados com histórico na aba Parâmetros. Regras em `lib/material/AGENTS.md`
+- **Checagem do almoxarifado** (spec 0024): `CotacaoMaterial.checagem` (entradas por item, só acrescentadas), as situações `em_checagem` e `atendida_almoxarifado`, o papel `almoxarifado` em `DesignacaoMaterial` e `checagemAlmoxarifadoAtiva`/`prazoChecagemDiasUteis` em `MaterialConfig` (interruptor desligado por padrão). O material usado do estoque entra no custo como `almoxarifadoCentavos`, só de chamado `concluído` ou `encerrado`, por `lerCustosDosChamados`. Regras em `lib/material/AGENTS.md`
 - **IMR do contrato** (spec 0023): `ImrMarcacao`, `ImrFechamento`, `ImrReabertura` e `ImrFechamentoPdfEmissao`, todos só de inclusão e com nome de coleção explícito (`imr_*`); `CotacaoMaterial.fornecimentoAte` e `MaterialConfig.prazoFornecimentoDiasUteis` alimentam o indicador 4. Regras em `lib/imr-contrato/AGENTS.md`
 
 ### Relatório IMR (Índice de Medição de Resultados)
@@ -308,6 +310,11 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 
 - `SMTP_HOST`, `SMTP_PORT` (padrão 587), `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `SMTP_FROM` (padrão `sigma@ap.trf1.gov.br`). Sem `SMTP_HOST`, o envio de e-mail fica desligado e o app segue (`lib/email/transporter.ts`)
 
+### SICAM (opcional: `/.env.local` ou `.env` na VPS)
+
+- `SICAM_GATEWAY_URL` e `SICAM_GATEWAY_SECRET`: o Next chama o `sicam-gateway` para a checagem do almoxarifado (spec 0024). Sem o segredo, o SICAM conta como fora do ar e a tela oferece o registro manual
+- `SICAM_ORACLE_*` e `COMPOSE_PROFILES=sicam` são só do serviço; detalhes em `sicam-gateway/AGENTS.md`
+
 ### Socket Server (`socket-server/.env`)
 
 - `SOCKET_PORT`, `SOCKET_CORS_ORIGIN`, `APP_URL`
@@ -356,12 +363,14 @@ Pattern padrão (ex: `app/(dashboard)/meus-chamados/actions.ts`):
 | Relatório por contrato           | `lib/contratos/` (cálculo, cadastro e PDF), `shared/contratos/`, `app/(dashboard)/relatorios/contrato/`, `app/(dashboard)/configuracoes/contratos/`, `app/api/relatorios/contrato/pdf/route.ts`, `docs/specs/0016-relatorio-mensal-contrato-ativo/`                                                                                                                                                    |
 | Aviso de chamado duplicado       | `lib/assistente/duplicados.ts` (`buscarDuplicados`), `lib/chamados/interessados.ts` (interesse e aviso de fim), `models/ChamadoInteressado.ts`, `app/(dashboard)/conversas/_lib/acompanhar.ts` e `acompanhamento.ts`, `app/(dashboard)/conversas/_components/AvisoDuplicados.tsx`, `docs/specs/0017-aviso-chamado-duplicado/`                                                                          |
 | Cotação de material              | `lib/material/` (ver `lib/material/AGENTS.md`), `shared/material/`, `models/CotacaoMaterial*.ts`, `models/Empenho.ts`, `models/DesignacaoMaterial.ts`, `app/(dashboard)/cotacoes/`, `app/(dashboard)/configuracoes/material/`, `app/(dashboard)/relatorios/material/`, `app/api/cotacoes/`, `app/api/material/importacoes/`, `app/api/cron/material-conciliacao/`, `docs/specs/0019-cotacao-material/` |
+| Checagem do almoxarifado         | `lib/material/checagem.ts` e `sicam.ts`, `shared/material/checagem.ts`, `sicam-gateway/` (ver `sicam-gateway/AGENTS.md`), `app/(dashboard)/cotacoes/_components/checagem/`, `app/api/cotacoes/[id]/checagem/materiais/`, `e2e/fixtures/sicam-falso.ts`, `docs/specs/0024-checagem-almoxarifado-cotacao/`                                                                                               |
 | IMR do contrato                  | `lib/imr-contrato/` (ver `lib/imr-contrato/AGENTS.md`), `shared/imr-contrato/`, `lib/dias-uteis/` (prazos em dias úteis), `models/Imr*.ts`, `app/(dashboard)/relatorios/imr-contrato/`, `app/api/relatorios/imr-contrato/pdf/route.ts`, `docs/specs/0023-imr-contrato-indicadores/`                                                                                                                    |
 
 ## CI/CD
 
 - **CI** (GitHub Actions): lint + build (Next.js e socket-server) em todo push/PR na `main` (`.github/workflows/ci.yml`)
 - **CI** também roda, como jobs separados: testes unitários (Vitest, com cobertura) e testes E2E (Playwright, com Mongo e seed no runner)
+- **CI** também roda o job `build-sicam-gateway` (spec 0024): `npm ci`, build e testes dentro de `sicam-gateway/`, depois do `static-checks`
 - **CI** também roda o job `static-checks` antes de tudo: ESLint, `prettier --check` (`format:check`) e `tsc --noEmit` (`typecheck`). Build e testes só começam se ele passar, e o E2E espera `build-next` e `unit-tests`
 - **E2E na CI** roda dentro da imagem `mcr.microsoft.com/playwright:v<versão>-noble` (`--user 1001`), sem `apt`: ao subir o `@playwright/test` no `package-lock.json`, a tag da imagem em `ci.yml` sobe junto. Lá dentro o Mongo é `mongodb:27017` (nome do serviço) e o mongosh vem do npm (`npx -y mongosh@2.3.8`); o job tem `timeout-minutes: 25`
 - **CD** (GitHub Actions): deploy automático na VPS via **self-hosted runner** após CI passar (`.github/workflows/deploy.yml`)
@@ -377,6 +386,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - **VPS**: `/opt/severino` — 5 containers: next-app, socket-server, mongodb, nginx, cron (chama `/api/cron/recurring-tickets` a cada 30min)
 - **Documentos (spec 0013)**: o crontab do container `cron` chama também `documentos-vencimento` uma vez por dia; o nginx tem um bloco `location /api/ativos/documentos` com `client_max_body_size 21M` (repetido em `default.tls.conf`); a carga dos tipos roda uma vez com `sudo docker exec -i severino-mongodb-1 mongosh manutencao < scripts/carga-tipos-documento.js` (idempotente, sem dado pessoal)
 - **Material (spec 0019)**: o crontab do container `cron` chama `material-conciliacao` às 06:00 UTC; o nginx tem um bloco `location ~ ^/api/cotacoes/[^/]+/arquivos$` com `client_max_body_size 21M` (repetido em `default.tls.conf`). Antes de usar, o Admin cadastra empenho, faixas e designações em `/configuracoes/material`; sem isso nada é aprovado
+- **Checagem do almoxarifado (spec 0024)**: um sexto container, `sicam-gateway`, fica no perfil `sicam` do `docker-compose.yml` (sem porta publicada, só a rede `sigma`) e só sobe com `COMPOSE_PROFILES=sicam` no `.env`; o `next-app` precisa ser recriado junto para ler `SICAM_GATEWAY_SECRET`. Passo a passo, inclusive a conferência da rede até o Oracle, em `DOCKER_PRODUCAO.md`
 - Todos os 5 containers têm `healthcheck` no `docker-compose.yml`; nginx expõe `/healthz`
 - **Nginx** como proxy reverso na porta 80 (`/` → Next, `/socket.io/` → Socket)
 - **Deploy automático**: push na `main` dispara CI/CD (ver seção CI/CD acima)
@@ -423,6 +433,7 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - [axe-core](.agents/skills/axe-core/): `claude-dev-suite/claude-dev-suite`, o motor axe-core em geral (regras, tags WCAG, integração com Playwright, Jest e Vitest)
 - MCP servers: nenhum para as ferramentas de teste (`@testing-library/*`, `jsdom`); são de desenvolvimento local e não têm servidor público. Busca feita em 18/09/2026, não vale repetir.
 - Declined: servidor MCP de axe (só achados de terceiros em agregadores, sem repositório oficial da Deque; o E2E com `@axe-core/playwright` já cobre). Busca feita em 22/10/2026, não vale repetir.
+- Declined: skill e servidor MCP para `oracledb` e Oracle (`sicam-gateway`, spec 0024): nada específico para o modo Thick com a versão do banco, e nenhum servidor publicado pela Oracle. Busca feita em 04/11/2026, não vale repetir.
 - Declined: `barcode-detector` (leitura da câmera em `/ativos/ler`, spec 0011), `idb` (fila offline da vistoria, spec 0012)
 
 ## Context files
@@ -438,4 +449,5 @@ Documentação completa em `DOCKER_PRODUCAO.md`. Resumo:
 - [lib/ativos/AGENTS.md](lib/ativos/AGENTS.md): a gestão de ativos, com árvore de locais, cadastro e histórico, regras do seletor, carga do Tier A e leitura de etiqueta
 - [lib/contratos/AGENTS.md](lib/contratos/AGENTS.md): contratos e o relatório mensal por contrato, com a paridade com o IMR, a emissão do PDF e a skill `react-pdf`
 - [lib/material/AGENTS.md](lib/material/AGENTS.md): a cotação e o fornecimento de material, com a máquina de estados, o saldo do empenho sem transação, as designações, a visibilidade e os ganchos no ciclo do chamado
+- [sicam-gateway/AGENTS.md](sicam-gateway/AGENTS.md): o serviço que lê o saldo do almoxarifado no Oracle do SICAM, com as rotas, a leitura só com bind e somente leitura, as variáveis e a subida pelo perfil `sicam`
 - [lib/imr-contrato/AGENTS.md](lib/imr-contrato/AGENTS.md): o IMR do contrato (indicadores 3 e 4), com a apuração única, as marcações, o fechamento com foto imutável, a reabertura e o PDF

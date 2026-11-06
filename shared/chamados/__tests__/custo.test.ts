@@ -212,6 +212,28 @@ describe('conta em centavos, mais casos (AC-9)', () => {
     });
   });
 
+  it('soma a parte do almoxarifado no total, separada das outras (spec 0024, AC-21)', () => {
+    expect(
+      custoDoChamado({
+        cotacoes: [{ status: 'aprovada', valorEstimado: 100 }],
+        materiais: [{ quantidade: 2, valorUnitario: 5 }],
+        cotacoesMaterialCentavos: [300],
+        almoxarifadoCentavos: 4200,
+      }),
+    ).toEqual({
+      cotacoesCentavos: 10300,
+      materialCentavos: 1000,
+      almoxarifadoCentavos: 4200,
+      totalCentavos: 15500,
+    });
+  });
+
+  it('sem a parte informada, o almoxarifado vale zero (chamado de antes da 0024)', () => {
+    const r = custoDoChamado({ cotacoes: [], materiais: [{ quantidade: 1, valorUnitario: 3 }] });
+    expect(r.almoxarifadoCentavos).toBe(0);
+    expect(r.totalCentavos).toBe(300);
+  });
+
   it('formata zero e centavos soltos com duas casas', () => {
     expect(formatarReais(0).replace(/\s/g, ' ')).toBe('R$ 0,00');
     expect(formatarReais(5).replace(/\s/g, ' ')).toBe('R$ 0,05');
