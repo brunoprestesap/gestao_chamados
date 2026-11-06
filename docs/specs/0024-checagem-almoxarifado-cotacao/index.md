@@ -1,7 +1,7 @@
 # 0024. Checagem do almoxarifado antes da cotação
 
 **Date**: 2026-11-04
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

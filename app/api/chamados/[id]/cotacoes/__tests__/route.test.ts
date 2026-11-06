@@ -8,15 +8,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockVerifySession = vi.fn();
 // Cotação de material (spec 0019): por padrão, nenhuma executada.
-const material = vi.hoisted(() => ({ executadas: [] as object[] }));
+// A busca das checagens com `usar` (spec 0024) devolve `checadas`; as outras, `executadas`.
+const material = vi.hoisted(() => ({
+  executadas: [] as object[],
+  checadas: [] as object[],
+  checagensLidas: 0,
+}));
 vi.mock('@/models/CotacaoMaterial', () => ({
   CotacaoMaterialModel: {
-    find: () => ({
-      select: () => ({
-        lean: async () => material.executadas,
-        sort: () => ({ lean: async () => material.executadas }),
-      }),
-    }),
+    find: (filtro: Record<string, unknown>) => {
+      const daChecagem = 'checagem.itens.resultado' in filtro;
+      if (daChecagem) material.checagensLidas += 1;
+      const lista = () => (daChecagem ? material.checadas : material.executadas);
+      return {
+        select: () => ({
+          lean: async () => lista(),
+          sort: () => ({ lean: async () => lista() }),
+        }),
+      };
+    },
   },
 }));
 const papeis = vi.hoisted(() => ({ ladoTrf1: false, leitorAdmin: false, contratada: false }));
@@ -88,6 +98,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   estado.chamado = undefined;
   material.executadas = [];
+  material.checadas = [];
+  material.checagensLidas = 0;
   Object.assign(papeis, { ladoTrf1: false, leitorAdmin: false, contratada: false });
 });
 
@@ -128,6 +140,72 @@ describe('GET /api/chamados/[id]/cotacoes · cotação de material executada (sp
     material.executadas = [executada];
     const json = await (await pedir()).json();
     expect(json.materialExecutado).toBeUndefined();
+  });
+});
+
+describe('GET /api/chamados/[id]/cotacoes · material do almoxarifado (spec 0024, AC-22)', () => {
+  const checada = {
+    checagem: {
+      itens: [
+        { resultado: 'usar', valorCentavos: 3000 },
+        { resultado: 'cotar_mesmo_assim', valorCentavos: 9999 },
+        // Item rechecado depois: a entrada `usar` antiga continua contando (AC-21).
+        { resultado: 'usar', valorCentavos: 1500 },
+      ],
+    },
+  };
+  const chamadoCom = (status: string) => ({
+    _id: CHAMADO_ID,
+    solicitanteId: SOLICITANTE_ID,
+    assignedToUserId: TECNICO_ID,
+    status,
+  });
+
+  it('a gestão recebe a soma das entradas `usar` do chamado concluído', async () => {
+    mockVerifySession.mockResolvedValue({ userId: String(PREPOSTO_ID), role: 'Preposto' });
+    estado.chamado = chamadoCom('concluído');
+    material.checadas = [checada];
+
+    const json = await (await pedir()).json();
+
+    expect(json.almoxarifadoCentavos).toBe(4500);
+  });
+
+  it('o Admin recebe a mesma soma no chamado encerrado', async () => {
+    mockVerifySession.mockResolvedValue({ userId: String(new Types.ObjectId()), role: 'Admin' });
+    estado.chamado = chamadoCom('encerrado');
+    material.checadas = [checada];
+
+    const json = await (await pedir()).json();
+
+    expect(json.almoxarifadoCentavos).toBe(4500);
+  });
+
+  it.each(['em atendimento', 'cancelado', 'recusado', 'aguardando terceiros'])(
+    'com o chamado %s, a gestão recebe zero',
+    async (status) => {
+      mockVerifySession.mockResolvedValue({ userId: String(PREPOSTO_ID), role: 'Preposto' });
+      estado.chamado = chamadoCom(status);
+      material.checadas = [checada];
+
+      const json = await (await pedir()).json();
+
+      expect(json.almoxarifadoCentavos).toBe(0);
+    },
+  );
+
+  it.each([
+    ['o solicitante', () => ({ userId: String(SOLICITANTE_ID), role: 'Solicitante' })],
+    ['o técnico atribuído', () => ({ userId: String(TECNICO_ID), role: 'Técnico' })],
+  ])('%s não recebe o campo nem dispara a busca', async (_quem, sessao) => {
+    mockVerifySession.mockResolvedValue(sessao());
+    estado.chamado = chamadoCom('concluído');
+    material.checadas = [checada];
+
+    const json = await (await pedir()).json();
+
+    expect(json).not.toHaveProperty('almoxarifadoCentavos');
+    expect(material.checagensLidas).toBe(0);
   });
 });
 

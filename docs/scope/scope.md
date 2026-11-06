@@ -10,44 +10,45 @@ _São recomendações para manter a construção organizada, não obrigações. 
 
 ## At a glance
 
-| #   | Feature                                            | Phase         | Status      |
-| --- | -------------------------------------------------- | ------------- | ----------- |
-| 1   | Autenticação LDAP e perfis                         | Contexto      | existing    |
-| 2   | Unidades e usuários                                | Contexto      | existing    |
-| 3   | Catálogo de serviços                               | Contexto      | existing    |
-| 4   | Abertura de chamado por formulário                 | Contexto      | existing    |
-| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto      | existing    |
-| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto      | existing    |
-| 7   | SLA, expediente e pausas                           | Contexto      | existing    |
-| 8   | Notificações em tempo real                         | Contexto      | existing    |
-| 9   | Integração com a IA local                          | Foundation    | done        |
-| 10  | Conversa e decisões da IA no banco                 | Foundation    | done        |
-| 11  | Tela de chat de chamados                           | Slice 1       | done        |
-| 12  | Abertura do chamado pela IA                        | Slice 1       | done        |
-| 13  | Andamento e conversa com o técnico                 | Slice 2       | done        |
-| 14  | Calibração da trava de confiança                   | Slice 3       | done        |
-| 15  | Prioridade e SLA automáticos                       | Slice 3       | done        |
-| 16  | Atribuição automática ao técnico                   | Slice 3       | done        |
-| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done        |
-| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done        |
-| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done        |
-| 24  | Importador SICAM e vistoria em campo               | Ativos        | done        |
-| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done        |
-| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done        |
-| 27  | Candidatos à substituição                          | Ativos        | done        |
-| 28  | Relatório mensal por contrato com ativo            | Ativos        | done        |
-| 30  | Custo acumulado por ativo                          | Ativos        | done        |
-| 31  | Cotação e fornecimento de material                 | Material      | done        |
-| 32  | IMR do contrato: indicadores 3 e 4                 | Material      | done        |
-| 33  | Repaginação das telas da cotação de material       | Material      | done        |
-| 34  | Motivo e histórico no cadastro de material         | Material      | done        |
-| 29  | Correções de integridade do chamado                | Ciclo de vida | done        |
-| 20  | Aviso de chamado duplicado                         | Slice 4       | done        |
-| 35  | Decisões do contrato para operar a cotação         | Material      | planned     |
-| 36  | Checagem do almoxarifado antes da cotação          | Material      | in-progress |
-| 18  | Painel de acurácia da IA                           | Slice 3       | planned     |
-| 19  | Fotos no chat                                      | Slice 4       | planned     |
-| 21  | Entrada por voz                                    | Slice 4       | planned     |
+| #   | Feature                                            | Phase         | Status   |
+| --- | -------------------------------------------------- | ------------- | -------- |
+| 1   | Autenticação LDAP e perfis                         | Contexto      | existing |
+| 2   | Unidades e usuários                                | Contexto      | existing |
+| 3   | Catálogo de serviços                               | Contexto      | existing |
+| 4   | Abertura de chamado por formulário                 | Contexto      | existing |
+| 5   | Triagem, classificação e atribuição pelo Preposto  | Contexto      | existing |
+| 6   | Detalhe do chamado: comentários, histórico, anexos | Contexto      | existing |
+| 7   | SLA, expediente e pausas                           | Contexto      | existing |
+| 8   | Notificações em tempo real                         | Contexto      | existing |
+| 9   | Integração com a IA local                          | Foundation    | done     |
+| 10  | Conversa e decisões da IA no banco                 | Foundation    | done     |
+| 11  | Tela de chat de chamados                           | Slice 1       | done     |
+| 12  | Abertura do chamado pela IA                        | Slice 1       | done     |
+| 13  | Andamento e conversa com o técnico                 | Slice 2       | done     |
+| 14  | Calibração da trava de confiança                   | Slice 3       | done     |
+| 15  | Prioridade e SLA automáticos                       | Slice 3       | done     |
+| 16  | Atribuição automática ao técnico                   | Slice 3       | done     |
+| 17  | Revisão das decisões da IA pelo Preposto           | Slice 3       | done     |
+| 22  | Prazo para avaliar e encerramento definitivo       | Ciclo de vida | done     |
+| 23  | Gestão de ativos: cadastro, etiqueta e vínculo     | Ativos        | done     |
+| 24  | Importador SICAM e vistoria em campo               | Ativos        | done     |
+| 25  | Documentos do ativo e preventiva por categoria     | Ativos        | done     |
+| 26  | Ativo pela IA no chat e indicadores no IMR         | Ativos        | done     |
+| 27  | Candidatos à substituição                          | Ativos        | done     |
+| 28  | Relatório mensal por contrato com ativo            | Ativos        | done     |
+| 30  | Custo acumulado por ativo                          | Ativos        | done     |
+| 31  | Cotação e fornecimento de material                 | Material      | done     |
+| 32  | IMR do contrato: indicadores 3 e 4                 | Material      | done     |
+| 33  | Repaginação das telas da cotação de material       | Material      | done     |
+| 34  | Motivo e histórico no cadastro de material         | Material      | done     |
+| 29  | Correções de integridade do chamado                | Ciclo de vida | done     |
+| 20  | Aviso de chamado duplicado                         | Slice 4       | done     |
+| 35  | Decisões do contrato para operar a cotação         | Material      | planned  |
+| 36  | Checagem do almoxarifado antes da cotação          | Material      | done     |
+| 37  | Pausa aberta quando a retomada pela cotação falha  | Material      | planned  |
+| 18  | Painel de acurácia da IA                           | Slice 3       | planned  |
+| 19  | Fotos no chat                                      | Slice 4       | planned  |
+| 21  | Entrada por voz                                    | Slice 4       | planned  |
 
 ## Existing (contexto)
 
@@ -467,8 +468,12 @@ O código da cotação está pronto, mas o uso real depende de respostas do gest
 - [ ] Próxima contratação (o contrato vence em 28/02/2027)
   - [ ] Pendência 10: estágio da instrução da nova contratação, que decide se o fluxo segue no próximo contrato
   - [ ] Levar ao novo TR o prazo de fornecimento explícito e o marco de início do atendimento
+- [ ] Checagem do almoxarifado em uso real (from spec 0024)
+  - [ ] Trocar a conta do `sicam-gateway` pela conta de serviço do DBA, com `SELECT` só nas duas tabelas (hoje roda com a conta do frequenciajus)
+  - [ ] Validar com o almoxarifado, numa linha real, que `VL_ATU / QT_SALDO_ATU` é o preço médio e o que significa `ALMX_QT_RESERVADA`
+  - [ ] Levar a etapa nova às regras do `funcional.md` da 0019 e o desenho ao fiscal e ao gestor
 
-### 36. Checagem do almoxarifado antes da cotação · in-progress
+### 36. Checagem do almoxarifado antes da cotação · done
 
 O material pedido pelo técnico é conferido contra o estoque do almoxarifado do SICAM antes de seguir para a cotação da contratada, para não cotar o que já existe na casa.
 **Done when:** todo pedido de material do técnico passa pela checagem antes da etapa de cotação; o que tem saldo no almoxarifado não segue para cotar sem uma decisão registrada; o resultado da checagem e a data do saldo consultado ficam na trilha da cotação.
@@ -481,8 +486,19 @@ spec [0024](../specs/0024-checagem-almoxarifado-cotacao/index.md) · code in `si
   - [x] Falhas e item novo: registro manual, fiscal, prazo, avisos e `reenviar_checagem` (fatias 3 e 4) · AC-4, AC-12, AC-13, AC-15, AC-16, AC-17, AC-20
   - [x] Custo nos quatro lugares (fatia 5) · AC-21, AC-22, AC-23
   - [x] Visões, PDF, relatório, E2E e implantação (fatias 6 e 7) · AC-1, AC-24, AC-25, AC-27, AC-28, AC-29
-- [ ] Verify it: `/check verify checagem do almoxarifado antes da cotação`
-- [ ] Test it: `/test checagem do almoxarifado antes da cotação`
+- [x] Verify it: `/check verify checagem do almoxarifado antes da cotação`
+  - [ ] Um passo manual ainda aberto no `verify.md`: o Oracle real com a conta de serviço do DBA, a partir da VPS (AC-29), acompanhado na 35. O AC-20 (e-mail e socket sem valor) e o AC-21 (recusa zera a parte) ficaram cobertos por teste
+- [x] Test it: `/test checagem do almoxarifado antes da cotação`
+
+### 37. Pausa do chamado que fica aberta quando a retomada falha
+
+Quando `retomarPelaCotacao` devolve falso, o `pauseLogId` da cotação é limpo mesmo assim e o `PauseLog` do chamado fica aberto, congelando o SLA. Já existia, e a etapa de checagem da 0024 deixa mais frequente (chamado cancelado durante `em_checagem`). from spec 0024
+**Done when:** nenhuma transição da cotação limpa o `pauseLogId` sem a pausa do chamado ter sido fechada; o chamado cancelado ou recusado durante `em_checagem` não deixa pausa aberta; um teste de banco real prova o caso.
+code in `lib/material/transicoes.ts`
+
+- [ ] Build it: `/develop pausa aberta quando a retomada pela cotação falha`
+- [ ] Verify it: `/check verify pausa aberta quando a retomada pela cotação falha`
+- [ ] Test it: `/test pausa aberta quando a retomada pela cotação falha`
 
 ## Slice 3: fechamento
 
@@ -559,6 +575,8 @@ Fora desta passada, guardado para o plano continuar honesto.
 - **Aviso de cron parado**: indicador para o Admin com a contagem de chamados `concluído` de prazo vencido há mais de 1 hora, sinal de que o container `cron` parou · from spec 0010
 - **Reincidências no chamado anterior**: mostrar no chamado anterior a lista dos chamados abertos por "O problema voltou" (o índice `chamadoAnteriorId` já existe) · from spec 0010
 - **Reincidência no IMR ou no painel**: quantos chamados nasceram de "O problema voltou", por serviço e unidade · from spec 0010
+- **Rever o valor da checagem do almoxarifado**: depois de 3 meses ligada, contar checagens com candidato e quanto foi atendido (só 132 materiais têm saldo hoje); decide se o fluxo segue no próximo contrato · from spec 0024
+- **Filtro por grupo do `CO_MAT` na checagem**: limitar a busca aos grupos de predial e ar (3024 e 3025 parecem ser) para tirar falso candidato de material de escritório · from spec 0024
 - **Aviso de mês do IMR sem fechamento**: avisar fiscal e gestor quando um mês terminou e o IMR do contrato ainda não foi fechado · from spec 0023
 - **48 horas corridas ou úteis**: reavaliar o prazo para avaliar depois de um mês de uso, se vencer em fim de semana gerar reclamação · from spec 0010
 - **TLS na produção**: ligar `nginx/default.tls.conf` e `AUTH_COOKIE_SECURE=true`; sem HTTPS a câmera de `/ativos/ler` não funciona (já está na auditoria de 25/05/2026) · from spec 0011
