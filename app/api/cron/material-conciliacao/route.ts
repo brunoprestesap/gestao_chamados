@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server';
 
 import { dbConnect } from '@/lib/db';
 import { avisarChecagensAtrasadas, avisarPesquisasAtrasadas } from '@/lib/material/avisos';
-import { cancelarCotacoesDeChamadosEncerrados } from '@/lib/material/chamado';
+import {
+  cancelarCotacoesDeChamadosEncerrados,
+  fecharPausasDeCotacoesEncerradas,
+} from '@/lib/material/chamado';
 import { conciliarReservas } from '@/lib/material/saldo';
 
 /**
  * Conciliação diária das reservas de empenho (spec 0019, AC-8, AC-12):
  * primeiro termina o cancelamento da cotação de chamado já cancelado ou
- * recusado, depois libera a reserva cuja cotação não está autorizada,
+ * recusado, fecha a pausa do chamado que ficou presa a uma cotação já
+ * encerrada (item 37 do escopo), depois libera a reserva cuja cotação não está autorizada,
  * executada ou atestada. Por fim, avisa os gestores da urgência com a
  * pesquisa de preços atrasada. Chamado pelo container `cron` com `x-cron-secret`.
  */
@@ -25,6 +29,13 @@ async function handler(request: Request) {
       cotacoesCanceladas = (await cancelarCotacoesDeChamadosEncerrados()).canceladas;
     } catch (e) {
       console.error('[cron] cancelamento das cotações de chamado encerrado falhou:', e);
+    }
+    // Item 37 do escopo: a pausa que ficou presa à cotação quando a retomada desistiu.
+    let pausasFechadas: number | null = null;
+    try {
+      pausasFechadas = (await fecharPausasDeCotacoesEncerradas()).fechadas;
+    } catch (e) {
+      console.error('[cron] fechamento das pausas presas às cotações falhou:', e);
     }
     const resumo = await conciliarReservas();
     // O aviso é o menos importante da rodada: a falha só vai para o log.
@@ -45,6 +56,7 @@ async function handler(request: Request) {
       ok: true,
       ...resumo,
       cotacoesCanceladas,
+      pausasFechadas,
       pesquisasAtrasadas,
       checagensAtrasadas,
     });

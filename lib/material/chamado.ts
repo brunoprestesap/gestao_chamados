@@ -8,8 +8,10 @@ import { computeNewResolutionDueAtOnResume } from '@/lib/sla-utils';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoHistoryModel } from '@/models/ChamadoHistory';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
+import { CotacaoMaterialEventoModel } from '@/models/CotacaoMaterialEvento';
 import { PauseLogModel } from '@/models/PauseLog';
 import type { ChamadoHistoryAction } from '@/shared/chamados/history.constants';
+import type { SituacaoCotacao } from '@/shared/material/material.constants';
 import { MSG_CONCLUSAO_COM_COTACAO, MSG_RETOMADA_COM_COTACAO } from '@/shared/material/mensagens';
 
 /**
@@ -86,29 +88,43 @@ export async function retomarPelaCotacao(params: {
   userId: string | null;
   agora: Date;
 }): Promise<boolean> {
+  // A gravação do chamado é condicional ao status lido: se outra ação (o
+  // cancelamento pelo solicitante) muda o chamado no meio, relê e tenta de
+  // novo, e a segunda leitura já cai no fechamento abaixo (item 37 do escopo).
+  for (let tentativa = 0; tentativa < TENTATIVAS_RETOMADA; tentativa++) {
+    const r = await tentarRetomar(params);
+    if (r !== 'corrida') return r;
+  }
+  console.error(
+    `[material] pausa ${params.pauseLogId} do chamado ${params.chamadoId} não retomada depois de ${TENTATIVAS_RETOMADA} tentativas; ela continua presa à cotação.`,
+  );
+  return false;
+}
+
+/** Leituras e gravações da retomada antes de desistir de uma corrida. */
+const TENTATIVAS_RETOMADA = 3;
+
+async function tentarRetomar(params: {
+  chamadoId: string;
+  pauseLogId: string;
+  userId: string | null;
+  agora: Date;
+}): Promise<boolean | 'corrida'> {
   const log = await PauseLogModel.findById(params.pauseLogId).lean();
   if (!log || log.resumedAt) return false;
   const doc = await ChamadoModel.findById(params.chamadoId);
-  if (doc && doc.status !== 'aguardando_terceiros') {
-    // O chamado saiu da pausa por outro caminho (cancelado, recusado): fecha o
-    // registro da pausa da cotação, para ele não ficar aberto para sempre, com
-    // a hora em que o chamado saiu, e não a deste ato (pela rodada diária, a
-    // hora atual inflaria o tempo pausado em até um dia).
-    const fim = await saidaDaPausa(params.chamadoId, doc.status, log.pausedAt, params.agora);
-    const pausedMinutes = Math.max(0, Math.round((fim.getTime() - log.pausedAt.getTime()) / 60000));
-    await PauseLogModel.updateOne(
-      { _id: log._id, resumedAt: { $exists: false } },
-      {
-        $set: {
-          resumedAt: fim,
-          pausedMinutes,
-          ...(params.userId ? { resumedByUserId: new Types.ObjectId(params.userId) } : {}),
-        },
-      },
-    );
+  if (!doc || doc.status !== 'aguardando_terceiros' || !doc.slaPausedAt) {
+    // O chamado saiu da pausa por outro caminho (cancelado, recusado), sumiu ou
+    // perdeu a marca da pausa: fecha o registro da pausa da cotação, para ele
+    // não ficar aberto para sempre, com a hora em que o chamado saiu, e não a
+    // deste ato (pela rodada diária, a hora atual inflaria o tempo pausado em
+    // até um dia).
+    const fim = doc
+      ? await saidaDaPausa(params.chamadoId, doc.status, log.pausedAt, params.agora)
+      : params.agora;
+    await fecharRegistroDaPausa(log._id, log.pausedAt, fim, params.userId);
     return false;
   }
-  if (!doc || !doc.slaPausedAt) return false;
 
   const slaPausedAt = doc.slaPausedAt;
   const agora = params.agora;
@@ -145,7 +161,7 @@ export async function retomarPelaCotacao(params: {
       $unset: { slaPausedAt: 1, pauseReason: 1, pauseDetails: 1 },
     },
   );
-  if (res.modifiedCount === 0) return false;
+  if (res.modifiedCount === 0) return 'corrida';
   await PauseLogModel.updateOne(
     { _id: log._id },
     {
@@ -155,6 +171,52 @@ export async function retomarPelaCotacao(params: {
         ...(params.userId ? { resumedByUserId: new Types.ObjectId(params.userId) } : {}),
       },
     },
+  );
+  return true;
+}
+
+async function fecharRegistroDaPausa(
+  logId: Types.ObjectId,
+  pausedAt: Date,
+  fim: Date,
+  userId: string | null,
+): Promise<void> {
+  const pausedMinutes = Math.max(0, Math.round((fim.getTime() - pausedAt.getTime()) / 60000));
+  await PauseLogModel.updateOne(
+    { _id: logId, resumedAt: { $exists: false } },
+    {
+      $set: {
+        resumedAt: fim,
+        pausedMinutes,
+        ...(userId ? { resumedByUserId: new Types.ObjectId(userId) } : {}),
+      },
+    },
+  );
+}
+
+/**
+ * Solta o `pauseLogId` da cotação só quando a pausa do chamado já está
+ * fechada (ou o registro sumiu). Com ela ainda aberta, a cotação continua
+ * apontando para ela, e o envio seguinte não abre uma segunda pausa. Quem
+ * tenta de novo é a próxima transição que retoma, enquanto a cotação está em
+ * trâmite, ou `fecharPausasDeCotacoesEncerradas`, na rodada diária, quando a
+ * cotação já passou do ponto em que a pausa acaba. A gravação é condicional
+ * ao mesmo `pauseLogId`, para nunca apagar uma pausa nova aberta nesse meio.
+ */
+export async function soltarPausaDaCotacao(
+  cotacaoId: Types.ObjectId | string,
+  pauseLogId: Types.ObjectId | string,
+): Promise<boolean> {
+  const log = await PauseLogModel.findById(pauseLogId).select('resumedAt').lean();
+  if (log && !log.resumedAt) {
+    console.error(
+      `[material] pausa ${String(pauseLogId)} ainda aberta; a cotação ${String(cotacaoId)} continua com ela.`,
+    );
+    return false;
+  }
+  await CotacaoMaterialModel.updateOne(
+    { _id: cotacaoId, pauseLogId: new Types.ObjectId(String(pauseLogId)) },
+    { $set: { pauseLogId: null } },
   );
   return true;
 }
@@ -339,4 +401,116 @@ export async function cancelarCotacoesDeChamadosEncerrados(
     if (lote.length < tamanhoLote) break;
   }
   return { verificadas, canceladas };
+}
+
+/**
+ * Situações em que a pausa da cotação já devia ter acabado: a transição para
+ * elas retoma o chamado (ou, em `executada` e `atestada`, a `autorizada` de
+ * antes retomou). Com o `pauseLogId` ainda gravado, a retomada falhou.
+ */
+const SITUACOES_SEM_PAUSA: readonly SituacaoCotacao[] = [
+  'autorizada',
+  'executada',
+  'atestada',
+  'reprovada',
+  'cancelada',
+  'atendida_almoxarifado',
+];
+
+/** As transições que encerram a pausa da cotação, no evento da trilha. */
+const FIM_DA_PAUSA: readonly SituacaoCotacao[] = [
+  'autorizada',
+  'reprovada',
+  'cancelada',
+  'atendida_almoxarifado',
+];
+
+const ACAO_DO_FIM: Record<
+  string,
+  | 'cotacao_material_autorizada'
+  | 'cotacao_material_reprovada'
+  | 'cotacao_material_cancelada'
+  | 'cotacao_material_atendida_almoxarifado'
+> = {
+  autorizada: 'cotacao_material_autorizada',
+  executada: 'cotacao_material_autorizada',
+  atestada: 'cotacao_material_autorizada',
+  reprovada: 'cotacao_material_reprovada',
+  cancelada: 'cotacao_material_cancelada',
+  atendida_almoxarifado: 'cotacao_material_atendida_almoxarifado',
+};
+
+/**
+ * A nova tentativa da retomada que desistiu (item 37 do escopo): a pausa da
+ * cotação que passou do ponto em que a pausa acaba e ainda guarda o
+ * `pauseLogId` é retomada (ou só fechada, se o chamado já saiu da pausa) com a
+ * hora da transição que devia tê-la encerrado, e não a desta rodada, para o
+ * tempo pausado não crescer até um dia. Roda na conciliação diária, em lotes
+ * pelo `_id` da cotação. Nunca lança por cotação: uma falha só vai para o log.
+ */
+export async function fecharPausasDeCotacoesEncerradas(
+  tamanhoLote = LOTE_RODADA_DIARIA,
+  agora = new Date(),
+): Promise<{ verificadas: number; fechadas: number }> {
+  let verificadas = 0;
+  let fechadas = 0;
+  let depoisDe: Types.ObjectId | null = null;
+  for (;;) {
+    const lote: {
+      _id: Types.ObjectId;
+      chamadoId: Types.ObjectId;
+      numero: string;
+      situacao: SituacaoCotacao;
+      pauseLogId?: Types.ObjectId | null;
+    }[] = await CotacaoMaterialModel.find({
+      situacao: { $in: SITUACOES_SEM_PAUSA },
+      pauseLogId: { $type: 'objectId' },
+      ...(depoisDe ? { _id: { $gt: depoisDe } } : {}),
+    })
+      .sort({ _id: 1 })
+      .limit(tamanhoLote)
+      .select('_id chamadoId numero situacao pauseLogId')
+      .lean();
+    if (lote.length === 0) break;
+    depoisDe = lote[lote.length - 1]._id;
+    for (const cot of lote) {
+      const pauseLogId = cot.pauseLogId;
+      if (!pauseLogId) continue;
+      verificadas++;
+      try {
+        const fim = await CotacaoMaterialEventoModel.findOne({
+          cotacaoId: cot._id,
+          para: { $in: FIM_DA_PAUSA },
+          $expr: { $ne: ['$de', '$para'] },
+        })
+          .sort({ em: -1 })
+          .select('em')
+          .lean();
+        const chamadoId = String(cot.chamadoId);
+        const retomou = await retomarPelaCotacao({
+          chamadoId,
+          pauseLogId: String(pauseLogId),
+          userId: null,
+          // Nunca depois de agora, nem antes da própria pausa (retomar confere).
+          agora: fim?.em && fim.em < agora ? fim.em : agora,
+        });
+        if (await soltarPausaDaCotacao(cot._id, pauseLogId)) fechadas++;
+        if (retomou) {
+          await registrarNoChamado({
+            chamadoId,
+            userId: null,
+            action: ACAO_DO_FIM[cot.situacao],
+            numeroCotacao: cot.numero,
+            statusAnterior: 'aguardando_terceiros',
+            statusNovo: 'em atendimento',
+            texto: 'teve a pausa do chamado encerrada pela conciliação diária',
+          });
+        }
+      } catch (e) {
+        console.error(`[material] fechar a pausa presa à cotação ${String(cot._id)} falhou:`, e);
+      }
+    }
+    if (lote.length < tamanhoLote) break;
+  }
+  return { verificadas, fechadas };
 }

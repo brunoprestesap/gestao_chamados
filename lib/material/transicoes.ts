@@ -62,6 +62,7 @@ import {
   pausarPelaCotacao,
   registrarNoChamado,
   retomarPelaCotacao,
+  soltarPausaDaCotacao,
 } from './chamado';
 import {
   buscarParaChecagem,
@@ -1856,7 +1857,7 @@ async function aplicarEfeitos(p: {
           userId,
           agora,
         });
-        await CotacaoMaterialModel.updateOne({ _id: cot._id }, { $set: { pauseLogId: null } });
+        await soltarPausaDaCotacao(cot._id, cot.pauseLogId);
       }
       await registrarNoChamado({
         chamadoId,
@@ -1916,7 +1917,7 @@ async function aplicarEfeitos(p: {
           userId,
           agora,
         });
-        await CotacaoMaterialModel.updateOne({ _id: cot._id }, { $set: { pauseLogId: null } });
+        await soltarPausaDaCotacao(cot._id, cot.pauseLogId);
       }
       const action =
         para === 'autorizada'
