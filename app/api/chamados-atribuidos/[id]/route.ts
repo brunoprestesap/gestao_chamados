@@ -5,6 +5,9 @@ import { verifySession } from '@/lib/dal';
 import { dbConnect } from '@/lib/db';
 import { normalizeMaterialObservations } from '@/lib/dto-normalizers';
 import { ChamadoModel } from '@/models/Chamado';
+import { UnitModel } from '@/models/unit';
+
+type UnidadeDoChamado = { name: string; floor: string } | null;
 
 function normalizeExecution(e: {
   _id?: unknown;
@@ -42,6 +45,7 @@ function normalizeChamado(
       concludedAt: Date;
     }>;
   },
+  unidade: UnidadeDoChamado,
 ) {
   return {
     _id: String(c._id),
@@ -51,6 +55,8 @@ function normalizeChamado(
     status: c.status,
     solicitanteId: c.solicitanteId ? String(c.solicitanteId) : null,
     unitId: c.unitId ? String(c.unitId) : null,
+    unitName: unidade?.name || null,
+    unitFloor: unidade?.floor || null,
     localExato: c.localExato ?? '',
     tipoServico: c.tipoServico ?? '',
     naturezaAtendimento: c.naturezaAtendimento ?? '',
@@ -106,7 +112,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Não autorizado a acessar este chamado' }, { status: 403 });
   }
 
+  const unitId = (chamado as { unitId?: unknown }).unitId;
+  const unidade: UnidadeDoChamado = unitId
+    ? await UnitModel.findById(unitId).select('name floor').lean<UnidadeDoChamado>()
+    : null;
+
   return NextResponse.json({
-    item: normalizeChamado(chamado as Parameters<typeof normalizeChamado>[0]),
+    item: normalizeChamado(chamado as Parameters<typeof normalizeChamado>[0], unidade),
   });
 }

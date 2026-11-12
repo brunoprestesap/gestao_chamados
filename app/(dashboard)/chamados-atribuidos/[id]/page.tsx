@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Briefcase,
+  Building2,
   CheckCircle2,
   Clock,
   FileText,
@@ -50,6 +51,8 @@ export type ChamadoAtribuidoDetailDTO = {
   status: ChamadoStatus;
   solicitanteId: string | null;
   unitId: string | null;
+  unitName: string | null;
+  unitFloor: string | null;
   localExato: string;
   tipoServico: string;
   naturezaAtendimento: string;
@@ -326,6 +329,28 @@ export default function ChamadoAtribuidoDetailPage({
                     <p className="text-sm font-semibold truncate" title={chamado.grauUrgencia}>
                       {chamado.grauUrgencia}
                     </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-xl bg-muted/20 p-3.5 border border-border/40 transition-colors hover:bg-muted/40">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
+                    <Building2 className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+                      Unidade
+                    </p>
+                    <p className="text-sm font-semibold truncate" title={chamado.unitName ?? ''}>
+                      {chamado.unitName || '—'}
+                    </p>
+                    {chamado.unitFloor && (
+                      <p
+                        className="text-xs text-muted-foreground truncate"
+                        title={chamado.unitFloor}
+                      >
+                        Andar: {chamado.unitFloor}
+                      </p>
+                    )}
                   </div>
                 </div>
 
