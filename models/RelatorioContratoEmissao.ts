@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 /**
  * Cada PDF do relatório por contrato entregue (spec 0016, AC-16 a AC-19).
  * Só é criado, nunca alterado nem apagado. O `_id` nasce antes do PDF e vai
@@ -20,6 +22,9 @@ RelatorioContratoEmissaoSchema.index({ contratoId: 1, mes: 1, geradoEm: -1 });
 export type RelatorioContratoEmissao = InferSchemaType<typeof RelatorioContratoEmissaoSchema>;
 
 export type RelatorioContratoEmissaoDoc = RelatorioContratoEmissao & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+RelatorioContratoEmissaoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.RelatorioContratoEmissao) {
   delete mongoose.models.RelatorioContratoEmissao;

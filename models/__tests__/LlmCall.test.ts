@@ -36,6 +36,7 @@ describe('LlmCallModel', () => {
         'status',
         'task',
         'userId',
+        'orgaoId',
       ].sort(),
     );
   });
@@ -156,8 +157,9 @@ describe('LlmCallModel', () => {
         [{ status: 1, createdAt: -1 }, expect.anything()],
         [{ task: 1, createdAt: -1 }, expect.anything()],
         [{ refType: 1, refId: 1 }, expect.anything()],
+        [{ orgaoId: 1 }, expect.anything()],
       ]),
     );
-    expect(indexes).toHaveLength(4);
+    expect(indexes).toHaveLength(5);
   });
 });

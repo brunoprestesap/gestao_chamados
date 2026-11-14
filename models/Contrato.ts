@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 
 /**
@@ -36,7 +37,8 @@ const ContratoSchema = new Schema(
   { timestamps: true },
 );
 
-ContratoSchema.index({ numeroNormalizado: 1 }, { unique: true });
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+ContratoSchema.index({ orgaoId: 1, numeroNormalizado: 1 }, { unique: true });
 ContratoSchema.index({ tiposServico: 1, vigenciaInicio: 1 });
 
 export type Contrato = InferSchemaType<typeof ContratoSchema>;
@@ -46,6 +48,9 @@ export type ContratoDoc = Contrato & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ContratoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.Contrato) {
   delete mongoose.models.Contrato;

@@ -3,7 +3,7 @@
  * Executar via mongosh dentro do container MongoDB:
  *   docker exec -i sigma-mongodb-1 mongosh manutencao < scripts/seed.js
  *
- * Cria: admin, unidades, usuários, tipos/subtipos de serviço,
+ * Cria: o órgão 1 (SJAP), admin, unidades, usuários, tipos/subtipos de serviço,
  *       catálogo de serviços, SLA configs e calendário comercial.
  *
  * IMPORTANTE: O hash abaixo corresponde à senha "123456" (bcrypt 10 rounds).
@@ -13,6 +13,25 @@
 const HASH_123456 = '$2b$10$.qN9tPuymsN/4izrZvM53OIfxAsBSI4MDxhX8vfEi/BlimF.8WRXK';
 
 const now = new Date();
+
+// -------------------------------------------------------
+// 0. Órgão 1 (spec 0025, AC-1). O mesmo de scripts/criar-orgao-1.js.
+// -------------------------------------------------------
+print('--- Criando o órgão 1 ---');
+const ORGAO_1_ID = ObjectId('000000000000000000000001');
+db.orgaos.createIndex({ sigla: 1 }, { unique: true });
+db.orgaos.updateOne(
+  { _id: ORGAO_1_ID },
+  {
+    $setOnInsert: {
+      sigla: 'SJAP',
+      nome: 'Seção Judiciária do Amapá',
+      ativo: true,
+      criadoEm: now,
+    },
+  },
+  { upsert: true },
+);
 
 // -------------------------------------------------------
 // 1. Unidades — Justiça Federal do Amapá (SJAP/TRF1)

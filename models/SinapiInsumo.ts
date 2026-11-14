@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { SINAPI_REGIME, SINAPI_UF } from '@/shared/material/material.constants';
 
 /**
@@ -18,7 +19,8 @@ const SinapiInsumoSchema = new Schema({
   regime: { type: String, required: true, default: SINAPI_REGIME },
 });
 
-SinapiInsumoSchema.index({ referencia: 1, codigo: 1 }, { unique: true });
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+SinapiInsumoSchema.index({ orgaoId: 1, referencia: 1, codigo: 1 }, { unique: true });
 // Sem reduzir as palavras ao radical: "tubo" não acha "tubulação" por engano.
 SinapiInsumoSchema.index(
   { descricao: 'text' },
@@ -27,6 +29,9 @@ SinapiInsumoSchema.index(
 
 export type SinapiInsumo = InferSchemaType<typeof SinapiInsumoSchema>;
 export type SinapiInsumoDoc = SinapiInsumo & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+SinapiInsumoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.SinapiInsumo) {
   delete mongoose.models.SinapiInsumo;

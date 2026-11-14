@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { TIPOS_ARQUIVO_COTACAO } from '@/shared/material/material.constants';
 
 /**
@@ -24,6 +25,9 @@ ArquivoCotacaoSchema.index({ cotacaoId: 1, tipo: 1, removidoEm: 1 });
 
 export type ArquivoCotacao = InferSchemaType<typeof ArquivoCotacaoSchema>;
 export type ArquivoCotacaoDoc = ArquivoCotacao & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ArquivoCotacaoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.ArquivoCotacao) {
   delete mongoose.models.ArquivoCotacao;

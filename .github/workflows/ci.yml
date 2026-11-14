@@ -232,6 +232,8 @@ jobs:
       LDAP_BIND_DN: ''
       LDAP_BIND_PASSWORD: ''
       E2E_BASE_URL: http://localhost:3000
+      # Spec 0025: o E2E passa para `estrito` na fatia 5, com o seed e as fixtures com órgão.
+      ORGAO_ISOLAMENTO: observacao
       # O `sicam-gateway` falso do E2E da checagem (spec 0024).
       SICAM_GATEWAY_URL: http://localhost:3902
       SICAM_GATEWAY_SECRET: e2e-sicam

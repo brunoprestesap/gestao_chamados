@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 import { hojeEmBelem } from '@/lib/ativos/documentos/situacao';
 import { lerMaterialConfig } from '@/lib/material/config';
 import { calcularFornecimentoAte } from '@/lib/material/fornecimento';
+import { idDoContadorAtual } from '@/lib/orgaos/contador';
 import { ArquivoCotacaoModel } from '@/models/ArquivoCotacao';
 import { AtivoModel } from '@/models/Ativo';
 import { ChamadoModel } from '@/models/Chamado';
@@ -373,13 +374,27 @@ async function nomeDe(userId: string | null): Promise<string | null> {
   return (u?.name as string | undefined) ?? null;
 }
 
+/**
+ * Próximo `COT-<ano>-####` do órgão da operação (spec 0025, AC-12). Dois
+ * upserts simultâneos no primeiro número do ano podem dar E11000 no `_id`, e
+ * aí basta repetir uma vez.
+ */
 async function gerarNumero(agora: Date): Promise<string> {
   const ano = agora.getFullYear();
-  const doc = await ContadorModel.findOneAndUpdate(
-    { _id: `cotacao_material_${ano}` },
-    { $inc: { seq: 1 } },
-    { upsert: true, returnDocument: 'after' },
-  ).lean<{ seq: number }>();
+  const id = await idDoContadorAtual(`cotacao_material_${ano}`);
+  const incrementar = () =>
+    ContadorModel.findOneAndUpdate(
+      { _id: id },
+      { $inc: { seq: 1 } },
+      { upsert: true, returnDocument: 'after' },
+    ).lean<{ seq: number }>();
+  let doc;
+  try {
+    doc = await incrementar();
+  } catch (e) {
+    if ((e as { code?: number }).code !== 11000) throw e;
+    doc = await incrementar();
+  }
   if (!doc) throw new Error('Contador de número de cotação indisponível.');
   return `COT-${ano}-${String(doc.seq).padStart(4, '0')}`;
 }

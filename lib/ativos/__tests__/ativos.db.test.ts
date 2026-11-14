@@ -514,6 +514,7 @@ rodar('ativos, contra o Mongo', () => {
         username: 's',
         role: 'Solicitante',
         isActive: true,
+        orgaoId: '000000000000000000000001',
       });
       expect(doSolicitante?.camposPatrimoniais).toBeUndefined();
       expect(doSolicitante?.historico[0].autor).toBe('Sistema');
@@ -526,6 +527,7 @@ rodar('ativos, contra o Mongo', () => {
         username: 't',
         role: 'Técnico',
         isActive: true,
+        orgaoId: '000000000000000000000001',
       });
       const hrefs = doTecnico?.chamados.map((c) => c.href).filter(Boolean);
       expect(hrefs).toHaveLength(1);
@@ -536,6 +538,7 @@ rodar('ativos, contra o Mongo', () => {
         username: 'p',
         role: 'Preposto',
         isActive: true,
+        orgaoId: '000000000000000000000001',
       });
       expect(daGestao?.camposPatrimoniais?.responsavelNome).toBe('PESSOA FICTICIA');
       expect(daGestao?.chamados.every((c) => c.href?.startsWith('/meus-chamados/'))).toBe(true);
@@ -561,6 +564,7 @@ rodar('ativos, contra o Mongo', () => {
         username: 'u',
         role: role as 'Admin',
         isActive: true,
+        orgaoId: '000000000000000000000001',
       });
 
       for (const role of ['Admin', 'Preposto']) {
@@ -606,6 +610,7 @@ rodar('ativos, contra o Mongo', () => {
         username: 'u',
         role: role as 'Admin',
         isActive: true,
+        orgaoId: '000000000000000000000001',
       });
 
       // Act / Assert
@@ -758,6 +763,7 @@ rodar('ativos, contra o Mongo', () => {
       username: 'p',
       role: 'Preposto',
       isActive: true,
+      orgaoId: '000000000000000000000001',
     });
     expect(f?.historico).toHaveLength(ficha.LIMITE_HISTORICO_FICHA);
     expect(f?.historico[0].observacao).toBe('n104');

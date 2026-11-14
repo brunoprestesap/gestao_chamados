@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import {
   ATIVO_STATUSES,
   COLECOES_ATIVOS,
@@ -100,7 +101,8 @@ const AtivoSchema = new Schema(
   { timestamps: true },
 );
 
-AtivoSchema.index({ codigo: 1 }, { unique: true });
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+AtivoSchema.index({ orgaoId: 1, codigo: 1 }, { unique: true });
 AtivoSchema.index({ categoriaId: 1, status: 1 });
 AtivoSchema.index({ localizacaoId: 1 });
 AtivoSchema.index({ statusCadastro: 1 });
@@ -117,6 +119,9 @@ export type AtivoDoc = Ativo & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+AtivoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.Ativo) {
   delete mongoose.models.Ativo;

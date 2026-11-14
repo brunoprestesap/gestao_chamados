@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import {
   BASES_APLICADAS,
   DECISOES_URGENCIA,
@@ -257,7 +258,8 @@ const CotacaoMaterialSchema = new Schema(
   { timestamps: true },
 );
 
-CotacaoMaterialSchema.index({ numero: 1 }, { unique: true });
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+CotacaoMaterialSchema.index({ orgaoId: 1, numero: 1 }, { unique: true });
 CotacaoMaterialSchema.index(
   { chamadoId: 1 },
   {
@@ -285,6 +287,9 @@ export type CotacaoMaterialDoc = Omit<CotacaoMaterial, 'itens' | 'orcamentos'> &
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+CotacaoMaterialSchema.plugin(pluginOrgao);
 
 if (mongoose.models.CotacaoMaterial) {
   delete mongoose.models.CotacaoMaterial;

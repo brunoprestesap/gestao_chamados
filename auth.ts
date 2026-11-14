@@ -6,10 +6,13 @@ import { z } from 'zod';
 import { authConfig } from '@/auth.config';
 import { dbConnect } from '@/lib/db';
 import { authenticateWithLdap, isLdapConfigured, type LdapUserProfile } from '@/lib/ldap';
+import { comOrgao } from '@/lib/orgaos/contexto';
+import { orgaoDoTokenAntigo } from '@/lib/orgaos/sessao';
 import { escapeRegex } from '@/lib/regex';
 import { UnitModel } from '@/models/unit';
 import { UserModel } from '@/models/user.model';
 import type { UserRole } from '@/shared/auth/auth.constants';
+import { ORGAO_1_ID } from '@/shared/orgaos/orgao.constants';
 
 const AUTH_DEBUG = process.env.LDAP_DEBUG === 'true';
 
@@ -28,6 +31,138 @@ const CredentialsSchema = z.object({
     .transform((v) => v.trim().toLowerCase()),
   password: z.string().min(1),
 });
+
+async function autorizar(credentials: unknown) {
+  console.error('[Auth] ── authorize() chamado ──', {
+    hasCredentials: !!credentials,
+    ldapDebug: process.env.LDAP_DEBUG,
+    ldapUrl: process.env.LDAP_URL ? '(definido)' : '(vazio)',
+    ldapBaseDn: process.env.LDAP_BASE_DN ? '(definido)' : '(vazio)',
+    ldapBindDn: process.env.LDAP_BIND_DN ? '(definido)' : '(vazio)',
+  });
+
+  const parsed = CredentialsSchema.safeParse(credentials);
+  if (!parsed.success) {
+    console.error('[Auth] Validação Zod falhou:', parsed.error.flatten());
+    return null;
+  }
+
+  authDebug(`Tentativa de login: "${parsed.data.username}"`);
+
+  await dbConnect();
+  let user = await UserModel.findOne({ username: parsed.data.username }).lean();
+
+  authDebug(
+    user
+      ? `Usuário encontrado no MongoDB (id: ${String(user._id)}, role: ${user.role}, ativo: ${user.isActive})`
+      : 'Usuário NÃO encontrado no MongoDB',
+  );
+
+  // ── Fase 1: Tentar autenticação LDAP ──
+  let authenticated = false;
+  let ldapProfile: LdapUserProfile | null = null;
+
+  if (isLdapConfigured()) {
+    authDebug('LDAP configurado, tentando autenticação LDAP...');
+    const ldapResult = await authenticateWithLdap(parsed.data.username, parsed.data.password);
+
+    authDebug('Resultado LDAP:', ldapResult.status);
+
+    if (ldapResult.status === 'success') {
+      authenticated = true;
+      ldapProfile = ldapResult.profile;
+    } else if (ldapResult.status === 'invalid_credentials') {
+      // Se o usuário tem senha local (passwordHash), permite fallback
+      // (pode ser colisão de username entre app e AD)
+      if (user?.passwordHash) {
+        authDebug('Senha inválida no LDAP, mas usuário tem senha local → tentando fallback');
+      } else {
+        authDebug('Senha inválida no LDAP → negando acesso (usuário LDAP-only, sem fallback)');
+        return null;
+      }
+    } else if (ldapResult.status === 'error') {
+      // Falha de INFRAESTRUTURA do LDAP (timeout/TLS/rede), não senha inválida.
+      // Política: manter o fallback para senha local (disponibilidade), mas
+      // sinalizar ao operador que a autenticação está degradada — mesmo sem
+      // LDAP_DEBUG ligado, pois indica AD fora do ar.
+      console.warn(
+        `[Auth] LDAP indisponível (status=error) ao autenticar "${parsed.data.username}"; ` +
+          'usando fallback de senha local se disponível.',
+      );
+    }
+    // 'not_found' (usuário não existe no AD) ou 'error' → continua para autenticação local
+  } else {
+    authDebug('LDAP não configurado, usando apenas autenticação local');
+  }
+
+  // ── Fase 2: Auto-provisionar usuário LDAP ──
+  if (authenticated && !user && ldapProfile) {
+    authDebug('Provisionando novo usuário a partir do LDAP...');
+
+    const unitId = ldapProfile.department
+      ? ((
+          await UnitModel.findOne({
+            // Escapa o department do AD: sem isto, metacaracteres de
+            // regex tornam o padrão inválido e quebram o login.
+            name: { $regex: `^${escapeRegex(ldapProfile.department)}$`, $options: 'i' },
+            isActive: true,
+          }).lean()
+        )?._id ?? null)
+      : null;
+
+    authDebug(
+      ldapProfile.department
+        ? `Department AD: "${ldapProfile.department}" → Unit MongoDB: ${unitId ? String(unitId) : 'não encontrada'}`
+        : 'Sem department no AD',
+    );
+
+    const doc = new UserModel({
+      username: parsed.data.username,
+      name: ldapProfile.displayName ?? parsed.data.username,
+      email: ldapProfile.email ?? undefined,
+      role: 'Solicitante',
+      ...(unitId ? { unitId } : {}),
+      isActive: true,
+    });
+    await doc.save();
+
+    user = await UserModel.findById(doc._id).lean();
+    authDebug(`Usuário provisionado com sucesso (id: ${String(doc._id)})`);
+  }
+
+  // Usuário deve existir e estar ativo
+  if (!user || !user.isActive) {
+    authDebug('Acesso negado: usuário inexistente ou inativo');
+    return null;
+  }
+
+  // ── Fase 3: Fallback para senha local ──
+  if (!authenticated && user.passwordHash) {
+    authDebug('Tentando autenticação local (bcrypt)...');
+    authenticated = await bcrypt.compare(parsed.data.password, user.passwordHash);
+    authDebug(authenticated ? 'Autenticação local OK' : 'Senha local inválida');
+  }
+
+  if (!authenticated) {
+    authDebug('Acesso negado: nenhum método de autenticação teve sucesso');
+    return null;
+  }
+
+  authDebug(`Login bem-sucedido: "${user.username}" (role: ${user.role})`);
+
+  return {
+    id: String(user._id),
+    username: user.username,
+    name: user.name ?? user.username,
+    email: user.email ?? null,
+    role: user.role as UserRole,
+    unitId: user.unitId ? String(user.unitId) : null,
+    isActive: user.isActive,
+    // O órgão do usuário (AC-9). Usuário antigo sem o campo só é achado na
+    // observação, e lá ele é do órgão 1 (AC-10).
+    orgaoId: user.orgaoId ? String(user.orgaoId) : ORGAO_1_ID,
+  };
+}
 
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'session';
 const SEVEN_DAYS = 60 * 60 * 24 * 7;
@@ -61,136 +196,9 @@ export const { auth, signIn, signOut, handlers } = initAuth({
         username: { label: 'Matrícula', type: 'text' },
         password: { label: 'Senha', type: 'password' },
       },
-      async authorize(credentials) {
-        console.error('[Auth] ── authorize() chamado ──', {
-          hasCredentials: !!credentials,
-          ldapDebug: process.env.LDAP_DEBUG,
-          ldapUrl: process.env.LDAP_URL ? '(definido)' : '(vazio)',
-          ldapBaseDn: process.env.LDAP_BASE_DN ? '(definido)' : '(vazio)',
-          ldapBindDn: process.env.LDAP_BIND_DN ? '(definido)' : '(vazio)',
-        });
-
-        const parsed = CredentialsSchema.safeParse(credentials);
-        if (!parsed.success) {
-          console.error('[Auth] Validação Zod falhou:', parsed.error.flatten());
-          return null;
-        }
-
-        authDebug(`Tentativa de login: "${parsed.data.username}"`);
-
-        await dbConnect();
-        let user = await UserModel.findOne({ username: parsed.data.username }).lean();
-
-        authDebug(
-          user
-            ? `Usuário encontrado no MongoDB (id: ${String(user._id)}, role: ${user.role}, ativo: ${user.isActive})`
-            : 'Usuário NÃO encontrado no MongoDB',
-        );
-
-        // ── Fase 1: Tentar autenticação LDAP ──
-        let authenticated = false;
-        let ldapProfile: LdapUserProfile | null = null;
-
-        if (isLdapConfigured()) {
-          authDebug('LDAP configurado, tentando autenticação LDAP...');
-          const ldapResult = await authenticateWithLdap(parsed.data.username, parsed.data.password);
-
-          authDebug('Resultado LDAP:', ldapResult.status);
-
-          if (ldapResult.status === 'success') {
-            authenticated = true;
-            ldapProfile = ldapResult.profile;
-          } else if (ldapResult.status === 'invalid_credentials') {
-            // Se o usuário tem senha local (passwordHash), permite fallback
-            // (pode ser colisão de username entre app e AD)
-            if (user?.passwordHash) {
-              authDebug('Senha inválida no LDAP, mas usuário tem senha local → tentando fallback');
-            } else {
-              authDebug(
-                'Senha inválida no LDAP → negando acesso (usuário LDAP-only, sem fallback)',
-              );
-              return null;
-            }
-          } else if (ldapResult.status === 'error') {
-            // Falha de INFRAESTRUTURA do LDAP (timeout/TLS/rede), não senha inválida.
-            // Política: manter o fallback para senha local (disponibilidade), mas
-            // sinalizar ao operador que a autenticação está degradada — mesmo sem
-            // LDAP_DEBUG ligado, pois indica AD fora do ar.
-            console.warn(
-              `[Auth] LDAP indisponível (status=error) ao autenticar "${parsed.data.username}"; ` +
-                'usando fallback de senha local se disponível.',
-            );
-          }
-          // 'not_found' (usuário não existe no AD) ou 'error' → continua para autenticação local
-        } else {
-          authDebug('LDAP não configurado, usando apenas autenticação local');
-        }
-
-        // ── Fase 2: Auto-provisionar usuário LDAP ──
-        if (authenticated && !user && ldapProfile) {
-          authDebug('Provisionando novo usuário a partir do LDAP...');
-
-          const unitId = ldapProfile.department
-            ? ((
-                await UnitModel.findOne({
-                  // Escapa o department do AD: sem isto, metacaracteres de
-                  // regex tornam o padrão inválido e quebram o login.
-                  name: { $regex: `^${escapeRegex(ldapProfile.department)}$`, $options: 'i' },
-                  isActive: true,
-                }).lean()
-              )?._id ?? null)
-            : null;
-
-          authDebug(
-            ldapProfile.department
-              ? `Department AD: "${ldapProfile.department}" → Unit MongoDB: ${unitId ? String(unitId) : 'não encontrada'}`
-              : 'Sem department no AD',
-          );
-
-          const doc = new UserModel({
-            username: parsed.data.username,
-            name: ldapProfile.displayName ?? parsed.data.username,
-            email: ldapProfile.email ?? undefined,
-            role: 'Solicitante',
-            ...(unitId ? { unitId } : {}),
-            isActive: true,
-          });
-          await doc.save();
-
-          user = await UserModel.findById(doc._id).lean();
-          authDebug(`Usuário provisionado com sucesso (id: ${String(doc._id)})`);
-        }
-
-        // Usuário deve existir e estar ativo
-        if (!user || !user.isActive) {
-          authDebug('Acesso negado: usuário inexistente ou inativo');
-          return null;
-        }
-
-        // ── Fase 3: Fallback para senha local ──
-        if (!authenticated && user.passwordHash) {
-          authDebug('Tentando autenticação local (bcrypt)...');
-          authenticated = await bcrypt.compare(parsed.data.password, user.passwordHash);
-          authDebug(authenticated ? 'Autenticação local OK' : 'Senha local inválida');
-        }
-
-        if (!authenticated) {
-          authDebug('Acesso negado: nenhum método de autenticação teve sucesso');
-          return null;
-        }
-
-        authDebug(`Login bem-sucedido: "${user.username}" (role: ${user.role})`);
-
-        return {
-          id: String(user._id),
-          username: user.username,
-          name: user.name ?? user.username,
-          email: user.email ?? null,
-          role: user.role as UserRole,
-          unitId: user.unitId ? String(user.unitId) : null,
-          isActive: user.isActive,
-        };
-      },
+      // Spec 0025 (AC-9): até a spec 41 decidir a descoberta do órgão no login,
+      // toda leitura e gravação do login é do órgão 1.
+      authorize: (credentials: unknown) => comOrgao(ORGAO_1_ID, () => autorizar(credentials)),
     }),
   ],
 
@@ -206,6 +214,7 @@ export const { auth, signIn, signOut, handlers } = initAuth({
         unitId?: string | null;
         isActive?: boolean;
         id?: string;
+        orgaoId?: string;
         [k: string]: unknown;
       };
       user?: {
@@ -214,6 +223,7 @@ export const { auth, signIn, signOut, handlers } = initAuth({
         role?: UserRole;
         unitId?: string | null;
         isActive?: boolean;
+        orgaoId?: string;
       };
     }) {
       if (user) {
@@ -223,6 +233,17 @@ export const { auth, signIn, signOut, handlers } = initAuth({
         token.role = user.role;
         token.unitId = user.unitId ?? null;
         token.isActive = user.isActive;
+        token.orgaoId = user.orgaoId;
+        return token;
+      }
+      // Sessão aberta antes da troca (AC-10): completa o órgão sem pedir login
+      // de novo. Sem órgão possível (estrito e `User` sem o campo), `null`
+      // encerra a sessão.
+      const userId = token.userId ?? token.id;
+      if (!token.orgaoId && userId) {
+        const orgaoId = await orgaoDoTokenAntigo(userId);
+        if (!orgaoId) return null;
+        token.orgaoId = orgaoId;
       }
       return token;
     },
@@ -237,6 +258,7 @@ export const { auth, signIn, signOut, handlers } = initAuth({
           role?: UserRole;
           unitId?: string | null;
           isActive?: boolean;
+          orgaoId?: string;
           [k: string]: unknown;
         };
         [k: string]: unknown;
@@ -248,6 +270,7 @@ export const { auth, signIn, signOut, handlers } = initAuth({
         unitId?: string | null;
         isActive?: boolean;
         id?: string;
+        orgaoId?: string;
       };
     }) {
       if (session.user) {
@@ -256,6 +279,7 @@ export const { auth, signIn, signOut, handlers } = initAuth({
         session.user.role = token.role ?? 'Solicitante';
         session.user.unitId = token.unitId ?? null;
         session.user.isActive = token.isActive ?? true;
+        session.user.orgaoId = token.orgaoId;
       }
       return session;
     },

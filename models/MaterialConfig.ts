@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import {
   CHECAGEM_ATIVA_PADRAO,
   LIMITES_PARAMETROS,
@@ -17,7 +18,7 @@ export const MATERIAL_CONFIG_CHAVE = 'global';
 
 const MaterialConfigSchema = new Schema(
   {
-    chave: { type: String, required: true, default: MATERIAL_CONFIG_CHAVE, unique: true },
+    chave: { type: String, required: true, default: MATERIAL_CONFIG_CHAVE },
     raizCnpjContratada: {
       type: String,
       required: true,
@@ -86,6 +87,11 @@ const MaterialConfigSchema = new Schema(
 
 export type MaterialConfig = InferSchemaType<typeof MaterialConfigSchema>;
 export type MaterialConfigDoc = MaterialConfig & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+MaterialConfigSchema.index({ orgaoId: 1, chave: 1 }, { unique: true });
+MaterialConfigSchema.plugin(pluginOrgao);
 
 if (mongoose.models.MaterialConfig) {
   delete mongoose.models.MaterialConfig;

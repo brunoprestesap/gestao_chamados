@@ -1,4 +1,5 @@
 import { ehChaveDuplicada } from '@/lib/ativos/erros';
+import { idDoContadorAtual } from '@/lib/orgaos/contador';
 import { ChamadoModel } from '@/models/Chamado';
 import { ContadorModel } from '@/models/Contador';
 
@@ -10,14 +11,16 @@ import { dbConnect } from './db';
  *
  * A sequência vem de um `Contador` por ano (`chamado_<ano>`), incrementado com
  * `$inc`, que é atômico: duas aberturas ao mesmo tempo, ou o lote da preventiva
- * por categoria, nunca recebem o mesmo número.
+ * por categoria, nunca recebem o mesmo número. O contador é do órgão da operação
+ * (spec 0025, AC-12): o órgão 1 segue com `chamado_<ano>`, os outros com
+ * `<orgaoId>:chamado_<ano>`, e cada órgão começa a própria sequência.
  */
 export async function generateTicketNumber(): Promise<string> {
   await dbConnect();
 
   const year = new Date().getFullYear();
   const prefix = `CHM-${year}-`;
-  const chave = `chamado_${year}`;
+  const chave = await idDoContadorAtual(`chamado_${year}`);
 
   const incrementar = () =>
     ContadorModel.findOneAndUpdate(
@@ -28,8 +31,9 @@ export async function generateTicketNumber(): Promise<string> {
 
   let doc = await incrementar();
   if (!doc) {
-    // Primeiro número do ano neste banco: o contador parte do maior número já
-    // gravado, para continuar a sequência dos chamados criados antes dele.
+    // Primeiro número do ano neste órgão: o contador parte do maior número já
+    // gravado no órgão (a leitura passa pelo filtro do plugin), para continuar
+    // a sequência dos chamados criados antes dele.
     await semearContador(chave, prefix);
     doc = await incrementar();
   }

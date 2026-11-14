@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { COMMENT_VISIBILITY } from '@/shared/chamados/comment.schemas';
 
 const ChamadoCommentSchema = new Schema(
@@ -46,6 +47,9 @@ export type ChamadoCommentDoc = ChamadoComment & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ChamadoCommentSchema.plugin(pluginOrgao);
 
 export const ChamadoCommentModel: Model<ChamadoComment> =
   (mongoose.models.ChamadoComment as Model<ChamadoComment>) ??

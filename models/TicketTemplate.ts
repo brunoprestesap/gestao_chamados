@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 const TEMPLATE_SCOPES = ['global', 'personal'] as const;
 
 const TicketTemplateSchema = new Schema(
@@ -34,6 +36,9 @@ TicketTemplateSchema.index({ createdByUserId: 1, isActive: 1 });
 export type TicketTemplate = InferSchemaType<typeof TicketTemplateSchema>;
 
 export type TicketTemplateDoc = TicketTemplate & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+TicketTemplateSchema.plugin(pluginOrgao);
 
 if (mongoose.models.TicketTemplate) {
   delete mongoose.models.TicketTemplate;

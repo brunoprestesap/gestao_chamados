@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { PAPEIS_AUTOR } from '@/shared/vistoria/vistoria.constants';
 
 /**
@@ -39,6 +40,9 @@ export type ConferenciaVistoriaDoc = ConferenciaVistoria & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ConferenciaVistoriaSchema.plugin(pluginOrgao);
 
 if (mongoose.models.ConferenciaVistoria) {
   delete mongoose.models.ConferenciaVistoria;

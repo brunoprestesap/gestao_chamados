@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Query, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { TIPOS_MOVIMENTO_EMPENHO } from '@/shared/material/material.constants';
 
 import { EscritaProibidaError } from './_somente-inclusao';
@@ -103,12 +104,16 @@ for (const op of ['replaceOne', 'findOneAndReplace'] as const) {
   });
 }
 
-EmpenhoSchema.index({ numero: 1 }, { unique: true });
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+EmpenhoSchema.index({ orgaoId: 1, numero: 1 }, { unique: true });
 EmpenhoSchema.index({ 'reservas.cotacaoId': 1 });
 EmpenhoSchema.index({ ativo: 1, exercicio: 1 });
 
 export type Empenho = InferSchemaType<typeof EmpenhoSchema>;
 export type EmpenhoDoc = Empenho & { _id: Types.ObjectId; createdAt: Date; updatedAt: Date };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+EmpenhoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.Empenho) {
   delete mongoose.models.Empenho;
