@@ -128,6 +128,26 @@ export async function contextoAtual(): Promise<Contexto | null> {
   return orgaoId ? { tipo: 'orgao', orgaoId, origem: 'sessao' } : null;
 }
 
+/**
+ * Roda `fn` no contexto já capturado (spec 0025, AC-13). Sem contexto, roda
+ * como veio: o plugin decide (falha em `estrito`, órgão 1 em `observacao`).
+ */
+export function noContexto<T>(contexto: Contexto | null, fn: () => Promise<T>): Promise<T> {
+  if (!contexto) return fn();
+  if (contexto.tipo === 'sem') return semOrgao(contexto.motivo, fn);
+  return comOrgao(contexto.orgaoId, fn);
+}
+
+/**
+ * Para disparos sem `await` que tocam o banco depois da resposta (AC-13): a
+ * leitura do contexto começa na hora da chamada, ainda dentro da requisição,
+ * e tudo o que `fn` grava fica no órgão de quem disparou, sem ler o JWT de
+ * novo quando a resposta já saiu.
+ */
+export async function noOrgaoCapturado<T>(fn: () => Promise<T>): Promise<T> {
+  return noContexto(await contextoAtual(), fn);
+}
+
 let modoEmCache: ModoIsolamento | null = null;
 
 /**

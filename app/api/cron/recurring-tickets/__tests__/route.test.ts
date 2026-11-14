@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ERRO_DA_RODADA } from '@/lib/orgaos/cron';
+
+// Spec 0025 (AC-13): a rodada passa por `paraCadaOrgaoAtivo`, com o órgão 1 falso.
+vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
+vi.mock('@/models/Orgao', async () => (await import('@/tests/orgaos-falsos')).orgaosFalsos());
+
 /**
  * O módulo da rota lê CRON_SECRET no nível top-level (const CRON_SECRET = process.env.CRON_SECRET ?? '').
  * Para testar diferentes valores de CRON_SECRET, precisamos resetar os módulos e re-importar dinamicamente.
@@ -110,9 +116,9 @@ describe('POST /api/cron/recurring-tickets — fluxo de sucesso', () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.processed).toBe(3);
-    expect(body.created).toBe(3);
-    expect(body.errors).toBe(0);
+    expect(body.porOrgao.SJAP.processed).toBe(3);
+    expect(body.porOrgao.SJAP.created).toBe(3);
+    expect(body.porOrgao.SJAP.errors).toBe(0);
   });
 
   it('should call processRecurringTickets exactly once', async () => {
@@ -131,7 +137,7 @@ describe('POST /api/cron/recurring-tickets — fluxo de sucesso', () => {
     const response = await POST(makeRequest(VALID_SECRET));
     const body = await response.json();
 
-    expect(body).toMatchObject({
+    expect(body.porOrgao.SJAP).toMatchObject({
       processed: MOCK_REPORT.processed,
       created: MOCK_REPORT.created,
       errors: MOCK_REPORT.errors,
@@ -153,8 +159,8 @@ describe('POST /api/cron/recurring-tickets — fluxo de sucesso', () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.processed).toBe(0);
-    expect(body.details).toContain('Nenhum agendamento pendente.');
+    expect(body.porOrgao.SJAP.processed).toBe(0);
+    expect(body.porOrgao.SJAP.details).toContain('Nenhum agendamento pendente.');
   });
 });
 
@@ -169,10 +175,10 @@ describe('POST /api/cron/recurring-tickets — erros internos', () => {
 
     expect(response.status).toBe(500);
     const body = await response.json();
-    expect(body.error).toBe('DB connection failed');
+    expect(body).toEqual({ ok: false, porOrgao: { SJAP: { erro: ERRO_DA_RODADA } } });
   });
 
-  it('should return 500 with generic message when non-Error is thrown', async () => {
+  it('should return 500 with the fixed message when non-Error is thrown', async () => {
     process.env.CRON_SECRET = VALID_SECRET;
     const { POST } = await loadRoute(undefined, 'unexpected failure');
 
@@ -180,7 +186,7 @@ describe('POST /api/cron/recurring-tickets — erros internos', () => {
 
     expect(response.status).toBe(500);
     const body = await response.json();
-    expect(body.error).toBe('Erro interno');
+    expect(body.porOrgao.SJAP).toEqual({ erro: ERRO_DA_RODADA });
   });
 
   it('should return 500 when processRecurringTickets throws with timeout message', async () => {

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ERRO_DA_RODADA } from '@/lib/orgaos/cron';
+
+// Spec 0025 (AC-13): a rodada passa por `paraCadaOrgaoAtivo`, com o órgão 1 falso.
+vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
+vi.mock('@/models/Orgao', async () => (await import('@/tests/orgaos-falsos')).orgaosFalsos());
+
 /**
  * A rota lê `CRON_SECRET` no topo do módulo; cada teste reimporta com o
  * ambiente que precisa, como `app/api/cron/recurring-tickets/__tests__`.
@@ -85,7 +91,10 @@ describe('POST /api/cron/encerramento-automatico', () => {
 
     // Assert
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ encerrados: 2, prazosPreenchidos: 1 });
+    expect(await res.json()).toEqual({
+      ok: true,
+      porOrgao: { SJAP: { encerrados: 2, prazosPreenchidos: 1 } },
+    });
     expect(executar).toHaveBeenCalledOnce();
   });
 
@@ -100,7 +109,7 @@ describe('POST /api/cron/encerramento-automatico', () => {
 
     // Assert
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: 'banco caiu' });
+    expect(await res.json()).toEqual({ ok: false, porOrgao: { SJAP: { erro: ERRO_DA_RODADA } } });
     expect(erro).toHaveBeenCalled();
   });
 });

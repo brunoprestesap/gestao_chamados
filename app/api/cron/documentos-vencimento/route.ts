@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { processarVencimentos } from '@/lib/ativos/documentos/alerta-job';
+import { paraCadaOrgaoAtivo, respostaDaRodada } from '@/lib/orgaos/cron';
 
 export const maxDuration = 60;
 
@@ -14,8 +15,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const relatorio = await processarVencimentos();
-    return NextResponse.json(relatorio);
+    // Spec 0025 (AC-13): uma volta por órgão ativo, cada uma no seu órgão.
+    const resultado = await paraCadaOrgaoAtivo('cron/documentos-vencimento', () =>
+      processarVencimentos(),
+    );
+    return respostaDaRodada(resultado);
   } catch (e) {
     console.error('[cron/documentos-vencimento] erro:', e);
     return NextResponse.json(

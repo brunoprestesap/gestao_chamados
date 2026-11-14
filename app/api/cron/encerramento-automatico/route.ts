@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { executarEncerramentoAutomatico } from '@/lib/chamados/encerramento-automatico';
+import { paraCadaOrgaoAtivo, respostaDaRodada } from '@/lib/orgaos/cron';
 
 export const maxDuration = 60;
 
@@ -17,8 +18,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const resultado = await executarEncerramentoAutomatico();
-    return NextResponse.json(resultado);
+    // Spec 0025 (AC-13): uma volta por órgão ativo, cada uma no seu órgão.
+    const resultado = await paraCadaOrgaoAtivo('cron/encerramento-automatico', () =>
+      executarEncerramentoAutomatico(),
+    );
+    return respostaDaRodada(resultado);
   } catch (e) {
     console.error('[cron/encerramento-automatico] erro:', e);
     return NextResponse.json(

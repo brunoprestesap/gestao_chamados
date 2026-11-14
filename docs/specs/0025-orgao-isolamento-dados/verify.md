@@ -52,7 +52,26 @@ _Passos derivados dos critérios de aceite da spec 0025. O `/check verify` roda 
 - [ ] Número da cotação: a primeira cotação de material do órgão B sai `COT-<ano>-0001` → AC-12
 - [ ] Contador novo de chamado parte do maior número já gravado no próprio órgão, nunca no outro → AC-12
 - [ ] Em `observacao` sem contexto, o contador antigo sem `orgaoId` segue de onde parou (produção de hoje); no banco de desenvolvimento em `estrito`, gerar número falha até a spec 39 preencher o campo → AC-8, AC-12
-- [ ] Rodada do cron, resumo por sigla e gravação tardia: fora desta fatia (fatia 4)
+- [ ] Rodada do cron: as voltas saem de `Orgao` com `ativo: true`, em ordem de sigla; com o órgão B marcado `ativo: false`, a resposta não traz a sigla dele → AC-13
+- [ ] Resumo do cron: a chave de cada órgão em `porOrgao` é a `sigla`, e a falha aparece como `{ erro }` com o texto fixo, sem a mensagem do erro (que fica só no log) → AC-13
+- [ ] Gravação tardia: o órgão é o de quem disparou, lido do JWT no momento do disparo (passo do e-mail e do `LlmCall` abaixo) → AC-13
+
+## Fatia 4: cron por órgão e gravações depois da resposta (adicionado em 14/11/2026)
+
+### Comandos
+
+- [ ] `npx vitest run lib/orgaos/__tests__/cron.test.ts` → passa: cada volta roda no próprio órgão, a falha de um não impede o outro, sem órgão ativo responde 500 → AC-13
+- [ ] `npx vitest run lib/orgaos/__tests__/disparos-tardios.test.ts` → passa: e-mail, aviso de fim aos interessados, os quatro avisos de material, `LlmCall` e o corpo NDJSON da conversa gravam no órgão B mesmo com o `auth()` lançando depois do disparo, e o JWT é lido uma vez só → AC-13, AC-15
+- [ ] `npx vitest run app/api/cron` → passa, com a resposta no formato `{ ok, porOrgao: { SJAP: ... } }` → AC-13
+
+### Manual (dev, com o órgão 1 criado por `scripts/criar-orgao-1.js`)
+
+- [ ] `curl -s -X POST -H "x-cron-secret: $CRON_SECRET" http://localhost:3000/api/cron/sla-monitor` → 200 e `{ "ok": true, "porOrgao": { "SJAP": { ... } } }` → AC-13
+- [ ] Repetir nas outras 4 rotas (`recurring-tickets`, `encerramento-automatico`, `documentos-vencimento`, `material-conciliacao`) → 200, cada uma com o resumo em `porOrgao.SJAP` → AC-13
+- [ ] Criar um órgão B ativo à mão no mongosh (`db.orgaos.insertOne({ sigla: 'TESTEB', nome: 'Teste', ativo: true, criadoEm: new Date() })`) e chamar `sla-monitor` → a resposta traz `SJAP` e `TESTEB`, e nada do órgão 1 é escalonado na volta do B → AC-13
+- [ ] Marcar todos os órgãos `ativo: false` e chamar uma rota → 500 com `{ "ok": false, "porOrgao": {} }` e o log `nenhum órgão ativo` → AC-13
+- [ ] Com o SMTP configurado, encerrar um chamado → o e-mail ao solicitante sai e nenhum `[Orgao:observacao]` de `User.findOne` aparece no log por causa dele → AC-13
+- [ ] Enviar uma mensagem em `/conversas` com a IA ligada → o `LlmCall` gravado tem o `orgaoId` do usuário logado (`db.llmcalls.find().sort({_id:-1}).limit(1)`) → AC-13
 
 ## Acceptance-criteria coverage
 
@@ -63,7 +82,8 @@ _Passos derivados dos critérios de aceite da spec 0025. O `/check verify` roda 
 - AC-14: varredura dos modelos (fatia 2); a varredura de APIs proibidas é da fatia 5
 - AC-11: varredura `indices-unicos.test.ts` e o teste de banco `orgao-unicidade.db.test.ts` (fatia 3)
 - AC-12: `contador.test.ts`, o teste de banco (órgão 1 seguindo, órgão novo do 1, corrida do primeiro número, `MNT`) e Value sourcing (fatia 3)
-- AC-7, AC-13, AC-16: fatias 4 e 5
+- AC-13: `cron.test.ts`, `disparos-tardios.test.ts`, os testes das rotas de cron e os passos manuais da fatia 4
+- AC-7, AC-16: fatia 5
 - AC-8: teste de banco (observação) e passos manuais
 - AC-9, AC-10: passos manuais da sessão e testes de `dal.test.ts` e do banco
-- AC-15: parcial, `Chamado`, `User`, unicidade e contador (os disparos tardios são da fatia 4)
+- AC-15: `Chamado`, `User`, unicidade e contador no banco; um teste por tipo de disparo tardio em `disparos-tardios.test.ts` (fatia 4)

@@ -1,4 +1,5 @@
 import { dbConnect } from '@/lib/db';
+import { noOrgaoCapturado } from '@/lib/orgaos/contexto';
 import type { AllowedEmitEvents } from '@/lib/realtime-emit';
 import { UserModel } from '@/models/user.model';
 import type { ServerToClientEvents } from '@/shared/socket';
@@ -50,7 +51,17 @@ export async function sendNotificationEmail<T extends AllowedEmitEvents>(
   payload: NotificationPayloadByEvent[T],
 ): Promise<boolean> {
   if (!smtpConfigured || !transporter) return false;
+  // Disparado sem `await`: o órgão de quem disparou vale até a leitura do
+  // destinatário, mesmo depois da resposta (spec 0025, AC-13).
+  return noOrgaoCapturado(() => enviarNoOrgao(userId, type, payload));
+}
 
+async function enviarNoOrgao<T extends AllowedEmitEvents>(
+  userId: string,
+  type: T,
+  payload: NotificationPayloadByEvent[T],
+): Promise<boolean> {
+  if (!transporter) return false;
   try {
     await dbConnect();
 

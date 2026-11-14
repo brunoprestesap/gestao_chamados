@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const conciliar = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
+// Spec 0025 (AC-13): a rodada passa por `paraCadaOrgaoAtivo`, com o órgão 1 falso.
+vi.mock('@/models/Orgao', async () => (await import('@/tests/orgaos-falsos')).orgaosFalsos());
 vi.mock('@/lib/material/saldo', () => ({ conciliarReservas: conciliar }));
 const encerrar = vi.hoisted(() => vi.fn());
 const fecharPausas = vi.hoisted(() => vi.fn());
@@ -22,6 +24,8 @@ vi.mock('@/lib/material/avisos', () => ({
   avisarPesquisasAtrasadas: avisarAtrasadas,
   avisarChecagensAtrasadas: avisarChecagens,
 }));
+
+import { ERRO_DA_RODADA } from '@/lib/orgaos/cron';
 
 import { GET, POST } from '../route';
 
@@ -66,12 +70,16 @@ describe('POST /api/cron/material-conciliacao', () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({
       ok: true,
-      verificadas: 4,
-      liberadas: 1,
-      cotacoesCanceladas: 2,
-      pausasFechadas: 1,
-      pesquisasAtrasadas: 1,
-      checagensAtrasadas: 2,
+      porOrgao: {
+        SJAP: {
+          verificadas: 4,
+          liberadas: 1,
+          cotacoesCanceladas: 2,
+          pausasFechadas: 1,
+          pesquisasAtrasadas: 1,
+          checagensAtrasadas: 2,
+        },
+      },
     });
   });
 
@@ -113,7 +121,10 @@ describe('POST /api/cron/material-conciliacao', () => {
     const r = await POST(requisicao(SEGREDO));
     expect(conciliar).toHaveBeenCalledOnce();
     expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ ok: true, liberadas: 1, pausasFechadas: null });
+    expect(await r.json()).toMatchObject({
+      ok: true,
+      porOrgao: { SJAP: { liberadas: 1, pausasFechadas: null } },
+    });
   });
 
   it('falha na rodada de cancelamento não impede a conciliação do dia (AC-8, AC-12)', async () => {
@@ -124,12 +135,16 @@ describe('POST /api/cron/material-conciliacao', () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({
       ok: true,
-      verificadas: 4,
-      liberadas: 1,
-      cotacoesCanceladas: null,
-      pausasFechadas: 1,
-      pesquisasAtrasadas: 1,
-      checagensAtrasadas: 2,
+      porOrgao: {
+        SJAP: {
+          verificadas: 4,
+          liberadas: 1,
+          cotacoesCanceladas: null,
+          pausasFechadas: 1,
+          pesquisasAtrasadas: 1,
+          checagensAtrasadas: 2,
+        },
+      },
     });
   });
 
@@ -138,7 +153,10 @@ describe('POST /api/cron/material-conciliacao', () => {
     avisarAtrasadas.mockRejectedValue(new Error('smtp caiu'));
     const r = await POST(requisicao(SEGREDO));
     expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ ok: true, liberadas: 1, pesquisasAtrasadas: null });
+    expect(await r.json()).toMatchObject({
+      ok: true,
+      porOrgao: { SJAP: { liberadas: 1, pesquisasAtrasadas: null } },
+    });
   });
 
   it('aceita GET também, com a mesma checagem', async () => {
@@ -146,11 +164,11 @@ describe('POST /api/cron/material-conciliacao', () => {
     expect((await GET(requisicao(SEGREDO, 'GET'))).status).toBe(200);
   });
 
-  it('falha da conciliação responde 500 sem detalhe', async () => {
+  it('falha da conciliação responde 500 com o texto fixo do órgão', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     conciliar.mockRejectedValue(new Error('mongo caiu'));
     const r = await POST(requisicao(SEGREDO));
     expect(r.status).toBe(500);
-    expect(await r.json()).toEqual({ ok: false });
+    expect(await r.json()).toEqual({ ok: false, porOrgao: { SJAP: { erro: ERRO_DA_RODADA } } });
   });
 });

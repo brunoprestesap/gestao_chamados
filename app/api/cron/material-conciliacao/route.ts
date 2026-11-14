@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { dbConnect } from '@/lib/db';
 import { avisarChecagensAtrasadas, avisarPesquisasAtrasadas } from '@/lib/material/avisos';
 import {
   cancelarCotacoesDeChamadosEncerrados,
   fecharPausasDeCotacoesEncerradas,
 } from '@/lib/material/chamado';
 import { conciliarReservas } from '@/lib/material/saldo';
+import { paraCadaOrgaoAtivo, respostaDaRodada } from '@/lib/orgaos/cron';
 
 /**
  * Conciliação diária das reservas de empenho (spec 0019, AC-8, AC-12):
@@ -22,48 +22,47 @@ async function handler(request: Request) {
     return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
   }
   try {
-    await dbConnect();
-    // Falha aqui não pode custar a conciliação do dia: ela roda de qualquer jeito.
-    let cotacoesCanceladas: number | null = null;
-    try {
-      cotacoesCanceladas = (await cancelarCotacoesDeChamadosEncerrados()).canceladas;
-    } catch (e) {
-      console.error('[cron] cancelamento das cotações de chamado encerrado falhou:', e);
-    }
-    // Item 37 do escopo: a pausa que ficou presa à cotação quando a retomada desistiu.
-    let pausasFechadas: number | null = null;
-    try {
-      pausasFechadas = (await fecharPausasDeCotacoesEncerradas()).fechadas;
-    } catch (e) {
-      console.error('[cron] fechamento das pausas presas às cotações falhou:', e);
-    }
-    const resumo = await conciliarReservas();
-    // O aviso é o menos importante da rodada: a falha só vai para o log.
-    let pesquisasAtrasadas: number | null = null;
-    try {
-      pesquisasAtrasadas = (await avisarPesquisasAtrasadas()).avisadas;
-    } catch (e) {
-      console.error('[cron] aviso de pesquisa atrasada falhou:', e);
-    }
-    // Spec 0024 (AC-16): a checagem de prazo vencido, só aviso, nada é liberado.
-    let checagensAtrasadas: number | null = null;
-    try {
-      checagensAtrasadas = (await avisarChecagensAtrasadas()).avisadas;
-    } catch (e) {
-      console.error('[cron] aviso de checagem atrasada falhou:', e);
-    }
-    return NextResponse.json({
-      ok: true,
-      ...resumo,
-      cotacoesCanceladas,
-      pausasFechadas,
-      pesquisasAtrasadas,
-      checagensAtrasadas,
-    });
+    // Spec 0025 (AC-13): uma volta por órgão ativo, cada uma no seu órgão.
+    const resultado = await paraCadaOrgaoAtivo('cron/material-conciliacao', conciliarNoOrgao);
+    return respostaDaRodada(resultado);
   } catch (e) {
     console.error('[cron] conciliação de material falhou:', e);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+}
+
+/** A rodada de um órgão; roda dentro do `comOrgao` de `paraCadaOrgaoAtivo`. */
+async function conciliarNoOrgao() {
+  // Falha aqui não pode custar a conciliação do dia: ela roda de qualquer jeito.
+  let cotacoesCanceladas: number | null = null;
+  try {
+    cotacoesCanceladas = (await cancelarCotacoesDeChamadosEncerrados()).canceladas;
+  } catch (e) {
+    console.error('[cron] cancelamento das cotações de chamado encerrado falhou:', e);
+  }
+  // Item 37 do escopo: a pausa que ficou presa à cotação quando a retomada desistiu.
+  let pausasFechadas: number | null = null;
+  try {
+    pausasFechadas = (await fecharPausasDeCotacoesEncerradas()).fechadas;
+  } catch (e) {
+    console.error('[cron] fechamento das pausas presas às cotações falhou:', e);
+  }
+  const resumo = await conciliarReservas();
+  // O aviso é o menos importante da rodada: a falha só vai para o log.
+  let pesquisasAtrasadas: number | null = null;
+  try {
+    pesquisasAtrasadas = (await avisarPesquisasAtrasadas()).avisadas;
+  } catch (e) {
+    console.error('[cron] aviso de pesquisa atrasada falhou:', e);
+  }
+  // Spec 0024 (AC-16): a checagem de prazo vencido, só aviso, nada é liberado.
+  let checagensAtrasadas: number | null = null;
+  try {
+    checagensAtrasadas = (await avisarChecagensAtrasadas()).avisadas;
+  } catch (e) {
+    console.error('[cron] aviso de checagem atrasada falhou:', e);
+  }
+  return { ...resumo, cotacoesCanceladas, pausasFechadas, pesquisasAtrasadas, checagensAtrasadas };
 }
 
 export const GET = handler;

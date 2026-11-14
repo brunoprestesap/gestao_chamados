@@ -20,6 +20,7 @@ import type {
   LlmSampling,
   LlmTaskInput,
 } from '@/lib/llm/types';
+import { type Contexto, contextoAtual, noContexto } from '@/lib/orgaos/contexto';
 
 /**
  * Estado de uma chamada lógica: do início até o registro `LlmCall` e o log `[llm]`.
@@ -73,6 +74,12 @@ export class LlmCallRun {
   private unlinkSignal: (() => void) | null = null;
   private finished = false;
   private readonly effectiveSampling: LlmSampling | null;
+  /**
+   * O órgão de quem chamou, lido no início, ainda dentro da requisição. O
+   * `LlmCall` é gravado no fim, às vezes depois de a resposta já ter saído
+   * (o streaming), e grava nesse órgão (spec 0025, AC-13). Nunca rejeita.
+   */
+  private readonly contexto: Promise<Contexto | null>;
 
   constructor(
     readonly input: LlmTaskInput<unknown>,
@@ -81,6 +88,7 @@ export class LlmCallRun {
   ) {
     this.lane = input.lane ?? 'interactive';
     this.effectiveSampling = resolveSampling(input.sampling);
+    this.contexto = contextoAtual().catch(() => null);
   }
 
   cause(): AbortCause | null {
@@ -188,7 +196,7 @@ export class LlmCallRun {
     const reason = outcome.status === 'failed' ? outcome.reason : null;
 
     if (options.record !== false) {
-      void recordLlmCall({
+      const record: Parameters<typeof recordLlmCall>[0] = {
         callId: this.callId,
         task: this.input.task,
         promptVersion: this.input.promptVersion,
@@ -208,7 +216,8 @@ export class LlmCallRun {
         userId: this.input.userId ?? null,
         refType: this.input.ref?.type ?? null,
         refId: this.input.ref?.id ?? null,
-      });
+      };
+      void this.contexto.then((contexto) => noContexto(contexto, () => recordLlmCall(record)));
     }
 
     console.warn(
