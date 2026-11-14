@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 const NOTIFICATION_TYPES = [
   'ticket:assigned',
   'ticket:new',
@@ -62,6 +64,9 @@ export type NotificationDoc = Notification & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+NotificationSchema.plugin(pluginOrgao);
 
 if (mongoose.models.Notification) {
   delete mongoose.models.Notification;

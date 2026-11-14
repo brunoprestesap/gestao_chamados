@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 export const COTACAO_STATUSES = ['enviada', 'aprovada', 'recusada'] as const;
 export type CotacaoStatus = (typeof COTACAO_STATUSES)[number];
 
@@ -84,6 +86,9 @@ export type CotacaoDoc = Cotacao & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+CotacaoSchema.plugin(pluginOrgao);
 
 export const CotacaoModel: Model<Cotacao> =
   (mongoose.models.Cotacao as Model<Cotacao>) ?? mongoose.model<Cotacao>('Cotacao', CotacaoSchema);

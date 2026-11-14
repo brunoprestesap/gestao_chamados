@@ -31,6 +31,9 @@ services:
       LLM_ENABLED: ${LLM_ENABLED:-true}
       LLM_MAX_CONCURRENCY: ${LLM_MAX_CONCURRENCY:-4}
       LLM_DEBUG: ${LLM_DEBUG:-false}
+      # Spec 0025: `observacao` até a spec 39 preencher o órgão nos dados de hoje.
+      # Em `estrito` sem a migração, os dados antigos somem das telas.
+      ORGAO_ISOLAMENTO: ${ORGAO_ISOLAMENTO:-observacao}
       CRON_SECRET: ${CRON_SECRET}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}

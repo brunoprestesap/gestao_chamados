@@ -34,6 +34,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'vmForks',
+    // Spec 0025: a suíte de antes do órgão roda em `observacao` até a fatia 5
+    // (task 18) passar os testes de banco para `comOrgaoDeTeste`. Os testes de
+    // órgão trocam o modo no próprio arquivo (`usarModo` de tests/orgao-test-env.ts).
+    env: { ORGAO_ISOLAMENTO: 'observacao' },
     // O `.tsx` entra pelos testes de componente. O ambiente de DOM fica por
     // arquivo, num comentário `@vitest-environment jsdom` no topo dele, para
     // o resto da suíte continuar rodando em Node, que é mais rápido.

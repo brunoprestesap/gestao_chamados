@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 /**
  * Configuração única de calibração da trava de confiança (spec 0006). Guarda,
  * por campo (`servico`, `prioridade`), o limite de confiança e a amostra
@@ -25,7 +27,7 @@ const CampoConfigSchema = new Schema(
 
 const IaAutonomiaConfigSchema = new Schema(
   {
-    chave: { type: String, required: true, default: IA_AUTONOMIA_CONFIG_CHAVE, unique: true },
+    chave: { type: String, required: true, default: IA_AUTONOMIA_CONFIG_CHAVE },
     servico: { type: CampoConfigSchema, required: true, default: () => ({}) },
     prioridade: { type: CampoConfigSchema, required: true, default: () => ({}) },
     autonomiaAtiva: { type: Boolean, required: true, default: false },
@@ -47,6 +49,11 @@ export type IaAutonomiaConfigDoc = IaAutonomiaConfig & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+IaAutonomiaConfigSchema.index({ orgaoId: 1, chave: 1 }, { unique: true });
+IaAutonomiaConfigSchema.plugin(pluginOrgao);
 
 if (mongoose.models.IaAutonomiaConfig) {
   delete mongoose.models.IaAutonomiaConfig;

@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { PAPEIS_DESIGNACAO } from '@/shared/material/material.constants';
 
 import { somenteInclusao } from './_somente-inclusao';
@@ -44,6 +45,9 @@ somenteInclusao(DesignacaoMaterialSchema, 'DesignacaoMaterial', [
 
 export type DesignacaoMaterial = InferSchemaType<typeof DesignacaoMaterialSchema>;
 export type DesignacaoMaterialDoc = DesignacaoMaterial & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+DesignacaoMaterialSchema.plugin(pluginOrgao);
 
 if (mongoose.models.DesignacaoMaterial) {
   delete mongoose.models.DesignacaoMaterial;

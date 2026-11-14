@@ -1,5 +1,7 @@
 import mongoose, { type InferSchemaType, type Model, Schema, type Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 const ATTACHMENT_CONTEXTS = ['abertura', 'execucao', 'comentario', 'geral'] as const;
 export type AttachmentContext = (typeof ATTACHMENT_CONTEXTS)[number];
 
@@ -61,6 +63,9 @@ export type AttachmentDoc = Attachment & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+AttachmentSchema.plugin(pluginOrgao);
 
 export const AttachmentModel: Model<Attachment> =
   (mongoose.models.Attachment as Model<Attachment>) ||

@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 /**
  * Um mês do SINAPI já completo (spec 0019, fatia 3): criado só depois de
  * todas as linhas do mês, ele é a chave que torna o mês visível. Os meses são
@@ -13,10 +15,14 @@ const SinapiReferenciaSchema = new Schema({
   em: { type: Date, required: true },
 });
 
-SinapiReferenciaSchema.index({ referencia: 1 }, { unique: true });
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+SinapiReferenciaSchema.index({ orgaoId: 1, referencia: 1 }, { unique: true });
 
 export type SinapiReferencia = InferSchemaType<typeof SinapiReferenciaSchema>;
 export type SinapiReferenciaDoc = SinapiReferencia & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+SinapiReferenciaSchema.plugin(pluginOrgao);
 
 if (mongoose.models.SinapiReferencia) {
   delete mongoose.models.SinapiReferencia;

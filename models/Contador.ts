@@ -1,5 +1,6 @@
 import mongoose, { Model, Schema } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { COLECOES_ATIVOS } from '@/shared/ativos/ativo.constants';
 
 /**
@@ -16,6 +17,9 @@ const ContadorSchema = new Schema(
 );
 
 export type Contador = { _id: string; seq: number };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ContadorSchema.plugin(pluginOrgao);
 
 if (mongoose.models.Contador) {
   delete mongoose.models.Contador;

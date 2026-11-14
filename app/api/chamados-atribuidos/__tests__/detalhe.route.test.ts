@@ -63,6 +63,7 @@ beforeEach(() => {
     username: 'tecnico01',
     unitId: 'e'.repeat(24),
     isActive: true,
+    orgaoId: '000000000000000000000001',
   });
 });
 

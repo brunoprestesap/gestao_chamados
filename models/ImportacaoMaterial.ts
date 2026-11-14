@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import {
   ESTADOS_IMPORTACAO_MATERIAL,
   TIPOS_IMPORTACAO_MATERIAL,
@@ -56,9 +57,16 @@ const ImportacaoMaterialSchema = new Schema(
   { timestamps: true },
 );
 
+// Spec 0025 (AC-11): única dentro do órgão. O nome muda porque o índice antigo
+// (`uma_aberta_por_tipo`, sem órgão) fica no banco até a spec 39, e o mesmo nome
+// com outra chave daria conflito ao criar o novo.
 ImportacaoMaterialSchema.index(
-  { tipo: 1 },
-  { unique: true, partialFilterExpression: { emAberto: true }, name: 'uma_aberta_por_tipo' },
+  { orgaoId: 1, tipo: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { emAberto: true },
+    name: 'uma_aberta_por_tipo_por_orgao',
+  },
 );
 // Só a pendente expira: a que está sendo aplicada, aplicada ou descartada fica.
 ImportacaoMaterialSchema.index(
@@ -77,6 +85,9 @@ export type ImportacaoMaterialDoc = ImportacaoMaterial & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ImportacaoMaterialSchema.plugin(pluginOrgao);
 
 if (mongoose.models.ImportacaoMaterial) {
   delete mongoose.models.ImportacaoMaterial;

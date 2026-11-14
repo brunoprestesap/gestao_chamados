@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { CHAMADO_STATUSES } from '@/shared/chamados/chamado.constants';
 import {
   CHAMADO_HISTORY_ACTIONS,
@@ -83,6 +84,9 @@ export type ChamadoHistoryDoc = ChamadoHistory & {
 
 // Remove o modelo do cache se existir para forçar atualização do schema
 // Isso é necessário quando o schema é atualizado em desenvolvimento
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ChamadoHistorySchema.plugin(pluginOrgao);
+
 if (mongoose.models.ChamadoHistory) {
   delete mongoose.models.ChamadoHistory;
 }
