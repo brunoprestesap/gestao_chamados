@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { COLECOES_ATIVOS, CRITICIDADES } from '@/shared/ativos/ativo.constants';
 import {
   LIMITE_CATEGORIA_MAX,
@@ -44,8 +45,9 @@ const CategoriaAtivoSchema = new Schema(
   { timestamps: true },
 );
 
-CategoriaAtivoSchema.index({ chave: 1 }, { unique: true });
-CategoriaAtivoSchema.index({ nome: 1 }, { unique: true });
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+CategoriaAtivoSchema.index({ orgaoId: 1, chave: 1 }, { unique: true });
+CategoriaAtivoSchema.index({ orgaoId: 1, nome: 1 }, { unique: true });
 
 export type CategoriaAtivo = InferSchemaType<typeof CategoriaAtivoSchema>;
 
@@ -54,6 +56,9 @@ export type CategoriaAtivoDoc = CategoriaAtivo & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+CategoriaAtivoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.CategoriaAtivo) {
   delete mongoose.models.CategoriaAtivo;

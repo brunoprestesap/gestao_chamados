@@ -5,6 +5,7 @@ import { resolve } from 'path';
 
 import { login } from './fixtures/auth';
 import { selectFirstSubtypeAndCatalogService } from './fixtures/new-ticket-dialog';
+import { ORGAO_1 } from './fixtures/orgao';
 
 /**
  * O fio da gestão de ativos (spec 0011): o Preposto digita o tombamento em
@@ -40,6 +41,7 @@ test.describe('Gestão de ativos: etiqueta, ficha e chamado', () => {
       { chave: 'e2e_climatizacao' },
       {
         $setOnInsert: {
+          orgaoId: ORGAO_1,
           chave: 'e2e_climatizacao',
           nome: 'Climatização E2E',
           criticidadePadrao: 'media',
@@ -57,6 +59,7 @@ test.describe('Gestão de ativos: etiqueta, ficha e chamado', () => {
       { codigo: CODIGO },
       {
         $setOnInsert: {
+          orgaoId: ORGAO_1,
           codigo: CODIGO,
           origemCodigo: 'patrimonio',
           tombamento: CODIGO,
@@ -77,6 +80,7 @@ test.describe('Gestão de ativos: etiqueta, ficha e chamado', () => {
       { codigo: CODIGO_TIER_C },
       {
         $setOnInsert: {
+          orgaoId: ORGAO_1,
           codigo: CODIGO_TIER_C,
           origemCodigo: 'patrimonio',
           tombamento: CODIGO_TIER_C,

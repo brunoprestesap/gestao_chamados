@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { idDoContadorAtual } from '@/lib/orgaos/contador';
 import { AtivoModel } from '@/models/Ativo';
 import { AtivoHistoryModel } from '@/models/AtivoHistory';
 import { CategoriaAtivoModel } from '@/models/CategoriaAtivo';
@@ -60,13 +61,15 @@ const ROTULO_CAMPO: Record<string, string> = {
 };
 
 /**
- * Próximo `MNT-####`. `$inc` com upsert é atômico; dois upserts simultâneos
- * na primeira vez podem dar E11000 no `_id`, e aí basta repetir uma vez.
+ * Próximo `MNT-####` do órgão da operação (spec 0025, AC-12). `$inc` com upsert
+ * é atômico; dois upserts simultâneos na primeira vez podem dar E11000 no
+ * `_id`, e aí basta repetir uma vez.
  */
 export async function proximoCodigoInterno(): Promise<string> {
+  const id = await idDoContadorAtual(CONTADOR_ATIVO_MNT);
   const incrementar = () =>
     ContadorModel.findOneAndUpdate(
-      { _id: CONTADOR_ATIVO_MNT },
+      { _id: id },
       { $inc: { seq: 1 } },
       { upsert: true, returnDocument: 'after' },
     ).lean<{ seq: number }>();

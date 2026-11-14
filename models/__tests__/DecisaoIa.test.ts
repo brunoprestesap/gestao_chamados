@@ -88,6 +88,7 @@ describe('DecisaoIaModel', () => {
         'updatedAt',
         'valorFinal',
         'valorIa',
+        'orgaoId',
       ].sort(),
     );
   });

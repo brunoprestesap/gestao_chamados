@@ -15,6 +15,11 @@ vi.mock('@/models/Contador', () => ({ ContadorModel: contador }));
 vi.mock('@/models/Chamado', () => ({ ChamadoModel: chamado }));
 
 import { generateTicketNumber } from '@/lib/chamado-utils';
+import { ORGAO_1_ID } from '@/shared/orgaos/orgao.constants';
+import { comOrgaoDeTeste } from '@/tests/orgao-test-env';
+
+/** A sequência é sempre de um órgão (spec 0025, AC-12): aqui, a do órgão 1. */
+const gerarNoOrgao1 = () => comOrgaoDeTeste(ORGAO_1_ID, generateTicketNumber);
 
 /** `findOneAndUpdate(...).lean()` devolvendo, em ordem, cada valor dado. */
 function incrementos(...valores: Array<{ seq: number } | null>) {
@@ -45,7 +50,7 @@ describe('generateTicketNumber', () => {
     incrementos({ seq: 7 });
 
     // Act
-    const numero = await generateTicketNumber();
+    const numero = await gerarNoOrgao1();
 
     // Assert
     expect(numero).toBe(`CHM-${ano}-00007`);
@@ -62,7 +67,7 @@ describe('generateTicketNumber', () => {
     incrementos({ seq: 123456 });
 
     // Act / Assert
-    await expect(generateTicketNumber()).resolves.toBe(`CHM-${ano}-123456`);
+    await expect(gerarNoOrgao1()).resolves.toBe(`CHM-${ano}-123456`);
   });
 
   it('semeia o contador com o maior número gravado e então incrementa', async () => {
@@ -72,7 +77,7 @@ describe('generateTicketNumber', () => {
     contador.create.mockResolvedValueOnce({});
 
     // Act
-    const numero = await generateTicketNumber();
+    const numero = await gerarNoOrgao1();
 
     // Assert
     expect(contador.create).toHaveBeenCalledWith({ _id: `chamado_${ano}`, seq: 41 });
@@ -86,7 +91,7 @@ describe('generateTicketNumber', () => {
     contador.create.mockResolvedValueOnce({});
 
     // Act
-    await generateTicketNumber();
+    await gerarNoOrgao1();
 
     // Assert
     expect(contador.create).toHaveBeenCalledWith({ _id: `chamado_${ano}`, seq: 0 });
@@ -99,7 +104,7 @@ describe('generateTicketNumber', () => {
     contador.create.mockRejectedValueOnce(Object.assign(new Error('dup'), { code: 11000 }));
 
     // Act / Assert
-    await expect(generateTicketNumber()).resolves.toBe(`CHM-${ano}-00003`);
+    await expect(gerarNoOrgao1()).resolves.toBe(`CHM-${ano}-00003`);
   });
 
   it('propaga outro erro ao semear, sem inventar número', async () => {
@@ -109,7 +114,7 @@ describe('generateTicketNumber', () => {
     contador.create.mockRejectedValueOnce(new Error('banco caiu'));
 
     // Act / Assert
-    await expect(generateTicketNumber()).rejects.toThrow('banco caiu');
+    await expect(gerarNoOrgao1()).rejects.toThrow('banco caiu');
     expect(contador.findOneAndUpdate).toHaveBeenCalledTimes(1);
   });
 
@@ -120,8 +125,6 @@ describe('generateTicketNumber', () => {
     contador.create.mockResolvedValueOnce({});
 
     // Act / Assert
-    await expect(generateTicketNumber()).rejects.toThrow(
-      'Contador de número de chamado indisponível.',
-    );
+    await expect(gerarNoOrgao1()).rejects.toThrow('Contador de número de chamado indisponível.');
   });
 });

@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { PAPEIS_EMISSAO_IMR } from '@/shared/imr-contrato/imr-contrato.constants';
 
 import { somenteInclusao } from './_somente-inclusao';
@@ -23,6 +24,9 @@ somenteInclusao(ImrFechamentoPdfEmissaoSchema, 'ImrFechamentoPdfEmissao');
 
 export type ImrFechamentoPdfEmissao = InferSchemaType<typeof ImrFechamentoPdfEmissaoSchema>;
 export type ImrFechamentoPdfEmissaoDoc = ImrFechamentoPdfEmissao & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ImrFechamentoPdfEmissaoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.ImrFechamentoPdfEmissao) {
   delete mongoose.models.ImrFechamentoPdfEmissao;

@@ -7,6 +7,7 @@ import {
   LLM_FINISH_REASONS,
   LLM_LANES,
 } from '@/lib/llm/types';
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 
 /**
  * Registro de uma chamada lógica ao modelo (spec 0001).
@@ -66,6 +67,9 @@ export type LlmCallDoc = LlmCall & {
   _id: Types.ObjectId;
   createdAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+LlmCallSchema.plugin(pluginOrgao);
 
 if (mongoose.models.LlmCall) {
   delete mongoose.models.LlmCall;

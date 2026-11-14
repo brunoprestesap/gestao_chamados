@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import {
   ATIVO_HISTORY_ACOES,
   ATIVO_HISTORY_ACTOR_TYPES,
@@ -39,6 +40,9 @@ export type AtivoHistoryDoc = AtivoHistory & {
   _id: Types.ObjectId;
   createdAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+AtivoHistorySchema.plugin(pluginOrgao);
 
 if (mongoose.models.AtivoHistory) {
   delete mongoose.models.AtivoHistory;

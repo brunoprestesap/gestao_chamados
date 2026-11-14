@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { COLECOES_ATIVOS } from '@/shared/ativos/ativo.constants';
 import { DOCUMENTO_SITUACOES, LIMITES_ALERTA } from '@/shared/ativos/documento.constants';
 
@@ -78,6 +79,9 @@ export type DocumentoAtivoDoc = DocumentoAtivo & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+DocumentoAtivoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.DocumentoAtivo) {
   delete mongoose.models.DocumentoAtivo;

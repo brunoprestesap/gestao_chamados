@@ -40,7 +40,9 @@ function chaveDuplicada(err: unknown): string | null {
   if (typeof err !== 'object' || err === null) return null;
   const e = err as { code?: number; keyPattern?: Record<string, unknown> };
   if (e.code !== 11000) return null;
-  const chaves = Object.keys(e.keyPattern ?? {});
+  // Desde a spec 0025 o único de valor de negócio vem com `orgaoId` na frente
+  // (`{ orgaoId, ticket_number }`); o campo que colidiu é o outro.
+  const chaves = Object.keys(e.keyPattern ?? {}).filter((c) => c !== 'orgaoId');
   return chaves[0] ?? 'desconhecida';
 }
 

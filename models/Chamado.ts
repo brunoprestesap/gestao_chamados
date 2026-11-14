@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import {
   ATRIBUICAO_MOTIVOS,
   ATRIBUICAO_RESULTADOS,
@@ -235,7 +236,8 @@ const ChamadoSchema = new Schema(
   { timestamps: true },
 );
 
-ChamadoSchema.index({ ticket_number: 1 }, { unique: true });
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
+ChamadoSchema.index({ orgaoId: 1, ticket_number: 1 }, { unique: true });
 ChamadoSchema.index({ solicitanteId: 1, status: 1, createdAt: -1 });
 // Lateral de `/conversas`: os chamados do solicitante por data de mudança. A
 // situação no meio do índice acima impede que ele sirva a esta ordenação.
@@ -286,6 +288,9 @@ ChamadoSchema.index(
   { partialFilterExpression: { iaSituacao: { $type: 'string' } } },
 );
 
+// Spec 0025: todo chamado pertence a um órgão; filtro e carimbo pelo plugin.
+ChamadoSchema.plugin(pluginOrgao);
+
 export type MaterialObservationDoc = {
   _id?: Types.ObjectId;
   description: string;
@@ -321,6 +326,8 @@ export type ServiceRefusalDoc = {
 };
 
 export type Chamado = InferSchemaType<typeof ChamadoSchema> & {
+  /** Acrescentado pelo `pluginOrgao` (spec 0025). */
+  orgaoId?: Types.ObjectId;
   solicitanteId: Types.ObjectId;
   unitId: Types.ObjectId;
   subtypeId?: Types.ObjectId;

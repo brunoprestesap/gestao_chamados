@@ -16,13 +16,18 @@ const TIPOS_DOCUMENTO = [
   { chave: 'garantia', nome: 'Garantia' },
 ];
 
+// Do órgão 1 (spec 0025, AC-16). O filtro aceita também o tipo antigo, ainda
+// sem órgão (antes da migração da spec 39), para não criar um duplicado.
+const ORGAO_1_ID = ObjectId('000000000000000000000001');
+
 let criados = 0;
 for (const t of TIPOS_DOCUMENTO) {
   const agora = new Date();
   const r = db.tiposdocumento.updateOne(
-    { chave: t.chave },
+    { chave: t.chave, orgaoId: { $in: [ORGAO_1_ID, null] } },
     {
       $setOnInsert: {
+        orgaoId: ORGAO_1_ID,
         chave: t.chave,
         nome: t.nome,
         isActive: true,

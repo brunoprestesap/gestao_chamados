@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { FINAL_PRIORITY_VALUES } from '@/shared/chamados/chamado.constants';
 import { TIPO_SERVICO_OPTIONS } from '@/shared/chamados/new-ticket.schemas';
 import {
@@ -120,6 +121,9 @@ export type ConversaDoc = Conversa & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ConversaSchema.plugin(pluginOrgao);
 
 if (mongoose.models.Conversa) {
   delete mongoose.models.Conversa;

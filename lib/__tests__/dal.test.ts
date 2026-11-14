@@ -78,7 +78,14 @@ describe('isAdmin', () => {
 describe('verifySession', () => {
   it('retorna sessão válida quando auth retorna usuário ativo', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '123', username: 'joao', role: 'Admin', unitId: 'unit1', isActive: true },
+      user: {
+        id: '123',
+        username: 'joao',
+        role: 'Admin',
+        unitId: 'unit1',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
 
     const session = await verifySession();
@@ -88,7 +95,16 @@ describe('verifySession', () => {
       role: 'Admin',
       unitId: 'unit1',
       isActive: true,
+      orgaoId: '000000000000000000000001',
     });
+  });
+
+  it('retorna null quando o JWT não tem orgaoId (spec 0025, AC-10)', async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: '123', username: 'joao', role: 'Admin', isActive: true },
+    });
+    expect(await verifySession()).toBeNull();
+    expect(mockFindById).not.toHaveBeenCalled();
   });
 
   it('retorna null quando auth retorna null', async () => {
@@ -98,7 +114,13 @@ describe('verifySession', () => {
 
   it('retorna null quando isActive é false', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '123', username: 'joao', role: 'Admin', isActive: false },
+      user: {
+        id: '123',
+        username: 'joao',
+        role: 'Admin',
+        isActive: false,
+        orgaoId: '000000000000000000000001',
+      },
     });
     expect(await verifySession()).toBeNull();
   });
@@ -112,7 +134,13 @@ describe('verifySession', () => {
 
   it('retorna unitId null quando ausente', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '123', username: 'joao', role: 'Solicitante', isActive: true },
+      user: {
+        id: '123',
+        username: 'joao',
+        role: 'Solicitante',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     const session = await verifySession();
     expect(session!.unitId).toBeNull();
@@ -120,7 +148,13 @@ describe('verifySession', () => {
 
   it('retorna null quando o token é ativo mas o usuário foi desativado no banco', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '123', username: 'joao', role: 'Admin', isActive: true },
+      user: {
+        id: '123',
+        username: 'joao',
+        role: 'Admin',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     mockFindById.mockResolvedValue({ isActive: false });
     expect(await verifySession()).toBeNull();
@@ -128,7 +162,13 @@ describe('verifySession', () => {
 
   it('retorna null quando o usuário não existe mais no banco', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '123', username: 'joao', role: 'Admin', isActive: true },
+      user: {
+        id: '123',
+        username: 'joao',
+        role: 'Admin',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     mockFindById.mockResolvedValue(null);
     expect(await verifySession()).toBeNull();
@@ -136,7 +176,13 @@ describe('verifySession', () => {
 
   it('usa o role fresco do banco quando difere do token', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '123', username: 'joao', role: 'Solicitante', isActive: true },
+      user: {
+        id: '123',
+        username: 'joao',
+        role: 'Solicitante',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     mockFindById.mockResolvedValue({ isActive: true, role: 'Admin' });
     const session = await verifySession();
@@ -149,7 +195,13 @@ describe('verifySession', () => {
 describe('requireSession', () => {
   it('retorna sessão quando autenticado', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '123', username: 'joao', role: 'Admin', isActive: true },
+      user: {
+        id: '123',
+        username: 'joao',
+        role: 'Admin',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     const session = await requireSession();
     expect(session.userId).toBe('123');
@@ -167,7 +219,13 @@ describe('requireSession', () => {
 describe('requireManager', () => {
   it('retorna sessão para Admin', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '1', username: 'admin', role: 'Admin', isActive: true },
+      user: {
+        id: '1',
+        username: 'admin',
+        role: 'Admin',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     const session = await requireManager();
     expect(session.role).toBe('Admin');
@@ -175,7 +233,13 @@ describe('requireManager', () => {
 
   it('retorna sessão para Preposto', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '2', username: 'preposto', role: 'Preposto', isActive: true },
+      user: {
+        id: '2',
+        username: 'preposto',
+        role: 'Preposto',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     const session = await requireManager();
     expect(session.role).toBe('Preposto');
@@ -183,7 +247,13 @@ describe('requireManager', () => {
 
   it('redireciona Solicitante para /dashboard', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '3', username: 'sol', role: 'Solicitante', isActive: true },
+      user: {
+        id: '3',
+        username: 'sol',
+        role: 'Solicitante',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     await expect(requireManager()).rejects.toThrow('REDIRECT:/dashboard');
     expect(redirect).toHaveBeenCalledWith('/dashboard');
@@ -191,7 +261,13 @@ describe('requireManager', () => {
 
   it('redireciona Técnico para /dashboard', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '4', username: 'tec', role: 'Técnico', isActive: true },
+      user: {
+        id: '4',
+        username: 'tec',
+        role: 'Técnico',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     await expect(requireManager()).rejects.toThrow('REDIRECT:/dashboard');
   });
@@ -202,7 +278,13 @@ describe('requireManager', () => {
 describe('requireTechnician', () => {
   it('retorna sessão para Técnico', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '4', username: 'tec', role: 'Técnico', isActive: true },
+      user: {
+        id: '4',
+        username: 'tec',
+        role: 'Técnico',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     const session = await requireTechnician();
     expect(session.role).toBe('Técnico');
@@ -210,7 +292,13 @@ describe('requireTechnician', () => {
 
   it('redireciona Admin para /dashboard', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '1', username: 'admin', role: 'Admin', isActive: true },
+      user: {
+        id: '1',
+        username: 'admin',
+        role: 'Admin',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     await expect(requireTechnician()).rejects.toThrow('REDIRECT:/dashboard');
   });
@@ -221,7 +309,13 @@ describe('requireTechnician', () => {
 describe('requireAdmin', () => {
   it('retorna sessão para Admin', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '1', username: 'admin', role: 'Admin', isActive: true },
+      user: {
+        id: '1',
+        username: 'admin',
+        role: 'Admin',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     const session = await requireAdmin();
     expect(session.role).toBe('Admin');
@@ -229,7 +323,13 @@ describe('requireAdmin', () => {
 
   it('redireciona Preposto para /dashboard', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '2', username: 'preposto', role: 'Preposto', isActive: true },
+      user: {
+        id: '2',
+        username: 'preposto',
+        role: 'Preposto',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     await expect(requireAdmin()).rejects.toThrow('REDIRECT:/dashboard');
     expect(redirect).toHaveBeenCalledWith('/dashboard');
@@ -237,7 +337,13 @@ describe('requireAdmin', () => {
 
   it('redireciona Solicitante para /dashboard', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '3', username: 'sol', role: 'Solicitante', isActive: true },
+      user: {
+        id: '3',
+        username: 'sol',
+        role: 'Solicitante',
+        isActive: true,
+        orgaoId: '000000000000000000000001',
+      },
     });
     await expect(requireAdmin()).rejects.toThrow('REDIRECT:/dashboard');
   });

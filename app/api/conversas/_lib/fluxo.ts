@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import type { RespostaIniciada } from '@/lib/assistente';
 import type { Viewer } from '@/lib/conversas';
 import { verifySession } from '@/lib/dal';
+import { contextoAtual, noContexto } from '@/lib/orgaos/contexto';
 import type { ConversaFalha } from '@/shared/conversas/conversa.constants';
 import { conversaTextoSchema } from '@/shared/conversas/conversa.schemas';
 import { type QuadroResposta, serializarQuadro } from '@/shared/conversas/quadro.schemas';
@@ -82,13 +83,18 @@ export function falha(reason: ConversaFalha): NextResponse {
  */
 export function emQuadros(quadros: AsyncGenerator<QuadroResposta>): Response {
   const encoder = new TextEncoder();
+  // O corpo continua gravando (mensagens, cartão, `LlmCall`) depois de a
+  // resposta começar a sair: o órgão é lido agora e vale até o fim (spec 0025, AC-13).
+  const contexto = contextoAtual().catch(() => null);
 
   const corpo = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const quadro of quadros) {
-          controller.enqueue(encoder.encode(serializarQuadro(quadro)));
-        }
+        await noContexto(await contexto, async () => {
+          for await (const quadro of quadros) {
+            controller.enqueue(encoder.encode(serializarQuadro(quadro)));
+          }
+        });
       } catch (err) {
         // O gerador não lança por falha da IA; se chegou aqui é defeito nosso.
         // A conexão fecha e a tela mostra o que já recebeu, sem quebrar.

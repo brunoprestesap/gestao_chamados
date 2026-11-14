@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ERRO_DA_RODADA } from '@/lib/orgaos/cron';
+
+// Spec 0025 (AC-13): a rodada passa por `paraCadaOrgaoAtivo`, com o órgão 1 falso.
+vi.mock('@/lib/db', () => ({ dbConnect: vi.fn() }));
+vi.mock('@/models/Orgao', async () => (await import('@/tests/orgaos-falsos')).orgaosFalsos());
+
 /**
  * A rota lê `CRON_SECRET` no topo do módulo; cada teste reimporta com o
  * ambiente que precisa, como os outros crons.
@@ -57,15 +63,18 @@ describe('POST /api/cron/documentos-vencimento', () => {
     const { POST } = await carregar();
     const r = await POST(requisicao(SEGREDO));
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ avaliados: 3, avisados: 1, erros: 0 });
+    expect(await r.json()).toEqual({
+      ok: true,
+      porOrgao: { SJAP: { avaliados: 3, avisados: 1, erros: 0 } },
+    });
   });
 
-  it('falha do job responde 500 com a mensagem', async () => {
+  it('falha do job responde 500 com o texto fixo do órgão', async () => {
     process.env.CRON_SECRET = SEGREDO;
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { POST } = await carregar(vi.fn().mockRejectedValue(new Error('mongo caiu')));
     const r = await POST(requisicao(SEGREDO));
     expect(r.status).toBe(500);
-    expect(await r.json()).toEqual({ error: 'mongo caiu' });
+    expect(await r.json()).toEqual({ ok: false, porOrgao: { SJAP: { erro: ERRO_DA_RODADA } } });
   });
 });

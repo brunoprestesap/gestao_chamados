@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { CONVERSA_AUTORES, CONVERSA_MENSAGEM_TIPOS } from '@/shared/conversas/conversa.constants';
 import { CONVERSA_TEXTO_MAX } from '@/shared/conversas/conversa.schemas';
 
@@ -40,6 +41,9 @@ export type ConversaMensagemDoc = ConversaMensagem & {
   _id: Types.ObjectId;
   createdAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ConversaMensagemSchema.plugin(pluginOrgao);
 
 if (mongoose.models.ConversaMensagem) {
   delete mongoose.models.ConversaMensagem;

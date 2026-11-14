@@ -10,6 +10,8 @@ declare module 'next-auth' {
       role: UserRole;
       unitId?: string | null;
       isActive: boolean;
+      /** Spec 0025. Ausente só em sessão aberta antes da troca (AC-10). */
+      orgaoId?: string;
     };
   }
 }
@@ -21,5 +23,6 @@ declare module 'next-auth/jwt' {
     role?: UserRole;
     unitId?: string | null;
     isActive?: boolean;
+    orgaoId?: string;
   }
 }

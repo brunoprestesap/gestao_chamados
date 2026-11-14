@@ -3,6 +3,7 @@ import 'server-only';
 import { Types } from 'mongoose';
 
 import { enviarEmailCotacao } from '@/lib/email/aviso-cotacao';
+import { noOrgaoCapturado } from '@/lib/orgaos/contexto';
 import { emitToRoom } from '@/lib/realtime-emit';
 import { ChamadoModel } from '@/models/Chamado';
 import { CotacaoMaterialModel } from '@/models/CotacaoMaterial';
@@ -85,7 +86,7 @@ async function destinatarios(
   }
 }
 
-export async function avisarSituacao(
+async function avisarSituacaoNoOrgao(
   cotacaoId: string,
   situacao: SituacaoCotacao,
   autorUserId: string | null,
@@ -117,7 +118,7 @@ export async function avisarSituacao(
  * A pesquisa da urgência completou (AC-35): avisa os gestores vigentes, sem
  * valor, como a nota fiscal. A situação não muda, por isso o aviso é próprio.
  */
-export async function avisarPesquisaCompleta(
+async function avisarPesquisaCompletaNoOrgao(
   cotacaoId: string,
   autorUserId: string | null,
 ): Promise<void> {
@@ -196,7 +197,7 @@ export async function avisarPesquisasAtrasadas(agora = new Date()): Promise<{ av
  * vai no `data` e no corpo: descrição, quantidade e unidade, nunca valor. A
  * tela só recarrega, sem toast de situação, como os outros avisos com marca.
  */
-export async function avisarRetirada(
+async function avisarRetiradaNoOrgao(
   cotacaoId: string,
   itens: readonly { descricao: string; quantidade: number; unidade: string }[],
   autorUserId: string | null,
@@ -274,7 +275,7 @@ export async function avisarChecagensAtrasadas(agora = new Date()): Promise<{ av
  * A nota fiscal chegou (AC-22): avisa os gestores vigentes, sem valor. A
  * situação não muda (continua `atestada`), por isso o aviso é próprio.
  */
-export async function avisarNotaFiscal(
+async function avisarNotaFiscalNoOrgao(
   cotacaoId: string,
   autorUserId: string | null,
 ): Promise<void> {
@@ -345,4 +346,47 @@ async function entregar(
     ).catch(() => {});
     void emitToRoom(`user:${String(u._id)}`, 'material:cotacao_situacao', data);
   }
+}
+
+/**
+ * `avisarSituacao` é disparado sem `await`: o órgão de quem disparou é capturado na
+ * chamada e vale até a última gravação (spec 0025, AC-13).
+ */
+export function avisarSituacao(
+  cotacaoId: string,
+  situacao: SituacaoCotacao,
+  autorUserId: string | null,
+): Promise<void> {
+  return noOrgaoCapturado(() => avisarSituacaoNoOrgao(cotacaoId, situacao, autorUserId));
+}
+
+/**
+ * `avisarPesquisaCompleta` é disparado sem `await`: o órgão de quem disparou é capturado na
+ * chamada e vale até a última gravação (spec 0025, AC-13).
+ */
+export function avisarPesquisaCompleta(
+  cotacaoId: string,
+  autorUserId: string | null,
+): Promise<void> {
+  return noOrgaoCapturado(() => avisarPesquisaCompletaNoOrgao(cotacaoId, autorUserId));
+}
+
+/**
+ * `avisarRetirada` é disparado sem `await`: o órgão de quem disparou é capturado na
+ * chamada e vale até a última gravação (spec 0025, AC-13).
+ */
+export function avisarRetirada(
+  cotacaoId: string,
+  itens: readonly { descricao: string; quantidade: number; unidade: string }[],
+  autorUserId: string | null,
+): Promise<void> {
+  return noOrgaoCapturado(() => avisarRetiradaNoOrgao(cotacaoId, itens, autorUserId));
+}
+
+/**
+ * `avisarNotaFiscal` é disparado sem `await`: o órgão de quem disparou é capturado na
+ * chamada e vale até a última gravação (spec 0025, AC-13).
+ */
+export function avisarNotaFiscal(cotacaoId: string, autorUserId: string | null): Promise<void> {
+  return noOrgaoCapturado(() => avisarNotaFiscalNoOrgao(cotacaoId, autorUserId));
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { paraCadaOrgaoAtivo, respostaDaRodada } from '@/lib/orgaos/cron';
 import { checkSlaEscalations } from '@/lib/sla-monitor';
 
 export const maxDuration = 60;
@@ -13,8 +14,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const report = await checkSlaEscalations();
-    return NextResponse.json(report);
+    // Spec 0025 (AC-13): uma volta por órgão ativo, cada uma no seu órgão.
+    const resultado = await paraCadaOrgaoAtivo('cron/sla-monitor', () => checkSlaEscalations());
+    return respostaDaRodada(resultado);
   } catch (e) {
     console.error('[cron/sla-monitor] erro:', e);
     return NextResponse.json(

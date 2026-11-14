@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 /**
  * O ponteiro da versão vigente do Anexo V de cada contrato (spec 0019,
  * fatia 3). Só muda por update condicional `{ contratoId, versao }`, o último
@@ -17,6 +19,9 @@ AnexoVVigenciaSchema.index({ contratoId: 1 }, { unique: true });
 
 export type AnexoVVigencia = InferSchemaType<typeof AnexoVVigenciaSchema>;
 export type AnexoVVigenciaDoc = AnexoVVigencia & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+AnexoVVigenciaSchema.plugin(pluginOrgao);
 
 if (mongoose.models.AnexoVVigencia) {
   delete mongoose.models.AnexoVVigencia;

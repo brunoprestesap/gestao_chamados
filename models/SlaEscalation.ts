@@ -1,5 +1,7 @@
 import mongoose, { type InferSchemaType, type Model, Schema, type Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 const ESCALATION_TYPES = ['warning_80', 'breach_response', 'breach_resolution'] as const;
 const ESCALATION_LEVELS = ['manager', 'admin'] as const;
 
@@ -49,6 +51,9 @@ export type SlaEscalationDoc = SlaEscalation & {
 
 export type EscalationType = (typeof ESCALATION_TYPES)[number];
 export type EscalationLevel = (typeof ESCALATION_LEVELS)[number];
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+SlaEscalationSchema.plugin(pluginOrgao);
 
 if (mongoose.models.SlaEscalation) {
   delete mongoose.models.SlaEscalation;

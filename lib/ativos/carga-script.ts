@@ -6,12 +6,17 @@
  * `$setOnInsert` (categoria por `chave`, ativo por `codigo`, histórico por
  * `{ ativoId, acao: 'cadastro' }`): rodar de novo não cria nem altera nada, e
  * uma execução que caiu no meio é completada pela seguinte.
+ *
+ * Tudo é do órgão 1 (spec 0025, AC-16): o mongosh não passa pelo plugin, então
+ * o `orgaoId` vai explícito. O filtro aceita também o documento antigo sem
+ * `orgaoId` (antes da migração da spec 39), para não duplicar nada.
  */
 import {
   COLECOES_ATIVOS,
   CONTADOR_ATIVO_MNT,
   type Criticidade,
 } from '../../shared/ativos/ativo.constants';
+import { ORGAO_1_ID } from '../../shared/orgaos/orgao.constants';
 import { type AtivoCarga, CATEGORIAS_CARGA } from './carga';
 
 const CAMPOS_DATA = ['dataTombo', 'garantiaInicio', 'garantiaFim'] as const;
@@ -43,13 +48,17 @@ const agora = new Date();
 const CATEGORIAS = ${JSON.stringify(categorias, null, 2)};
 const ATIVOS = ${JSON.stringify(ativos.map(serializarAtivo))};
 const CAMPOS_DATA = ${JSON.stringify(CAMPOS_DATA)};
+const ORGAO_1_ID = ObjectId('${ORGAO_1_ID}');
+// Do órgão 1, ou antigo sem órgão (antes da migração da spec 39).
+const DO_ORGAO_1 = { orgaoId: { $in: [ORGAO_1_ID, null] } };
 
 let categoriasCriadas = 0;
 for (const cat of CATEGORIAS) {
   const r = db.getCollection('${c.categorias}').updateOne(
-    { chave: cat.chave },
+    { chave: cat.chave, ...DO_ORGAO_1 },
     {
       $setOnInsert: {
+        orgaoId: ORGAO_1_ID,
         chave: cat.chave,
         nome: cat.nome,
         criticidadePadrao: cat.criticidadePadrao,
@@ -72,12 +81,12 @@ const categoriaPorChave = {};
 for (const cat of CATEGORIAS) {
   categoriaPorChave[cat.chave] = db
     .getCollection('${c.categorias}')
-    .findOne({ chave: cat.chave }, { _id: 1, criticidadePadrao: 1 });
+    .findOne({ chave: cat.chave, ...DO_ORGAO_1 }, { _id: 1, criticidadePadrao: 1 });
 }
 
 const rc = db.getCollection('${c.contadores}').updateOne(
   { _id: '${CONTADOR_ATIVO_MNT}' },
-  { $setOnInsert: { seq: 0 } },
+  { $setOnInsert: { orgaoId: ORGAO_1_ID, seq: 0 } },
   { upsert: true },
 );
 const contadorCriado = rc.upsertedCount;
@@ -91,9 +100,10 @@ for (const a of ATIVOS) {
     if (patrimoniais[k]) patrimoniais[k] = new Date(patrimoniais[k]);
   }
   const r = db.getCollection('${c.ativos}').updateOne(
-    { codigo: a.codigo },
+    { codigo: a.codigo, ...DO_ORGAO_1 },
     {
       $setOnInsert: {
+        orgaoId: ORGAO_1_ID,
         codigo: a.codigo,
         origemCodigo: a.origemCodigo,
         tombamento: a.tombamento,
@@ -119,11 +129,12 @@ for (const a of ATIVOS) {
   );
   if (r.upsertedCount) ativosCriados++;
 
-  const ativo = db.getCollection('${c.ativos}').findOne({ codigo: a.codigo }, { _id: 1 });
+  const ativo = db.getCollection('${c.ativos}').findOne({ codigo: a.codigo, ...DO_ORGAO_1 }, { _id: 1 });
   const h = db.getCollection('${c.historico}').updateOne(
     { ativoId: ativo._id, acao: 'cadastro' },
     {
       $setOnInsert: {
+        orgaoId: ORGAO_1_ID,
         ativoId: ativo._id,
         acao: 'cadastro',
         actorType: 'sistema',

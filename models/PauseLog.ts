@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { PAUSE_REASONS } from '@/shared/chamados/pause-reason.constants';
 
 const PauseLogSchema = new Schema(
@@ -45,6 +46,9 @@ export type PauseLogDoc = PauseLog & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+PauseLogSchema.plugin(pluginOrgao);
 
 export const PauseLogModel: Model<PauseLog> =
   (mongoose.models.PauseLog as Model<PauseLog>) ??

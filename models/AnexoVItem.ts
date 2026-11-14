@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { MAX_ITEM_ANEXO_V } from '@/shared/material/material.constants';
 
 /**
@@ -73,6 +74,9 @@ AnexoVItemSchema.index({ contratoId: 1, versao: 1, sinapiCodigo: 1 });
 
 export type AnexoVItem = InferSchemaType<typeof AnexoVItemSchema>;
 export type AnexoVItemDoc = AnexoVItem & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+AnexoVItemSchema.plugin(pluginOrgao);
 
 if (mongoose.models.AnexoVItem) {
   delete mongoose.models.AnexoVItem;

@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'fs';
 import mongoose from 'mongoose';
 import { resolve } from 'path';
 
+import { ORGAO_1 } from './orgao';
+
 /**
  * O cadastro do fluxo de material (spec 0019) que os E2E de cotação usam:
  * empenho com saldo, faixa ativa e designações vigentes. Idempotente: roda a
@@ -57,6 +59,7 @@ export async function garantirCadastroMaterial(): Promise<void> {
     let faixa = await faixas.findOne({ nome: FAIXA_E2E, ativa: true });
     if (!faixa) {
       const { insertedId } = await faixas.insertOne({
+        orgaoId: ORGAO_1,
         nome: FAIXA_E2E,
         limiteCentavos: 100_000_000,
         ativa: true,
@@ -82,6 +85,7 @@ export async function garantirCadastroMaterial(): Promise<void> {
       const existe = await designacoes.findOne({ userId: user._id, papel, ...vigente });
       if (existe) continue;
       await designacoes.insertOne({
+        orgaoId: ORGAO_1,
         userId: user._id,
         papel,
         faixaId: papel === 'aprovador' ? faixa!._id : null,
@@ -100,6 +104,7 @@ export async function garantirCadastroMaterial(): Promise<void> {
     const empenho = await empenhos.findOne({ numero: EMPENHO_E2E });
     if (!empenho) {
       await empenhos.insertOne({
+        orgaoId: ORGAO_1,
         numero: EMPENHO_E2E,
         exercicio: ano,
         contratoId: null,

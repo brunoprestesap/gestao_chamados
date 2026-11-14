@@ -3,6 +3,13 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { z } from 'zod';
 
 vi.mock('@/lib/db', () => ({ dbConnect: vi.fn().mockResolvedValue(undefined) }));
+// Sem requisição: o `LlmCallRun` lê o órgão no início (spec 0025, AC-13), e o
+// `auth()` fora dela lança, como no servidor.
+vi.mock('@/auth', () => ({
+  auth: vi.fn(async () => {
+    throw new Error('fora da requisição');
+  }),
+}));
 vi.mock('@/models/LlmCall', () => ({ LlmCallModel: { create: vi.fn().mockResolvedValue({}) } }));
 
 import { type LlmStub, startLlmStub } from '@/e2e/fixtures/llm-stub';

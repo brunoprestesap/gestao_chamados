@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Types } from 'mongoose';
 
+import { noOrgaoCapturado } from '@/lib/orgaos/contexto';
 import { ChamadoModel } from '@/models/Chamado';
 import { ChamadoInteressadoModel } from '@/models/ChamadoInteressado';
 import { NotificationModel } from '@/models/Notification';
@@ -190,7 +191,7 @@ async function avisarLote(
  * Nunca lança: quem chama faz "fogo e esquece", e a ação que mudou o status
  * nunca cai por causa daqui.
  */
-export async function notificarFimAosInteressados(
+async function notificarFimAosInteressadosNoOrgao(
   chamadoId: string,
   status: StatusDeFim,
 ): Promise<void> {
@@ -321,4 +322,12 @@ export async function interessadosDosChamados(
     resultado.set(chave, atual);
   }
   return resultado;
+}
+
+/**
+ * `notificarFimAosInteressados` é disparado sem `await`: o órgão de quem disparou é capturado na
+ * chamada e vale até a última gravação (spec 0025, AC-13).
+ */
+export function notificarFimAosInteressados(chamadoId: string, status: StatusDeFim): Promise<void> {
+  return noOrgaoCapturado(() => notificarFimAosInteressadosNoOrgao(chamadoId, status));
 }

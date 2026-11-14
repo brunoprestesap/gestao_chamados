@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import {
   MOTIVO_IMR_MAX,
   MOTIVO_IMR_MIN,
@@ -41,6 +42,9 @@ somenteInclusao(ImrMarcacaoSchema, 'ImrMarcacao');
 
 export type ImrMarcacao = InferSchemaType<typeof ImrMarcacaoSchema>;
 export type ImrMarcacaoDoc = ImrMarcacao & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ImrMarcacaoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.ImrMarcacao) {
   delete mongoose.models.ImrMarcacao;

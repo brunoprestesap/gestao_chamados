@@ -53,6 +53,7 @@ function mockTechnicianSession() {
     username: 'tecnico01',
     unitId: 'e'.repeat(24),
     isActive: true,
+    orgaoId: '000000000000000000000001',
   });
 }
 
@@ -63,6 +64,7 @@ function mockManagerSession() {
     username: 'admin',
     unitId: 'e'.repeat(24),
     isActive: true,
+    orgaoId: '000000000000000000000001',
   });
 }
 

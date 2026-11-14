@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 const BusinessCalendarSchema = new Schema(
   {
     timezone: { type: String, required: true, trim: true, default: 'America/Belem' },
@@ -27,6 +29,9 @@ export type BusinessCalendarDoc = InferSchemaType<typeof BusinessCalendarSchema>
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+BusinessCalendarSchema.plugin(pluginOrgao);
 
 if (mongoose.models.BusinessCalendar) {
   delete mongoose.models.BusinessCalendar;

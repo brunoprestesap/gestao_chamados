@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 import { somenteInclusao } from './_somente-inclusao';
 
 /**
@@ -28,6 +30,9 @@ somenteInclusao(FaixaCompetenciaSchema, 'FaixaCompetencia', [
 
 export type FaixaCompetencia = InferSchemaType<typeof FaixaCompetenciaSchema>;
 export type FaixaCompetenciaDoc = FaixaCompetencia & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+FaixaCompetenciaSchema.plugin(pluginOrgao);
 
 if (mongoose.models.FaixaCompetencia) {
   delete mongoose.models.FaixaCompetencia;

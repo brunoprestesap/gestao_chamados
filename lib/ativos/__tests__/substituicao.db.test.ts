@@ -89,6 +89,7 @@ rodar('candidatos à substituição (banco real)', () => {
     username: 'x',
     role: role as never,
     isActive: true,
+    orgaoId: '000000000000000000000001',
   });
 
   beforeAll(async () => {

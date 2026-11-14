@@ -57,6 +57,7 @@ describe('ConversaMensagemModel', () => {
         'texto',
         'tipo',
         'userId',
+        'orgaoId',
       ].sort(),
     );
   });

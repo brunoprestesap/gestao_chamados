@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Types } from 'mongoose';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { semOrgao } from '@/lib/orgaos/contexto';
 import {
   conectarMongoDeTeste,
   desconectarMongoDeTeste,
@@ -1433,7 +1434,10 @@ rodar('tentarAtribuicaoAutomatica, contra o Mongo', () => {
       });
 
       // Act
-      const achados = await m.ChamadoModel.aggregate(consultaDeOrfaos() as never);
+      // A consulta é de mongosh, que não passa pelo plugin de órgão (spec 0025).
+      const achados = await semOrgao('teste: consulta de mongosh do cabeçalho', () =>
+        m.ChamadoModel.aggregate(consultaDeOrfaos() as never),
+      );
 
       // Assert
       expect(achados.map((c) => String(c._id))).toEqual([String(orfao._id)]);

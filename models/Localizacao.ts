@@ -1,5 +1,6 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
 import { COLECOES_ATIVOS, LOCALIZACAO_TIPOS } from '@/shared/ativos/ativo.constants';
 
 /**
@@ -21,8 +22,9 @@ const LocalizacaoSchema = new Schema(
 );
 
 // Nome irmão repetido entre nós ativos: ignora maiúsculas, acento conta.
+// Spec 0025 (AC-11): único dentro do órgão; o índice antigo, sem órgão, fica no banco até a spec 39.
 LocalizacaoSchema.index(
-  { parentId: 1, nome: 1 },
+  { orgaoId: 1, parentId: 1, nome: 1 },
   {
     unique: true,
     partialFilterExpression: { isActive: true },
@@ -39,6 +41,9 @@ export type LocalizacaoDoc = Localizacao & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+LocalizacaoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.Localizacao) {
   delete mongoose.models.Localizacao;

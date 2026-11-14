@@ -55,6 +55,7 @@ const MANAGER_SESSION = {
   username: 'preposto',
   role: 'Preposto' as const,
   isActive: true,
+  orgaoId: '000000000000000000000001',
 };
 
 function validCreateInput() {

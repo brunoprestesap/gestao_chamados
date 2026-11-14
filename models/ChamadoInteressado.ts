@@ -1,5 +1,7 @@
 import mongoose, { InferSchemaType, Model, Schema, Types } from 'mongoose';
 
+import { pluginOrgao } from '@/lib/orgaos/plugin';
+
 /**
  * Quem passou a acompanhar um chamado de outra pessoa a partir do aviso de
  * chamado duplicado do chat (spec 0017). É a trilha do interesse: nenhuma
@@ -43,6 +45,9 @@ export type ChamadoInteressado = InferSchemaType<typeof ChamadoInteressadoSchema
 };
 
 export type ChamadoInteressadoDoc = ChamadoInteressado & { _id: Types.ObjectId };
+
+// Spec 0025: pertence a um órgão; filtro e carimbo pelo plugin.
+ChamadoInteressadoSchema.plugin(pluginOrgao);
 
 if (mongoose.models.ChamadoInteressado) {
   delete mongoose.models.ChamadoInteressado;
