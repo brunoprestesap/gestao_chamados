@@ -8,6 +8,7 @@ import {
 } from '@/tests/mongo-test-env';
 
 import { COLECOES_ATIVOS } from '../../../shared/ativos/ativo.constants';
+import { ORGAO_1_ID } from '../../../shared/orgaos/orgao.constants';
 import { CATEGORIAS_CARGA, montarCarga } from '../carga';
 import { gerarScriptCarga } from '../carga-script';
 
@@ -51,9 +52,11 @@ rodar('script da carga, contra o Mongo', () => {
 
   async function executar(): Promise<string[]> {
     const saida: string[] = [];
-    const fn = new AsyncFunction('db', 'print', corpo);
-    await fn({ getCollection: (nome: string) => db.collection(nome) }, (m: string) =>
-      saida.push(m),
+    const fn = new AsyncFunction('db', 'print', 'ObjectId', corpo);
+    await fn(
+      { getCollection: (nome: string) => db.collection(nome) },
+      (m: string) => saida.push(m),
+      (id: string) => new mongoose.Types.ObjectId(id),
     );
     return saida;
   }
@@ -108,6 +111,28 @@ rodar('script da carga, contra o Mongo', () => {
         acao: 'cadastro',
       }),
     ).toBe(3);
+  });
+
+  it('grava tudo no órgão 1 (spec 0025, AC-16)', async () => {
+    await executar();
+    const orgao1 = new mongoose.Types.ObjectId(ORGAO_1_ID);
+    for (const nome of ['categorias', 'ativos', 'historico'] as const) {
+      expect(await c(nome).countDocuments({ orgaoId: { $ne: orgao1 } }), nome).toBe(0);
+    }
+    expect(
+      await c('contadores').findOne({ _id: 'ativo_mnt' as unknown as mongoose.mongo.ObjectId }),
+    ).toMatchObject({ orgaoId: orgao1 });
+  });
+
+  it('não duplica a categoria nem o ativo antigos, ainda sem órgão (antes da spec 39)', async () => {
+    await executar();
+    for (const nome of ['categorias', 'ativos', 'historico'] as const) {
+      await c(nome).updateMany({}, { $unset: { orgaoId: '' } });
+    }
+    const saida = await executar();
+    expect(saida).toContain('Categorias criadas: 0 de 9');
+    expect(saida).toContain('Ativos criados: 0 de 3');
+    expect(saida).toContain('Históricos de cadastro criados: 0');
   });
 
   it('rodar de novo não cria nem altera nada, nem o ativo editado (AC-9)', async () => {

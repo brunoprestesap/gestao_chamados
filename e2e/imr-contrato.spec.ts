@@ -6,6 +6,7 @@ import { resolve } from 'path';
 
 import { login } from './fixtures/auth';
 import { garantirCadastroMaterial } from './fixtures/material';
+import { ORGAO_1 } from './fixtures/orgao';
 
 /**
  * IMR do contrato (spec 0023), de ponta a ponta: o Admin, que no cadastro do
@@ -72,6 +73,7 @@ async function gravarChamadoAtrasado(mes: string) {
   const abertoEm = new Date(`${mes}-10T09:00:00.000-03:00`);
   const iniciadoEm = new Date(abertoEm.getTime() + 8 * 24 * 60 * 60 * 1000);
   await mongoose.connection.db!.collection('chamados').insertOne({
+    orgaoId: ORGAO_1,
     ticket_number: CHAMADO,
     titulo: 'Elevador parado no térreo com descrição longa o bastante para alargar a tabela',
     descricao: 'Chamado do E2E do IMR do contrato.',
@@ -103,6 +105,7 @@ test.describe('IMR do contrato', () => {
     await limpar();
     // Tipo de serviço próprio para nenhum outro E2E cair na base do mês.
     const { insertedId } = await mongoose.connection.db!.collection('contratos').insertOne({
+      orgaoId: ORGAO_1,
       numero: NUMERO,
       numeroNormalizado: NUMERO.toLowerCase(),
       empresa: 'Empresa E2E IMR Ltda',

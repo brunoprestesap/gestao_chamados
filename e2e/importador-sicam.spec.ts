@@ -5,6 +5,7 @@ import { resolve } from 'path';
 
 import { CABECALHO_SICAM, linhaSicam } from '../lib/ativos/importacao/__tests__/sicam-fixture';
 import { login } from './fixtures/auth';
+import { ORGAO_1 } from './fixtures/orgao';
 
 /**
  * O fio feliz do importador do SICAM (spec 0012, parte 2): o Admin sobe um
@@ -70,6 +71,7 @@ test.describe('Importador do SICAM: revisar e aplicar', () => {
       { chave: 'e2e_climatizacao' },
       {
         $setOnInsert: {
+          orgaoId: ORGAO_1,
           chave: 'e2e_climatizacao',
           nome: 'Climatização E2E',
           criticidadePadrao: 'media',
@@ -84,6 +86,7 @@ test.describe('Importador do SICAM: revisar e aplicar', () => {
     );
     const categoria = await db.collection('categoriasativo').findOne({ chave: 'e2e_climatizacao' });
     const patrimoniado = (codigo: string, setor: string) => ({
+      orgaoId: ORGAO_1,
       codigo,
       origemCodigo: 'patrimonio',
       tombamento: codigo,

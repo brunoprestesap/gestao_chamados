@@ -17,12 +17,12 @@ Todo dado passa a pertencer a um órgão, e cada consulta e cada gravação enxe
 spec [0025](../specs/0025-orgao-isolamento-dados/index.md) · code in `lib/orgaos/`, `models/Orgao.ts`
 
 - [x] Design it (spec): `/architect órgão e isolamento dos dados`
-- [ ] Build it: `/develop órgão e isolamento dos dados`
+- [x] Build it: `/develop órgão e isolamento dos dados`
   - [x] O fio inteiro com `Chamado` e `User`: `Orgao` e órgão 1, contexto, plugin de leitura e gravação, sessão com `orgaoId`, modo observação na VPS (fatia 1) · AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-15
   - [x] Plugin completo nos 55 modelos de órgão e varredura dos modelos (fatia 2) · AC-4, AC-5, AC-6, AC-14, AC-15
   - [x] Índices únicos por órgão e `Contador` por órgão (fatia 3) · AC-11, AC-12, AC-15
   - [x] Cron por órgão e gravações depois da resposta (fatia 4) · AC-13, AC-15
-  - [ ] Varredura de APIs proibidas, seed, cargas, fixtures e suíte inteira em estrito (fatia 5) · AC-1, AC-3, AC-7, AC-14, AC-16
+  - [x] Varredura de APIs proibidas, seed, cargas, fixtures e suíte inteira em estrito (fatia 5) · AC-1, AC-3, AC-7, AC-14, AC-16
 - [ ] Verify it: `/check verify órgão e isolamento dos dados`
 - [ ] Test it: `/test órgão e isolamento dos dados`
 - [ ] Review it (fresh model): `/check review órgão e isolamento dos dados`

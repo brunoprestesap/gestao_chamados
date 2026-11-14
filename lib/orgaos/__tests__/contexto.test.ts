@@ -85,6 +85,20 @@ describe('contexto (AC-2)', () => {
   it('recusa id de órgão inválido', () => {
     expect(() => comOrgao('xyz', () => 1)).toThrow(/inválido/);
   });
+
+  it('uma segunda cópia do módulo enxerga o comOrgao da primeira', async () => {
+    // Arrange: o Next carrega o arquivo uma vez por camada do bundle (a do
+    // Server Action e a dos modelos); aqui, uma cópia nova do módulo faz o papel.
+    vi.resetModules();
+    const outraCopia = await import('@/lib/orgaos/contexto');
+
+    // Act: o comOrgao roda na primeira cópia e a leitura vem da segunda,
+    // como o authorize do login e o plugin dos modelos.
+    const ctx = await comOrgao(A, () => outraCopia.contextoAtual());
+
+    // Assert
+    expect(ctx).toEqual({ tipo: 'orgao', orgaoId: A, origem: 'explicito' });
+  });
 });
 
 describe('falha fechada no estrito (AC-6), sem banco', () => {

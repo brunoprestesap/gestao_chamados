@@ -11,6 +11,7 @@ import {
   criarDoisOrgaos,
   ORGAO_A_ID,
   ORGAO_B_ID,
+  semSessaoSimulada,
   usarModo,
 } from '@/tests/orgao-test-env';
 
@@ -75,6 +76,7 @@ describe.skipIf(naoTemMongo)('unicidade e numeração por órgão (spec 0025, fa
   let proximoCodigoInterno: typeof import('@/lib/ativos/cadastro').proximoCodigoInterno;
 
   beforeAll(async () => {
+    semSessaoSimulada();
     ({ generateTicketNumber } = await import('@/lib/chamado-utils'));
     ({ proximoCodigoInterno } = await import('@/lib/ativos/cadastro'));
     await conectarMongoDeTeste(MODELOS, 'orgao_unicidade');

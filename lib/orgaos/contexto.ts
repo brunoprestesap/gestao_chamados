@@ -20,7 +20,20 @@ export type Contexto =
 
 type Escopo = { tipo: 'orgao'; orgaoId: string } | { tipo: 'sem'; motivo: string };
 
-const armazenamento = new AsyncLocalStorage<Escopo>();
+/**
+ * Um armazenamento só por processo. O Next pode carregar este arquivo mais de
+ * uma vez (uma cópia por camada do bundle: a do Server Action e a dos
+ * modelos). Com um `AsyncLocalStorage` por cópia, o `comOrgao` do `authorize`
+ * gravaria numa instância e o plugin leria de outra, e o login cairia sem
+ * órgão no `estrito`. Por isso a instância mora no `globalThis`, numa chave
+ * de `Symbol.for`, que é a mesma em todas as cópias.
+ */
+const CHAVE_ARMAZENAMENTO = Symbol.for('sigma.orgaos.contexto');
+const globalComArmazenamento = globalThis as typeof globalThis & {
+  [CHAVE_ARMAZENAMENTO]?: AsyncLocalStorage<Escopo>;
+};
+const armazenamento = (globalComArmazenamento[CHAVE_ARMAZENAMENTO] ??=
+  new AsyncLocalStorage<Escopo>());
 
 /** Operação num modelo de órgão sem órgão conhecido (modo estrito, AC-6). */
 export class OrgaoAusenteError extends Error {
@@ -93,18 +106,39 @@ export function semOrgao<T>(motivo: string, fn: () => T): ResultadoNoEscopo<T> {
   return rodarNoEscopo({ tipo: 'sem', motivo }, fn);
 }
 
+type SessaoComOrgao = { user?: { orgaoId?: unknown } } | null;
+
+/**
+ * Lê a sessão da requisição por `auth()`. O `import` é dinâmico porque
+ * `auth.ts` importa o `User`, que importa o plugin, que importa este arquivo.
+ */
+async function lerSessaoDoNextAuth(): Promise<SessaoComOrgao> {
+  const { auth } = await import('@/auth');
+  return (await auth()) as SessaoComOrgao;
+}
+
+let lerSessao: () => Promise<SessaoComOrgao> = lerSessaoDoNextAuth;
+
+/**
+ * Só para testes: troca a leitura da sessão (`null` volta ao `auth()`). Os
+ * testes de banco usam uma sessão simulada do órgão 1 (`tests/setup-db-orgao.ts`),
+ * porque o `auth.ts` de verdade não carrega fora do Next. A varredura de APIs
+ * recusa o uso fora dos testes.
+ */
+export function definirLeitorDeSessaoParaTeste(
+  leitor: (() => Promise<SessaoComOrgao>) | null,
+): void {
+  lerSessao = leitor ?? lerSessaoDoNextAuth;
+}
+
 /**
  * O órgão do JWT, memoizado por requisição pelo `cache` do React. Só lê o
  * cookie por `auth()`: nunca vai ao banco e nunca passa pelo `verifySession`.
  * Fora de uma requisição o `auth()` lança, e isso vale como "sem contexto".
- *
- * O `import` é dinâmico porque `auth.ts` importa o `User`, que importa o
- * plugin, que importa este arquivo.
  */
 const orgaoDaSessao = cache(async (): Promise<string | null> => {
   try {
-    const { auth } = await import('@/auth');
-    const sessao = (await auth()) as { user?: { orgaoId?: unknown } } | null;
+    const sessao = await lerSessao();
     const id = sessao?.user?.orgaoId;
     return typeof id === 'string' && Types.ObjectId.isValid(id) && id.length === 24
       ? id.toLowerCase()

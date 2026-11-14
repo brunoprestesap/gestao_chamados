@@ -3,6 +3,8 @@ import { createServer, type Server } from 'http';
 import mongoose from 'mongoose';
 import { resolve } from 'path';
 
+import { ORGAO_1 } from './orgao';
+
 /**
  * O apoio do E2E da checagem do almoxarifado (spec 0024): um `sicam-gateway` de
  * mentira na porta do `SICAM_GATEWAY_URL` do servidor de teste, com as mesmas
@@ -82,7 +84,7 @@ export async function definirChecagem(ativa: boolean): Promise<void> {
       .collection('materialconfig')
       .updateOne(
         { chave: 'global' },
-        { $set: { checagemAlmoxarifadoAtiva: ativa } },
+        { $set: { checagemAlmoxarifadoAtiva: ativa }, $setOnInsert: { orgaoId: ORGAO_1 } },
         { upsert: true },
       );
   });
@@ -94,6 +96,7 @@ export async function designarAlmoxarifado(): Promise<void> {
     const user = await db.collection('users').findOne({ username: 'solicitante' });
     if (!user) throw new Error('Usuário solicitante ausente: rode o global-setup.');
     await db.collection('designacoesmaterial').insertOne({
+      orgaoId: ORGAO_1,
       userId: user._id,
       papel: 'almoxarifado',
       faixaId: null,

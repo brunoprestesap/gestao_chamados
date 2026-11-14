@@ -2,11 +2,14 @@ import { Types } from 'mongoose';
 
 import {
   comOrgao,
+  definirLeitorDeSessaoParaTeste,
   reiniciarModoIsolamentoParaTeste,
   type ResultadoNoEscopo,
 } from '@/lib/orgaos/contexto';
 import { OrgaoModel } from '@/models/Orgao';
 import { ORGAO_1_ID, ORGAO_1_NOME, ORGAO_1_SIGLA } from '@/shared/orgaos/orgao.constants';
+
+import { definirOrgaoDaSessaoDeTeste } from './sessao-de-teste';
 
 /**
  * Apoio dos testes de órgão (spec 0025). O órgão B tem `_id` fixo para os
@@ -18,6 +21,17 @@ export const ORGAO_B_ID = '000000000000000000000002';
 /** Roda `fn` no órgão informado, como o código de produção faz fora da requisição. */
 export function comOrgaoDeTeste<T>(orgaoId: string, fn: () => T): ResultadoNoEscopo<T> {
   return comOrgao(orgaoId, fn);
+}
+
+/**
+ * Desliga a sessão simulada do projeto `db` (tests/setup-db-orgao.ts): a
+ * leitura volta ao `auth()` (que o próprio arquivo pode trocar por `vi.mock`)
+ * e os inserts crus deixam de ganhar `orgaoId`. Para os testes de órgão, que
+ * provam o "sem contexto" e gravam documentos antigos, sem órgão.
+ */
+export function semSessaoSimulada(): void {
+  definirLeitorDeSessaoParaTeste(null);
+  definirOrgaoDaSessaoDeTeste(null);
 }
 
 /** Troca o modo do plugin dentro do arquivo de teste. */

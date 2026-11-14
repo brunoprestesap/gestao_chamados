@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { resolve } from 'path';
 
 import { login } from './fixtures/auth';
+import { ORGAO_1 } from './fixtures/orgao';
 
 /**
  * Candidatos à substituição (spec 0015), de ponta a ponta: o Preposto acha o
@@ -47,6 +48,7 @@ test.describe('Candidatos à substituição', () => {
       { chave: 'e2e_substituicao' },
       {
         $setOnInsert: {
+          orgaoId: ORGAO_1,
           chave: 'e2e_substituicao',
           nome: 'Substituição E2E',
           criticidadePadrao: 'media',
@@ -66,6 +68,7 @@ test.describe('Candidatos à substituição', () => {
       { codigo: CODIGO },
       {
         $setOnInsert: {
+          orgaoId: ORGAO_1,
           codigo: CODIGO,
           origemCodigo: 'patrimonio',
           tombamento: CODIGO,
@@ -91,6 +94,7 @@ test.describe('Candidatos à substituição', () => {
       { codigo: CODIGO_NOVO },
       {
         $setOnInsert: {
+          orgaoId: ORGAO_1,
           codigo: CODIGO_NOVO,
           origemCodigo: 'patrimonio',
           tombamento: CODIGO_NOVO,

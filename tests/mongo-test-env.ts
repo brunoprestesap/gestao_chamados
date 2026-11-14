@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 
+import { semOrgao } from '@/lib/orgaos/contexto';
+
 /**
  * Apoio dos testes que precisam do MongoDB de verdade (spec 0002, AC-16).
  *
@@ -54,9 +56,15 @@ export async function desconectarMongoDeTeste(): Promise<void> {
   }
 }
 
-/** Esvazia as coleções entre testes, mantendo os índices. */
+/**
+ * Esvazia as coleções entre testes, mantendo os índices. Roda em `semOrgao`
+ * (spec 0025): a limpeza apaga os documentos de todos os órgãos e os antigos,
+ * sem órgão, e não só os do órgão da sessão simulada.
+ */
 export async function limparColecoes(models: ModelDeTeste[]): Promise<void> {
-  await Promise.all(models.map((model) => model.deleteMany({})));
+  await semOrgao('limpeza entre testes de banco', () =>
+    Promise.all(models.map((model) => model.deleteMany({}))),
+  );
 }
 
 /** Os índices existentes da coleção. */

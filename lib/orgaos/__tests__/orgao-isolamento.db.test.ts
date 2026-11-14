@@ -11,6 +11,7 @@ import {
   criarDoisOrgaos,
   ORGAO_A_ID,
   ORGAO_B_ID,
+  semSessaoSimulada,
   usarModo,
 } from '@/tests/orgao-test-env';
 
@@ -75,6 +76,7 @@ describe.skipIf(naoTemMongo)('isolamento por órgão no MongoDB (spec 0025)', ()
   let chamadoB: Types.ObjectId;
 
   beforeAll(async () => {
+    semSessaoSimulada();
     await conectarMongoDeTeste(
       [ChamadoModel, UserModel, OrgaoModel, UnitModel, FaixaCompetenciaModel],
       'orgao_isolamento',

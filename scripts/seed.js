@@ -33,11 +33,17 @@ db.orgaos.updateOne(
   { upsert: true },
 );
 
+// Todo documento do seed é do órgão 1 (spec 0025, AC-16): o mongosh não passa
+// pelo plugin do Mongoose, então o `orgaoId` vai explícito.
+function inserirNoOrgao1(colecao, lista) {
+  return colecao.insertMany(lista.map((d) => Object.assign({ orgaoId: ORGAO_1_ID }, d)));
+}
+
 // -------------------------------------------------------
 // 1. Unidades — Justiça Federal do Amapá (SJAP/TRF1)
 // -------------------------------------------------------
 print('--- Criando unidades ---');
-const units = db.units.insertMany([
+const units = inserirNoOrgao1(db.units, [
   // Varas (Macapá)
   {
     name: '1ª Vara Federal - Cível',
@@ -286,7 +292,7 @@ const unitRH = units.insertedIds[14]; // Núcleo de Gestão de Pessoas
 //    Devem corresponder ao formulário: "Manutenção Predial" e "Ar-Condicionado"
 // -------------------------------------------------------
 print('--- Criando tipos de serviço ---');
-const types = db.servicetypes.insertMany([
+const types = inserirNoOrgao1(db.servicetypes, [
   { name: 'Manutenção Predial', isActive: true, createdAt: now, updatedAt: now },
   { name: 'Ar-Condicionado', isActive: true, createdAt: now, updatedAt: now },
   { name: 'Elevador', isActive: true, createdAt: now, updatedAt: now },
@@ -301,7 +307,7 @@ const tElevador = types.insertedIds[2];
 // 3. Subtipos de Serviço
 // -------------------------------------------------------
 print('--- Criando subtipos de serviço ---');
-const subtypes = db.servicesubtypes.insertMany([
+const subtypes = inserirNoOrgao1(db.servicesubtypes, [
   // Manutenção Predial
   { typeId: tPredial, name: 'Elétrica', isActive: true, createdAt: now, updatedAt: now },
   { typeId: tPredial, name: 'Hidráulica', isActive: true, createdAt: now, updatedAt: now },
@@ -355,7 +361,7 @@ const stInstalacaoElev = subtypes.insertedIds[11];
 // 4. Catálogo de Serviços
 // -------------------------------------------------------
 print('--- Criando catálogo de serviços ---');
-db.servicecatalogs.insertMany([
+inserirNoOrgao1(db.servicecatalogs, [
   // Manutenção Predial > Elétrica
   {
     code: 'ELET-0001',
@@ -750,7 +756,7 @@ db.servicecatalogs.insertMany([
 // 5. Usuários
 // -------------------------------------------------------
 print('--- Criando usuários ---');
-db.users.insertMany([
+inserirNoOrgao1(db.users, [
   // Admin
   {
     username: 'admin',
@@ -807,7 +813,7 @@ db.users.insertMany([
 // 6. SLA Configs
 // -------------------------------------------------------
 print('--- Criando configurações de SLA ---');
-db.sla_configs.insertMany([
+inserirNoOrgao1(db.sla_configs, [
   {
     priority: 'BAIXA',
     responseTargetMinutes: 480,
@@ -855,6 +861,7 @@ db.sla_configs.insertMany([
 // -------------------------------------------------------
 print('--- Criando calendário comercial ---');
 db.business_calendar.insertOne({
+  orgaoId: ORGAO_1_ID,
   timezone: 'America/Belem',
   workdayStart: '08:00',
   workdayEnd: '18:00',
@@ -867,7 +874,7 @@ db.business_calendar.insertOne({
 // 8. Feriados 2026
 // -------------------------------------------------------
 print('--- Criando feriados 2026 ---');
-db.holidays.insertMany([
+inserirNoOrgao1(db.holidays, [
   {
     date: '2026-01-01',
     name: 'Confraternização Universal',
@@ -977,9 +984,10 @@ for (const t of [
   { chave: 'garantia', nome: 'Garantia' },
 ]) {
   db.tiposdocumento.updateOne(
-    { chave: t.chave },
+    { chave: t.chave, orgaoId: { $in: [ORGAO_1_ID, null] } },
     {
       $setOnInsert: {
+        orgaoId: ORGAO_1_ID,
         chave: t.chave,
         nome: t.nome,
         isActive: true,

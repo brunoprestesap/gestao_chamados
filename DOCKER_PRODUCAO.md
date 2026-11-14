@@ -69,6 +69,9 @@ LDAP_BIND_PASSWORD=senha-da-conta-de-servico
 LDAP_USER_SEARCH_FILTER=(sAMAccountName={{username}})
 LDAP_TLS_REJECT_UNAUTHORIZED=false    # false para certificados de CA interna
 LDAP_DEBUG=false                       # true para logs detalhados
+
+# Isolamento por órgão (spec 0025): fica `observacao` até a spec 39 (veja seção 2.1)
+ORGAO_ISOLAMENTO=observacao
 ```
 
 > **Importante**: `NEXT_PUBLIC_SOCKET_URL` deve ser a URL acessível pelo browser (o Nginx roteia `/socket.io/` para o socket-server internamente).
@@ -85,7 +88,7 @@ docker compose up -d --build
 docker exec -i severino-mongodb-1 mongosh manutencao < scripts/seed.js
 ```
 
-O seed cria: unidades, tipos/subtipos de serviço, catálogo, usuários, configurações de SLA, calendário comercial e feriados.
+O seed cria: o órgão 1 (SJAP), unidades, tipos/subtipos de serviço, catálogo, usuários, configurações de SLA, calendário comercial e feriados.
 
 **Credenciais padrão** (senha `123456` para todos):
 
@@ -141,6 +144,32 @@ docker compose exec -T nginx nginx -s reload
 ```
 
 O `--build` reconstrói apenas as imagens que mudaram (next-app e/ou socket-server). O MongoDB e Nginx não são afetados.
+
+### 2.1 Órgão e isolamento dos dados (spec 0025)
+
+Desde a spec 0025, todo dado pertence a um órgão, e um plugin do Mongoose filtra e carimba o órgão em cada consulta. A variável `ORGAO_ISOLAMENTO` diz como ele age:
+
+- `observacao`: não filtra nada, carimba o órgão 1 no que é gravado e registra no log o que rodou sem órgão (`[Orgao:observacao]`). É o modo da VPS hoje.
+- `estrito`: só mostra o que é do órgão de quem está logado. É o modo de desenvolvimento, dos testes e da CI.
+
+**Antes do primeiro deploy com a spec 0025** (uma vez só; rodar de novo não muda nada), crie o órgão 1:
+
+```bash
+sudo docker exec -i severino-mongodb-1 mongosh manutencao < scripts/criar-orgao-1.js
+```
+
+**Depois de cada deploy**, confira o modo que o `next-app` está usando. Recomendo não pular: um erro de digitação no `.env` (por exemplo `observaçao`) vale como `estrito`, e em `estrito` os dados de hoje, que ainda não têm órgão, somem de todas as telas.
+
+```bash
+docker compose exec next-app printenv ORGAO_ISOLAMENTO     # tem que mostrar: observacao
+docker compose logs next-app | grep "ORGAO_ISOLAMENTO com valor inválido"   # tem que vir vazio
+```
+
+Se aparecer outro valor, corrija o `.env` e recrie o container (`docker compose up -d next-app`; o `restart` não relê o `.env`). Ausente do `.env`, o `docker-compose.yml` já usa `observacao`.
+
+> **A troca para `estrito` na VPS não é desta spec.** Ela é da spec 39 (migração do órgão atual para o órgão 1), que primeiro preenche o órgão em todos os documentos de hoje e troca os índices únicos. Até lá, mantenha `observacao`. A volta, se algo der errado depois da troca, é pôr `observacao` de novo e recriar o `next-app`.
+
+As cargas em mongosh (`scripts/seed.js`, `scripts/carga-tipos-documento.js` e o script gerado por `scripts/gerar-carga-ativos.ts`) já gravam o órgão 1 em cada documento, então podem rodar em qualquer um dos dois modos.
 
 ### Após atualizar, se necessário
 
@@ -246,16 +275,17 @@ journalctl -u actions.runner.brunoprestesap-gestao_chamados.srvmanutencao-ap -f
 
 ### App (next-app)
 
-| Variável                 | Descrição                                   | Definida em        |
-| ------------------------ | ------------------------------------------- | ------------------ |
-| `MONGODB_URI`            | Connection string do MongoDB                | docker-compose.yml |
-| `AUTH_SECRET`            | Segredo do NextAuth (JWT)                   | `.env`             |
-| `AUTH_COOKIE_NAME`       | Nome do cookie de sessão                    | `.env`             |
-| `AUTH_COOKIE_SECURE`     | `true` para HTTPS                           | `.env`             |
-| `AUTH_URL`               | URL pública da aplicação                    | `.env`             |
-| `SOCKET_INTERNAL_SECRET` | Secret para comunicação Next → Socket       | `.env`             |
-| `SOCKET_EMIT_URL`        | URL interna do socket (rede Docker)         | docker-compose.yml |
-| `NEXT_PUBLIC_SOCKET_URL` | URL pública do socket (acesso pelo browser) | `.env`             |
+| Variável                 | Descrição                                     | Definida em                             |
+| ------------------------ | --------------------------------------------- | --------------------------------------- |
+| `MONGODB_URI`            | Connection string do MongoDB                  | docker-compose.yml                      |
+| `AUTH_SECRET`            | Segredo do NextAuth (JWT)                     | `.env`                                  |
+| `AUTH_COOKIE_NAME`       | Nome do cookie de sessão                      | `.env`                                  |
+| `AUTH_COOKIE_SECURE`     | `true` para HTTPS                             | `.env`                                  |
+| `AUTH_URL`               | URL pública da aplicação                      | `.env`                                  |
+| `SOCKET_INTERNAL_SECRET` | Secret para comunicação Next → Socket         | `.env`                                  |
+| `SOCKET_EMIT_URL`        | URL interna do socket (rede Docker)           | docker-compose.yml                      |
+| `NEXT_PUBLIC_SOCKET_URL` | URL pública do socket (acesso pelo browser)   | `.env`                                  |
+| `ORGAO_ISOLAMENTO`       | `observacao` (VPS até a spec 39) ou `estrito` | `.env` (padrão `observacao` no compose) |
 
 ### LDAP / Active Directory (opcional)
 

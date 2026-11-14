@@ -38,8 +38,8 @@ export default defineConfig({
           // O `sicam-gateway` falso do E2E da checagem (e2e/fixtures/sicam-falso.ts).
           SICAM_GATEWAY_URL: 'http://localhost:3902',
           SICAM_GATEWAY_SECRET: 'e2e-sicam',
-          // Spec 0025: o E2E passa para `estrito` na fatia 5, com o seed e as fixtures com órgão.
-          ORGAO_ISOLAMENTO: 'observacao',
+          // Spec 0025 (AC-16): o E2E roda em `estrito`; o seed e as fixtures gravam o órgão 1.
+          ORGAO_ISOLAMENTO: 'estrito',
         },
       },
 });
