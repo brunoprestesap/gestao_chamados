@@ -364,7 +364,7 @@ Para habilitar HTTPS, adicione um serviço Certbot ou use Traefik/Caddy. Com Ngi
 
 ```bash
 cd /opt/severino
-./scripts/backup-mongodb.sh
+sudo ./scripts/backup-mongodb.sh
 ```
 
 O script:
@@ -374,6 +374,7 @@ O script:
 - Remove backups com mais de 30 dias (configurável)
 - Previne execução concorrente via lock file
 - Gera log com resumo (tamanho, duração, total em disco)
+- Grava os dumps com permissão `600` e a pasta com `700`, e corrige os dumps antigos que estiverem abertos: o dump tem nome, matrícula e e-mail (LGPD), então só o root lê. Por isso o backup e o restore rodam com `sudo`, e listar a pasta também (`sudo ls -lh /opt/severino/backups/`)
 
 ### 9.2 Backup automático (cron)
 
@@ -407,7 +408,7 @@ O script aceita variáveis de ambiente para personalização:
 Exemplo com configuração customizada:
 
 ```bash
-BACKUP_DIR=/mnt/nfs/backups RETENTION_DAYS=60 ./scripts/backup-mongodb.sh
+sudo BACKUP_DIR=/mnt/nfs/backups RETENTION_DAYS=60 ./scripts/backup-mongodb.sh
 ```
 
 ### 9.4 Restaurar backup
@@ -416,10 +417,10 @@ BACKUP_DIR=/mnt/nfs/backups RETENTION_DAYS=60 ./scripts/backup-mongodb.sh
 cd /opt/severino
 
 # Restaurar o backup mais recente
-./scripts/restore-mongodb.sh
+sudo ./scripts/restore-mongodb.sh
 
 # Restaurar um backup específico
-./scripts/restore-mongodb.sh backups/manutencao_20260408_020000.archive.gz
+sudo ./scripts/restore-mongodb.sh backups/manutencao_20260408_020000.archive.gz
 ```
 
 O script de restore:
@@ -456,7 +457,7 @@ Exemplo de cron combinado (backup + sync diário):
 tail -20 /var/log/severino-backup.log
 
 # Listar backups existentes (mais recente primeiro)
-ls -lhtr /opt/severino/backups/
+sudo ls -lhtr /opt/severino/backups/
 
 # Espaço em disco usado por backups
 du -sh /opt/severino/backups/
