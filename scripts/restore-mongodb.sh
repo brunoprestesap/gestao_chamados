@@ -75,12 +75,16 @@ fi
 log "Criando backup de segurança antes do restore..."
 SAFETY_FILE="$BACKUP_DIR/${DB_NAME}_pre_restore_$(date +%Y%m%d_%H%M%S).archive.gz"
 
-docker exec "$CONTAINER_NAME" mongodump \
-  --db="$DB_NAME" \
-  --archive \
-  --gzip \
-  2>/dev/null \
-  > "$SAFETY_FILE"
+# Mesmo cuidado do backup-mongodb.sh: o dump tem dado pessoal, só o dono lê
+(
+  umask 077
+  docker exec "$CONTAINER_NAME" mongodump \
+    --db="$DB_NAME" \
+    --archive \
+    --gzip \
+    2>/dev/null \
+    > "$SAFETY_FILE"
+)
 
 if [ -s "$SAFETY_FILE" ]; then
   log "Backup de segurança salvo em: $SAFETY_FILE"

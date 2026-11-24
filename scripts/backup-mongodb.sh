@@ -12,6 +12,11 @@
 
 set -euo pipefail
 
+# O dump tem a base inteira, com nome, matrícula e e-mail (LGPD): só o dono
+# (root, pelo cron) lê. Sem isso, o arquivo nasce 644 e qualquer usuário do
+# servidor o copia.
+umask 077
+
 # -----------------------------------------------------------
 # Configuração (pode ser sobrescrita via variáveis de ambiente)
 # -----------------------------------------------------------
@@ -62,8 +67,11 @@ command -v docker &>/dev/null || die "Docker não encontrado no PATH."
 docker inspect --format='{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null | grep -q true \
   || die "Container '$CONTAINER_NAME' não está rodando."
 
-# Criar diretório de backup
+# Criar diretório de backup e fechar a pasta e os dumps antigos, que podem ter
+# nascido antes do umask (o umask só vale para o que este script cria)
 mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
+find "$BACKUP_DIR" -maxdepth 1 -type f -name "${DB_NAME}_*.archive.gz" ! -perm 600 -exec chmod 600 {} +
 
 # -----------------------------------------------------------
 # Executar backup
